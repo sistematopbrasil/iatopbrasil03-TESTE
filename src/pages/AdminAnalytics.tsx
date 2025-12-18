@@ -5,7 +5,7 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, CheckCircle, Clock, TrendingUp } from "lucide-react";
+import { Users, CheckCircle, Clock, TrendingUp, AlertTriangle, Timer, CalendarDays } from "lucide-react";
 import {
   PieChart,
   Pie,
@@ -16,7 +16,7 @@ import {
 } from "recharts";
 import { ConversionFunnel } from "@/components/admin/ConversionFunnel";
 import { TemporalChart } from "@/components/admin/TemporalChart";
-import { AdditionalMetrics } from "@/components/admin/AdditionalMetrics";
+import { getCurrentConsultant, isSuperAdmin } from "@/lib/consultant-context";
 
 // Paleta moderna com gradientes - cores tecnológicas
 const COLORS = [
@@ -63,21 +63,37 @@ const abbreviateText = (text: string): string => {
     "R$ 8.000 a R$ 15.000": "8-15k",
     "Acima de R$ 15.000": "+15k",
     "Menos de R$ 1.000": "-1k",
+    "Sim, já trabalho ou já trabalhei com proteção veicular.": "Sim",
+    "Não, mas tenho interesse em conhecer.": "Interesse",
+    "Não tenho interesse.": "Sem interesse",
   };
-  
+
   return abbreviations[text] || (text.length > 15 ? text.substring(0, 12) + "..." : text);
 };
 
 const AdminAnalytics = () => {
   const [period, setPeriod] = useState<PeriodFilter>("30");
 
-  // Buscar TODAS as submissões (não apenas completas) para analytics por pergunta
+  const { data: currentUser } = useQuery({
+    queryKey: ['current-user-analytics'],
+    queryFn: getCurrentConsultant,
+  });
+
+  // Buscar submissões da tabela correta (quiz_submissions_new)
   const { data: allSubmissions, isLoading } = useQuery({
-    queryKey: ["quiz-all-submissions-full", period],
+    queryKey: ["quiz-submissions-analytics", period, currentUser?.id],
     queryFn: async () => {
+      if (!currentUser) return [];
+
       let query = supabase
-        .from("quiz_submissions")
-        .select("*");
+        .from("quiz_submissions_new")
+        .select("*")
+        .eq("organization_id", currentUser.organization_id);
+
+      // Se não for super admin, filtrar apenas leads do consultor
+      if (!isSuperAdmin(currentUser.role)) {
+        query = query.eq("consultant_id", currentUser.id);
+      }
 
       if (period !== "all") {
         const daysAgo = new Date();
@@ -89,32 +105,72 @@ const AdminAnalytics = () => {
       if (error) throw error;
       return data;
     },
+    enabled: !!currentUser,
   });
 
   const stats = useMemo(() => {
-    if (!allSubmissions) return { total: 0, completed: 0, rate: 0 };
+    if (!allSubmissions) return { total: 0, completed: 0, rate: 0, abandoned: 0, abandonRate: 0 };
     const total = allSubmissions.length;
     const completed = allSubmissions.filter((s) => s.completion_percentage === 100).length;
+    const abandoned = total - completed;
     const rate = total > 0 ? Math.round((completed / total) * 100) : 0;
-    return { total, completed, rate };
+    const abandonRate = total > 0 ? Math.round((abandoned / total) * 100) : 0;
+    return { total, completed, rate, abandoned, abandonRate };
   }, [allSubmissions]);
 
-  // Agregar dados excluindo valores nulos (mostra apenas respostas reais)
+  // Métricas adicionais
+  const additionalMetrics = useMemo(() => {
+    if (!allSubmissions) return { peakHour: '--', peakCount: 0, avgTime: '--', leadsToday: 0 };
+
+    // Horário de pico
+    const hourCounts: Record<number, number> = {};
+    allSubmissions.forEach((sub) => {
+      const hour = new Date(sub.created_at).getHours();
+      hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+    });
+    const peakEntry = Object.entries(hourCounts).sort((a, b) => Number(b[1]) - Number(a[1]))[0];
+    const peakHour = peakEntry ? `${peakEntry[0]}h` : '--';
+    const peakCount = peakEntry ? Number(peakEntry[1]) : 0;
+
+    // Leads hoje
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const leadsToday = allSubmissions.filter(s => new Date(s.created_at) >= today).length;
+
+    // Tempo médio (estimativa baseada em updated_at - created_at para completos)
+    const completedSubs = allSubmissions.filter(s => s.completion_percentage === 100);
+    let avgTime = '--';
+    if (completedSubs.length > 0) {
+      const times = completedSubs.map(s => {
+        const start = new Date(s.created_at).getTime();
+        const end = new Date(s.updated_at).getTime();
+        return (end - start) / 1000 / 60; // minutos
+      }).filter(t => t > 0 && t < 60); // Filtrar tempos razoáveis (< 60 min)
+
+      if (times.length > 0) {
+        const avg = times.reduce((a, b) => a + b, 0) / times.length;
+        avgTime = `${Math.round(avg)} min`;
+      }
+    }
+
+    return { peakHour, peakCount, avgTime, leadsToday };
+  }, [allSubmissions]);
+
+  // Agregar dados excluindo valores nulos
   const aggregateData = (field: string) => {
     if (!allSubmissions) return [];
     const counts: Record<string, number> = {};
-    
+
     allSubmissions.forEach((sub: any) => {
       const value = sub[field];
-      // Ignorar valores nulos/undefined - conta apenas respostas reais
       if (value !== null && value !== undefined && value !== "") {
         counts[value] = (counts[value] || 0) + 1;
       }
     });
-    
+
     return Object.entries(counts)
-      .map(([name, value]) => ({ 
-        name, 
+      .map(([name, value]) => ({
+        name,
         value,
         displayName: abbreviateText(name)
       }))
@@ -126,9 +182,9 @@ const AdminAnalytics = () => {
       const percentage = chartTotal > 0 ? ((payload[0].value / chartTotal) * 100).toFixed(1) : 0;
       const originalName = payload[0].payload?.name || payload[0].name;
       return (
-        <div 
+        <div
           className="bg-card/95 backdrop-blur-xl border border-primary/30 rounded-xl p-4 shadow-2xl"
-          style={{ 
+          style={{
             zIndex: 9999,
             boxShadow: '0 25px 50px -12px rgba(249, 115, 22, 0.25), 0 0 30px rgba(249, 115, 22, 0.1)'
           }}
@@ -152,14 +208,13 @@ const AdminAnalytics = () => {
   };
 
   const renderDonutChart = (
-    data: { name: string; value: number; displayName: string }[], 
-    title: string, 
+    data: { name: string; value: number; displayName: string }[],
+    title: string,
     description: string
   ) => {
-    // Filtrar itens com valor > 0 para não mostrar "0 (0%)" na legenda
     const filteredData = data.filter(item => item.value > 0);
     const total = filteredData.reduce((acc, curr) => acc + curr.value, 0);
-    
+
     return (
       <Card className="border-border/50 bg-card hover:border-primary/30 transition-all duration-300">
         <CardHeader className="pb-2">
@@ -169,7 +224,7 @@ const AdminAnalytics = () => {
           </div>
           <CardDescription className="text-xs text-muted-foreground">{description}</CardDescription>
         </CardHeader>
-        
+
         <CardContent className="px-2 sm:px-4">
           {isLoading ? (
             <div className="h-[280px] sm:h-[300px] flex items-center justify-center">
@@ -199,25 +254,25 @@ const AdminAnalytics = () => {
                     animationDuration={600}
                   >
                     {filteredData.map((_, index) => (
-                      <Cell 
-                        key={`cell-${index}`} 
+                      <Cell
+                        key={`cell-${index}`}
                         fill={COLORS[index % COLORS.length]}
                         className="cursor-pointer transition-opacity hover:opacity-80"
                       />
                     ))}
                   </Pie>
-                  
-                  <Tooltip 
+
+                  <Tooltip
                     content={<CustomTooltip chartTotal={total} />}
                     wrapperStyle={{ zIndex: 100 }}
                   />
-                  
-                  <Legend 
-                    layout="horizontal" 
-                    verticalAlign="bottom" 
+
+                  <Legend
+                    layout="horizontal"
+                    verticalAlign="bottom"
                     align="center"
-                    wrapperStyle={{ 
-                      paddingTop: "8px", 
+                    wrapperStyle={{
+                      paddingTop: "8px",
                       fontSize: "11px"
                     }}
                     formatter={(value, entry: any) => {
@@ -235,9 +290,8 @@ const AdminAnalytics = () => {
                   />
                 </PieChart>
               </ResponsiveContainer>
-              
-              {/* Centro do donut - posição fixa 135px (300 * 0.45 = 135) */}
-              <div 
+
+              <div
                 className="absolute pointer-events-none"
                 style={{
                   top: '135px',
@@ -276,7 +330,7 @@ const AdminAnalytics = () => {
   return (
     <AdminLayout>
       <div className="space-y-4 sm:space-y-6 overflow-x-hidden">
-        {/* Header with glassmorphism */}
+        {/* Header */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 animate-fade-in">
           <div className="min-w-0">
             <h1 className="text-2xl sm:text-3xl font-black bg-gradient-to-r from-foreground via-foreground to-foreground/70 bg-clip-text text-transparent">
@@ -299,16 +353,77 @@ const AdminAnalytics = () => {
           </Select>
         </div>
 
-        {/* Additional Metrics Row */}
-        <div className="animate-fade-in" style={{ animationDelay: "50ms" }}>
-          <AdditionalMetrics submissions={allSubmissions} isLoading={isLoading} />
+        {/* Métricas Adicionais - Nova Linha */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 animate-fade-in" style={{ animationDelay: "50ms" }}>
+          <Card className="group relative overflow-hidden border-border/30 bg-gradient-to-br from-card via-card to-card/80 hover:border-cyan-500/40 transition-all duration-500">
+            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <CardContent className="p-4 sm:p-6 relative z-10">
+              <div className="flex flex-col gap-3">
+                <div className="p-2.5 sm:p-3 bg-gradient-to-br from-cyan-500/20 to-cyan-500/5 rounded-xl w-fit border border-cyan-500/20">
+                  <Clock className="h-5 w-5 sm:h-6 sm:w-6 text-cyan-500" />
+                </div>
+                <div>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-medium">Horário de Pico</p>
+                  <p className="text-2xl sm:text-3xl font-black text-foreground mt-1">{additionalMetrics.peakHour}</p>
+                  <p className="text-xs text-muted-foreground">{additionalMetrics.peakCount} leads</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="group relative overflow-hidden border-border/30 bg-gradient-to-br from-card via-card to-card/80 hover:border-red-500/40 transition-all duration-500">
+            <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <CardContent className="p-4 sm:p-6 relative z-10">
+              <div className="flex flex-col gap-3">
+                <div className="p-2.5 sm:p-3 bg-gradient-to-br from-red-500/20 to-red-500/5 rounded-xl w-fit border border-red-500/20">
+                  <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 text-red-500" />
+                </div>
+                <div>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-medium">Taxa Abandono</p>
+                  <p className="text-2xl sm:text-3xl font-black text-foreground mt-1">{stats.abandonRate}%</p>
+                  <p className="text-xs text-muted-foreground">{stats.abandoned} leads</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="group relative overflow-hidden border-border/30 bg-gradient-to-br from-card via-card to-card/80 hover:border-purple-500/40 transition-all duration-500">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <CardContent className="p-4 sm:p-6 relative z-10">
+              <div className="flex flex-col gap-3">
+                <div className="p-2.5 sm:p-3 bg-gradient-to-br from-purple-500/20 to-purple-500/5 rounded-xl w-fit border border-purple-500/20">
+                  <Timer className="h-5 w-5 sm:h-6 sm:w-6 text-purple-500" />
+                </div>
+                <div>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-medium">Tempo Médio</p>
+                  <p className="text-2xl sm:text-3xl font-black text-foreground mt-1">{additionalMetrics.avgTime}</p>
+                  <p className="text-xs text-muted-foreground">conclusão</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="group relative overflow-hidden border-border/30 bg-gradient-to-br from-card via-card to-card/80 hover:border-emerald-500/40 transition-all duration-500">
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <CardContent className="p-4 sm:p-6 relative z-10">
+              <div className="flex flex-col gap-3">
+                <div className="p-2.5 sm:p-3 bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 rounded-xl w-fit border border-emerald-500/20">
+                  <CalendarDays className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-500" />
+                </div>
+                <div>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-medium">Leads Hoje</p>
+                  <p className="text-2xl sm:text-3xl font-black text-foreground mt-1">{additionalMetrics.leadsToday}</p>
+                  <p className="text-xs text-muted-foreground">novos leads</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Stats Cards with glassmorphism */}
+        {/* Stats Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4" style={{ animationDelay: "100ms" }}>
           <Card className="group relative overflow-hidden border-border/30 bg-gradient-to-br from-card via-card to-card/80 hover:border-primary/40 transition-all duration-500">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <div className="absolute -inset-1 bg-gradient-to-r from-primary/10 to-transparent rounded-xl blur-xl opacity-0 group-hover:opacity-50 transition-opacity" />
             <CardContent className="p-4 sm:p-6 relative z-10">
               <div className="flex flex-col gap-3">
                 <div className="p-2.5 sm:p-3 bg-gradient-to-br from-primary/20 to-primary/5 rounded-xl w-fit border border-primary/20">
@@ -321,10 +436,9 @@ const AdminAnalytics = () => {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="group relative overflow-hidden border-border/30 bg-gradient-to-br from-card via-card to-card/80 hover:border-green-500/40 transition-all duration-500">
             <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <div className="absolute -inset-1 bg-gradient-to-r from-green-500/10 to-transparent rounded-xl blur-xl opacity-0 group-hover:opacity-50 transition-opacity" />
             <CardContent className="p-4 sm:p-6 relative z-10">
               <div className="flex flex-col gap-3">
                 <div className="p-2.5 sm:p-3 bg-gradient-to-br from-green-500/20 to-green-500/5 rounded-xl w-fit border border-green-500/20">
@@ -337,10 +451,9 @@ const AdminAnalytics = () => {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="group relative overflow-hidden border-border/30 bg-gradient-to-br from-card via-card to-card/80 hover:border-yellow-500/40 transition-all duration-500">
             <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <div className="absolute -inset-1 bg-gradient-to-r from-yellow-500/10 to-transparent rounded-xl blur-xl opacity-0 group-hover:opacity-50 transition-opacity" />
             <CardContent className="p-4 sm:p-6 relative z-10">
               <div className="flex flex-col gap-3">
                 <div className="p-2.5 sm:p-3 bg-gradient-to-br from-yellow-500/20 to-yellow-500/5 rounded-xl w-fit border border-yellow-500/20">
@@ -353,10 +466,9 @@ const AdminAnalytics = () => {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="group relative overflow-hidden border-border/30 bg-gradient-to-br from-card via-card to-card/80 hover:border-primary/40 transition-all duration-500">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <div className="absolute -inset-1 bg-gradient-to-r from-primary/10 to-transparent rounded-xl blur-xl opacity-0 group-hover:opacity-50 transition-opacity" />
             <CardContent className="p-4 sm:p-6 relative z-10">
               <div className="flex flex-col gap-3">
                 <div className="p-2.5 sm:p-3 bg-gradient-to-br from-primary/20 to-primary/5 rounded-xl w-fit border border-primary/20">
@@ -373,9 +485,9 @@ const AdminAnalytics = () => {
 
         {/* Temporal Evolution Chart */}
         <div className="animate-fade-in" style={{ animationDelay: "150ms" }}>
-          <TemporalChart 
-            submissions={allSubmissions} 
-            isLoading={isLoading} 
+          <TemporalChart
+            submissions={allSubmissions}
+            isLoading={isLoading}
             days={period === "7" ? 7 : period === "30" ? 30 : period === "90" ? 90 : 30}
           />
         </div>
@@ -385,7 +497,7 @@ const AdminAnalytics = () => {
           <ConversionFunnel submissions={allSubmissions} isLoading={isLoading} />
         </div>
 
-        {/* Charts Grid */}
+        {/* Charts Grid - Todos os gráficos de respostas */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           <div className="animate-fade-in" style={{ animationDelay: "250ms" }}>
             {renderDonutChart(relationshipData, "Estado Civil", "Distribuição por estado civil")}

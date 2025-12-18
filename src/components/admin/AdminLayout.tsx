@@ -9,7 +9,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { RoleBasedRedirect } from "@/components/RoleBasedRedirect";
 import { useTheme } from "next-themes";
-import logoTopBrasil from "@/assets/logo-top-brasil.png";
+import logoLight from "@/assets/logo-top-brasil-dark.png";
+import logoDark from "@/assets/logo-top-brasil.png";
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -72,9 +73,9 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
     <div className="h-full bg-card border-r border-border flex flex-col">
       <div className="p-6 border-b border-border">
         <img 
-          src={logoTopBrasil} 
+          src={isLightMode ? logoLight : logoDark} 
           alt="TOP Brasil" 
-          className={`h-12 w-auto mx-auto transition-all ${isLightMode ? 'brightness-0' : ''}`} 
+          className="h-12 w-auto mx-auto transition-all" 
         />
       </div>
       
@@ -143,9 +144,9 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
       {/* Logo no topo do sheet */}
       <div className="p-6 border-b border-border">
         <img 
-          src={logoTopBrasil} 
+          src={isLightMode ? logoLight : logoDark} 
           alt="TOP Brasil" 
-          className={`h-10 w-auto mx-auto transition-all ${isLightMode ? 'brightness-0' : ''}`} 
+          className="h-10 w-auto mx-auto transition-all" 
         />
       </div>
       
@@ -235,9 +236,9 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
               
               {/* Logo centralizada no mobile */}
               <img 
-                src={logoTopBrasil} 
+                src={isLightMode ? logoLight : logoDark} 
                 alt="TOP Brasil" 
-                className={`h-8 w-auto transition-all ${isLightMode ? 'brightness-0' : ''}`} 
+                className="h-8 w-auto transition-all" 
               />
               
               {/* Espaço vazio para centralizar a logo */}
