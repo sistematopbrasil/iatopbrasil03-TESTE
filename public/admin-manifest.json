@@ -1,0 +1,31 @@
+{
+  "name": "TOP Brasil Admin",
+  "short_name": "TOP Admin",
+  "description": "Painel Administrativo TOP Brasil",
+  "start_url": "/admin/dashboard?v=3",
+  "scope": "/admin/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/logo_topbr.png?v=3",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo_topbr.png?v=3",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo_topbr.png?v=3",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

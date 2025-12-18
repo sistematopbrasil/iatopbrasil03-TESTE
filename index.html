@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+    <link rel="icon" href="/favicon.png?v=3" type="image/png" />
+    <link rel="apple-touch-icon" href="/logo_topbr.png?v=3" />
+    
+    <!-- Google Fonts - Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <title>TOP Brasil</title>
+    <meta name="description" content="Descubra em menos de 60 segundos se você tem o perfil certo para se tornar um Consultor de Proteção Veicular TOP Brasil. Quiz rápido e gratuito!">
+    <meta name="author" content="TOP Brasil Proteção Veicular" />
+
+    <!-- Meta Pixel Code will be loaded dynamically -->
+    <script>
+    // Initialize fbq placeholder
+    !function(f,b,e,v,n,t,s)
+    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+    n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];
+    s.parentNode.insertBefore(t,s)}(window, document,'script',
+    'https://connect.facebook.net/en_US/fbevents.js');
+    </script>
+    <!-- End Meta Pixel Code -->
+
+    
+    
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://storage.googleapis.com/gpt-engineer-file-uploads/XptTek4FYKRDfAa4RfhG6BzpiYu2/social-images/social-1764767685661-Logo topbr.png">
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@Lovable" />
+    <meta name="twitter:image" content="https://storage.googleapis.com/gpt-engineer-file-uploads/XptTek4FYKRDfAa4RfhG6BzpiYu2/social-images/social-1764767685661-Logo topbr.png">
+    
+    <!-- PWA Meta Tags for Admin -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    
+    <!-- PWA Manifest Switcher - runs before page load -->
+    <script>
+      (function() {
+        const path = window.location.pathname;
+        const isAdmin = path.startsWith('/admin');
+        
+        // Remove existing manifest if any
+        const existing = document.querySelector('link[rel="manifest"]');
+        if (existing) existing.remove();
+        
+        const manifestLink = document.createElement('link');
+        manifestLink.rel = 'manifest';
+        manifestLink.href = isAdmin ? '/admin-manifest.json?v=3' : '/manifest.webmanifest';
+        document.head.appendChild(manifestLink);
+        
+        // Update theme color for admin
+        let themeColorMeta = document.querySelector('meta[name="theme-color"]');
+        if (!themeColorMeta) {
+          themeColorMeta = document.createElement('meta');
+          themeColorMeta.name = 'theme-color';
+          document.head.appendChild(themeColorMeta);
+        }
+        themeColorMeta.content = isAdmin ? '#000000' : '#f97316';
+        
+        // Update apple-mobile-web-app-title for admin
+        let appleTitleMeta = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+        if (!appleTitleMeta) {
+          appleTitleMeta = document.createElement('meta');
+          appleTitleMeta.name = 'apple-mobile-web-app-title';
+          document.head.appendChild(appleTitleMeta);
+        }
+        appleTitleMeta.content = isAdmin ? 'Admin TOP' : 'Quiz TOP Brasil';
+        
+        console.log('📱 PWA configurado para:', isAdmin ? 'Admin Dashboard' : 'Quiz', '| Manifest:', manifestLink.href);
+      })();
+    </script>
+    <meta property="og:title" content="TOP Brasil">
+  <meta name="twitter:title" content="TOP Brasil">
+  <meta property="og:description" content="Descubra em menos de 60 segundos se você tem o perfil certo para se tornar um Consultor de Proteção Veicular TOP Brasil. Quiz rápido e gratuito!">
+  <meta name="twitter:description" content="Descubra em menos de 60 segundos se você tem o perfil certo para se tornar um Consultor de Proteção Veicular TOP Brasil. Quiz rápido e gratuito!">
+</head>
+
+  <body>
+    <!-- Meta Pixel NoScript Fallback will be injected dynamically -->
+    
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,50 @@
+{
+  "name": "TOP Brasil - Proteção Veicular",
+  "short_name": "TOP Brasil",
+  "description": "Sistema de gestão de leads e consultores TOP Brasil",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0D0D0D",
+  "theme_color": "#EB6608",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/pwa-icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo_topbr.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "Acessar dashboard",
+      "url": "/admin/dashboard",
+      "icons": [{ "src": "/pwa-icon.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Leads",
+      "short_name": "Leads",
+      "description": "Ver leads",
+      "url": "/admin/leads",
+      "icons": [{ "src": "/pwa-icon.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Pipeline",
+      "short_name": "Pipeline",
+      "description": "Ver pipeline",
+      "url": "/admin/pipeline",
+      "icons": [{ "src": "/pwa-icon.png", "sizes": "192x192" }]
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "prefer_related_applications": false
+}

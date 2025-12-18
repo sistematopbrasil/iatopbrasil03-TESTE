@@ -1,0 +1,374 @@
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { AdminLayout } from '@/components/admin/AdminLayout';
+import { Card } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Trophy, TrendingUp, Users, Calendar, Loader2, Star, Award } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { getCurrentConsultant, isSuperAdmin } from '@/lib/consultant-context';
+import { calculateLeadPoints, getUserLevel } from '@/lib/ranking-service';
+
+interface RankingEntry {
+  consultant_id: string;
+  full_name: string;
+  quiz_slug: string;
+  total_leads: number;
+  hot_leads: number;
+  warm_leads: number;
+  cold_leads: number;
+  conversion_rate: number;
+  last_lead_date: string | null;
+  ranking_position: number;
+  profile_photo?: string | null;
+}
+
+export default function AdminRanking() {
+  const [period, setPeriod] = useState('all');
+
+  // Get current user to check if super admin
+  const { data: currentUser } = useQuery({
+    queryKey: ['current-user-ranking'],
+    queryFn: getCurrentConsultant,
+  });
+
+  const isAdmin = currentUser && isSuperAdmin(currentUser.role);
+
+  // Get period dates
+  const getPeriodDates = () => {
+    const now = new Date();
+    let periodStart: string | null = null;
+
+    if (period === 'today') {
+      const start = new Date(now);
+      start.setHours(0, 0, 0, 0);
+      periodStart = start.toISOString();
+    } else if (period === 'week') {
+      const start = new Date(now);
+      start.setDate(start.getDate() - 7);
+      periodStart = start.toISOString();
+    } else if (period === 'month') {
+      const start = new Date(now);
+      start.setMonth(start.getMonth() - 1);
+      periodStart = start.toISOString();
+    }
+
+    return { periodStart, periodEnd: now.toISOString() };
+  };
+
+  const { data: ranking, isLoading } = useQuery({
+    queryKey: ['consultant-ranking-dynamic', period],
+    queryFn: async () => {
+      const { periodStart, periodEnd } = getPeriodDates();
+      
+      // Get ranking data
+      const { data: rankingData, error } = await supabase.rpc('get_consultant_ranking_dynamic', {
+        period_start: periodStart,
+        period_end: periodEnd,
+      });
+
+      if (error) {
+        console.error('Error fetching ranking:', error);
+        throw error;
+      }
+
+      // Fetch profile photos for all consultants
+      const consultantIds = (rankingData || []).map((r: any) => r.consultant_id);
+      
+      if (consultantIds.length > 0) {
+        const { data: usersData } = await supabase
+          .from('users')
+          .select('id, profile_photo')
+          .in('id', consultantIds);
+
+        const photoMap = new Map(usersData?.map(u => [u.id, u.profile_photo]) || []);
+        
+        return (rankingData || []).map((r: any) => ({
+          ...r,
+          profile_photo: photoMap.get(r.consultant_id) || null,
+        })) as RankingEntry[];
+      }
+
+      return (rankingData || []) as RankingEntry[];
+    },
+  });
+
+  const getMedalIcon = (position: number) => {
+    if (position === 1) return '🥇';
+    if (position === 2) return '🥈';
+    if (position === 3) return '🥉';
+    return position;
+  };
+
+  const getMedalColor = (position: number) => {
+    if (position === 1) return 'bg-gradient-to-r from-yellow-500 to-yellow-600';
+    if (position === 2) return 'bg-gradient-to-r from-gray-400 to-gray-500';
+    if (position === 3) return 'bg-gradient-to-r from-orange-600 to-orange-700';
+    return 'bg-muted';
+  };
+
+  // Calculate totals and points
+  const totals = ranking?.reduce(
+    (acc, c) => ({
+      leads: acc.leads + Number(c.total_leads || 0),
+      hot: acc.hot + Number(c.hot_leads || 0),
+      warm: acc.warm + Number(c.warm_leads || 0),
+      cold: acc.cold + Number(c.cold_leads || 0),
+      points: acc.points + calculateLeadPoints(
+        Number(c.hot_leads || 0),
+        Number(c.warm_leads || 0),
+        Number(c.cold_leads || 0)
+      ),
+    }),
+    { leads: 0, hot: 0, warm: 0, cold: 0, points: 0 }
+  ) || { leads: 0, hot: 0, warm: 0, cold: 0, points: 0 };
+
+  if (isLoading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  return (
+    <AdminLayout>
+      <div className="p-4 md:p-6 space-y-6 overflow-x-hidden max-w-full">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Trophy className="w-10 h-10 text-primary" />
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">Ranking de Consultores</h1>
+              <p className="text-muted-foreground">
+                {isAdmin ? 'Desempenho detalhado dos consultores' : 'Classificação por pontuação'}
+              </p>
+            </div>
+          </div>
+
+          {/* Period Filter */}
+          <Select value={period} onValueChange={setPeriod}>
+            <SelectTrigger className="w-[200px]">
+              <Calendar className="w-4 h-4 mr-2" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todo o período</SelectItem>
+              <SelectItem value="today">Hoje</SelectItem>
+              <SelectItem value="week">Última semana</SelectItem>
+              <SelectItem value="month">Último mês</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="p-6">
+            <div className="flex items-center gap-3">
+              <Users className="w-8 h-8 text-blue-500" />
+              <div>
+                <p className="text-sm text-muted-foreground">Total de Consultores</p>
+                <p className="text-2xl font-bold text-foreground">{ranking?.length || 0}</p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-6">
+            <div className="flex items-center gap-3">
+              <Star className="w-8 h-8 text-primary" />
+              <div>
+                <p className="text-sm text-muted-foreground">Pontuação Total</p>
+                <p className="text-2xl font-bold text-foreground">{totals.points.toLocaleString()} pts</p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-6">
+            <div className="flex items-center gap-3">
+              <TrendingUp className="w-8 h-8 text-green-500" />
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  {isAdmin ? 'Total de Leads' : 'Média por Consultor'}
+                </p>
+                <p className="text-2xl font-bold text-foreground">
+                  {isAdmin 
+                    ? totals.leads 
+                    : Math.round(totals.points / (ranking?.length || 1)).toLocaleString() + ' pts'
+                  }
+                </p>
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        {/* Ranking Table */}
+        <Card className="p-6">
+          <h2 className="text-xl font-semibold text-foreground mb-4">Classificação</h2>
+          
+          {ranking && ranking.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-4 px-4 text-muted-foreground font-medium">Posição</th>
+                    <th className="text-left py-4 px-4 text-muted-foreground font-medium">Consultor</th>
+                    {isAdmin ? (
+                      <>
+                        <th className="text-center py-4 px-4 text-muted-foreground font-medium">Total Leads</th>
+                        <th className="text-center py-4 px-4 text-muted-foreground font-medium">Quentes</th>
+                        <th className="text-center py-4 px-4 text-muted-foreground font-medium">Mornos</th>
+                        <th className="text-center py-4 px-4 text-muted-foreground font-medium">Frios</th>
+                        <th className="text-center py-4 px-4 text-muted-foreground font-medium">Taxa Conv.</th>
+                      </>
+                    ) : (
+                      <>
+                        <th className="text-center py-4 px-4 text-muted-foreground font-medium">Pontuação</th>
+                        <th className="text-center py-4 px-4 text-muted-foreground font-medium">Nível</th>
+                      </>
+                    )}
+                    <th className="text-center py-4 px-4 text-muted-foreground font-medium">Último Lead</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ranking.map((consultant) => {
+                    const points = calculateLeadPoints(
+                      Number(consultant.hot_leads || 0),
+                      Number(consultant.warm_leads || 0),
+                      Number(consultant.cold_leads || 0)
+                    );
+                    const level = getUserLevel(points);
+                    
+                    return (
+                      <tr 
+                        key={consultant.consultant_id}
+                        className="border-b border-border hover:bg-muted/50 transition-colors"
+                      >
+                        {/* Position */}
+                        <td className="py-4 px-4">
+                          <div className={cn(
+                            "w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg text-white",
+                            getMedalColor(consultant.ranking_position)
+                          )}>
+                            {getMedalIcon(consultant.ranking_position)}
+                          </div>
+                        </td>
+
+                        {/* Name with Photo */}
+                        <td className="py-4 px-4">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="w-10 h-10">
+                              <AvatarImage src={consultant.profile_photo || undefined} alt={consultant.full_name} />
+                              <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                                {consultant.full_name?.[0]?.toUpperCase() || '?'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-semibold text-foreground">{consultant.full_name}</p>
+                              <p className="text-sm text-muted-foreground">@{consultant.quiz_slug}</p>
+                            </div>
+                          </div>
+                        </td>
+
+                        {isAdmin ? (
+                          <>
+                            {/* Total Leads */}
+                            <td className="text-center py-4 px-4">
+                              <span className="text-xl font-bold text-foreground">{consultant.total_leads}</span>
+                            </td>
+
+                            {/* Hot Leads */}
+                            <td className="text-center py-4 px-4">
+                              <span className="text-lg font-semibold text-red-500">{consultant.hot_leads}</span>
+                            </td>
+
+                            {/* Warm Leads */}
+                            <td className="text-center py-4 px-4">
+                              <span className="text-lg font-semibold text-yellow-500">{consultant.warm_leads}</span>
+                            </td>
+
+                            {/* Cold Leads */}
+                            <td className="text-center py-4 px-4">
+                              <span className="text-lg font-semibold text-blue-500">{consultant.cold_leads}</span>
+                            </td>
+
+                            {/* Conversion Rate */}
+                            <td className="text-center py-4 px-4">
+                              <span className={cn(
+                                "text-lg font-bold",
+                                Number(consultant.conversion_rate) >= 70 && "text-green-500",
+                                Number(consultant.conversion_rate) >= 40 && Number(consultant.conversion_rate) < 70 && "text-yellow-500",
+                                Number(consultant.conversion_rate) < 40 && "text-red-500"
+                              )}>
+                                {consultant.conversion_rate}%
+                              </span>
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            {/* Points */}
+                            <td className="text-center py-4 px-4">
+                              <div className="flex items-center justify-center gap-1">
+                                <Star className="w-5 h-5 text-primary" />
+                                <span className="text-xl font-bold text-foreground">{points.toLocaleString()}</span>
+                                <span className="text-sm text-muted-foreground">pts</span>
+                              </div>
+                            </td>
+
+                            {/* Level */}
+                            <td className="text-center py-4 px-4">
+                              <div className="flex items-center justify-center gap-2">
+                                <span className="text-2xl">{level.badge}</span>
+                                <span className={cn("font-semibold", level.color)}>{level.level}</span>
+                              </div>
+                            </td>
+                          </>
+                        )}
+
+                        {/* Last Lead */}
+                        <td className="text-center py-4 px-4 text-sm text-muted-foreground">
+                          {consultant.last_lead_date 
+                            ? format(new Date(consultant.last_lead_date), 'dd/MM/yyyy', { locale: ptBR })
+                            : '-'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-12 text-muted-foreground">
+              <Trophy className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>Nenhum dado de ranking disponível ainda.</p>
+              <p className="text-sm">Os consultores aparecerão aqui quando tiverem leads.</p>
+            </div>
+          )}
+        </Card>
+
+        {/* Points Legend - Only for consultants (minimal version) */}
+        {!isAdmin && (
+          <div className="flex items-center justify-center gap-6 py-3 px-4 bg-muted/30 rounded-lg text-sm">
+            <span className="text-muted-foreground">Pontuação:</span>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+              <span className="text-foreground font-medium">🔥 30pts</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
+              <span className="text-foreground font-medium">🌡️ 15pts</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+              <span className="text-foreground font-medium">❄️ 5pts</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </AdminLayout>
+  );
+}
