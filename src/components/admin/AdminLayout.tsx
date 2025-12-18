@@ -4,10 +4,11 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentConsultant, isSuperAdmin } from "@/lib/consultant-context";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, Users, LogOut, Menu, Settings, BarChart3, Kanban, CalendarDays, Trophy, Target, MessageSquare } from "lucide-react";
+import { LayoutDashboard, Users, LogOut, Menu, Settings, BarChart3, Kanban, CalendarDays, Trophy, Target, MessageSquare, PieChart } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { RoleBasedRedirect } from "@/components/RoleBasedRedirect";
+import { useTheme } from "next-themes";
 import logoTopBrasil from "@/assets/logo-top-brasil.png";
 
 interface AdminLayoutProps {
@@ -18,6 +19,10 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+  const { theme, resolvedTheme } = useTheme();
+
+  // Determina se está no modo claro
+  const isLightMode = resolvedTheme === 'light' || theme === 'light';
 
   const { data: currentUser } = useQuery({
     queryKey: ['current-user-layout'],
@@ -47,6 +52,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
     { path: '/admin/leads', icon: Target, label: 'Leads' },
     { path: '/admin/pipeline', icon: Kanban, label: 'Pipeline' },
     { path: '/admin/crm', icon: MessageSquare, label: 'CRM WhatsApp' },
+    { path: '/admin/analytics', icon: PieChart, label: 'Analytics' },
     // { path: '/admin/events', icon: CalendarDays, label: 'Eventos' }, // Oculto temporariamente
     { path: '/admin/ranking', icon: Trophy, label: 'Ranking' },
     { path: '/admin/settings', icon: Settings, label: 'Configurações' },
@@ -65,7 +71,11 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
   const DesktopSidebar = () => (
     <div className="h-full bg-card border-r border-border flex flex-col">
       <div className="p-6 border-b border-border">
-        <img src={logoTopBrasil} alt="TOP Brasil" className="h-12 w-auto mx-auto" />
+        <img 
+          src={logoTopBrasil} 
+          alt="TOP Brasil" 
+          className={`h-12 w-auto mx-auto transition-all ${isLightMode ? 'brightness-0' : ''}`} 
+        />
       </div>
       
       <nav className="flex-1 p-4 space-y-2">
@@ -132,7 +142,11 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
     <div className="h-full bg-card flex flex-col">
       {/* Logo no topo do sheet */}
       <div className="p-6 border-b border-border">
-        <img src={logoTopBrasil} alt="TOP Brasil" className="h-10 w-auto mx-auto" />
+        <img 
+          src={logoTopBrasil} 
+          alt="TOP Brasil" 
+          className={`h-10 w-auto mx-auto transition-all ${isLightMode ? 'brightness-0' : ''}`} 
+        />
       </div>
       
       <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
@@ -220,7 +234,11 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
               </Sheet>
               
               {/* Logo centralizada no mobile */}
-              <img src={logoTopBrasil} alt="TOP Brasil" className="h-8 w-auto" />
+              <img 
+                src={logoTopBrasil} 
+                alt="TOP Brasil" 
+                className={`h-8 w-auto transition-all ${isLightMode ? 'brightness-0' : ''}`} 
+              />
               
               {/* Espaço vazio para centralizar a logo */}
               <div className="w-10" />
