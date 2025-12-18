@@ -139,19 +139,19 @@
 
   .light {
     --background: 0 0% 98%;
-    --foreground: 0 0% 10%;
+    --foreground: 0 0% 5%;
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 10%;
+    --card-foreground: 0 0% 8%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 10%;
+    --popover-foreground: 0 0% 8%;
     --primary: 24 95% 47%;
     --primary-foreground: 0 0% 100%;
     --primary-light: 24 100% 55%;
     --primary-dark: 24 100% 38%;
-    --secondary: 0 0% 94%;
-    --secondary-foreground: 0 0% 10%;
-    --muted: 0 0% 92%;
-    --muted-foreground: 0 0% 40%;
+    --secondary: 0 0% 92%;
+    --secondary-foreground: 0 0% 8%;
+    --muted: 0 0% 90%;
+    --muted-foreground: 0 0% 30%;
     --accent: 24 95% 47%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 50%;
@@ -162,21 +162,21 @@
     --warning-foreground: 0 0% 0%;
     --info: 217 91% 50%;
     --info-foreground: 0 0% 100%;
-    --border: 0 0% 85%;
-    --input: 0 0% 85%;
+    --border: 0 0% 82%;
+    --input: 0 0% 82%;
     --ring: 24 95% 47%;
     --sidebar-background: 0 0% 96%;
-    --sidebar-foreground: 0 0% 10%;
+    --sidebar-foreground: 0 0% 8%;
     --sidebar-primary: 24 95% 47%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 90%;
-    --sidebar-accent-foreground: 0 0% 10%;
-    --sidebar-border: 0 0% 85%;
+    --sidebar-accent: 24 95% 47%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 0 0% 82%;
     --sidebar-ring: 24 95% 47%;
 
     /* Glass Effect for light mode */
-    --glass-bg: rgba(255, 255, 255, 0.7);
-    --glass-border: rgba(0, 0, 0, 0.08);
+    --glass-bg: rgba(255, 255, 255, 0.85);
+    --glass-border: rgba(0, 0, 0, 0.1);
   }
 }
 

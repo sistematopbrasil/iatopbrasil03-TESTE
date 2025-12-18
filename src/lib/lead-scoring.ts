@@ -34,35 +34,126 @@ export interface LeadScore {
 
 export const MAX_LEAD_SCORE = 185;
 
-// Nova função para calcular temperatura baseado nos critérios do usuário
-export function calculateTemperature(
+/**
+ * NOVA LÓGICA DE TEMPERATURA - TOP Brasil
+ * 
+ * 🧊 LEAD FRIO:
+ *   - completion_percentage < 100 (não completou o quiz)
+ * 
+ * 🔥 LEAD QUENTE (REGRA 1 - DECISIVA):
+ *   - vehicle_protection_experience contém "sim" ou "já trabalho" → QUENTE AUTOMÁTICO
+ * 
+ * 🔥 LEAD QUENTE (REGRA 2 - PONTUAÇÃO):
+ *   - Completou o quiz + marcou 3 ou mais das 4 perguntas de peso positivamente
+ * 
+ * 🌡️ LEAD MORNO:
+ *   - Completou o quiz (completion_percentage = 100)
+ *   - NÃO trabalha com proteção veicular
+ *   - Marcou menos de 3 das 4 perguntas de peso positivamente
+ * 
+ * Perguntas de Peso (1 ponto cada):
+ *   - Casado(a)? (relationship_status)
+ *   - Possui veículo? (has_vehicle)
+ *   - Possui CNH? (has_driver_license)
+ *   - Experiência em vendas? (sales_experience)
+ */
+
+export interface LeadData {
+  completion_percentage: number;
+  vehicle_protection_experience?: string | null;
+  relationship_status?: string | null;
+  has_vehicle?: string | null;
+  has_driver_license?: string | null;
+  sales_experience?: string | null;
+}
+
+/**
+ * Calcula os pontos das perguntas-chave (máximo 4 pontos)
+ */
+export function calculateKeyQuestionPoints(lead: LeadData): number {
+  let points = 0;
+
+  // 1. Casado(a)? - 1 ponto
+  const relationshipStatus = lead.relationship_status?.toLowerCase() || '';
+  if (relationshipStatus.includes('casado')) {
+    points++;
+  }
+
+  // 2. Possui veículo? - 1 ponto
+  const hasVehicle = lead.has_vehicle?.toLowerCase() || '';
+  if (hasVehicle.includes('carro') || hasVehicle.includes('moto') || hasVehicle.includes('ambos')) {
+    points++;
+  }
+
+  // 3. Possui CNH? - 1 ponto
+  const hasCNH = lead.has_driver_license?.toLowerCase() || '';
+  if (hasCNH.includes('sim')) {
+    points++;
+  }
+
+  // 4. Experiência em vendas? - 1 ponto
+  const salesExp = lead.sales_experience?.toLowerCase() || '';
+  if (salesExp.includes('já trabalho') || salesExp.includes('já trabalhei')) {
+    points++;
+  }
+
+  return points;
+}
+
+/**
+ * Verifica se o lead trabalha/já trabalhou com proteção veicular (REGRA DECISIVA)
+ */
+export function worksWithVehicleProtection(vehicleProtectionExperience: string | null | undefined): boolean {
+  if (!vehicleProtectionExperience) return false;
+  
+  const experience = vehicleProtectionExperience.toLowerCase();
+  return experience.includes('sim') || experience.includes('já trabalho');
+}
+
+/**
+ * Nova função para calcular temperatura baseado nos critérios TOP Brasil
+ */
+export function calculateTemperature(lead: LeadData): LeadTemperature {
+  // 🧊 REGRA 1: Frio se não completou o quiz
+  if (lead.completion_percentage < 100) {
+    return 'cold';
+  }
+
+  // 🔥 REGRA 2 (DECISIVA): Quente automático se trabalha com proteção veicular
+  if (worksWithVehicleProtection(lead.vehicle_protection_experience)) {
+    return 'hot';
+  }
+
+  // 🔥 REGRA 3: Quente por pontuação (3 ou mais pontos das perguntas-chave)
+  const keyPoints = calculateKeyQuestionPoints(lead);
+  if (keyPoints >= 3) {
+    return 'hot';
+  }
+
+  // 🌡️ REGRA 4: Morno - Completou mas não atingiu critérios quentes
+  return 'warm';
+}
+
+/**
+ * Função auxiliar para compatibilidade com código existente
+ * Converte parâmetros separados para objeto LeadData
+ */
+export function calculateTemperatureFromParams(
   completionPercentage: number,
   hasVehicle: string | null | undefined,
   hasCNH: string | null | undefined,
-  salesExperience: string | null | undefined
+  salesExperience: string | null | undefined,
+  vehicleProtectionExperience?: string | null | undefined,
+  relationshipStatus?: string | null | undefined
 ): LeadTemperature {
-  // Frio: Não completou o quiz
-  if (completionPercentage < 100) {
-    return 'cold';
-  }
-  
-  // Verificar critérios para quente
-  const temVeiculo = hasVehicle?.toLowerCase().includes('carro') || 
-                     hasVehicle?.toLowerCase().includes('moto') || 
-                     hasVehicle?.toLowerCase().includes('ambos');
-  
-  const temCNH = hasCNH?.toLowerCase().includes('sim');
-  
-  const temExpVendas = salesExperience?.toLowerCase().includes('já trabalho') ||
-                       salesExperience?.toLowerCase().includes('já trabalhei');
-  
-  // Quente: Completou + tem veículo + tem CNH + experiência vendas
-  if (temVeiculo && temCNH && temExpVendas) {
-    return 'hot';
-  }
-  
-  // Morno: Completou mas não atende todos os critérios
-  return 'warm';
+  return calculateTemperature({
+    completion_percentage: completionPercentage,
+    vehicle_protection_experience: vehicleProtectionExperience,
+    relationship_status: relationshipStatus,
+    has_vehicle: hasVehicle,
+    has_driver_license: hasCNH,
+    sales_experience: salesExperience,
+  });
 }
 
 export function calculateLeadScore(answers: QuizAnswers): LeadScore {
@@ -160,10 +251,15 @@ export function calculateLeadScore(answers: QuizAnswers): LeadScore {
   const total_score = Object.values(breakdown).reduce((sum, val) => sum + val, 0);
   const percentage = Math.round((total_score / MAX_LEAD_SCORE) * 100);
 
-  // Determinar temperatura baseado na porcentagem
-  let temperature: LeadTemperature = 'cold';
-  if (percentage >= 75) temperature = 'hot';      // 140+ pts
-  else if (percentage >= 50) temperature = 'warm'; // 90-139 pts
+  // Usar a nova lógica de temperatura
+  const temperature = calculateTemperature({
+    completion_percentage: 100, // Se está calculando score, assumimos que completou
+    vehicle_protection_experience: answers.vehicleProtectionExperience,
+    relationship_status: answers.maritalStatus,
+    has_vehicle: answers.hasVehicle,
+    has_driver_license: answers.hasCNH,
+    sales_experience: answers.salesExperience,
+  });
 
   return {
     total_score,
@@ -187,4 +283,28 @@ export function mapQuizDataToScoring(quizData: Record<number, string>): QuizAnsw
     currentIncome: quizData[12],
     desiredIncome: quizData[13],
   };
+}
+
+/**
+ * Calcula temperatura diretamente dos dados do banco de dados
+ * Útil para recalcular temperatura de leads existentes
+ */
+export function calculateTemperatureFromDbData(
+  lead: {
+    completion_percentage: number;
+    vehicle_protection_experience?: string | null;
+    relationship_status?: string | null;
+    has_vehicle?: string | null;
+    has_driver_license?: string | null;
+    sales_experience?: string | null;
+  }
+): LeadTemperature {
+  return calculateTemperature({
+    completion_percentage: lead.completion_percentage,
+    vehicle_protection_experience: lead.vehicle_protection_experience,
+    relationship_status: lead.relationship_status,
+    has_vehicle: lead.has_vehicle,
+    has_driver_license: lead.has_driver_license,
+    sales_experience: lead.sales_experience,
+  });
 }
