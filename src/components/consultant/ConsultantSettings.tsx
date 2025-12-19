@@ -340,14 +340,14 @@ export function ConsultantSettings() {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6 overflow-x-hidden max-w-full">
+    <div className="p-4 md:p-6 space-y-6 overflow-hidden max-w-full">
       <div>
         <h1 className="text-3xl font-bold text-foreground">Configurações</h1>
         <p className="text-muted-foreground mt-1">Personalize seu quiz e tracking</p>
       </div>
 
-      <Tabs defaultValue="quiz" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+      <Tabs defaultValue="quiz" className="space-y-6 overflow-hidden">
+        <TabsList className="grid w-full grid-cols-3 max-w-full">
           <TabsTrigger value="quiz">Quiz</TabsTrigger>
           <TabsTrigger value="tracking">Tracking</TabsTrigger>
           <TabsTrigger value="account">Conta</TabsTrigger>

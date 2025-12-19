@@ -59,12 +59,12 @@ export default function AdminPipeline() {
 
   return (
     <AdminLayout>
-      <div className="h-[calc(100vh-64px)] flex flex-col">
+      <div className="h-[calc(100vh-64px)] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex-shrink-0 px-6 pt-6 pb-4 flex items-center justify-between">
+        <div className="flex-shrink-0 px-4 md:px-6 pt-4 md:pt-6 pb-3 md:pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Pipeline de Vendas</h1>
-            <p className="text-muted-foreground mt-1">
+            <h1 className="text-xl md:text-2xl font-bold text-foreground">Pipeline de Vendas</h1>
+            <p className="text-sm text-muted-foreground mt-1 hidden sm:block">
               Arraste os leads entre as colunas • Use scroll ou arraste para navegar
             </p>
           </div>
@@ -72,12 +72,13 @@ export default function AdminPipeline() {
           {/* Botão para gerenciar quadros */}
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="outline" className="gap-2">
+              <Button variant="outline" size="sm" className="gap-2 self-start sm:self-auto">
                 <Settings2 className="w-4 h-4" />
-                Gerenciar Quadros
+                <span className="hidden sm:inline">Gerenciar Quadros</span>
+                <span className="sm:hidden">Quadros</span>
               </Button>
             </SheetTrigger>
-            <SheetContent className="w-[400px] sm:w-[540px]">
+            <SheetContent className="w-[320px] sm:w-[540px]">
               <SheetHeader>
                 <SheetTitle>Configurações do Pipeline</SheetTitle>
               </SheetHeader>
@@ -88,14 +89,14 @@ export default function AdminPipeline() {
           </Sheet>
         </div>
 
-        {/* Pipeline Board - Container com scroll horizontal */}
+        {/* Pipeline Board - Container com scroll horizontal APENAS */}
         <div 
           ref={containerRef}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
-          className={`flex-1 min-h-0 px-6 pb-6 pipeline-scroll select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+          className={`flex-1 min-h-0 px-4 md:px-6 pb-4 md:pb-6 pipeline-scroll select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
           style={{ 
             overflowX: 'auto',
             overflowY: 'hidden',
@@ -103,7 +104,7 @@ export default function AdminPipeline() {
           }}
         >
           <div 
-            className="inline-flex gap-4 h-full"
+            className="inline-flex gap-3 md:gap-4 h-full"
             style={{ minWidth: 'max-content' }}
           >
             <PipelineBoard />

@@ -247,19 +247,15 @@ export function ConsultantDashboard() {
         </CardContent>
       </Card>
 
-      {/* Linha 1: Métricas Principais */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+      {/* Métricas em grid responsivo - 2 colunas mobile, 3 desktop */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
         <StatCard title="Leads Hoje" value={metrics.leadsToday} icon={Target} variant="primary" />
         <StatCard title="Últimos 7 dias" value={metrics.leads7Days} icon={Calendar} />
         <StatCard title="Total de Leads" value={metrics.totalLeads} icon={Users} />
-      </div>
-
-      {/* Linha 2: Métricas por Temperatura + Convertidos */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <StatCard title="🔥 Quentes" value={metrics.hotLeads} icon={Flame} variant="warning" />
         <StatCard title="🌡️ Mornos" value={metrics.warmLeads} icon={Thermometer} />
         <StatCard title="❄️ Frios" value={metrics.coldLeads} icon={Snowflake} variant="info" />
-        <StatCard title="✅ Convertidos" value={metrics.convertedLeads} icon={CheckCircle} variant="success" />
+        <StatCard title="✅ Convertidos" value={metrics.convertedLeads} icon={CheckCircle} variant="success" className="col-span-2 sm:col-span-1" />
       </div>
 
       {/* Linha 3: Gráficos lado a lado */}

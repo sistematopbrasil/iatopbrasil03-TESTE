@@ -39,7 +39,7 @@ export function canViewAllData(role: string): boolean {
 
 export function getQuizUrl(slug: string): string {
   // Domínio principal do projeto
-  const publishedDomain = 'https://topbrasil.app';
+  const publishedDomain = 'https://quiz-topbrasil.lovable.app';
   
   // Se estiver em localhost, usar localhost para testes
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {

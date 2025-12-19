@@ -10,27 +10,61 @@ const EVOLUTION_API_URL = Deno.env.get('EVOLUTION_API_URL') || '';
 const EVOLUTION_API_KEY = Deno.env.get('EVOLUTION_API_KEY') || '';
 
 async function evolutionRequest(endpoint: string, options: RequestInit = {}) {
-  const url = `${EVOLUTION_API_URL}${endpoint}`;
-  console.log('🔵 Evolution API Request:', { url, method: options.method || 'GET' });
+  // Remover barra final da URL base se existir
+  const baseUrl = EVOLUTION_API_URL.replace(/\/$/, '');
+  const url = `${baseUrl}${endpoint}`;
   
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': EVOLUTION_API_KEY,
-      ...options.headers,
-    },
+  console.log('🔵 Evolution API Request:', { 
+    url, 
+    method: options.method || 'GET',
+    baseUrl,
+    endpoint,
+    hasApiKey: !!EVOLUTION_API_KEY,
+    apiKeyPrefix: EVOLUTION_API_KEY ? EVOLUTION_API_KEY.substring(0, 8) + '...' : 'N/A'
   });
   
-  const data = await response.json();
-  
-  if (!response.ok) {
-    console.error('❌ Evolution API Error:', { status: response.status, error: response.statusText, response: data });
-    return { success: false, status: response.status, error: data };
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': EVOLUTION_API_KEY,
+        ...options.headers,
+      },
+    });
+    
+    console.log('🔵 Evolution API Response Status:', response.status, response.statusText);
+    
+    const responseText = await response.text();
+    console.log('🔵 Evolution API Response Body (raw):', responseText.substring(0, 500));
+    
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('❌ Failed to parse Evolution API response as JSON:', parseError);
+      return { success: false, status: response.status, error: { message: 'Invalid JSON response', raw: responseText.substring(0, 200) } };
+    }
+    
+    if (!response.ok) {
+      console.error('❌ Evolution API Error:', { 
+        status: response.status, 
+        statusText: response.statusText, 
+        response: data 
+      });
+      return { success: false, status: response.status, error: data };
+    }
+    
+    console.log('✅ Evolution API Success:', JSON.stringify(data).substring(0, 500));
+    return { success: true, data };
+  } catch (fetchError: any) {
+    console.error('❌ Evolution API Fetch Error:', {
+      message: fetchError.message,
+      name: fetchError.name,
+      stack: fetchError.stack?.substring(0, 300)
+    });
+    return { success: false, status: 0, error: { message: fetchError.message, type: 'fetch_error' } };
   }
-  
-  console.log('✅ Evolution API Success:', data);
-  return { success: true, data };
 }
 
 serve(async (req) => {
@@ -39,8 +73,19 @@ serve(async (req) => {
   }
 
   try {
+    console.log('🚀 CRM Create Instance - Iniciando...');
+    console.log('🔵 Environment check:', {
+      hasEvolutionUrl: !!EVOLUTION_API_URL,
+      evolutionUrl: EVOLUTION_API_URL ? EVOLUTION_API_URL.substring(0, 50) + '...' : 'NOT SET',
+      hasEvolutionKey: !!EVOLUTION_API_KEY,
+      hasSupabaseUrl: !!Deno.env.get('SUPABASE_URL'),
+      hasSupabaseKey: !!Deno.env.get('SUPABASE_ANON_KEY'),
+      hasServiceRole: !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
+    });
+
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error('❌ No authorization header');
       throw new Error('Não autorizado');
     }
 
@@ -56,10 +101,11 @@ serve(async (req) => {
 
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
+      console.error('❌ Auth error:', userError);
       throw new Error('Usuário não autenticado');
     }
 
-    console.log('🔵 Criando instância para usuário:', user.id);
+    console.log('🔵 Usuário autenticado:', user.id);
 
     // Buscar dados do usuário na tabela users
     const { data: userData, error: userDataError } = await supabase
@@ -73,6 +119,8 @@ serve(async (req) => {
       throw new Error('Dados do usuário não encontrados');
     }
 
+    console.log('🔵 Dados do usuário:', { id: userData.id, name: userData.full_name });
+
     // Usar service role para operações administrativas
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -80,11 +128,15 @@ serve(async (req) => {
     );
 
     // Verificar se já existe instância
-    const { data: existingInstance } = await supabaseAdmin
+    const { data: existingInstance, error: existingError } = await supabaseAdmin
       .from('whatsapp_instances')
       .select('*')
       .eq('user_id', userData.id)
-      .single();
+      .maybeSingle();
+
+    if (existingError) {
+      console.error('❌ Erro ao verificar instância existente:', existingError);
+    }
 
     if (existingInstance) {
       console.log('✅ Instância já existe:', existingInstance.instance_name);
@@ -112,8 +164,10 @@ serve(async (req) => {
 
     // Criar webhook URL
     const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/crm-webhook`;
+    console.log('🔵 Webhook URL:', webhookUrl);
 
     // Criar instância na Evolution
+    console.log('🔵 Tentando criar instância na Evolution API...');
     const evolutionResponse = await evolutionRequest('/instance/create', {
       method: 'POST',
       body: JSON.stringify({
@@ -134,8 +188,11 @@ serve(async (req) => {
     });
 
     if (!evolutionResponse.success) {
+      console.error('❌ Falha ao criar instância:', evolutionResponse);
+      
       // Se o nome já existe, tentar com outro sufixo
-      if (evolutionResponse.error?.message?.includes('already in use')) {
+      if (evolutionResponse.error?.message?.includes('already in use') || 
+          evolutionResponse.error?.response?.message?.includes('already in use')) {
         console.log('⚠️ Nome em uso, tentando com sufixo alternativo...');
         const altInstanceName = `${baseName}_${timestamp}_${Math.random().toString(36).substring(2, 6)}`;
         
@@ -159,7 +216,8 @@ serve(async (req) => {
         });
 
         if (!retryResponse.success) {
-          throw new Error('Erro ao criar instância na Evolution API');
+          console.error('❌ Retry também falhou:', retryResponse);
+          throw new Error(`Erro ao criar instância na Evolution API: ${JSON.stringify(retryResponse.error)}`);
         }
 
         // Salvar instância no banco com nome alternativo
@@ -193,7 +251,7 @@ serve(async (req) => {
         );
       }
       
-      throw new Error('Erro ao criar instância na Evolution API');
+      throw new Error(`Erro ao criar instância na Evolution API: ${JSON.stringify(evolutionResponse.error)}`);
     }
 
     // Salvar instância no banco
@@ -216,14 +274,18 @@ serve(async (req) => {
     }
 
     // Criar log de auditoria
-    await supabaseAdmin.rpc('create_audit_log', {
-      p_user_id: userData.id,
-      p_organization_id: userData.organization_id,
-      p_action: 'create_instance',
-      p_resource_type: 'whatsapp_instance',
-      p_resource_id: newInstance.id,
-      p_metadata: { instance_name: instanceName },
-    });
+    try {
+      await supabaseAdmin.rpc('create_audit_log', {
+        p_user_id: userData.id,
+        p_organization_id: userData.organization_id,
+        p_action: 'create_instance',
+        p_resource_type: 'whatsapp_instance',
+        p_resource_id: newInstance.id,
+        p_metadata: { instance_name: instanceName },
+      });
+    } catch (auditError) {
+      console.warn('⚠️ Erro ao criar log de auditoria (não crítico):', auditError);
+    }
 
     console.log('✅ Instância criada com sucesso:', newInstance);
 
@@ -236,11 +298,16 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error: any) {
-    console.error('❌ Erro:', error);
+    console.error('❌ Erro geral:', {
+      message: error?.message,
+      name: error?.name,
+      stack: error?.stack?.substring(0, 500)
+    });
     return new Response(
       JSON.stringify({
         success: false,
         error: error?.message || 'Erro desconhecido',
+        details: error?.stack?.substring(0, 200)
       }),
       {
         status: 400,

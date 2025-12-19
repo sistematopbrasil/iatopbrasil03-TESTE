@@ -138,7 +138,7 @@ export default function AdminRanking() {
 
   return (
     <AdminLayout>
-      <div className="p-4 md:p-6 space-y-6 overflow-x-hidden max-w-full">
+      <div className="p-4 md:p-6 space-y-6 overflow-hidden max-w-full">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -206,35 +206,76 @@ export default function AdminRanking() {
           </Card>
         </div>
 
-        {/* Ranking Table */}
-        <Card className="p-6">
+        {/* Ranking - Mobile Cards / Desktop Table */}
+        <Card className="p-4 md:p-6 overflow-hidden">
           <h2 className="text-xl font-semibold text-foreground mb-4">Classificação</h2>
           
           {ranking && ranking.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-4 px-4 text-muted-foreground font-medium">Posição</th>
-                    <th className="text-left py-4 px-4 text-muted-foreground font-medium">Consultor</th>
-                    {isAdmin ? (
-                      <>
-                        <th className="text-center py-4 px-4 text-muted-foreground font-medium">Total Leads</th>
-                        <th className="text-center py-4 px-4 text-muted-foreground font-medium">Quentes</th>
-                        <th className="text-center py-4 px-4 text-muted-foreground font-medium">Mornos</th>
-                        <th className="text-center py-4 px-4 text-muted-foreground font-medium">Frios</th>
-                        <th className="text-center py-4 px-4 text-muted-foreground font-medium">Taxa Conv.</th>
-                      </>
-                    ) : (
-                      <>
-                        <th className="text-center py-4 px-4 text-muted-foreground font-medium">Pontuação</th>
-                        <th className="text-center py-4 px-4 text-muted-foreground font-medium">Nível</th>
-                      </>
-                    )}
-                    <th className="text-center py-4 px-4 text-muted-foreground font-medium">Último Lead</th>
-                  </tr>
-                </thead>
-                <tbody>
+            <>
+              {/* Mobile: Cards */}
+              <div className="md:hidden space-y-3">
+                {ranking.map((consultant) => {
+                  const points = calculateLeadPoints(
+                    Number(consultant.hot_leads || 0),
+                    Number(consultant.warm_leads || 0),
+                    Number(consultant.cold_leads || 0)
+                  );
+                  const level = getUserLevel(points);
+                  
+                  return (
+                    <div 
+                      key={consultant.consultant_id}
+                      className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card"
+                    >
+                      <div className={cn(
+                        "w-10 h-10 rounded-full flex items-center justify-center font-bold text-white flex-shrink-0",
+                        getMedalColor(consultant.ranking_position)
+                      )}>
+                        {getMedalIcon(consultant.ranking_position)}
+                      </div>
+                      <Avatar className="w-10 h-10 flex-shrink-0">
+                        <AvatarImage src={consultant.profile_photo || undefined} alt={consultant.full_name} />
+                        <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                          {consultant.full_name?.[0]?.toUpperCase() || '?'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-foreground truncate">{consultant.full_name}</p>
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="text-2xl">{level.badge}</span>
+                          <span className="text-primary font-bold">{points.toLocaleString()} pts</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop: Table */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-4 px-4 text-muted-foreground font-medium">Posição</th>
+                      <th className="text-left py-4 px-4 text-muted-foreground font-medium">Consultor</th>
+                      {isAdmin ? (
+                        <>
+                          <th className="text-center py-4 px-4 text-muted-foreground font-medium">Total Leads</th>
+                          <th className="text-center py-4 px-4 text-muted-foreground font-medium">Quentes</th>
+                          <th className="text-center py-4 px-4 text-muted-foreground font-medium">Mornos</th>
+                          <th className="text-center py-4 px-4 text-muted-foreground font-medium">Frios</th>
+                          <th className="text-center py-4 px-4 text-muted-foreground font-medium">Taxa Conv.</th>
+                        </>
+                      ) : (
+                        <>
+                          <th className="text-center py-4 px-4 text-muted-foreground font-medium">Pontuação</th>
+                          <th className="text-center py-4 px-4 text-muted-foreground font-medium">Nível</th>
+                        </>
+                      )}
+                      <th className="text-center py-4 px-4 text-muted-foreground font-medium">Último Lead</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                   {ranking.map((consultant) => {
                     const points = calculateLeadPoints(
                       Number(consultant.hot_leads || 0),
@@ -336,11 +377,12 @@ export default function AdminRanking() {
                             : '-'}
                         </td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           ) : (
             <div className="text-center py-12 text-muted-foreground">
               <Trophy className="w-12 h-12 mx-auto mb-4 opacity-50" />
@@ -352,8 +394,8 @@ export default function AdminRanking() {
 
         {/* Points Legend - Only for consultants (minimal version) */}
         {!isAdmin && (
-          <div className="flex items-center justify-center gap-6 py-3 px-4 bg-muted/30 rounded-lg text-sm">
-            <span className="text-muted-foreground">Pontuação:</span>
+          <div className="flex flex-wrap items-center justify-center gap-3 md:gap-6 py-3 px-4 bg-muted/30 rounded-lg text-sm">
+            <span className="text-muted-foreground w-full text-center md:w-auto">Pontuação:</span>
             <div className="flex items-center gap-1.5">
               <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
               <span className="text-foreground font-medium">🔥 30pts</span>
