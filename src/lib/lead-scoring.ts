@@ -75,28 +75,37 @@ export function calculateKeyQuestionPoints(lead: LeadData): number {
 
   // 1. Casado(a)? - 1 ponto
   const relationshipStatus = lead.relationship_status?.toLowerCase() || '';
-  if (relationshipStatus.includes('casado')) {
+  const isMarried = relationshipStatus.includes('casado');
+  if (isMarried) {
     points++;
   }
+  console.log('🔵 [KeyPoints] Casado?', { raw: lead.relationship_status, normalized: relationshipStatus, isMarried, points });
 
   // 2. Possui veículo? - 1 ponto
   const hasVehicle = lead.has_vehicle?.toLowerCase() || '';
-  if (hasVehicle.includes('carro') || hasVehicle.includes('moto') || hasVehicle.includes('ambos')) {
+  const hasVehicleMatch = hasVehicle.includes('carro') || hasVehicle.includes('moto') || hasVehicle.includes('ambos');
+  if (hasVehicleMatch) {
     points++;
   }
+  console.log('🔵 [KeyPoints] Veículo?', { raw: lead.has_vehicle, normalized: hasVehicle, hasVehicleMatch, points });
 
   // 3. Possui CNH? - 1 ponto
   const hasCNH = lead.has_driver_license?.toLowerCase() || '';
-  if (hasCNH.includes('sim')) {
+  const hasCNHMatch = hasCNH.includes('sim');
+  if (hasCNHMatch) {
     points++;
   }
+  console.log('🔵 [KeyPoints] CNH?', { raw: lead.has_driver_license, normalized: hasCNH, hasCNHMatch, points });
 
   // 4. Experiência em vendas? - 1 ponto
   const salesExp = lead.sales_experience?.toLowerCase() || '';
-  if (salesExp.includes('já trabalho') || salesExp.includes('já trabalhei')) {
+  const hasSalesExp = salesExp.includes('já trabalho') || salesExp.includes('já trabalhei');
+  if (hasSalesExp) {
     points++;
   }
+  console.log('🔵 [KeyPoints] Vendas?', { raw: lead.sales_experience, normalized: salesExp, hasSalesExp, points });
 
+  console.log('🔵 [KeyPoints] TOTAL:', points);
   return points;
 }
 
@@ -104,33 +113,46 @@ export function calculateKeyQuestionPoints(lead: LeadData): number {
  * Verifica se o lead trabalha/já trabalhou com proteção veicular (REGRA DECISIVA)
  */
 export function worksWithVehicleProtection(vehicleProtectionExperience: string | null | undefined): boolean {
-  if (!vehicleProtectionExperience) return false;
+  if (!vehicleProtectionExperience) {
+    console.log('🔵 [Protection] Sem experiência informada, retornando false');
+    return false;
+  }
   
   const experience = vehicleProtectionExperience.toLowerCase();
-  return experience.includes('sim') || experience.includes('já trabalho');
+  const result = experience.includes('sim') || experience.includes('já trabalho');
+  console.log('🔵 [Protection] Trabalha com proteção?', { raw: vehicleProtectionExperience, normalized: experience, result });
+  return result;
 }
 
 /**
  * Nova função para calcular temperatura baseado nos critérios TOP Brasil
  */
 export function calculateTemperature(lead: LeadData): LeadTemperature {
+  console.log('🌡️ [Temperature] Calculando temperatura para:', JSON.stringify(lead, null, 2));
+  
   // 🧊 REGRA 1: Frio se não completou o quiz
   if (lead.completion_percentage < 100) {
+    console.log('🧊 [Temperature] FRIO - Não completou o quiz:', lead.completion_percentage);
     return 'cold';
   }
 
   // 🔥 REGRA 2 (DECISIVA): Quente automático se trabalha com proteção veicular
-  if (worksWithVehicleProtection(lead.vehicle_protection_experience)) {
+  const worksWithProtection = worksWithVehicleProtection(lead.vehicle_protection_experience);
+  if (worksWithProtection) {
+    console.log('🔥 [Temperature] QUENTE - Trabalha com proteção veicular');
     return 'hot';
   }
 
   // 🔥 REGRA 3: Quente por pontuação (3 ou mais pontos das perguntas-chave)
   const keyPoints = calculateKeyQuestionPoints(lead);
+  console.log('🔵 [Temperature] Pontos-chave calculados:', keyPoints);
   if (keyPoints >= 3) {
+    console.log('🔥 [Temperature] QUENTE - 3+ pontos nas perguntas-chave');
     return 'hot';
   }
 
   // 🌡️ REGRA 4: Morno - Completou mas não atingiu critérios quentes
+  console.log('🌡️ [Temperature] MORNO - Completou mas não atingiu critérios quentes. Pontos:', keyPoints);
   return 'warm';
 }
 

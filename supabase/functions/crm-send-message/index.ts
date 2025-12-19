@@ -9,7 +9,7 @@ const corsHeaders = {
 const EVOLUTION_API_URL = Deno.env.get('EVOLUTION_API_URL') || '';
 const EVOLUTION_API_KEY = Deno.env.get('EVOLUTION_API_KEY') || '';
 
-async function evolutionRequest(endpoint: string, options: RequestInit = {}) {
+async function evolutionRequest(endpoint: string, options: RequestInit = {}, instanceId?: string, supabaseAdmin?: any) {
   const url = `${EVOLUTION_API_URL}${endpoint}`;
   console.log('🔵 Evolution API Request:', { url, method: options.method || 'GET' });
   
@@ -25,7 +25,28 @@ async function evolutionRequest(endpoint: string, options: RequestInit = {}) {
   const data = await response.json();
   
   if (!response.ok) {
-    console.error('❌ Evolution API Error:', data);
+    console.error('❌ Evolution API Error:', { status: response.status, data });
+    
+    // Detectar erro "Connection Closed" e atualizar status no banco
+    const errorMessage = data?.message || data?.response?.message || '';
+    if (errorMessage.includes('Connection Closed') || errorMessage.includes('Disconnected')) {
+      console.log('⚠️ WhatsApp desconectado detectado. Atualizando status no banco...');
+      
+      if (instanceId && supabaseAdmin) {
+        await supabaseAdmin
+          .from('whatsapp_instances')
+          .update({ 
+            status: 'disconnected',
+            connection_state: { error: 'Connection Closed', detected_at: new Date().toISOString() },
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', instanceId);
+        console.log('✅ Status da instância atualizado para disconnected');
+      }
+      
+      throw new Error('WhatsApp desconectado. Por favor, reconecte escaneando o QR Code novamente na aba CRM.');
+    }
+    
     throw new Error(data.message || 'Erro na Evolution API');
   }
   
@@ -217,10 +238,15 @@ serve(async (req) => {
         throw new Error('Tipo de mensagem não suportado');
     }
 
-    evolutionResponse = await evolutionRequest(endpoint, {
-      method: 'POST',
-      body: JSON.stringify(requestBody),
-    });
+    evolutionResponse = await evolutionRequest(
+      endpoint, 
+      {
+        method: 'POST',
+        body: JSON.stringify(requestBody),
+      },
+      instance.id,
+      supabaseAdmin
+    );
 
     // Salvar mensagem no banco
     const messageId = evolutionResponse?.key?.id || `sent-${Date.now()}`;
