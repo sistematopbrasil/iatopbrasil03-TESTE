@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTheme } from 'next-themes';
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrentConsultant, getQuizUrl } from '@/lib/consultant-context';
 import { toast } from 'sonner';
@@ -12,6 +13,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, Save, Copy, ExternalLink, Upload, Trash2, Check, User } from 'lucide-react';
 import { QuizQuestionsEditor } from './QuizQuestionsEditor';
 import { cn } from '@/lib/utils';
+
+function ThemeSelector() {
+  const { theme, setTheme } = useTheme();
+  
+  return (
+    <div className="space-y-2">
+      <Label>Tema da Interface</Label>
+      <Select value={theme} onValueChange={setTheme}>
+        <SelectTrigger>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="dark">🌙 Modo Escuro</SelectItem>
+          <SelectItem value="light">☀️ Modo Claro</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
 
 export function ConsultantSettings() {
   const queryClient = useQueryClient();
@@ -794,25 +814,7 @@ export function ConsultantSettings() {
 
               <div className="border-t pt-4 space-y-4">
                 {/* Theme Toggle */}
-                <div className="space-y-2">
-                  <Label>Tema da Interface</Label>
-                  <Select 
-                    value={document.documentElement.classList.contains('light') ? 'light' : 'dark'}
-                    onValueChange={(value) => {
-                      document.documentElement.classList.remove('light', 'dark');
-                      document.documentElement.classList.add(value);
-                      localStorage.setItem('theme', value);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="dark">🌙 Modo Escuro</SelectItem>
-                      <SelectItem value="light">☀️ Modo Claro</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <ThemeSelector />
 
                 <div className="space-y-2">
                   <Label>Nome Completo</Label>
