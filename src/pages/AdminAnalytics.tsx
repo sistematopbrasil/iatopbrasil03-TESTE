@@ -354,23 +354,7 @@ const AdminAnalytics = () => {
         </div>
 
         {/* Métricas Adicionais - Nova Linha */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 animate-fade-in" style={{ animationDelay: "50ms" }}>
-          <Card className="group relative overflow-hidden border-border/30 bg-gradient-to-br from-card via-card to-card/80 hover:border-cyan-500/40 transition-all duration-500">
-            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <CardContent className="p-4 sm:p-6 relative z-10">
-              <div className="flex flex-col gap-3">
-                <div className="p-2.5 sm:p-3 bg-gradient-to-br from-cyan-500/20 to-cyan-500/5 rounded-xl w-fit border border-cyan-500/20">
-                  <Clock className="h-5 w-5 sm:h-6 sm:w-6 text-cyan-500" />
-                </div>
-                <div>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-medium">Horário de Pico</p>
-                  <p className="text-2xl sm:text-3xl font-black text-foreground mt-1">{additionalMetrics.peakHour}</p>
-                  <p className="text-xs text-muted-foreground">{additionalMetrics.peakCount} leads</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 animate-fade-in" style={{ animationDelay: "50ms" }}>
           <Card className="group relative overflow-hidden border-border/30 bg-gradient-to-br from-card via-card to-card/80 hover:border-red-500/40 transition-all duration-500">
             <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <CardContent className="p-4 sm:p-6 relative z-10">

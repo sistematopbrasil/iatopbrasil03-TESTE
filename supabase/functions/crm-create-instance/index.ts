@@ -25,12 +25,12 @@ async function evolutionRequest(endpoint: string, options: RequestInit = {}) {
   const data = await response.json();
   
   if (!response.ok) {
-    console.error('❌ Evolution API Error:', data);
-    throw new Error(data.message || 'Erro na Evolution API');
+    console.error('❌ Evolution API Error:', { status: response.status, error: response.statusText, response: data });
+    return { success: false, status: response.status, error: data };
   }
   
   console.log('✅ Evolution API Success:', data);
-  return data;
+  return { success: true, data };
 }
 
 serve(async (req) => {
@@ -73,8 +73,14 @@ serve(async (req) => {
       throw new Error('Dados do usuário não encontrados');
     }
 
+    // Usar service role para operações administrativas
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
     // Verificar se já existe instância
-    const { data: existingInstance } = await supabase
+    const { data: existingInstance } = await supabaseAdmin
       .from('whatsapp_instances')
       .select('*')
       .eq('user_id', userData.id)
@@ -92,13 +98,16 @@ serve(async (req) => {
       );
     }
 
-    // Gerar nome único para instância
-    const { data: uniqueName } = await supabase.rpc(
-      'generate_unique_instance_name',
-      { base_name: userData.full_name }
-    );
-
-    const instanceName = uniqueName || `user-${userData.id.substring(0, 8)}`;
+    // Gerar nome único para instância usando timestamp
+    const timestamp = Date.now();
+    const baseName = userData.full_name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, '')
+      .substring(0, 15);
+    
+    const instanceName = `${baseName}_${timestamp}`;
     console.log('🔵 Nome da instância:', instanceName);
 
     // Criar webhook URL
@@ -124,11 +133,68 @@ serve(async (req) => {
       }),
     });
 
-    // Usar service role para inserir (bypass RLS)
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    if (!evolutionResponse.success) {
+      // Se o nome já existe, tentar com outro sufixo
+      if (evolutionResponse.error?.message?.includes('already in use')) {
+        console.log('⚠️ Nome em uso, tentando com sufixo alternativo...');
+        const altInstanceName = `${baseName}_${timestamp}_${Math.random().toString(36).substring(2, 6)}`;
+        
+        const retryResponse = await evolutionRequest('/instance/create', {
+          method: 'POST',
+          body: JSON.stringify({
+            instanceName: altInstanceName,
+            qrcode: true,
+            integration: 'WHATSAPP-BAILEYS',
+            webhook: {
+              url: webhookUrl,
+              events: [
+                'QRCODE_UPDATED',
+                'CONNECTION_UPDATE',
+                'MESSAGES_UPSERT',
+                'MESSAGES_UPDATE',
+                'SEND_MESSAGE',
+              ],
+            },
+          }),
+        });
+
+        if (!retryResponse.success) {
+          throw new Error('Erro ao criar instância na Evolution API');
+        }
+
+        // Salvar instância no banco com nome alternativo
+        const { data: newInstance, error: insertError } = await supabaseAdmin
+          .from('whatsapp_instances')
+          .insert({
+            user_id: userData.id,
+            organization_id: userData.organization_id,
+            instance_name: altInstanceName,
+            instance_key: retryResponse.data.instance?.instanceName || altInstanceName,
+            status: 'disconnected',
+            webhook_url: webhookUrl,
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error('❌ Erro ao salvar instância:', insertError);
+          throw new Error('Erro ao salvar instância no banco');
+        }
+
+        console.log('✅ Instância criada com sucesso (nome alternativo):', newInstance);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            data: newInstance,
+            message: 'Instância criada com sucesso',
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      throw new Error('Erro ao criar instância na Evolution API');
+    }
 
     // Salvar instância no banco
     const { data: newInstance, error: insertError } = await supabaseAdmin
@@ -137,7 +203,7 @@ serve(async (req) => {
         user_id: userData.id,
         organization_id: userData.organization_id,
         instance_name: instanceName,
-        instance_key: evolutionResponse.instance?.instanceName || instanceName,
+        instance_key: evolutionResponse.data.instance?.instanceName || instanceName,
         status: 'disconnected',
         webhook_url: webhookUrl,
       })
