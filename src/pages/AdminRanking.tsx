@@ -138,7 +138,7 @@ export default function AdminRanking() {
 
   return (
     <AdminLayout>
-      <div className="p-4 md:p-6 space-y-6 overflow-hidden max-w-full">
+      <div className="p-4 md:p-6 space-y-6 overflow-x-hidden w-full max-w-full box-border">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -394,15 +394,15 @@ export default function AdminRanking() {
 
         {/* Points Legend - Only for consultants (minimal version) */}
         {!isAdmin && (
-          <div className="flex flex-wrap items-center justify-center gap-3 md:gap-6 py-3 px-4 bg-muted/30 rounded-lg text-sm">
-            <span className="text-muted-foreground w-full text-center md:w-auto">Pontuação:</span>
+          <div className="flex flex-wrap items-center justify-center gap-3 md:gap-6 py-3 px-4 bg-muted/30 rounded-lg text-sm w-full overflow-hidden">
+            <span className="text-muted-foreground text-center">Pontuação:</span>
             <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
-              <span className="text-foreground font-medium">🔥 30pts</span>
+              <div className="w-2.5 h-2.5 rounded-full bg-red-500 flex-shrink-0" />
+              <span className="text-foreground font-medium text-xs sm:text-sm">🔥 30pts</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
-              <span className="text-foreground font-medium">🌡️ 15pts</span>
+              <div className="w-2.5 h-2.5 rounded-full bg-yellow-500 flex-shrink-0" />
+              <span className="text-foreground font-medium text-xs sm:text-sm">🌡️ 15pts</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
