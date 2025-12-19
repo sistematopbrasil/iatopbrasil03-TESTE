@@ -340,17 +340,17 @@ export function ConsultantSettings() {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6 overflow-hidden max-w-full">
+    <div className="p-4 md:p-6 space-y-6 overflow-x-hidden w-full max-w-full box-border">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Configurações</h1>
-        <p className="text-muted-foreground mt-1">Personalize seu quiz e tracking</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Configurações</h1>
+        <p className="text-muted-foreground mt-1 text-sm sm:text-base">Personalize seu quiz e tracking</p>
       </div>
 
-      <Tabs defaultValue="quiz" className="space-y-6 overflow-hidden">
-        <TabsList className="grid w-full grid-cols-3 max-w-full">
-          <TabsTrigger value="quiz">Quiz</TabsTrigger>
-          <TabsTrigger value="tracking">Tracking</TabsTrigger>
-          <TabsTrigger value="account">Conta</TabsTrigger>
+      <Tabs defaultValue="quiz" className="space-y-6 w-full overflow-hidden">
+        <TabsList className="grid w-full grid-cols-3 max-w-full overflow-hidden">
+          <TabsTrigger value="quiz" className="text-xs sm:text-sm px-2 sm:px-4">Quiz</TabsTrigger>
+          <TabsTrigger value="tracking" className="text-xs sm:text-sm px-2 sm:px-4">Tracking</TabsTrigger>
+          <TabsTrigger value="account" className="text-xs sm:text-sm px-2 sm:px-4">Conta</TabsTrigger>
         </TabsList>
 
         {/* Tab: Quiz */}

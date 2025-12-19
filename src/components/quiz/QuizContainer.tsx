@@ -275,19 +275,56 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
     }
   };
 
-  // FINALIZAR LEAD
+  // FINALIZAR LEAD - Buscar dados reais do banco para calcular temperatura correta
   const finalizeLead = async () => {
     const leadId = currentLeadId || leadIdRef.current;
     if (!leadId) return false;
 
-    const scoreResult = calculateScoreFromAnswers();
-
     try {
+      // IMPORTANTE: Buscar os dados REAIS do lead no banco para calcular a temperatura
+      const { data: currentLead, error: fetchError } = await supabase
+        .from("quiz_submissions_new")
+        .select("*")
+        .eq("id", leadId)
+        .single();
+
+      if (fetchError || !currentLead) {
+        console.error("Erro ao buscar dados do lead:", fetchError);
+        return false;
+      }
+
+      // Importar função para calcular temperatura com dados do banco
+      const { calculateTemperatureFromDbData, calculateLeadScore: calcScore, mapQuizDataToScoring: mapData } = await import("@/lib/lead-scoring");
+      
+      // Calcular temperatura usando dados REAIS do banco (não do state local)
+      const temperature = calculateTemperatureFromDbData({
+        completion_percentage: 100,
+        vehicle_protection_experience: currentLead.vehicle_protection_experience,
+        relationship_status: currentLead.relationship_status,
+        has_vehicle: currentLead.has_vehicle,
+        has_driver_license: currentLead.has_driver_license,
+        sales_experience: currentLead.sales_experience,
+      });
+
+      // Calcular score também
+      const scoreResult = calculateScoreFromAnswers();
+
+      console.log("🔵 Finalizando lead:", {
+        leadId,
+        temperature,
+        score: scoreResult.total_score,
+        vehicleProtection: currentLead.vehicle_protection_experience,
+        relationshipStatus: currentLead.relationship_status,
+        hasVehicle: currentLead.has_vehicle,
+        hasCNH: currentLead.has_driver_license,
+        salesExp: currentLead.sales_experience,
+      });
+
       const { error } = await supabase
         .from("quiz_submissions_new")
         .update({
           lead_score: scoreResult.total_score,
-          temperature: scoreResult.temperature,
+          temperature: temperature, // Usar temperatura calculada com dados reais
           completion_percentage: 100,
           updated_at: new Date().toISOString(),
         })
@@ -297,6 +334,8 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
         console.error("Erro ao finalizar lead:", error);
         return false;
       }
+
+      console.log("✅ Lead finalizado com temperatura:", temperature);
 
       sessionStorage.removeItem("quiz_lead_id");
       leadIdRef.current = null;

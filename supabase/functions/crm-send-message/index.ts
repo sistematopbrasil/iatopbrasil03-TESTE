@@ -88,8 +88,53 @@ serve(async (req) => {
       throw new Error('Instância não encontrada');
     }
 
+    // Verificar status no banco
     if (instance.status !== 'connected') {
-      throw new Error('WhatsApp não está conectado');
+      throw new Error('WhatsApp não está conectado. Reconecte na aba CRM > WhatsApp.');
+    }
+
+    // Verificar conexão real na Evolution API antes de enviar
+    try {
+      const connectionUrl = `${EVOLUTION_API_URL}/instance/connectionState/${instance.instance_name}`;
+      console.log('🔵 Verificando conexão:', connectionUrl);
+      
+      const connectionCheck = await fetch(connectionUrl, {
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': EVOLUTION_API_KEY,
+        },
+      });
+      
+      const connectionData = await connectionCheck.json();
+      console.log('🔵 Status da conexão Evolution API:', connectionData);
+      
+      // Verificar se a conexão está aberta
+      const connectionState = connectionData?.instance?.state || connectionData?.state;
+      if (connectionState !== 'open' && connectionState !== 'connected') {
+        console.log('❌ Conexão fechada. Atualizando status no banco...');
+        
+        // Atualizar status no banco para refletir desconexão
+        const supabaseService = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '',
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+        );
+        
+        await supabaseService
+          .from('whatsapp_instances')
+          .update({ 
+            status: 'disconnected',
+            connection_state: connectionData,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', instance.id);
+        
+        throw new Error(`WhatsApp desconectado (${connectionState || 'closed'}). Reconecte escaneando o QR Code novamente na aba CRM.`);
+      }
+    } catch (connError: any) {
+      if (connError.message.includes('WhatsApp desconectado')) {
+        throw connError;
+      }
+      console.warn('⚠️ Não foi possível verificar conexão, tentando enviar mesmo assim:', connError.message);
     }
 
     // Buscar conversa para obter o telefone
