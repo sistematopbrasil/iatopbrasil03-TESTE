@@ -38,14 +38,14 @@ export function canViewAllData(role: string): boolean {
 }
 
 export function getQuizUrl(slug: string): string {
-  // Sempre usar o domínio publicado em produção
-  const publishedDomain = 'https://topbrasilquiz.lovable.app';
+  // Domínio principal do projeto
+  const publishedDomain = 'https://topbrasil.app';
   
   // Se estiver em localhost, usar localhost para testes
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     return `${window.location.origin}/quiz/${slug}`;
   }
   
-  // Em produção, sempre usar o domínio publicado
+  // Em produção, sempre usar o domínio principal
   return `${publishedDomain}/quiz/${slug}`;
 }
