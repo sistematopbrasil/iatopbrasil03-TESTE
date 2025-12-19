@@ -169,10 +169,11 @@
     --sidebar-foreground: 0 0% 15%;
     --sidebar-primary: 24 95% 47%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 90%;
-    --sidebar-accent-foreground: 0 0% 15%;
+    --sidebar-accent: 0 0% 85%;
+    --sidebar-accent-foreground: 0 0% 8%;
     --sidebar-border: 0 0% 82%;
     --sidebar-ring: 24 95% 47%;
+    --sidebar-muted-foreground: 0 0% 35%;
 
     /* Glass Effect for light mode */
     --glass-bg: rgba(255, 255, 255, 0.85);

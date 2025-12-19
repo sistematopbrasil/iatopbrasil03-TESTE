@@ -172,14 +172,14 @@ export function PipelineBoard() {
     <>
       <DragDropContext onDragEnd={handleDragEnd}>
         {/* Horizontal scroll container with inline-flex */}
-        <div className="inline-flex gap-4 h-full min-w-max pb-4 pr-8">
+        <div className="inline-flex gap-3 md:gap-4 h-full min-w-max pb-4 pr-8">
           {stages.map((stage) => {
             const stageLeads = getLeadsByStage(stage.id);
 
             return (
               <div
                 key={stage.id}
-                className="w-[320px] flex-shrink-0 flex flex-col h-full"
+                className="w-[280px] md:w-[320px] flex-shrink-0 flex flex-col h-full"
               >
                 {/* Header da coluna com cor customizada */}
                 <div 
@@ -205,7 +205,7 @@ export function PipelineBoard() {
                   </div>
                 </div>
 
-                {/* Droppable area - Usa stage.id que agora é UUID */}
+              {/* Droppable area - Usa stage.id que agora é UUID */}
                 <Droppable droppableId={stage.id}>
                   {(provided, snapshot) => (
                     <div
@@ -215,7 +215,7 @@ export function PipelineBoard() {
                         flex-1 p-3 space-y-3 overflow-y-auto 
                         bg-card/50 backdrop-blur-sm border-x border-b border-border rounded-b-xl 
                         transition-all duration-300
-                        max-h-[calc(100vh-280px)] min-h-[300px]
+                        max-h-[calc(100vh-220px)] md:max-h-[calc(100vh-280px)] min-h-[200px] md:min-h-[300px]
                         ${snapshot.isDraggingOver 
                           ? 'bg-primary/10 border-primary/50 shadow-xl shadow-primary/10' 
                           : ''
