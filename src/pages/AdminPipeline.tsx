@@ -95,14 +95,18 @@ export default function AdminPipeline() {
           </Sheet>
         </div>
 
-        {/* Pipeline Board - Container com scroll horizontal APENAS */}
+        {/* Pipeline Board - Container com scroll horizontal */}
         <div 
           ref={containerRef}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
-          className={`flex-1 min-h-0 px-4 md:px-6 pb-4 md:pb-6 pipeline-scroll select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+          className={`admin-pipeline-scroll flex-1 min-h-0 px-4 md:px-6 pb-4 md:pb-6 select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+          style={{
+            overflowX: 'scroll',
+            overflowY: 'hidden',
+          }}
         >
           <div 
             className="inline-flex gap-3 md:gap-4 h-full"
@@ -111,6 +115,37 @@ export default function AdminPipeline() {
             <PipelineBoard />
           </div>
         </div>
+
+        {/* Estilos da scrollbar horizontal laranja */}
+        <style>{`
+          .admin-pipeline-scroll::-webkit-scrollbar {
+            height: 12px;
+          }
+          
+          .admin-pipeline-scroll::-webkit-scrollbar-track {
+            background: rgba(13, 13, 13, 0.1);
+            border-radius: 6px;
+          }
+          
+          .admin-pipeline-scroll::-webkit-scrollbar-thumb {
+            background: #EB6608;
+            border-radius: 6px;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+          }
+          
+          .admin-pipeline-scroll::-webkit-scrollbar-thumb:hover {
+            background: #d45a07;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+          }
+
+          /* Firefox */
+          .admin-pipeline-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: #EB6608 rgba(13, 13, 13, 0.1);
+          }
+        `}</style>
       </div>
     </AdminLayout>
   );
