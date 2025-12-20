@@ -49,15 +49,15 @@ export function ConsultantDashboard() {
     queryFn: getCurrentConsultant,
   });
 
+  // ✅ REMOVIDO filtro completion_percentage=100 para mostrar leads incompletos também
   const { data: leads } = useQuery({
     queryKey: ['all-leads-consultant', currentUser?.id],
     queryFn: async () => {
       if (!currentUser) return [];
       const { data } = await supabase
         .from('quiz_submissions_new')
-        .select('id, name, phone, created_at, temperature, lead_score, location, has_vehicle, has_driver_license, sales_experience, employment_status, pipeline_stage_id, relationship_status, vehicle_protection_experience, current_income')
+        .select('id, name, phone, created_at, temperature, lead_score, location, has_vehicle, has_driver_license, sales_experience, employment_status, pipeline_stage_id, relationship_status, vehicle_protection_experience, current_income, completion_percentage')
         .eq('consultant_id', currentUser.id)
-        .eq('completion_percentage', 100)
         .order('created_at', { ascending: false });
       return (data || []) as Lead[];
     },

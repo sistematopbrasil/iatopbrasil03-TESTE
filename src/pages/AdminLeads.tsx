@@ -89,6 +89,7 @@ export default function AdminLeads() {
     filterLeads();
   }, [searchQuery, statusFilter, temperatureFilter, dateRange, leads, cnh, vehicle, employmentStatus, salesExperience, incomeRange]);
 
+  // ✅ REMOVIDO filtro completion_percentage=100 para mostrar leads incompletos também
   const fetchLeads = async () => {
     if (!currentUser) return;
     
@@ -97,7 +98,6 @@ export default function AdminLeads() {
       let query = supabase
         .from('quiz_submissions_new')
         .select('*')
-        .eq('completion_percentage', 100) // Filtrar apenas leads finalizados (não drafts)
         .order('created_at', { ascending: false });
 
       // Filtrar por consultant_id se não for super admin

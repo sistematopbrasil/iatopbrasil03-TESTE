@@ -212,27 +212,35 @@
     background: hsl(var(--muted-foreground) / 0.5);
   }
 
-  /* Pipeline horizontal scroll */
+  /* Pipeline horizontal scroll - ÚNICA DEFINIÇÃO */
   .pipeline-scroll {
     overflow-x: auto !important;
+    overflow-y: hidden !important;
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--primary)) hsl(var(--muted));
   }
-  
+
   .pipeline-scroll::-webkit-scrollbar {
-    height: 12px;
+    height: 10px !important;
   }
-  
+
   .pipeline-scroll::-webkit-scrollbar-track {
-    background: hsl(var(--muted));
-    border-radius: 6px;
+    background: hsl(var(--muted)) !important;
+    border-radius: 4px !important;
   }
-  
+
   .pipeline-scroll::-webkit-scrollbar-thumb {
-    background: hsl(var(--primary));
-    border-radius: 6px;
+    background: hsl(var(--primary)) !important;
+    border-radius: 4px !important;
   }
-  
+
   .pipeline-scroll::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--primary-light));
+    background: hsl(var(--primary-dark)) !important;
+  }
+
+  /* Prevenir overflow horizontal em Radix ScrollArea */
+  [data-radix-scroll-area-viewport] {
+    overflow-x: hidden !important;
   }
 }
 
@@ -577,30 +585,6 @@
     @apply h-px w-full bg-gradient-to-r from-transparent via-border to-transparent;
   }
 
-  /* Custom Scrollbar for Pipeline */
-  .pipeline-scroll {
-    scrollbar-width: thin;
-    scrollbar-color: hsl(var(--primary)) hsl(var(--muted));
-  }
-
-  .pipeline-scroll::-webkit-scrollbar {
-    height: 8px;
-  }
-
-  .pipeline-scroll::-webkit-scrollbar-track {
-    background: hsl(var(--muted));
-    border-radius: 4px;
-  }
-
-  .pipeline-scroll::-webkit-scrollbar-thumb {
-    background: hsl(var(--primary));
-    border-radius: 4px;
-  }
-
-  .pipeline-scroll::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--primary-dark));
-  }
-  
   /* Touch-friendly drag and drop */
   .pipeline-scroll [data-rfd-draggable-id] {
     touch-action: none;
