@@ -30,12 +30,14 @@ interface QuizLeadsListProps {
 }
 
 type TemperatureFilter = 'all' | 'hot' | 'warm' | 'cold';
+type StatusFilter = 'all' | 'completed' | 'incomplete';
 
 export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
   const [leads, setLeads] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [temperatureFilter, setTemperatureFilter] = useState<TemperatureFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
   useEffect(() => {
     loadLeads();
@@ -49,7 +51,7 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
         .from('quiz_submissions_new')
         .select('*')
         .not('phone', 'is', null)
-        .eq('completion_percentage', 100)
+        // ✅ SEM filtro de completion_percentage (mostrar completos e incompletos)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -71,6 +73,13 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
     cold: leads.filter(l => l.temperature === 'cold').length,
   };
 
+  // Count by completion
+  const statusCounts = {
+    all: leads.length,
+    completed: leads.filter(l => (l.completion_percentage ?? 0) === 100).length,
+    incomplete: leads.filter(l => (l.completion_percentage ?? 0) < 100).length,
+  };
+
   // Filter leads
   const filteredLeads = leads.filter(lead => {
     // Search
@@ -81,6 +90,11 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
       lead.location?.toLowerCase().includes(searchQuery.toLowerCase());
 
     if (!matchesSearch) return false;
+
+    // Completion status
+    const completion = lead.completion_percentage ?? 0;
+    if (statusFilter === 'completed' && completion !== 100) return false;
+    if (statusFilter === 'incomplete' && completion >= 100) return false;
 
     // Temperature
     if (temperatureFilter !== 'all' && lead.temperature !== temperatureFilter) {
@@ -162,6 +176,34 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
             ({counts.cold})
           </Button>
         </div>
+
+        {/* Status Filters (Conclusão) */}
+        <div className="flex gap-2 overflow-x-auto pb-1 mt-3 -mx-4 px-4 sm:mx-0 sm:px-0">
+          <Button
+            variant={statusFilter === 'all' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setStatusFilter('all')}
+            className={`flex-shrink-0 ${statusFilter === 'all' ? 'bg-primary' : 'glass'}`}
+          >
+            Todos ({statusCounts.all})
+          </Button>
+          <Button
+            variant={statusFilter === 'completed' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setStatusFilter('completed')}
+            className={`flex-shrink-0 ${statusFilter === 'completed' ? 'bg-primary' : 'glass'}`}
+          >
+            Completos ({statusCounts.completed})
+          </Button>
+          <Button
+            variant={statusFilter === 'incomplete' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setStatusFilter('incomplete')}
+            className={`flex-shrink-0 ${statusFilter === 'incomplete' ? 'bg-primary' : 'glass'}`}
+          >
+            Incompletos ({statusCounts.incomplete})
+          </Button>
+        </div>
       </div>
 
       {/* Lead List */}
@@ -211,6 +253,21 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
                               locale: ptBR,
                             })}
                           </span>
+                        </div>
+
+                        {/* Conclusão do quiz */}
+                        <div className="pt-2">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
+                              <div
+                                className="h-full bg-primary transition-all"
+                                style={{ width: `${lead.completion_percentage || 0}%` }}
+                              />
+                            </div>
+                            <span className="text-xs text-muted-foreground min-w-[40px] text-right">
+                              {lead.completion_percentage || 0}%
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
