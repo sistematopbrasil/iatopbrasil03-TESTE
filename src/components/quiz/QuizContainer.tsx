@@ -153,6 +153,16 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
     const sessionId = getSessionId();
     
     try {
+      // Buscar o primeiro estágio do pipeline para auto-assign
+      const { data: stages } = await supabase
+        .from('pipeline_stages')
+        .select('id')
+        .eq('organization_id', orgId)
+        .order('order_index', { ascending: true })
+        .limit(1);
+
+      const firstStageId = stages?.[0]?.id || null;
+
       const submissionData = {
         organization_id: orgId,
         consultant_id: consultant?.id || propConsultantId || null,
@@ -160,6 +170,7 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
         lead_score: 0,
         temperature: 'cold' as const,
         stage: "novo" as const,
+        pipeline_stage_id: firstStageId, // Auto-assign to first stage
         completion_percentage: 7,
         session_id: sessionId,
         utm_source: trackingData?.utm_source || null,

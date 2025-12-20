@@ -110,7 +110,7 @@ serve(async (req) => {
     // Buscar dados do usuário na tabela users
     const { data: userData, error: userDataError } = await supabase
       .from('users')
-      .select('id, full_name, organization_id')
+      .select('id, full_name, organization_id, username')
       .eq('auth_user_id', user.id)
       .single();
 
@@ -119,7 +119,7 @@ serve(async (req) => {
       throw new Error('Dados do usuário não encontrados');
     }
 
-    console.log('🔵 Dados do usuário:', { id: userData.id, name: userData.full_name });
+    console.log('🔵 Dados do usuário:', { id: userData.id, name: userData.full_name, username: userData.username });
 
     // Usar service role para operações administrativas
     const supabaseAdmin = createClient(
@@ -150,16 +150,15 @@ serve(async (req) => {
       );
     }
 
-    // Gerar nome único para instância usando timestamp
-    const timestamp = Date.now();
-    const baseName = userData.full_name
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]/g, '')
-      .substring(0, 15);
-    
-    const instanceName = `${baseName}_${timestamp}`;
+    // Usar username como nome da instância, ou gerar baseado no nome
+    const instanceName = userData.username || (
+      userData.full_name
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]/g, '')
+        .substring(0, 15) + Date.now()
+    );
     console.log('🔵 Nome da instância:', instanceName);
 
     // Criar webhook URL
@@ -194,7 +193,7 @@ serve(async (req) => {
       if (evolutionResponse.error?.message?.includes('already in use') || 
           evolutionResponse.error?.response?.message?.includes('already in use')) {
         console.log('⚠️ Nome em uso, tentando com sufixo alternativo...');
-        const altInstanceName = `${baseName}_${timestamp}_${Math.random().toString(36).substring(2, 6)}`;
+        const altInstanceName = `${instanceName}_${Math.random().toString(36).substring(2, 6)}`;
         
         const retryResponse = await evolutionRequest('/instance/create', {
           method: 'POST',

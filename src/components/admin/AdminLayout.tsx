@@ -87,7 +87,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
             <Button
               key={item.path}
               variant={isActive ? "default" : "ghost"}
-              className="w-full justify-start"
+              className={`w-full justify-start ${!isActive ? 'hover:bg-muted hover:text-foreground' : ''}`}
               onClick={() => navigate(item.path)}
             >
               <Icon className="mr-2 h-5 w-5" />
@@ -158,7 +158,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
             <Button
               key={item.path}
               variant={isActive ? "default" : "ghost"}
-              className="w-full justify-start"
+              className={`w-full justify-start ${!isActive ? 'hover:bg-muted hover:text-foreground' : ''}`}
               onClick={() => navigate(item.path)}
             >
               <Icon className="mr-2 h-5 w-5" />
