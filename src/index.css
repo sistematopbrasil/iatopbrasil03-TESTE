@@ -238,9 +238,33 @@
     background: hsl(var(--primary-dark)) !important;
   }
 
-  /* Prevenir overflow horizontal em Radix ScrollArea */
-  [data-radix-scroll-area-viewport] {
+  /* Prevenir overflow horizontal em Radix ScrollArea
+     (apenas em telas/componentes que optam por bloquear X) */
+  .no-x-scroll [data-radix-scroll-area-viewport] {
     overflow-x: hidden !important;
+  }
+
+  /* Forçar overflow-x-hidden em mobile (escopado) */
+  @media (max-width: 640px) {
+    .no-x-scroll {
+      overflow-x: hidden !important;
+      max-width: 100vw !important;
+    }
+
+    .no-x-scroll [data-radix-scroll-area-viewport] {
+      overflow-x: hidden !important;
+      max-width: 100vw !important;
+    }
+
+    .no-x-scroll * {
+      max-width: 100% !important;
+    }
+
+    .no-x-scroll code,
+    .no-x-scroll pre {
+      word-break: break-all !important;
+      overflow-wrap: break-word !important;
+    }
   }
 }
 

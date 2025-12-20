@@ -352,19 +352,20 @@ export function ConsultantSettings() {
   }
 
   return (
-    <div className="h-full flex flex-col p-4 md:p-6 space-y-6 overflow-x-hidden w-full max-w-full box-border">
-      <div className="min-w-0 flex-shrink-0">
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Configurações</h1>
-        <p className="text-muted-foreground mt-1 text-sm sm:text-base">Personalize seu quiz e tracking</p>
-      </div>
+    <div className="no-x-scroll h-full flex flex-col overflow-hidden">
+      <div className="p-4 md:p-6 space-y-6 overflow-x-hidden w-full max-w-full">
+        <div className="min-w-0 flex-shrink-0">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Configurações</h1>
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">Personalize seu quiz e tracking</p>
+        </div>
 
-      <Tabs defaultValue="quiz" className="flex-1 flex flex-col space-y-6 w-full overflow-x-hidden min-w-0">
-        <TabsList className="grid w-full grid-cols-4 max-w-full overflow-hidden flex-shrink-0">
-          <TabsTrigger value="quiz" className="text-xs sm:text-sm px-1 sm:px-4 truncate">Quiz</TabsTrigger>
-          <TabsTrigger value="tracking" className="text-xs sm:text-sm px-1 sm:px-4 truncate">Tracking</TabsTrigger>
-          <TabsTrigger value="whatsapp" className="text-xs sm:text-sm px-1 sm:px-4 truncate">WhatsApp</TabsTrigger>
-          <TabsTrigger value="account" className="text-xs sm:text-sm px-1 sm:px-4 truncate">Conta</TabsTrigger>
-        </TabsList>
+        <Tabs defaultValue="quiz" className="flex-1 flex flex-col w-full overflow-hidden">
+          <TabsList className="w-full overflow-x-auto flex flex-nowrap gap-1 flex-shrink-0">
+            <TabsTrigger value="quiz" className="text-xs sm:text-sm px-3 whitespace-nowrap">Quiz</TabsTrigger>
+            <TabsTrigger value="tracking" className="text-xs sm:text-sm px-3 whitespace-nowrap">Tracking</TabsTrigger>
+            <TabsTrigger value="whatsapp" className="text-xs sm:text-sm px-3 whitespace-nowrap">WhatsApp</TabsTrigger>
+            <TabsTrigger value="account" className="text-xs sm:text-sm px-3 whitespace-nowrap">Conta</TabsTrigger>
+          </TabsList>
 
         {/* Tab: Quiz */}
         <TabsContent value="quiz" className="flex-1 overflow-y-auto overflow-x-hidden min-w-0">
@@ -422,16 +423,36 @@ export function ConsultantSettings() {
                 {slugError && (
                   <p className="text-xs text-destructive">{slugError}</p>
                 )}
-                <div className="flex items-center gap-2 mt-2 min-w-0 overflow-x-hidden">
-                  <code className="text-xs bg-muted px-2 py-1 rounded flex-1 min-w-0 truncate">
-                    {getQuizUrl(formData.quiz_slug || 'seu-slug')}
-                  </code>
-                  <Button size="sm" variant="outline" onClick={copyQuizLink} disabled={!formData.quiz_slug} className="flex-shrink-0">
-                    <Copy className="w-4 h-4" />
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={openQuizLink} disabled={!formData.quiz_slug} className="flex-shrink-0">
-                    <ExternalLink className="w-4 h-4" />
-                  </Button>
+                <div className="space-y-2">
+                  <Label>Link do Quiz</Label>
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full overflow-x-hidden">
+                    <code className="text-xs bg-muted px-3 py-2 rounded flex-1 min-w-0 break-all">
+                      {getQuizUrl(formData.quiz_slug || 'seu-slug')}
+                    </code>
+
+                    <div className="flex gap-2 w-full sm:w-auto">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={copyQuizLink}
+                        disabled={!formData.quiz_slug}
+                        className="shrink-0 w-full sm:w-auto"
+                      >
+                        <Copy className="w-4 h-4 mr-2" />
+                        Copiar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={openQuizLink}
+                        disabled={!formData.quiz_slug}
+                        className="shrink-0 w-full sm:w-auto"
+                      >
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Abrir
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -720,96 +741,101 @@ export function ConsultantSettings() {
         </TabsContent>
 
         {/* Tab: Tracking */}
-        <TabsContent value="tracking" className="flex-1 overflow-y-auto overflow-x-hidden min-w-0">
-          <Card className="overflow-hidden">
-            <CardHeader>
-              <CardTitle>Tracking & Pixel</CardTitle>
-              <CardDescription>Configure seu pixel para rastrear conversões</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6 overflow-x-hidden min-w-0">
-              <div className="space-y-2">
-                <Label htmlFor="pixel_id">Meta Pixel ID</Label>
-                <Input
-                  id="pixel_id"
-                  value={formData.pixel_id}
-                  onChange={(e) => setFormData({ ...formData, pixel_id: e.target.value })}
-                  placeholder="123456789012345"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Seu Pixel ID do Facebook/Meta para tracking de conversões no seu quiz
-                </p>
-              </div>
+        <TabsContent value="tracking" className="flex-1 overflow-y-auto overflow-x-hidden">
+          <div className="w-full max-w-full overflow-x-hidden space-y-6">
+            <Card className="overflow-hidden">
+              <CardHeader>
+                <CardTitle>Tracking & Pixel</CardTitle>
+                <CardDescription>Configure seu pixel para rastrear conversões</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6 overflow-x-hidden min-w-0">
+                <div className="space-y-2">
+                  <Label htmlFor="pixel_id">Meta Pixel ID</Label>
+                  <Input
+                    id="pixel_id"
+                    value={formData.pixel_id}
+                    onChange={(e) => setFormData({ ...formData, pixel_id: e.target.value })}
+                    placeholder="123456789012345"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Seu Pixel ID do Facebook/Meta para tracking de conversões no seu quiz
+                  </p>
+                </div>
 
-              <Button 
-                onClick={() => updateMutation.mutate(formData)} 
-                disabled={updateMutation.isPending}
-              >
-                {updateMutation.isPending ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4 mr-2" />
-                )}
-                Salvar Alterações
-              </Button>
-            </CardContent>
-          </Card>
+                <Button 
+                  onClick={() => updateMutation.mutate(formData)} 
+                  disabled={updateMutation.isPending}
+                >
+                  {updateMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4 mr-2" />
+                  )}
+                  Salvar Alterações
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         {/* Tab: WhatsApp */}
-        <TabsContent value="whatsapp" className="flex-1 overflow-y-auto overflow-x-hidden min-w-0">
-          <Card className="overflow-hidden">
-            <CardHeader>
-              <CardTitle>Conexão WhatsApp</CardTitle>
-              <CardDescription>Configure sua instância do WhatsApp para o CRM</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6 overflow-x-hidden min-w-0">
-              <div className="p-4 bg-muted/50 rounded-lg space-y-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-yellow-500 animate-pulse" />
-                  <span className="text-sm font-medium">Para conectar seu WhatsApp:</span>
+        <TabsContent value="whatsapp" className="flex-1 overflow-y-auto overflow-x-hidden">
+          <div className="w-full max-w-full overflow-x-hidden space-y-6">
+            <Card className="overflow-hidden">
+              <CardHeader>
+                <CardTitle>Conexão WhatsApp</CardTitle>
+                <CardDescription>Configure sua instância do WhatsApp para o CRM</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6 overflow-x-hidden min-w-0">
+                <div className="p-4 bg-muted/50 rounded-lg space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-yellow-500 animate-pulse" />
+                    <span className="text-sm font-medium">Para conectar seu WhatsApp:</span>
+                  </div>
+                  <ol className="list-decimal list-inside text-sm text-muted-foreground space-y-1 ml-5">
+                    <li>Acesse o CRM (menu lateral)</li>
+                    <li>Clique em "Conectar WhatsApp"</li>
+                    <li>Escaneie o QR Code com seu celular</li>
+                  </ol>
                 </div>
-                <ol className="list-decimal list-inside text-sm text-muted-foreground space-y-1 ml-5">
-                  <li>Acesse o CRM (menu lateral)</li>
-                  <li>Clique em "Conectar WhatsApp"</li>
-                  <li>Escaneie o QR Code com seu celular</li>
-                </ol>
-              </div>
 
-              <div className="space-y-2">
-                <Label>Seu Nome de Usuário (Instância)</Label>
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground">@</span>
-                  <Input 
-                    value={formData.username || ''} 
-                    disabled
-                    className="font-mono bg-muted max-w-full"
-                  />
+                <div className="space-y-2">
+                  <Label>Seu Nome de Usuário (Instância)</Label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">@</span>
+                    <Input 
+                      value={formData.username || ''} 
+                      disabled
+                      className="font-mono bg-muted max-w-full"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Este é o identificador único da sua instância WhatsApp. 
+                    Você pode alterá-lo na aba "Conta".
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Este é o identificador único da sua instância WhatsApp. 
-                  Você pode alterá-lo na aba "Conta".
-                </p>
-              </div>
 
-              <Button 
-                variant="outline"
-                onClick={() => window.location.href = '/admin/crm'}
-                className="w-full sm:w-auto"
-              >
-                Ir para o CRM
-              </Button>
-            </CardContent>
-          </Card>
+                <Button 
+                  variant="outline"
+                  onClick={() => window.location.href = '/admin/crm'}
+                  className="w-full sm:w-auto"
+                >
+                  Ir para o CRM
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         {/* Tab: Conta */}
-        <TabsContent value="account" className="flex-1 overflow-y-auto overflow-x-hidden min-w-0">
-          <Card className="overflow-hidden">
-            <CardHeader>
-              <CardTitle>Informações da Conta</CardTitle>
-              <CardDescription>Dados do seu perfil</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6 overflow-x-hidden min-w-0">
+        <TabsContent value="account" className="flex-1 overflow-y-auto overflow-x-hidden">
+          <div className="w-full max-w-full overflow-x-hidden space-y-6">
+            <Card className="overflow-hidden">
+              <CardHeader>
+                <CardTitle>Informações da Conta</CardTitle>
+                <CardDescription>Dados do seu perfil</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6 overflow-x-hidden min-w-0">
               {/* Foto de Perfil */}
               <div className="space-y-4">
                 <Label className="text-base font-semibold">Foto de Perfil</Label>
@@ -915,10 +941,12 @@ export function ConsultantSettings() {
                   Salvar Alterações
                 </Button>
               </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
+  </div>
   );
 }
