@@ -9,6 +9,14 @@ export interface ConsultantUser {
   quiz_slug: string | null;
   is_active: boolean;
   profile_photo: string | null;
+  // Campos adicionais para configurações
+  quiz_cover_image: string | null;
+  quiz_image_position: string | null;
+  quiz_image_size: string | null;
+  quiz_image_shape: string | null;
+  whatsapp_button_url: string | null;
+  pixel_id: string | null;
+  username: string | null;
 }
 
 export async function getCurrentConsultant(): Promise<ConsultantUser | null> {
@@ -17,7 +25,23 @@ export async function getCurrentConsultant(): Promise<ConsultantUser | null> {
 
   const { data: user, error } = await supabase
     .from('users')
-    .select('id, full_name, email, role, organization_id, quiz_slug, is_active, profile_photo')
+    .select(`
+      id, 
+      full_name, 
+      email, 
+      role, 
+      organization_id, 
+      quiz_slug, 
+      is_active, 
+      profile_photo,
+      quiz_cover_image,
+      quiz_image_position,
+      quiz_image_size,
+      quiz_image_shape,
+      whatsapp_button_url,
+      pixel_id,
+      username
+    `)
     .eq('auth_user_id', authUser.user.id)
     .maybeSingle();
 
