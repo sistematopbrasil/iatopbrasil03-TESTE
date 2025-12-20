@@ -10,7 +10,7 @@ import { Loader2, TrendingUp, Phone, Sparkles, CheckCircle, XCircle, X, MessageC
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -208,8 +208,15 @@ export function PipelineBoard() {
     return (
       <>
         <DragDropContext onDragEnd={handleDragEnd}>
-          <ScrollArea className="pipeline-board-scrollarea w-full whitespace-nowrap rounded-md">
-            <div className="inline-flex gap-3 md:gap-4 h-full min-w-max pb-4 pr-8">
+          {/* ✅ Wrapper simples com scroll horizontal FORÇADO */}
+          <div 
+            className="pipeline-horizontal-scroll w-full h-full pb-4"
+            style={{
+              overflowX: 'scroll',
+              overflowY: 'hidden',
+            }}
+          >
+            <div className="inline-flex gap-3 md:gap-4 h-full min-w-max pr-8">
               {stages.map((stage) => {
                 const stageLeads = getLeadsByStage(stage.id);
 
@@ -238,7 +245,7 @@ export function PipelineBoard() {
                           </div>
                         </div>
 
-                        {/* Lista de Leads */}
+                        {/* Lista de Leads com scroll vertical */}
                         <ScrollArea className="flex-1 pr-2">
                           <div className="space-y-2 md:space-y-3">
                             {stageLeads.map((lead, index) => (
@@ -275,15 +282,38 @@ export function PipelineBoard() {
                 );
               })}
             </div>
+          </div>
 
-            {/* ✅ Scrollbar horizontal visível (Radix) */}
-            <ScrollBar orientation="horizontal" className="h-3 bg-muted/20" />
-          </ScrollArea>
-
-          {/* Estilos de cor (brand) para scrollbar do Radix */}
+          {/* Estilos da scrollbar horizontal customizada */}
           <style>{`
-            .pipeline-board-scrollarea [data-orientation="horizontal"][data-state="visible"] {
-              border-top: 1px solid hsl(var(--border) / 0.4);
+            .pipeline-horizontal-scroll::-webkit-scrollbar {
+              height: 10px;
+            }
+            
+            .pipeline-horizontal-scroll::-webkit-scrollbar-track {
+              background: rgba(13, 13, 13, 0.1);
+              border-radius: 4px;
+            }
+            
+            .pipeline-horizontal-scroll::-webkit-scrollbar-thumb {
+              background: #EB6608;
+              border-radius: 4px;
+            }
+            
+            .pipeline-horizontal-scroll::-webkit-scrollbar-thumb:hover {
+              background: #d45a07;
+            }
+
+            /* Scrollbar vertical dos cards */
+            .overflow-y-auto::-webkit-scrollbar {
+              width: 4px;
+            }
+            .overflow-y-auto::-webkit-scrollbar-track {
+              background: transparent;
+            }
+            .overflow-y-auto::-webkit-scrollbar-thumb {
+              background: hsl(var(--muted-foreground) / 0.3);
+              border-radius: 2px;
             }
           `}</style>
         </DragDropContext>
