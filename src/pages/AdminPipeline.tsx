@@ -102,7 +102,7 @@ export default function AdminPipeline() {
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
-          className={`flex-1 min-h-0 px-4 md:px-6 pb-4 md:pb-6 pipeline-scroll-container select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+          className={`flex-1 min-h-0 px-4 md:px-6 pb-4 md:pb-6 pipeline-scroll select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
         >
           <div 
             className="inline-flex gap-3 md:gap-4 h-full"
@@ -111,35 +111,6 @@ export default function AdminPipeline() {
             <PipelineBoard />
           </div>
         </div>
-
-        {/* Custom scrollbar styles */}
-        <style>{`
-          .pipeline-scroll-container {
-            overflow-x: auto;
-            overflow-y: hidden;
-            -webkit-overflow-scrolling: touch;
-          }
-          .pipeline-scroll-container::-webkit-scrollbar {
-            height: 10px;
-          }
-          .pipeline-scroll-container::-webkit-scrollbar-track {
-            background: hsl(var(--muted));
-            border-radius: 5px;
-            margin: 0 16px;
-          }
-          .pipeline-scroll-container::-webkit-scrollbar-thumb {
-            background: hsl(var(--primary));
-            border-radius: 5px;
-          }
-          .pipeline-scroll-container::-webkit-scrollbar-thumb:hover {
-            background: hsl(var(--primary) / 0.8);
-          }
-          /* Firefox */
-          .pipeline-scroll-container {
-            scrollbar-width: thin;
-            scrollbar-color: hsl(var(--primary)) hsl(var(--muted));
-          }
-        `}</style>
       </div>
     </AdminLayout>
   );

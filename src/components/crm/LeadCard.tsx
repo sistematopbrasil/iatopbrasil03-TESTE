@@ -39,21 +39,22 @@ export function LeadCard({ lead, onWhatsAppClick, onOpenConversation, onClick }:
     }
   };
 
-  const getScoreColor = (score: number) => {
-    if (score >= 140) return 'from-orange-500 to-red-500';
-    if (score >= 90) return 'from-yellow-500 to-orange-500';
+  // ✅ USAR TEMPERATURA DO BANCO (não calcular baseado em score)
+  const getTemperatureColor = (temp: string | null) => {
+    if (temp === 'hot') return 'from-orange-500 to-red-500';
+    if (temp === 'warm') return 'from-yellow-500 to-orange-500';
     return 'from-blue-400 to-cyan-500';
   };
 
-  const getScoreIcon = (score: number) => {
-    if (score >= 140) return <Flame className="w-3.5 h-3.5" />;
-    if (score >= 90) return <TrendingUp className="w-3.5 h-3.5" />;
+  const getTemperatureIcon = (temp: string | null) => {
+    if (temp === 'hot') return <Flame className="w-3.5 h-3.5" />;
+    if (temp === 'warm') return <TrendingUp className="w-3.5 h-3.5" />;
     return <Snowflake className="w-3.5 h-3.5" />;
   };
 
-  const getScoreLabel = (score: number) => {
-    if (score >= 140) return 'Quente';
-    if (score >= 90) return 'Morno';
+  const getTemperatureLabel = (temp: string | null) => {
+    if (temp === 'hot') return 'Quente';
+    if (temp === 'warm') return 'Morno';
     return 'Frio';
   };
 
@@ -87,13 +88,11 @@ export function LeadCard({ lead, onWhatsAppClick, onOpenConversation, onClick }:
                 </p>
               </div>
               
-              {/* Temperature badge */}
-              {lead.temperature && (
-                <div className={`flex items-center gap-1 px-2 py-1 rounded-lg bg-gradient-to-r ${getScoreColor(lead.lead_score || 0)} text-white text-xs font-medium shadow-sm`}>
-                  {getScoreIcon(lead.lead_score || 0)}
-                  <span>{getScoreLabel(lead.lead_score || 0)}</span>
-                </div>
-              )}
+              {/* Temperature badge - USANDO TEMPERATURA DO BANCO */}
+              <div className={`flex items-center gap-1 px-2 py-1 rounded-lg bg-gradient-to-r ${getTemperatureColor(lead.temperature)} text-white text-xs font-medium shadow-sm`}>
+                {getTemperatureIcon(lead.temperature)}
+                <span>{getTemperatureLabel(lead.temperature)}</span>
+              </div>
             </div>
           </div>
         </div>
