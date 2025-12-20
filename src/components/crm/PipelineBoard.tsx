@@ -10,6 +10,8 @@ import { Loader2, TrendingUp, Phone, Sparkles, CheckCircle, XCircle, X, MessageC
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -206,160 +208,82 @@ export function PipelineBoard() {
     return (
       <>
         <DragDropContext onDragEnd={handleDragEnd}>
-          {/* ✅ Container com scroll horizontal FORÇADO (barra visível no desktop) */}
-          <div
-            className="pipeline-xscroll w-full pb-4"
-            style={{
-              overflowX: 'auto',
-              overflowY: 'hidden',
-              scrollbarWidth: 'thin',
-              scrollbarColor: 'hsl(var(--primary)) hsl(var(--muted))',
-            }}
-          >
-            <div className="inline-flex gap-3 md:gap-4 h-full min-w-max pr-8">
+          <ScrollArea className="pipeline-board-scrollarea w-full whitespace-nowrap rounded-md">
+            <div className="inline-flex gap-3 md:gap-4 h-full min-w-max pb-4 pr-8">
               {stages.map((stage) => {
                 const stageLeads = getLeadsByStage(stage.id);
 
                 return (
-                  <div
-                    key={stage.id}
-                    className="w-[280px] md:w-[320px] flex-shrink-0 flex flex-col h-full"
-                  >
-                    {/* Header da coluna com cor customizada */}
-                    <div
-                      className="relative text-white p-4 rounded-t-xl shadow-lg overflow-hidden flex-shrink-0"
-                      style={{ backgroundColor: stage.color }}
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent" />
-                      <div className="relative flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                            {getIconComponent(stage.icon)}
-                          </div>
-                          <div>
-                            <h3 className="font-bold text-base">{stage.name}</h3>
-                            <p className="text-xs text-white/80">
-                              {stageLeads.length} {stageLeads.length === 1 ? 'lead' : 'leads'}
-                            </p>
-                          </div>
-                        </div>
-                        <span className="bg-white/30 backdrop-blur-sm px-3 py-1.5 rounded-full text-sm font-bold shadow-inner">
-                          {stageLeads.length}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Droppable area - Usa stage.id que agora é UUID */}
-                    <Droppable droppableId={stage.id}>
-                      {(provided, snapshot) => (
+                  <Droppable key={stage.id} droppableId={stage.id}>
+                    {(provided, snapshot) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.droppableProps}
+                        className={cn(
+                          "flex flex-col w-[280px] md:w-[320px] shrink-0 h-full",
+                          snapshot.isDraggingOver && "bg-muted/50 rounded-lg",
+                        )}
+                      >
+                        {/* Header do Stage */}
                         <div
-                          ref={provided.innerRef}
-                          {...provided.droppableProps}
-                          className={`
-                            flex-1 p-3 space-y-3 overflow-y-auto 
-                            bg-card/50 backdrop-blur-sm border-x border-b border-border rounded-b-xl 
-                            transition-all duration-300
-                            max-h-[calc(100vh-200px)] min-h-[200px]
-                            ${snapshot.isDraggingOver
-                              ? 'bg-primary/10 border-primary/50 shadow-xl shadow-primary/10'
-                              : ''
-                            }
-                          `}
+                          className="flex items-center justify-between p-3 md:p-4 rounded-t-lg mb-2 md:mb-3"
+                          style={{ backgroundColor: `${stage.color}15` }}
                         >
-                          {stageLeads.map((lead, index) => (
-                            <Draggable key={lead.id} draggableId={lead.id} index={index}>
-                              {(provided, snapshot) => (
-                                <div
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  {...provided.dragHandleProps}
-                                  className={`
-                                    transition-all duration-200
-                                    ${snapshot.isDragging
-                                      ? 'rotate-2 scale-105 shadow-2xl shadow-primary/30 z-50'
-                                      : ''
-                                    }
-                                  `}
-                                  style={{
-                                    ...provided.draggableProps.style,
-                                    touchAction: 'none',
-                                  }}
-                                >
-                                  <LeadCard
-                                    lead={lead}
-                                    onOpenConversation={handleOpenConversation}
-                                    onClick={() => setSelectedLead(lead)}
-                                  />
-                                </div>
-                              )}
-                            </Draggable>
-                          ))}
-                          {provided.placeholder}
-
-                          {/* Empty state */}
-                          {stageLeads.length === 0 && !snapshot.isDraggingOver && (
-                            <div className="flex flex-col items-center justify-center h-48 text-center">
-                              <div className="w-14 h-14 bg-muted rounded-full flex items-center justify-center mb-3 opacity-50">
-                                {getIconComponent(stage.icon)}
-                              </div>
-                              <p className="text-muted-foreground text-sm font-medium">
-                                Nenhum lead
-                              </p>
-                              <p className="text-muted-foreground/60 text-xs mt-1">
-                                Arraste leads para cá
-                              </p>
-                            </div>
-                          )}
-
-                          {/* Drop indicator */}
-                          {snapshot.isDraggingOver && stageLeads.length === 0 && (
-                            <div className="flex flex-col items-center justify-center h-48 text-center animate-pulse">
-                              <div className="w-14 h-14 bg-primary/20 rounded-full flex items-center justify-center mb-3 border-2 border-dashed border-primary">
-                                {getIconComponent(stage.icon)}
-                              </div>
-                              <p className="text-primary text-sm font-medium">
-                                Solte aqui
-                              </p>
-                            </div>
-                          )}
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-lg">{getIconComponent(stage.icon)}</span>
+                            <h3 className="font-semibold text-sm md:text-base truncate">{stage.name}</h3>
+                            <Badge variant="secondary" className="ml-1 flex-shrink-0">
+                              {stageLeads.length}
+                            </Badge>
+                          </div>
                         </div>
-                      )}
-                    </Droppable>
-                  </div>
+
+                        {/* Lista de Leads */}
+                        <ScrollArea className="flex-1 pr-2">
+                          <div className="space-y-2 md:space-y-3">
+                            {stageLeads.map((lead, index) => (
+                              <Draggable key={lead.id} draggableId={lead.id} index={index}>
+                                {(provided, snapshot) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    {...provided.dragHandleProps}
+                                    className={cn(
+                                      "transition-all duration-200",
+                                      snapshot.isDragging && "rotate-1 scale-[1.02] shadow-lg shadow-primary/20",
+                                    )}
+                                    style={{
+                                      ...provided.draggableProps.style,
+                                      touchAction: 'none',
+                                    }}
+                                  >
+                                    <LeadCard
+                                      lead={lead}
+                                      onOpenConversation={handleOpenConversation}
+                                      onClick={() => setSelectedLead(lead)}
+                                    />
+                                  </div>
+                                )}
+                              </Draggable>
+                            ))}
+                            {provided.placeholder}
+                          </div>
+                        </ScrollArea>
+                      </div>
+                    )}
+                  </Droppable>
                 );
               })}
             </div>
-          </div>
 
-          {/* Scrollbar horizontal customizada + Scrollbar vertical dos cards */}
+            {/* ✅ Scrollbar horizontal visível (Radix) */}
+            <ScrollBar orientation="horizontal" className="h-3 bg-muted/20" />
+          </ScrollArea>
+
+          {/* Estilos de cor (brand) para scrollbar do Radix */}
           <style>{`
-            .pipeline-xscroll::-webkit-scrollbar {
-              height: 10px !important;
-            }
-            
-            .pipeline-xscroll::-webkit-scrollbar-track {
-              background: hsl(var(--muted)) !important;
-              border-radius: 4px !important;
-            }
-            
-            .pipeline-xscroll::-webkit-scrollbar-thumb {
-              background: hsl(var(--primary)) !important;
-              border-radius: 4px !important;
-            }
-            
-            .pipeline-xscroll::-webkit-scrollbar-thumb:hover {
-              background: hsl(var(--primary-dark)) !important;
-            }
-
-            .overflow-y-auto::-webkit-scrollbar {
-              width: 4px;
-            }
-            .overflow-y-auto::-webkit-scrollbar-track {
-              background: transparent;
-            }
-            .overflow-y-auto::-webkit-scrollbar-thumb {
-              background: hsl(var(--muted-foreground) / 0.3);
-              border-radius: 2px;
+            .pipeline-board-scrollarea [data-orientation="horizontal"][data-state="visible"] {
+              border-top: 1px solid hsl(var(--border) / 0.4);
             }
           `}</style>
         </DragDropContext>
