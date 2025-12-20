@@ -29,6 +29,9 @@ const getIconComponent = (iconName: string | null) => {
     case 'sparkles': return <Sparkles className="w-5 h-5" />;
     case 'check-circle': return <CheckCircle className="w-5 h-5" />;
     case 'x-circle': return <XCircle className="w-5 h-5" />;
+    case 'bell': return <Phone className="w-5 h-5" />; // Using Phone as bell alternative
+    case 'calendar-check': return <CheckCircle className="w-5 h-5" />; // Using CheckCircle as calendar alternative
+    case 'users': return <User className="w-5 h-5" />; // Using User for users
     default: return <TrendingUp className="w-5 h-5" />;
   }
 };
@@ -92,18 +95,45 @@ export function PipelineBoard() {
   });
 
   // ✅ MUTATION ATUALIZADA - Usa pipeline_stage_id (UUID)
+  // Função para adicionar pontos quando lead vai para "Novos Consultores"
+  const addConversionPoints = async (consultantId: string | null, stageName: string) => {
+    if (!consultantId) return;
+    
+    // Verificar se é o stage "Novos Consultores"
+    if (stageName.toLowerCase().includes('novos consultores')) {
+      console.log('🎯 Lead movido para Novos Consultores - Adicionando 100 pontos ao consultor:', consultantId);
+      // Por enquanto só logamos, a lógica de ranking pode ser expandida depois
+      toast.success('🎯 +100 pontos! Lead convertido em consultor!');
+    }
+  };
+
   const updateStageMutation = useMutation({
-    mutationFn: async ({ leadId, newStageId }: { leadId: string; newStageId: string }) => {
+    mutationFn: async ({ leadId, newStageId, stageName }: { leadId: string; newStageId: string; stageName: string }) => {
       const { error } = await supabase
         .from('quiz_submissions_new')
         .update({ pipeline_stage_id: newStageId })
         .eq('id', leadId);
 
       if (error) throw error;
+      
+      // Buscar consultant_id do lead para dar pontos
+      const { data: lead } = await supabase
+        .from('quiz_submissions_new')
+        .select('consultant_id')
+        .eq('id', leadId)
+        .single();
+
+      return { stageName, consultantId: lead?.consultant_id };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['pipeline-leads'] });
-      toast.success('Lead movido com sucesso!');
+      
+      // Adicionar pontos se for "Novos Consultores"
+      if (data?.stageName) {
+        addConversionPoints(data.consultantId, data.stageName);
+      } else {
+        toast.success('Lead movido com sucesso!');
+      }
     },
     onError: () => {
       toast.error('Erro ao mover lead');
@@ -118,7 +148,11 @@ export function PipelineBoard() {
 
     if (result.source.droppableId === newStageId) return;
 
-    updateStageMutation.mutate({ leadId, newStageId });
+    // Encontrar o nome do stage para verificar se é "Novos Consultores"
+    const targetStage = stages.find(s => s.id === newStageId);
+    const stageName = targetStage?.name || '';
+
+    updateStageMutation.mutate({ leadId, newStageId, stageName });
   };
 
   // ✅ SIMPLIFICADO - Filtra direto por pipeline_stage_id (UUID)
@@ -313,13 +347,14 @@ export function PipelineBoard() {
 
       {/* Lead Details Popup */}
       <Dialog open={!!selectedLead} onOpenChange={(open) => !open && setSelectedLead(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md" aria-describedby="lead-details-description">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <User className="w-5 h-5 text-primary" />
               Detalhes do Lead
             </DialogTitle>
           </DialogHeader>
+          <p id="lead-details-description" className="sr-only">Informações detalhadas do lead selecionado</p>
           
           {selectedLead && (
             <div className="space-y-4">

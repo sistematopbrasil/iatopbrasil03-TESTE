@@ -95,15 +95,19 @@ export function ConsultantSettings() {
 
   useEffect(() => {
     if (consultant) {
+      console.log('🔵 [Settings] Carregando dados do consultor:', {
+        quiz_cover_image: consultant.quiz_cover_image,
+        username: consultant.username,
+      });
       setFormData({
         quiz_slug: consultant.quiz_slug || '',
-        quiz_cover_image: (consultant as any).quiz_cover_image || '',
-        quiz_image_position: (consultant as any).quiz_image_position || 'center',
-        quiz_image_size: (consultant as any).quiz_image_size || 'medium',
-        quiz_image_shape: (consultant as any).quiz_image_shape || 'rounded',
-        whatsapp_button_url: (consultant as any).whatsapp_button_url || '',
-        pixel_id: (consultant as any).pixel_id || '',
-        username: (consultant as any).username || '',
+        quiz_cover_image: consultant.quiz_cover_image || '',
+        quiz_image_position: consultant.quiz_image_position || 'center',
+        quiz_image_size: consultant.quiz_image_size || 'medium',
+        quiz_image_shape: consultant.quiz_image_shape || 'rounded',
+        whatsapp_button_url: consultant.whatsapp_button_url || '',
+        pixel_id: consultant.pixel_id || '',
+        username: consultant.username || '',
       });
     }
   }, [consultant]);
@@ -355,10 +359,11 @@ export function ConsultantSettings() {
       </div>
 
       <Tabs defaultValue="quiz" className="space-y-6 w-full overflow-hidden">
-        <TabsList className="grid w-full grid-cols-3 max-w-full overflow-hidden">
-          <TabsTrigger value="quiz" className="text-xs sm:text-sm px-2 sm:px-4 truncate">Quiz</TabsTrigger>
-          <TabsTrigger value="tracking" className="text-xs sm:text-sm px-2 sm:px-4 truncate">Tracking</TabsTrigger>
-          <TabsTrigger value="account" className="text-xs sm:text-sm px-2 sm:px-4 truncate">Conta</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-4 max-w-full overflow-hidden">
+          <TabsTrigger value="quiz" className="text-xs sm:text-sm px-1 sm:px-4 truncate">Quiz</TabsTrigger>
+          <TabsTrigger value="tracking" className="text-xs sm:text-sm px-1 sm:px-4 truncate">Tracking</TabsTrigger>
+          <TabsTrigger value="whatsapp" className="text-xs sm:text-sm px-1 sm:px-4 truncate">WhatsApp</TabsTrigger>
+          <TabsTrigger value="account" className="text-xs sm:text-sm px-1 sm:px-4 truncate">Conta</TabsTrigger>
         </TabsList>
 
         {/* Tab: Quiz */}
@@ -750,6 +755,53 @@ export function ConsultantSettings() {
           </Card>
         </TabsContent>
 
+        {/* Tab: WhatsApp */}
+        <TabsContent value="whatsapp" className="overflow-x-hidden">
+          <Card className="overflow-hidden">
+            <CardHeader>
+              <CardTitle>Conexão WhatsApp</CardTitle>
+              <CardDescription>Configure sua instância do WhatsApp para o CRM</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6 overflow-x-hidden">
+              <div className="p-4 bg-muted/50 rounded-lg space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-yellow-500 animate-pulse" />
+                  <span className="text-sm font-medium">Para conectar seu WhatsApp:</span>
+                </div>
+                <ol className="list-decimal list-inside text-sm text-muted-foreground space-y-1 ml-5">
+                  <li>Acesse o CRM (menu lateral)</li>
+                  <li>Clique em "Conectar WhatsApp"</li>
+                  <li>Escaneie o QR Code com seu celular</li>
+                </ol>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Seu Nome de Usuário (Instância)</Label>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">@</span>
+                  <Input 
+                    value={formData.username || ''} 
+                    disabled
+                    className="font-mono bg-muted max-w-full"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Este é o identificador único da sua instância WhatsApp. 
+                  Você pode alterá-lo na aba "Conta".
+                </p>
+              </div>
+
+              <Button 
+                variant="outline"
+                onClick={() => window.location.href = '/admin/crm'}
+                className="w-full sm:w-auto"
+              >
+                Ir para o CRM
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* Tab: Conta */}
         <TabsContent value="account">
           <Card>
@@ -763,12 +815,12 @@ export function ConsultantSettings() {
                 <Label className="text-base font-semibold">Foto de Perfil</Label>
                 <div className="flex items-center gap-4">
                   <div className="relative">
-                    {(consultant as any)?.profile_photo ? (
+                    {consultant?.profile_photo ? (
                       <img 
-                        src={(consultant as any).profile_photo} 
+                        src={consultant.profile_photo} 
                         alt="Foto de perfil"
                         className="w-20 h-20 rounded-full object-cover border-2 border-primary/20"
-                        key={(consultant as any).profile_photo}
+                        key={consultant.profile_photo}
                       />
                     ) : (
                       <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center border-2 border-dashed border-primary/30">
@@ -803,7 +855,7 @@ export function ConsultantSettings() {
                           </>
                         )}
                       </Button>
-                      {(consultant as any)?.profile_photo && (
+                      {consultant?.profile_photo && (
                         <Button
                           size="sm"
                           variant="destructive"

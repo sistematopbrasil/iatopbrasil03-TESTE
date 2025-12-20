@@ -331,7 +331,13 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
         salesExp: currentLead.sales_experience,
       });
 
-      const { error } = await supabase
+      console.log("🔵 [UPDATE] Tentando atualizar lead:", {
+        leadId,
+        temperature,
+        score: scoreResult.total_score,
+      });
+
+      const { data: updatedData, error } = await supabase
         .from("quiz_submissions_new")
         .update({
           lead_score: scoreResult.total_score,
@@ -339,13 +345,16 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
           completion_percentage: 100,
           updated_at: new Date().toISOString(),
         })
-        .eq("id", leadId);
+        .eq("id", leadId)
+        .select('id, temperature, lead_score');
 
       if (error) {
-        console.error("Erro ao finalizar lead:", error);
+        console.error("❌ [UPDATE] Erro ao finalizar lead:", error);
+        console.error("❌ [UPDATE] Detalhes do erro:", JSON.stringify(error, null, 2));
         return false;
       }
 
+      console.log("✅ [UPDATE] Lead atualizado com sucesso:", updatedData);
       console.log("✅ Lead finalizado com temperatura:", temperature);
 
       sessionStorage.removeItem("quiz_lead_id");
