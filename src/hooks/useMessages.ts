@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { crmService, Message } from '@/lib/crm-service';
 import { toast } from 'sonner';
+import { v4 as uuidv4 } from 'uuid';
 
 // Request notification permission on load
 if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
@@ -41,7 +42,7 @@ export function useMessages(conversationId: string | null) {
     };
   }, [conversationId]);
 
-  async function loadMessages() {
+  const loadMessages = useCallback(async () => {
     if (!conversationId) return;
 
     setIsLoading(true);
@@ -53,7 +54,7 @@ export function useMessages(conversationId: string | null) {
     } finally {
       setIsLoading(false);
     }
-  }
+  }, [conversationId]);
 
   function subscribeToMessages() {
     if (!conversationId) return;
@@ -63,11 +64,16 @@ export function useMessages(conversationId: string | null) {
       if (payload.eventType === 'INSERT') {
         const newMessage = payload.new as Message;
         setMessages((prev) => {
-          // Avoid duplicates
-          if (prev.some(m => m.id === newMessage.id)) {
-            return prev;
+          // Avoid duplicates - check by id and also by temp id pattern
+          if (prev.some(m => m.id === newMessage.id || m.message_id === newMessage.message_id)) {
+            // Replace temp message with real one
+            return prev.map(m => 
+              m.message_id === newMessage.message_id ? newMessage : m
+            );
           }
-          return [...prev, newMessage];
+          // Remove any temp messages that match this new message
+          const withoutTemp = prev.filter(m => !m.id.startsWith('temp-'));
+          return [...withoutTemp, newMessage];
         });
 
         // Play sound and show notification for incoming messages
@@ -116,7 +122,32 @@ export function useMessages(conversationId: string | null) {
   ) {
     if (!conversationId) return false;
 
+    // Generate temp ID for optimistic update
+    const tempId = `temp-${Date.now()}`;
+    const tempMessageId = `sending-${uuidv4()}`;
+
+    // Optimistic update - add message immediately
+    const optimisticMessage: Message = {
+      id: tempId,
+      conversation_id: conversationId,
+      message_id: tempMessageId,
+      direction: 'outgoing',
+      type,
+      content: type === 'text' ? content : null,
+      media_url: mediaUrl || null,
+      media_mimetype: null,
+      media_filename: fileName || null,
+      media_size: null,
+      status: 'sending',
+      error_message: null,
+      timestamp: new Date().toISOString(),
+      metadata: null,
+      created_at: new Date().toISOString(),
+    };
+
+    setMessages((prev) => [...prev, optimisticMessage]);
     setIsSending(true);
+
     try {
       const result = await crmService.sendMessage(
         conversationId,
@@ -127,13 +158,38 @@ export function useMessages(conversationId: string | null) {
       );
 
       if (!result.success) {
+        // Update temp message to error state
+        setMessages((prev) => 
+          prev.map(m => 
+            m.id === tempId 
+              ? { ...m, status: 'error' as const, error_message: result.error || 'Erro ao enviar' }
+              : m
+          )
+        );
         toast.error(result.error || 'Erro ao enviar mensagem');
         return false;
       }
 
+      // Mark as sent (will be replaced by real message from realtime)
+      setMessages((prev) => 
+        prev.map(m => 
+          m.id === tempId 
+            ? { ...m, status: 'sent' as const, message_id: result.data?.message_id || tempMessageId }
+            : m
+        )
+      );
+
       toast.success('Mensagem enviada!');
       return true;
     } catch (error: any) {
+      // Update temp message to error state
+      setMessages((prev) => 
+        prev.map(m => 
+          m.id === tempId 
+            ? { ...m, status: 'error' as const, error_message: error.message || 'Erro ao enviar' }
+            : m
+        )
+      );
       toast.error(error.message || 'Erro ao enviar mensagem');
       return false;
     } finally {

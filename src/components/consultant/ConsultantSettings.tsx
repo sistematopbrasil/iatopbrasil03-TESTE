@@ -349,16 +349,16 @@ export function ConsultantSettings() {
 
   return (
     <div className="p-4 md:p-6 space-y-6 overflow-x-hidden w-full max-w-full box-border">
-      <div>
+      <div className="min-w-0">
         <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Configurações</h1>
         <p className="text-muted-foreground mt-1 text-sm sm:text-base">Personalize seu quiz e tracking</p>
       </div>
 
       <Tabs defaultValue="quiz" className="space-y-6 w-full overflow-hidden">
         <TabsList className="grid w-full grid-cols-3 max-w-full overflow-hidden">
-          <TabsTrigger value="quiz" className="text-xs sm:text-sm px-2 sm:px-4">Quiz</TabsTrigger>
-          <TabsTrigger value="tracking" className="text-xs sm:text-sm px-2 sm:px-4">Tracking</TabsTrigger>
-          <TabsTrigger value="account" className="text-xs sm:text-sm px-2 sm:px-4">Conta</TabsTrigger>
+          <TabsTrigger value="quiz" className="text-xs sm:text-sm px-2 sm:px-4 truncate">Quiz</TabsTrigger>
+          <TabsTrigger value="tracking" className="text-xs sm:text-sm px-2 sm:px-4 truncate">Tracking</TabsTrigger>
+          <TabsTrigger value="account" className="text-xs sm:text-sm px-2 sm:px-4 truncate">Conta</TabsTrigger>
         </TabsList>
 
         {/* Tab: Quiz */}
@@ -434,7 +434,7 @@ export function ConsultantSettings() {
               <div className="space-y-4">
                 <Label className="text-base font-semibold">Imagem de Capa do Quiz</Label>
                 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 overflow-hidden">
                   {/* Left Column: Upload & Settings */}
                   <div className="space-y-4">
                     {/* Upload Section */}
@@ -571,10 +571,10 @@ export function ConsultantSettings() {
                     )}
                   </div>
 
-                  {/* Right Column: Live Preview */}
-                  <div className="space-y-2">
+                  {/* Right Column: Live Preview - Hidden on mobile */}
+                  <div className="space-y-2 hidden lg:block">
                     <Label>Preview do Quiz</Label>
-                    <div className="bg-[#0D0D0D] border border-border rounded-lg p-4 min-h-[400px]">
+                    <div className="bg-[#0D0D0D] border border-border rounded-lg p-4 min-h-[400px] overflow-hidden">
                       <div className="space-y-4 text-center">
                         {/* Logo Preview */}
                         <div className="text-white font-bold text-lg">TOP BRASIL</div>

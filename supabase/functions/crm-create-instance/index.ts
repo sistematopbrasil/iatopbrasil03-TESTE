@@ -127,7 +127,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Verificar se já existe instância
+    // Verificar se já existe instância para este usuário
     const { data: existingInstance, error: existingError } = await supabaseAdmin
       .from('whatsapp_instances')
       .select('*')
@@ -138,13 +138,31 @@ serve(async (req) => {
       console.error('❌ Erro ao verificar instância existente:', existingError);
     }
 
+    // Se já existe instância, retornar ela (mesmo se username mudou)
     if (existingInstance) {
-      console.log('✅ Instância já existe:', existingInstance.instance_name);
+      console.log('✅ Instância já existe, reconectando:', existingInstance.instance_name);
+      
+      // Se status é disconnected, tentar reconectar na Evolution API
+      if (existingInstance.status === 'disconnected') {
+        console.log('🔄 Tentando reconectar instância existente...');
+        
+        // Tentar conectar na instância existente
+        const connectResponse = await evolutionRequest(`/instance/connect/${existingInstance.instance_name}`, {
+          method: 'GET',
+        });
+        
+        if (connectResponse.success) {
+          console.log('✅ Reconexão iniciada, QR Code será gerado');
+        } else {
+          console.warn('⚠️ Não foi possível reconectar, pode ser necessário recriar a instância');
+        }
+      }
+      
       return new Response(
         JSON.stringify({
           success: true,
           data: existingInstance,
-          message: 'Instância já existe',
+          message: 'Instância já existe - reconectando',
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
