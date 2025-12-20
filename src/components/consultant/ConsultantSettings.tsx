@@ -358,7 +358,7 @@ export function ConsultantSettings() {
         <p className="text-muted-foreground mt-1 text-sm sm:text-base">Personalize seu quiz e tracking</p>
       </div>
 
-      <Tabs defaultValue="quiz" className="space-y-6 w-full overflow-hidden">
+      <Tabs defaultValue="quiz" className="space-y-6 w-full overflow-x-hidden">
         <TabsList className="grid w-full grid-cols-4 max-w-full overflow-hidden">
           <TabsTrigger value="quiz" className="text-xs sm:text-sm px-1 sm:px-4 truncate">Quiz</TabsTrigger>
           <TabsTrigger value="tracking" className="text-xs sm:text-sm px-1 sm:px-4 truncate">Tracking</TabsTrigger>
@@ -367,13 +367,13 @@ export function ConsultantSettings() {
         </TabsList>
 
         {/* Tab: Quiz */}
-        <TabsContent value="quiz">
-          <Card>
+        <TabsContent value="quiz" className="overflow-x-hidden">
+          <Card className="overflow-hidden">
             <CardHeader>
               <CardTitle>Personalizar Quiz</CardTitle>
               <CardDescription>Configure seu quiz personalizado para capturar leads</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-6 overflow-x-hidden">
               <div className="space-y-2">
                 <Label htmlFor="quiz_slug">
                   Slug do Quiz
@@ -720,13 +720,13 @@ export function ConsultantSettings() {
         </TabsContent>
 
         {/* Tab: Tracking */}
-        <TabsContent value="tracking">
-          <Card>
+        <TabsContent value="tracking" className="overflow-x-hidden">
+          <Card className="overflow-hidden">
             <CardHeader>
               <CardTitle>Tracking & Pixel</CardTitle>
               <CardDescription>Configure seu pixel para rastrear conversões</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-6 overflow-x-hidden">
               <div className="space-y-2">
                 <Label htmlFor="pixel_id">Meta Pixel ID</Label>
                 <Input
@@ -803,13 +803,13 @@ export function ConsultantSettings() {
         </TabsContent>
 
         {/* Tab: Conta */}
-        <TabsContent value="account">
-          <Card>
+        <TabsContent value="account" className="overflow-x-hidden">
+          <Card className="overflow-hidden">
             <CardHeader>
               <CardTitle>Informações da Conta</CardTitle>
               <CardDescription>Dados do seu perfil</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-6 overflow-x-hidden">
               {/* Foto de Perfil */}
               <div className="space-y-4">
                 <Label className="text-base font-semibold">Foto de Perfil</Label>

@@ -70,6 +70,7 @@ export function PipelineBoard() {
     queryFn: getCurrentConsultant,
   });
 
+  // ✅ REMOVIDO filtro completion_percentage=100 para mostrar leads incompletos também
   const { data: leads, isLoading, error } = useQuery({
     queryKey: ['pipeline-leads', currentUser?.id],
     queryFn: async () => {
@@ -78,7 +79,7 @@ export function PipelineBoard() {
       let query = supabase
         .from('quiz_submissions_new')
         .select('*')
-        .eq('completion_percentage', 100)
+        .not('pipeline_stage_id', 'is', null) // Apenas leads com stage definido
         .order('created_at', { ascending: false });
 
       if (!isSuperAdmin(currentUser.role)) {
