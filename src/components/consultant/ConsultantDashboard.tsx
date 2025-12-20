@@ -82,11 +82,23 @@ export function ConsultantDashboard() {
     if (!leads) return null;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    
+    // Yesterday
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setHours(0, 0, 0, 0);
+    const yesterdayEnd = new Date(yesterday);
+    yesterdayEnd.setHours(23, 59, 59, 999);
+    
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     sevenDaysAgo.setHours(0, 0, 0, 0);
 
     const leadsToday = leads.filter(l => new Date(l.created_at) >= today).length;
+    const leadsYesterday = leads.filter(l => {
+      const date = new Date(l.created_at);
+      return date >= yesterday && date <= yesterdayEnd;
+    }).length;
     const leads7Days = leads.filter(l => new Date(l.created_at) >= sevenDaysAgo).length;
     const totalLeads = leads.length;
     const hotLeads = leads.filter(l => l.temperature === 'hot').length;
@@ -114,6 +126,7 @@ export function ConsultantDashboard() {
 
     return {
       leadsToday,
+      leadsYesterday,
       leads7Days,
       totalLeads,
       hotLeads,
@@ -250,15 +263,22 @@ export function ConsultantDashboard() {
         </CardContent>
       </Card>
 
-      {/* Métricas em grid responsivo - 2 colunas mobile, 3 desktop */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-        <StatCard title="Leads Hoje" value={metrics.leadsToday} icon={Target} variant="primary" />
-        <StatCard title="Últimos 7 dias" value={metrics.leads7Days} icon={Calendar} />
-        <StatCard title="Total de Leads" value={metrics.totalLeads} icon={Users} />
-        <StatCard title="🔥 Quentes" value={metrics.hotLeads} icon={Flame} variant="warning" />
-        <StatCard title="🌡️ Mornos" value={metrics.warmLeads} icon={Thermometer} />
-        <StatCard title="❄️ Frios" value={metrics.coldLeads} icon={Snowflake} variant="info" />
-        <StatCard title="✅ Convertidos" value={metrics.convertedLeads} icon={CheckCircle} variant="success" className="col-span-2 sm:col-span-1" />
+      {/* Métricas em grid responsivo - 2 linhas */}
+      <div className="space-y-3">
+        {/* Linha 1: Métricas de tempo */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
+          <StatCard title="Leads Hoje" value={metrics.leadsToday} icon={Target} variant="primary" />
+          <StatCard title="Leads Ontem" value={metrics.leadsYesterday} icon={Clock} />
+          <StatCard title="Últimos 7 dias" value={metrics.leads7Days} icon={Calendar} />
+          <StatCard title="Total de Leads" value={metrics.totalLeads} icon={Users} />
+        </div>
+        {/* Linha 2: Métricas de temperatura */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
+          <StatCard title="❄️ Frios" value={metrics.coldLeads} icon={Snowflake} variant="info" />
+          <StatCard title="🌡️ Mornos" value={metrics.warmLeads} icon={Thermometer} />
+          <StatCard title="🔥 Quentes" value={metrics.hotLeads} icon={Flame} variant="warning" />
+          <StatCard title="✅ Convertidos" value={metrics.convertedLeads} icon={CheckCircle} variant="success" />
+        </div>
       </div>
 
       {/* Linha 3: Gráficos lado a lado */}

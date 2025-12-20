@@ -383,19 +383,20 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
   };
 
   const handleAnswer = async (value: string) => {
-    if (!value.trim()) {
-      toast.error("Por favor, responda esta pergunta.");
-      return;
-    }
-
     const currentQuestion = questions?.[currentStep];
     if (!currentQuestion) return;
 
+    // Validar campo obrigatório
+    if (!value.trim()) {
+      toast.error("Por favor, responda esta pergunta para continuar.");
+      return;
+    }
+
     // Validar telefone na pergunta 2
     if (currentQuestion.order_index === 2) {
-      const phoneRegex = /^[\d\s\-\(\)]+$/;
-      if (!phoneRegex.test(value) || value.replace(/\D/g, '').length < 10) {
-        toast.error("Por favor, insira um telefone válido.");
+      const cleanPhone = value.replace(/\D/g, '');
+      if (cleanPhone.length < 10 || cleanPhone.length > 11) {
+        toast.error("Por favor, insira um telefone válido com DDD.");
         return;
       }
     }
@@ -692,19 +693,54 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
           {/* Text Input */}
           {isTextQuestion && (
             <div className="mb-auto">
-              <Input
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                placeholder="Digite sua resposta..."
-                className="text-lg p-5 bg-[#0D0D0D] border-[#EB6608]/30 text-white placeholder:text-gray-500 focus:border-[#EB6608] focus:ring-[#EB6608]/20"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleAnswer(inputValue);
-                  }
-                }}
-                autoFocus
-              />
+              {currentQuestion.order_index === 2 ? (
+                // Phone input with mask
+                <Input
+                  type="tel"
+                  inputMode="numeric"
+                  value={inputValue}
+                  onChange={(e) => {
+                    // Only allow numbers
+                    const onlyNumbers = e.target.value.replace(/\D/g, '');
+                    // Format phone: (XX) XXXXX-XXXX
+                    let formatted = onlyNumbers;
+                    if (onlyNumbers.length > 0) {
+                      formatted = `(${onlyNumbers.slice(0, 2)}`;
+                      if (onlyNumbers.length > 2) {
+                        formatted += `) ${onlyNumbers.slice(2, 7)}`;
+                      }
+                      if (onlyNumbers.length > 7) {
+                        formatted += `-${onlyNumbers.slice(7, 11)}`;
+                      }
+                    }
+                    setInputValue(formatted);
+                  }}
+                  placeholder="(00) 00000-0000"
+                  maxLength={16}
+                  className="text-lg p-5 bg-[#0D0D0D] border-[#EB6608]/30 text-white placeholder:text-gray-500 focus:border-[#EB6608] focus:ring-[#EB6608]/20"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAnswer(inputValue);
+                    }
+                  }}
+                  autoFocus
+                />
+              ) : (
+                <Input
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  placeholder="Digite sua resposta..."
+                  className="text-lg p-5 bg-[#0D0D0D] border-[#EB6608]/30 text-white placeholder:text-gray-500 focus:border-[#EB6608] focus:ring-[#EB6608]/20"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAnswer(inputValue);
+                    }
+                  }}
+                  autoFocus
+                />
+              )}
             </div>
           )}
 

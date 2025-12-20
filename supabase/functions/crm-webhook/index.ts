@@ -273,6 +273,46 @@ serve(async (req) => {
             console.error('❌ Erro ao inserir mensagem:', msgError);
           } else {
             console.log('✅ Mensagem salva:', key.id);
+
+            // Mover lead para "Primeiro Contato" se estiver no primeiro quadro
+            if (conversation.lead_id) {
+              try {
+                // Buscar primeiro e segundo estágio do pipeline
+                const { data: stages } = await supabaseAdmin
+                  .from('pipeline_stages')
+                  .select('id, order_index')
+                  .eq('organization_id', instance.organization_id)
+                  .order('order_index', { ascending: true })
+                  .limit(2);
+
+                if (stages && stages.length >= 2) {
+                  const firstStageId = stages[0].id;
+                  const secondStageId = stages[1].id;
+
+                  // Verificar se lead está no primeiro estágio
+                  const { data: leadData } = await supabaseAdmin
+                    .from('quiz_submissions_new')
+                    .select('pipeline_stage_id')
+                    .eq('id', conversation.lead_id)
+                    .single();
+
+                  if (leadData && leadData.pipeline_stage_id === firstStageId) {
+                    console.log('🔄 Movendo lead para Primeiro Contato (mensagem recebida)...');
+                    await supabaseAdmin
+                      .from('quiz_submissions_new')
+                      .update({ 
+                        pipeline_stage_id: secondStageId,
+                        stage: 'contatado',
+                        last_contact_at: new Date().toISOString()
+                      })
+                      .eq('id', conversation.lead_id);
+                    console.log('✅ Lead movido para Primeiro Contato');
+                  }
+                }
+              } catch (moveError) {
+                console.warn('⚠️ Erro ao mover lead (não crítico):', moveError);
+              }
+            }
           }
         }
         break;

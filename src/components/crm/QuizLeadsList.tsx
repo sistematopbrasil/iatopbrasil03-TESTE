@@ -99,16 +99,16 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="p-4 border-b border-border bg-gradient-to-r from-primary/10 to-transparent">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Users className="w-5 h-5 text-primary" />
-            <h2 className="text-lg font-bold text-foreground">Leads do Quiz</h2>
-            <Badge variant="outline" className="ml-2">{leads.length} total</Badge>
+      <div className="p-4 border-b border-border bg-gradient-to-r from-primary/10 to-transparent flex-shrink-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+          <div className="flex items-center gap-2 min-w-0">
+            <Users className="w-5 h-5 text-primary flex-shrink-0" />
+            <h2 className="text-lg font-bold text-foreground truncate">Leads do Quiz</h2>
+            <Badge variant="outline" className="flex-shrink-0">{leads.length}</Badge>
           </div>
-          <Button variant="outline" size="sm" onClick={loadLeads} className="glass">
+          <Button variant="outline" size="sm" onClick={loadLeads} className="glass flex-shrink-0">
             Atualizar
           </Button>
         </div>
@@ -117,20 +117,20 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por nome, telefone, email ou cidade..."
+            placeholder="Buscar..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 glass border-border"
+            className="pl-10 glass border-border w-full"
           />
         </div>
 
-        {/* Temperature Filters */}
-        <div className="flex gap-2 flex-wrap">
+        {/* Temperature Filters - scrollable on mobile */}
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap">
           <Button
             variant={temperatureFilter === 'all' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setTemperatureFilter('all')}
-            className={temperatureFilter === 'all' ? 'bg-primary' : 'glass'}
+            className={`flex-shrink-0 ${temperatureFilter === 'all' ? 'bg-primary' : 'glass'}`}
           >
             Todos ({counts.all})
           </Button>
@@ -138,35 +138,35 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
             variant={temperatureFilter === 'hot' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setTemperatureFilter('hot')}
-            className={temperatureFilter === 'hot' ? 'bg-red-600 hover:bg-red-700' : 'glass border-red-600/30 text-red-500 hover:bg-red-600/20'}
+            className={`flex-shrink-0 ${temperatureFilter === 'hot' ? 'bg-red-600 hover:bg-red-700' : 'glass border-red-600/30 text-red-500 hover:bg-red-600/20'}`}
           >
             <Flame className="w-4 h-4 mr-1" />
-            Quentes ({counts.hot})
+            ({counts.hot})
           </Button>
           <Button
             variant={temperatureFilter === 'warm' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setTemperatureFilter('warm')}
-            className={temperatureFilter === 'warm' ? 'bg-yellow-600 hover:bg-yellow-700' : 'glass border-yellow-600/30 text-yellow-500 hover:bg-yellow-600/20'}
+            className={`flex-shrink-0 ${temperatureFilter === 'warm' ? 'bg-yellow-600 hover:bg-yellow-700' : 'glass border-yellow-600/30 text-yellow-500 hover:bg-yellow-600/20'}`}
           >
             <Zap className="w-4 h-4 mr-1" />
-            Mornos ({counts.warm})
+            ({counts.warm})
           </Button>
           <Button
             variant={temperatureFilter === 'cold' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setTemperatureFilter('cold')}
-            className={temperatureFilter === 'cold' ? 'bg-blue-600 hover:bg-blue-700' : 'glass border-blue-600/30 text-blue-500 hover:bg-blue-600/20'}
+            className={`flex-shrink-0 ${temperatureFilter === 'cold' ? 'bg-blue-600 hover:bg-blue-700' : 'glass border-blue-600/30 text-blue-500 hover:bg-blue-600/20'}`}
           >
             <Snowflake className="w-4 h-4 mr-1" />
-            Frios ({counts.cold})
+            ({counts.cold})
           </Button>
         </div>
       </div>
 
       {/* Lead List */}
-      <ScrollArea className="flex-1">
-        <div className="p-4 space-y-3">
+      <ScrollArea className="flex-1 overflow-x-hidden">
+        <div className="p-4 space-y-3 overflow-x-hidden">
           {filteredLeads.length === 0 ? (
             <div className="text-center py-12">
               <Users className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
@@ -174,59 +174,53 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
             </div>
           ) : (
             filteredLeads.map(lead => (
-              <Card key={lead.id} className="glass p-4 hover:border-primary/50 transition-all">
-                <div className="flex items-start gap-4">
-                  {/* Avatar */}
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-primary-light flex items-center justify-center text-primary-foreground font-bold text-lg flex-shrink-0">
-                    {lead.name?.[0]?.toUpperCase() || '?'}
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <h3 className="font-semibold text-foreground truncate">
-                        {lead.name || 'Sem nome'}
-                      </h3>
-                      <TemperatureBadge temperature={lead.temperature} />
+              <Card key={lead.id} className="glass p-4 hover:border-primary/50 transition-all overflow-hidden">
+                <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+                  {/* Avatar + Info */}
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary-light flex items-center justify-center text-primary-foreground font-bold flex-shrink-0">
+                      {lead.name?.[0]?.toUpperCase() || '?'}
                     </div>
 
-                    <div className="space-y-1 text-sm text-muted-foreground">
-                      {lead.phone && (
-                        <div className="flex items-center gap-2">
-                          <Phone className="w-3 h-3" />
-                          <span>{lead.phone}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold text-foreground truncate text-sm">
+                          {lead.name || 'Sem nome'}
+                        </h3>
+                        <TemperatureBadge temperature={lead.temperature} />
+                      </div>
+
+                      <div className="space-y-0.5 text-xs text-muted-foreground">
+                        {lead.phone && (
+                          <div className="flex items-center gap-1.5">
+                            <Phone className="w-3 h-3 flex-shrink-0" />
+                            <span className="truncate">{lead.phone}</span>
+                          </div>
+                        )}
+                        {lead.location && (
+                          <div className="flex items-center gap-1.5">
+                            <MapPin className="w-3 h-3 flex-shrink-0" />
+                            <span className="truncate">{lead.location}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-1.5">
+                          <Calendar className="w-3 h-3 flex-shrink-0" />
+                          <span>
+                            {formatDistanceToNow(new Date(lead.created_at), {
+                              addSuffix: true,
+                              locale: ptBR,
+                            })}
+                          </span>
                         </div>
-                      )}
-                      {lead.email && (
-                        <div className="flex items-center gap-2">
-                          <Mail className="w-3 h-3" />
-                          <span className="truncate">{lead.email}</span>
-                        </div>
-                      )}
-                      {lead.location && (
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-3 h-3" />
-                          <span>{lead.location}</span>
-                        </div>
-                      )}
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-3 h-3" />
-                        <span>
-                          {formatDistanceToNow(new Date(lead.created_at), {
-                            addSuffix: true,
-                            locale: ptBR,
-                          })}
-                        </span>
                       </div>
                     </div>
-
                   </div>
 
                   {/* Action */}
                   <Button
                     size="sm"
                     onClick={() => onStartConversation(lead.phone, lead)}
-                    className="bg-gradient-to-r from-primary to-primary-light flex-shrink-0"
+                    className="bg-gradient-to-r from-primary to-primary-light w-full sm:w-auto flex-shrink-0"
                   >
                     <MessageSquare className="w-4 h-4 mr-2" />
                     Conversar
