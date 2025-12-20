@@ -32,7 +32,13 @@ export default function AdminPipeline() {
     };
 
     container.addEventListener('wheel', handleWheel, { passive: false });
-    return () => container.removeEventListener('wheel', handleWheel);
+    
+    // Prevent body scroll when on pipeline page
+    document.body.style.overflow = 'hidden';
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+      document.body.style.overflow = '';
+    };
   }, []);
 
   const handleMouseDown = (e: React.MouseEvent) => {

@@ -215,7 +215,7 @@ export function PipelineBoard() {
                         flex-1 p-3 space-y-3 overflow-y-auto 
                         bg-card/50 backdrop-blur-sm border-x border-b border-border rounded-b-xl 
                         transition-all duration-300
-                        max-h-[calc(100vh-220px)] md:max-h-[calc(100vh-280px)] min-h-[200px] md:min-h-[300px]
+                        max-h-[calc(100vh-200px)] min-h-[200px]
                         ${snapshot.isDraggingOver 
                           ? 'bg-primary/10 border-primary/50 shadow-xl shadow-primary/10' 
                           : ''
@@ -363,8 +363,14 @@ export function PipelineBoard() {
                 <p className="text-xs font-semibold text-muted-foreground uppercase">Qualificação</p>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div className="flex items-center gap-2">
-                    <span className={selectedLead.has_vehicle && selectedLead.has_vehicle !== 'Não tenho veículo' ? 'text-green-500' : 'text-muted-foreground'}>
-                      {selectedLead.has_vehicle && selectedLead.has_vehicle !== 'Não tenho veículo' ? '✓' : '✗'}
+                    <span className={selectedLead.relationship_status?.toLowerCase().includes('casado') ? 'text-green-500' : 'text-muted-foreground'}>
+                      {selectedLead.relationship_status?.toLowerCase().includes('casado') ? '✓' : '✗'}
+                    </span>
+                    <span>Casado(a)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={selectedLead.has_vehicle && selectedLead.has_vehicle !== 'Não tenho veículo.' ? 'text-green-500' : 'text-muted-foreground'}>
+                      {selectedLead.has_vehicle && selectedLead.has_vehicle !== 'Não tenho veículo.' ? '✓' : '✗'}
                     </span>
                     <span>Possui veículo</span>
                   </div>
@@ -374,11 +380,21 @@ export function PipelineBoard() {
                     </span>
                     <span>Possui CNH</span>
                   </div>
-                  <div className="flex items-center gap-2 col-span-2">
+                  <div className="flex items-center gap-2">
                     <span className={selectedLead.sales_experience?.toLowerCase().includes('já trabalho') || selectedLead.sales_experience?.toLowerCase().includes('já trabalhei') ? 'text-green-500' : 'text-muted-foreground'}>
                       {selectedLead.sales_experience?.toLowerCase().includes('já trabalho') || selectedLead.sales_experience?.toLowerCase().includes('já trabalhei') ? '✓' : '✗'}
                     </span>
-                    <span>Experiência em vendas</span>
+                    <span>Exp. vendas</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={selectedLead.vehicle_protection_experience?.toLowerCase() === 'sim' ? 'text-green-500' : 'text-muted-foreground'}>
+                      {selectedLead.vehicle_protection_experience?.toLowerCase() === 'sim' ? '✓' : '✗'}
+                    </span>
+                    <span>Proteção veicular</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">💰</span>
+                    <span className="truncate">{selectedLead.current_income || 'Não informado'}</span>
                   </div>
                 </div>
               </div>

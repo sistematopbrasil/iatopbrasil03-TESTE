@@ -29,6 +29,9 @@ interface Lead {
   sales_experience: string | null;
   employment_status: string | null;
   pipeline_stage_id: string | null;
+  relationship_status: string | null;
+  vehicle_protection_experience: string | null;
+  current_income: string | null;
 }
 
 const TEMP_COLORS = {
@@ -52,7 +55,7 @@ export function ConsultantDashboard() {
       if (!currentUser) return [];
       const { data } = await supabase
         .from('quiz_submissions_new')
-        .select('id, name, phone, created_at, temperature, lead_score, location, has_vehicle, has_driver_license, sales_experience, employment_status, pipeline_stage_id')
+        .select('id, name, phone, created_at, temperature, lead_score, location, has_vehicle, has_driver_license, sales_experience, employment_status, pipeline_stage_id, relationship_status, vehicle_protection_experience, current_income')
         .eq('consultant_id', currentUser.id)
         .eq('completion_percentage', 100)
         .order('created_at', { ascending: false });
@@ -444,8 +447,14 @@ export function ConsultantDashboard() {
                 <p className="text-xs font-semibold text-muted-foreground uppercase">Qualificação</p>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div className="flex items-center gap-2">
-                    <span className={selectedLead.has_vehicle && selectedLead.has_vehicle !== 'Não tenho veículo' ? 'text-green-500' : 'text-muted-foreground'}>
-                      {selectedLead.has_vehicle && selectedLead.has_vehicle !== 'Não tenho veículo' ? '✓' : '✗'}
+                    <span className={selectedLead.relationship_status?.toLowerCase().includes('casado') ? 'text-green-500' : 'text-muted-foreground'}>
+                      {selectedLead.relationship_status?.toLowerCase().includes('casado') ? '✓' : '✗'}
+                    </span>
+                    <span>Casado(a)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={selectedLead.has_vehicle && selectedLead.has_vehicle !== 'Não tenho veículo.' ? 'text-green-500' : 'text-muted-foreground'}>
+                      {selectedLead.has_vehicle && selectedLead.has_vehicle !== 'Não tenho veículo.' ? '✓' : '✗'}
                     </span>
                     <span>Possui veículo</span>
                   </div>
@@ -455,11 +464,21 @@ export function ConsultantDashboard() {
                     </span>
                     <span>Possui CNH</span>
                   </div>
-                  <div className="flex items-center gap-2 col-span-2">
+                  <div className="flex items-center gap-2">
                     <span className={selectedLead.sales_experience?.toLowerCase().includes('já trabalho') || selectedLead.sales_experience?.toLowerCase().includes('já trabalhei') ? 'text-green-500' : 'text-muted-foreground'}>
                       {selectedLead.sales_experience?.toLowerCase().includes('já trabalho') || selectedLead.sales_experience?.toLowerCase().includes('já trabalhei') ? '✓' : '✗'}
                     </span>
-                    <span>Experiência em vendas</span>
+                    <span>Exp. vendas</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={selectedLead.vehicle_protection_experience?.toLowerCase() === 'sim' ? 'text-green-500' : 'text-muted-foreground'}>
+                      {selectedLead.vehicle_protection_experience?.toLowerCase() === 'sim' ? '✓' : '✗'}
+                    </span>
+                    <span>Proteção veicular</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">💰</span>
+                    <span className="truncate">{selectedLead.current_income || 'Não informado'}</span>
                   </div>
                 </div>
               </div>

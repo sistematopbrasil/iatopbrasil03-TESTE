@@ -1186,6 +1186,7 @@ export type Database = {
           quiz_slug: string | null
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string
+          username: string | null
           whatsapp_button_url: string | null
         }
         Insert: {
@@ -1205,6 +1206,7 @@ export type Database = {
           quiz_slug?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
+          username?: string | null
           whatsapp_button_url?: string | null
         }
         Update: {
@@ -1224,6 +1226,7 @@ export type Database = {
           quiz_slug?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
+          username?: string | null
           whatsapp_button_url?: string | null
         }
         Relationships: [
@@ -1321,6 +1324,7 @@ export type Database = {
         Args: { base_name: string }
         Returns: string
       }
+      generate_unique_username: { Args: { full_name: string }; Returns: string }
       get_consultant_ranking_dynamic: {
         Args: { period_end?: string; period_start?: string }
         Returns: {

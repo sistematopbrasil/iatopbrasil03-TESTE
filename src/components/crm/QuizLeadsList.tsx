@@ -188,10 +188,6 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
                         {lead.name || 'Sem nome'}
                       </h3>
                       <TemperatureBadge temperature={lead.temperature} />
-                      <Badge className="bg-green-600/20 text-green-500 border-green-600/30">
-                        <CheckCircle className="w-3 h-3 mr-1" />
-                        {lead.lead_score || 0} pts
-                      </Badge>
                     </div>
 
                     <div className="space-y-1 text-sm text-muted-foreground">
@@ -224,15 +220,6 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
                       </div>
                     </div>
 
-                    {/* Score Bar */}
-                    <div className="mt-3">
-                      <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-primary to-primary-light transition-all"
-                          style={{ width: `${lead.lead_score || 0}%` }}
-                        />
-                      </div>
-                    </div>
                   </div>
 
                   {/* Action */}

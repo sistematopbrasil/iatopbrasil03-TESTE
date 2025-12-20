@@ -354,7 +354,7 @@ const AdminAnalytics = () => {
         </div>
 
         {/* Métricas Adicionais - Nova Linha */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 animate-fade-in" style={{ animationDelay: "50ms" }}>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 animate-fade-in" style={{ animationDelay: "50ms" }}>
           <Card className="group relative overflow-hidden border-border/30 bg-gradient-to-br from-card via-card to-card/80 hover:border-red-500/40 transition-all duration-500">
             <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <CardContent className="p-4 sm:p-6 relative z-10">

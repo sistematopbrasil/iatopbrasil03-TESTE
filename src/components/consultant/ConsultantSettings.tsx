@@ -90,6 +90,7 @@ export function ConsultantSettings() {
     quiz_image_shape: 'rounded',
     whatsapp_button_url: '',
     pixel_id: '',
+    username: '',
   });
 
   useEffect(() => {
@@ -102,6 +103,7 @@ export function ConsultantSettings() {
         quiz_image_shape: (consultant as any).quiz_image_shape || 'rounded',
         whatsapp_button_url: (consultant as any).whatsapp_button_url || '',
         pixel_id: (consultant as any).pixel_id || '',
+        username: (consultant as any).username || '',
       });
     }
   }, [consultant]);
@@ -297,14 +299,20 @@ export function ConsultantSettings() {
           quiz_image_shape: data.quiz_image_shape,
           whatsapp_button_url: data.whatsapp_button_url,
           pixel_id: data.pixel_id,
+          username: data.username || undefined,
         })
         .eq('id', consultant.id);
 
       if (error) {
-        // Tratar erro de slug duplicado especificamente
-        if (error.code === '23505' && error.message?.includes('quiz_slug')) {
-          setSlugError('Este slug já está em uso.');
-          throw new Error('Este slug já está em uso. Escolha outro.');
+        // Tratar erro de slug ou username duplicado
+        if (error.code === '23505') {
+          if (error.message?.includes('quiz_slug')) {
+            setSlugError('Este slug já está em uso.');
+            throw new Error('Este slug já está em uso. Escolha outro.');
+          }
+          if (error.message?.includes('username')) {
+            throw new Error('Este nome de usuário já está em uso. Escolha outro.');
+          }
         }
         throw error;
       }
@@ -817,6 +825,18 @@ export function ConsultantSettings() {
                 <ThemeSelector />
 
                 <div className="space-y-2">
+                  <Label>Nome de Usuário</Label>
+                  <Input 
+                    value={formData.username} 
+                    onChange={(e) => setFormData({ ...formData, username: e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '') })}
+                    placeholder="seuusuariotopbrasil"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Nome de usuário único usado para identificar sua instância WhatsApp
+                  </p>
+                </div>
+
+                <div className="space-y-2">
                   <Label>Nome Completo</Label>
                   <Input value={consultant?.full_name || ''} disabled />
                 </div>
@@ -830,6 +850,18 @@ export function ConsultantSettings() {
                   <Label>Função</Label>
                   <Input value={consultant?.role === 'consultor' ? 'Consultor' : consultant?.role || ''} disabled />
                 </div>
+
+                <Button 
+                  onClick={() => updateMutation.mutate(formData)} 
+                  disabled={updateMutation.isPending}
+                >
+                  {updateMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4 mr-2" />
+                  )}
+                  Salvar Alterações
+                </Button>
               </div>
             </CardContent>
           </Card>
