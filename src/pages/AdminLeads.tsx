@@ -44,6 +44,7 @@ interface Lead {
   completion_percentage: number;
   lead_score: number | null;
   temperature: LeadTemperature | null;
+  extra_answers?: any;
 }
 
 type TemperatureFilter = 'all' | 'hot' | 'warm' | 'cold';
@@ -152,21 +153,55 @@ export default function AdminLeads() {
       filtered = filtered.filter(lead => new Date(lead.created_at) <= toDate);
     }
 
-    // Advanced filters
+    // Advanced filters - usando includes() para match parcial
     if (cnh !== "all") {
-      filtered = filtered.filter(lead => lead.has_driver_license === cnh);
+      filtered = filtered.filter(lead => {
+        const value = lead.has_driver_license?.toLowerCase() || '';
+        if (cnh === "Sim") return value.includes('sim');
+        if (cnh === "Não") return value.includes('não') || value === '';
+        return true;
+      });
     }
     if (vehicle !== "all") {
-      filtered = filtered.filter(lead => lead.has_vehicle === vehicle);
+      filtered = filtered.filter(lead => {
+        const value = lead.has_vehicle?.toLowerCase() || '';
+        if (vehicle === "Carro") return value.includes('carro') && !value.includes('ambos');
+        if (vehicle === "Moto") return value.includes('moto') && !value.includes('ambos');
+        if (vehicle === "Ambos") return value.includes('ambos');
+        if (vehicle === "Não") return value.includes('não') || value === '';
+        return true;
+      });
     }
     if (employmentStatus !== "all") {
-      filtered = filtered.filter(lead => lead.employment_status === employmentStatus);
+      filtered = filtered.filter(lead => {
+        const value = lead.employment_status?.toLowerCase() || '';
+        if (employmentStatus === "CLT") return value.includes('clt') || value.includes('registrado');
+        if (employmentStatus === "Autônomo") return value.includes('autônomo');
+        if (employmentStatus === "Desempregado") return value.includes('desempregado');
+        if (employmentStatus === "Empresário") return value.includes('negócio') || value.includes('próprio');
+        if (employmentStatus === "Estudante") return value.includes('estudante');
+        return true;
+      });
     }
     if (salesExperience !== "all") {
-      filtered = filtered.filter(lead => lead.sales_experience === salesExperience);
+      filtered = filtered.filter(lead => {
+        const value = lead.sales_experience?.toLowerCase() || '';
+        if (salesExperience === "Sim, trabalha") return value.includes('já trabalho') || value.includes('trabalho com vendas');
+        if (salesExperience === "Já trabalhou") return value.includes('já trabalhei');
+        if (salesExperience === "Nunca trabalhou") return value.includes('nunca');
+        if (salesExperience === "Tem interesse") return value.includes('interesse');
+        return true;
+      });
     }
     if (incomeRange !== "all") {
-      filtered = filtered.filter(lead => lead.current_income === incomeRange);
+      filtered = filtered.filter(lead => {
+        const value = lead.current_income?.toLowerCase() || '';
+        if (incomeRange === "Até R$1.500") return value.includes('menos') || value.includes('até') || value.includes('1.000') || value.includes('1.500');
+        if (incomeRange === "R$1.500-R$3.000") return value.includes('1.500') && value.includes('3.000');
+        if (incomeRange === "R$3.000-R$5.000") return value.includes('3.000') && value.includes('5.000');
+        if (incomeRange === "Acima de R$5.000") return value.includes('acima') || value.includes('5.000');
+        return true;
+      });
     }
 
     setFilteredLeads(filtered);
@@ -539,10 +574,10 @@ export default function AdminLeads() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Experiência: Todos</SelectItem>
-                    <SelectItem value="Sim, já trabalho com vendas">Sim, trabalha</SelectItem>
-                    <SelectItem value="Já trabalhei">Já trabalhou</SelectItem>
-                    <SelectItem value="Nunca trabalhei com vendas">Nunca trabalhou</SelectItem>
-                    <SelectItem value="Tenho interesse em aprender">Tem interesse</SelectItem>
+                    <SelectItem value="Sim, trabalha">Sim, trabalha</SelectItem>
+                    <SelectItem value="Já trabalhou">Já trabalhou</SelectItem>
+                    <SelectItem value="Nunca trabalhou">Nunca trabalhou</SelectItem>
+                    <SelectItem value="Tem interesse">Tem interesse</SelectItem>
                   </SelectContent>
                 </Select>
 
@@ -553,8 +588,8 @@ export default function AdminLeads() {
                   <SelectContent>
                     <SelectItem value="all">Renda: Todos</SelectItem>
                     <SelectItem value="Até R$1.500">Até R$1.500</SelectItem>
-                    <SelectItem value="De R$1.500 a R$3.000">R$1.500 - R$3.000</SelectItem>
-                    <SelectItem value="De R$3.000 a R$5.000">R$3.000 - R$5.000</SelectItem>
+                    <SelectItem value="R$1.500-R$3.000">R$1.500 - R$3.000</SelectItem>
+                    <SelectItem value="R$3.000-R$5.000">R$3.000 - R$5.000</SelectItem>
                     <SelectItem value="Acima de R$5.000">Acima de R$5.000</SelectItem>
                   </SelectContent>
                 </Select>
@@ -634,10 +669,10 @@ export default function AdminLeads() {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="h-8 px-2"
+                        className="h-8 px-2 bg-green-500/10 border-green-500/30 hover:bg-green-500/20"
                         onClick={(e) => handleOpenCRM(e, lead)}
                       >
-                        <MessageCircle className="h-4 w-4 text-primary" />
+                        <MessageCircle className="h-4 w-4 text-green-500" />
                       </Button>
                     )}
                     <Button
@@ -734,7 +769,7 @@ export default function AdminLeads() {
                         {lead.phone && (
                           <button
                             onClick={(e) => handleOpenCRM(e, lead)}
-                            className="inline-flex items-center justify-center p-2 rounded-full bg-primary/10 hover:bg-primary/20 text-primary transition-all hover:scale-110"
+                            className="inline-flex items-center justify-center p-2 rounded-full bg-green-500/10 hover:bg-green-500/20 text-green-500 transition-all hover:scale-110"
                             title="Abrir conversa no CRM"
                           >
                             <MessageCircle className="h-5 w-5" />
@@ -827,6 +862,24 @@ export default function AdminLeads() {
                   <p className="text-sm text-muted-foreground mb-2">Motivação</p>
                   <p className="text-sm bg-muted p-3 rounded break-words">{selectedLead.motivation || '-'}</p>
                 </div>
+
+                {/* Respostas Adicionais (perguntas dinâmicas) */}
+                {selectedLead.extra_answers && typeof selectedLead.extra_answers === 'object' && Object.keys(selectedLead.extra_answers).length > 0 && (
+                  <div className="border-t border-border pt-4">
+                    <p className="text-sm font-semibold text-foreground mb-3">Respostas Adicionais</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {Object.entries(selectedLead.extra_answers)
+                        .sort((a, b) => ((a[1] as any)?.order_index || 0) - ((b[1] as any)?.order_index || 0))
+                        .map(([key, value]: [string, any]) => (
+                          <div key={key}>
+                            <p className="text-sm text-muted-foreground">{value?.question || key}</p>
+                            <p className="font-medium break-words">{value?.answer || '-'}</p>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <p className="text-sm text-muted-foreground">Data de Submissão</p>
                   <p className="font-medium">

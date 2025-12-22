@@ -382,6 +382,23 @@ export function PipelineBoard() {
                 </div>
               </div>
 
+              {/* Respostas Adicionais (perguntas dinâmicas) */}
+              {selectedLead.extra_answers && Object.keys(selectedLead.extra_answers).length > 0 && (
+                <div className="p-3 bg-muted/50 rounded-lg space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase">Respostas Adicionais</p>
+                  <div className="grid grid-cols-1 gap-2 text-sm">
+                    {Object.entries(selectedLead.extra_answers as Record<string, { question: string; answer: string; order_index?: number }>)
+                      .sort((a, b) => (a[1].order_index || 0) - (b[1].order_index || 0))
+                      .map(([key, value]) => (
+                        <div key={key} className="flex justify-between items-center">
+                          <span className="text-muted-foreground truncate">{value.question}:</span>
+                          <span className="text-foreground font-medium truncate ml-2">{value.answer || '-'}</span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
               {/* Botão de ação */}
               {selectedLead.phone && (
                 <Button 

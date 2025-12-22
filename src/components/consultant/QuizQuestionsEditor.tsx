@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2, GripVertical, Edit2, Loader2 } from 'lucide-react';
 import {
@@ -252,11 +253,28 @@ function QuestionForm({
   onCancel: () => void;
   isPending: boolean;
 }) {
+  const getInitialOptions = (q: Question | null, type: QuestionType): string[] => {
+    if (type === 'yes_no') return ['Sim', 'Não'];
+    if (q?.options) return q.options as string[];
+    return [''];
+  };
+
   const [formData, setFormData] = useState({
     question_text: question?.question_text || '',
     question_type: question?.question_type || 'multiple_choice' as QuestionType,
-    options: (question?.options as string[]) || [''],
+    options: getInitialOptions(question, question?.question_type || 'multiple_choice'),
   });
+
+  // Auto-preencher opções quando tipo muda para yes_no
+  const handleTypeChange = (newType: QuestionType) => {
+    if (newType === 'yes_no') {
+      setFormData({ ...formData, question_type: newType, options: ['Sim', 'Não'] });
+    } else if (newType === 'open_text') {
+      setFormData({ ...formData, question_type: newType, options: [] });
+    } else {
+      setFormData({ ...formData, question_type: newType, options: formData.options.length > 0 ? formData.options : [''] });
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -266,18 +284,27 @@ function QuestionForm({
       return;
     }
 
-    if (formData.question_type !== 'open_text' && formData.options.filter(o => o.trim()).length < 2) {
+    // Para múltipla escolha, precisa de pelo menos 2 opções
+    if (formData.question_type === 'multiple_choice' && formData.options.filter(o => o.trim()).length < 2) {
       toast.error('Adicione pelo menos 2 opções');
       return;
+    }
+
+    // Determinar opções a salvar
+    let optionsToSave: string[] | undefined;
+    if (formData.question_type === 'open_text') {
+      optionsToSave = undefined;
+    } else if (formData.question_type === 'yes_no') {
+      optionsToSave = ['Sim', 'Não']; // Sempre fixo
+    } else {
+      optionsToSave = formData.options.filter(o => o.trim());
     }
 
     onSave({
       id: question?.id,
       question_text: formData.question_text,
       question_type: formData.question_type,
-      options: formData.question_type === 'open_text' 
-        ? undefined 
-        : formData.options.filter(o => o.trim()),
+      options: optionsToSave,
     });
   };
 
@@ -296,9 +323,7 @@ function QuestionForm({
         <Label>Tipo de Pergunta</Label>
         <Select
           value={formData.question_type}
-          onValueChange={(value: QuestionType) => 
-            setFormData({ ...formData, question_type: value })
-          }
+          onValueChange={(value: QuestionType) => handleTypeChange(value)}
         >
           <SelectTrigger>
             <SelectValue />
@@ -311,7 +336,8 @@ function QuestionForm({
         </Select>
       </div>
 
-      {formData.question_type !== 'open_text' && (
+      {/* Só mostra opções para múltipla escolha - yes_no já tem opções fixas */}
+      {formData.question_type === 'multiple_choice' && (
         <div className="space-y-2">
           <Label>Opções</Label>
           {formData.options.map((opt, index) => (
@@ -349,6 +375,18 @@ function QuestionForm({
             <Plus className="w-4 h-4 mr-2" />
             Adicionar Opção
           </Button>
+        </div>
+      )}
+
+      {/* Mostra opções fixas para yes_no (somente visualização) */}
+      {formData.question_type === 'yes_no' && (
+        <div className="space-y-2">
+          <Label>Opções (fixas)</Label>
+          <div className="flex gap-2">
+            <Badge variant="secondary" className="text-sm">Sim</Badge>
+            <Badge variant="secondary" className="text-sm">Não</Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">As opções Sim/Não são fixas para este tipo de pergunta.</p>
         </div>
       )}
 

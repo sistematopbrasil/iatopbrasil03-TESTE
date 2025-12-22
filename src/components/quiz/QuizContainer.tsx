@@ -217,7 +217,7 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
   };
 
   // ATUALIZAR LEAD a cada resposta
-  const updateLeadProgress = async (questionOrderIndex: number, value: string) => {
+  const updateLeadProgress = async (questionOrderIndex: number, questionId: string, questionText: string, value: string) => {
     const leadId = currentLeadId || leadIdRef.current;
     if (!leadId) return;
 
@@ -229,7 +229,7 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
       updated_at: new Date().toISOString(),
     };
 
-    // Map answer to correct field
+    // Map answer to correct field for standard questions (order_index 1-14)
     switch (questionOrderIndex) {
       case 1:
         updateData.name = value;
@@ -273,6 +273,32 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
         break;
       case 14:
         updateData.motivation = value;
+        break;
+      default:
+        // Para perguntas extras (order_index > 14), salvar em extra_answers
+        if (questionOrderIndex > 14) {
+          try {
+            // Buscar extra_answers atual
+            const { data: currentLead } = await supabase
+              .from("quiz_submissions_new")
+              .select("extra_answers")
+              .eq("id", leadId)
+              .single();
+
+            const currentExtras = (currentLead?.extra_answers as Record<string, any>) || {};
+            
+            // Adicionar/atualizar a resposta
+            currentExtras[questionId] = {
+              question: questionText,
+              answer: value,
+              order_index: questionOrderIndex
+            };
+
+            updateData.extra_answers = currentExtras;
+          } catch (err) {
+            console.error("Erro ao atualizar extra_answers:", err);
+          }
+        }
         break;
     }
 
@@ -423,8 +449,8 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
         return;
       }
     } else {
-      // Atualizar lead com a resposta
-      await updateLeadProgress(currentQuestion.order_index, value);
+      // Atualizar lead com a resposta (incluindo questionId e questionText para extras)
+      await updateLeadProgress(currentQuestion.order_index, currentQuestion.id, currentQuestion.question_text, value);
     }
 
     // Próxima pergunta ou finalizar

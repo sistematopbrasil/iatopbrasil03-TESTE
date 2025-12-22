@@ -299,6 +299,20 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
                     <QuizAnswer label="Renda Desejada" value={lead.desired_income} />
                     <QuizAnswer label="Motivação" value={lead.motivation} />
                   </div>
+                  
+                  {/* Respostas Adicionais */}
+                  {lead.extra_answers && Object.keys(lead.extra_answers).length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-border">
+                      <p className="text-xs font-semibold text-muted-foreground mb-2">Respostas Adicionais</p>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        {Object.entries(lead.extra_answers as Record<string, { question: string; answer: string; order_index?: number }>)
+                          .sort((a, b) => (a[1].order_index || 0) - (b[1].order_index || 0))
+                          .map(([key, value]) => (
+                            <QuizAnswer key={key} label={value.question} value={value.answer} />
+                          ))}
+                      </div>
+                    </div>
+                  )}
                 </details>
               </Card>
             ))

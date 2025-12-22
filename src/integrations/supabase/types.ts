@@ -859,6 +859,7 @@ export type Database = {
           device_type: string | null
           email: string | null
           employment_status: string | null
+          extra_answers: Json | null
           has_driver_license: string | null
           has_vehicle: string | null
           id: string
@@ -902,6 +903,7 @@ export type Database = {
           device_type?: string | null
           email?: string | null
           employment_status?: string | null
+          extra_answers?: Json | null
           has_driver_license?: string | null
           has_vehicle?: string | null
           id?: string
@@ -945,6 +947,7 @@ export type Database = {
           device_type?: string | null
           email?: string | null
           employment_status?: string | null
+          extra_answers?: Json | null
           has_driver_license?: string | null
           has_vehicle?: string | null
           id?: string
