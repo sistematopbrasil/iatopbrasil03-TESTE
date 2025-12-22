@@ -250,9 +250,15 @@ export function PipelineBoard() {
                       </div>
                     </div>
 
-                    {/* Lista de Leads com scroll vertical e padding interno */}
-                    <ScrollArea className="flex-1 p-2">
-                      <div className="space-y-2">
+                    {/* Lista de Leads com scroll vertical - mouse wheel habilitado */}
+                    <div 
+                      className="flex-1 overflow-hidden"
+                      onWheel={(e) => {
+                        e.stopPropagation();
+                      }}
+                    >
+                      <ScrollArea className="h-full p-2">
+                        <div className="space-y-2">
                         {stageLeads.map((lead, index) => (
                           <Draggable key={lead.id} draggableId={lead.id} index={index}>
                             {(provided, snapshot) => (
@@ -278,9 +284,10 @@ export function PipelineBoard() {
                             )}
                           </Draggable>
                         ))}
-                        {provided.placeholder}
-                      </div>
-                    </ScrollArea>
+                          {provided.placeholder}
+                        </div>
+                      </ScrollArea>
+                    </div>
                   </div>
                 )}
               </Droppable>

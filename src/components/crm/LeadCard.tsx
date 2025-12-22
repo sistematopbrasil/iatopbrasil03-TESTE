@@ -1,4 +1,4 @@
-import { Phone, Calendar, MessageCircle, Flame, TrendingUp, Snowflake, GripVertical, Car, CreditCard, Briefcase } from 'lucide-react';
+import { Phone, Calendar, MessageCircle, Flame, TrendingUp, Snowflake, GripVertical, Car, CreditCard, Briefcase, Shield } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,7 @@ interface LeadCardProps {
     has_vehicle?: string | null;
     has_driver_license?: string | null;
     sales_experience?: string | null;
+    vehicle_protection_experience?: string | null;
   };
   onWhatsAppClick?: (phone: string) => void;
   onOpenConversation?: (lead: any) => void;
@@ -62,6 +63,7 @@ export function LeadCard({ lead, onWhatsAppClick, onOpenConversation, onClick }:
   const hasVehicle = lead.has_vehicle && lead.has_vehicle !== 'Não tenho veículo';
   const hasLicense = lead.has_driver_license?.toLowerCase().includes('sim');
   const hasExperience = lead.sales_experience?.toLowerCase().includes('já trabalho') || lead.sales_experience?.toLowerCase().includes('já trabalhei');
+  const hasProtectionExp = lead.vehicle_protection_experience?.toLowerCase() === 'sim';
 
   return (
     <div 
@@ -112,6 +114,12 @@ export function LeadCard({ lead, onWhatsAppClick, onOpenConversation, onClick }:
             <Briefcase className={`w-3 h-3 ${hasExperience ? 'text-green-500' : 'text-muted-foreground/60'}`} />
             <span className={hasExperience ? 'text-foreground' : 'text-muted-foreground/60'}>
               {hasExperience ? 'Exp.' : 'S/ exp.'}
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Shield className={`w-3 h-3 ${hasProtectionExp ? 'text-green-500' : 'text-muted-foreground/60'}`} />
+            <span className={hasProtectionExp ? 'text-foreground' : 'text-muted-foreground/60'}>
+              {hasProtectionExp ? 'Proteção' : 'S/ prot.'}
             </span>
           </div>
         </div>
