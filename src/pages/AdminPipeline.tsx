@@ -112,8 +112,8 @@ export default function AdminPipeline() {
   };
 
   return (
-    <AdminLayout>
-      <div className="h-full w-full max-w-full flex flex-col" style={{ overflow: 'hidden' }}>
+    <AdminLayout disableVerticalScroll>
+      <div className="h-full w-full flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex-shrink-0 px-4 md:px-6 pt-4 md:pt-6 pb-2 md:pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
@@ -166,7 +166,7 @@ export default function AdminPipeline() {
 
         {/* Custom Scrollbar - Fixa abaixo dos quadros */}
         {hasOverflow && (
-          <div className="flex-shrink-0 px-4 md:px-6 py-3">
+          <div className="flex-shrink-0 px-4 md:px-6 pb-3 pt-2">
             <div 
               className="relative h-2 bg-muted rounded-full cursor-pointer"
               onClick={handleTrackClick}
