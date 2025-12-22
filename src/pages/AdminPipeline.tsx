@@ -241,7 +241,7 @@ export default function AdminPipeline() {
 
   return (
     <AdminLayout>
-      <div className="h-[calc(100vh-64px)] flex flex-col overflow-hidden">
+      <div className="h-[calc(100vh-64px)] w-full max-w-full flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex-shrink-0 px-4 md:px-6 pt-4 md:pt-6 pb-3 md:pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
@@ -285,6 +285,9 @@ export default function AdminPipeline() {
             WebkitOverflowScrolling: 'touch',
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
+            width: '100%',
+            maxWidth: '100vw',
+            position: 'relative',
           }}
         >
           <div 
