@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { PipelineBoard } from '@/components/crm/PipelineBoard';
 import { PipelineStageManager } from '@/components/crm/PipelineStageManager';
@@ -14,17 +14,95 @@ import {
 
 export default function AdminPipeline() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
+  
+  // Custom scrollbar state
+  const [thumbWidth, setThumbWidth] = useState(100);
+  const [thumbLeft, setThumbLeft] = useState(0);
+  const [isDraggingThumb, setIsDraggingThumb] = useState(false);
+  const [dragStartX, setDragStartX] = useState(0);
+  const [dragStartScrollLeft, setDragStartScrollLeft] = useState(0);
 
-  // Habilitar scroll com mouse wheel horizontal
+  // Atualiza o thumb da scrollbar custom
+  const updateScrollbar = useCallback(() => {
+    const container = containerRef.current;
+    const track = trackRef.current;
+    if (!container || !track) return;
+
+    const { scrollWidth, clientWidth, scrollLeft } = container;
+    const trackWidth = track.clientWidth;
+
+    if (scrollWidth <= clientWidth) {
+      setThumbWidth(trackWidth);
+      setThumbLeft(0);
+      return;
+    }
+
+    const ratio = clientWidth / scrollWidth;
+    const newThumbWidth = Math.max(ratio * trackWidth, 60); // mínimo 60px
+    const maxScrollLeft = scrollWidth - clientWidth;
+    const scrollRatio = scrollLeft / maxScrollLeft;
+    const newThumbLeft = scrollRatio * (trackWidth - newThumbWidth);
+
+    setThumbWidth(newThumbWidth);
+    setThumbLeft(Math.max(0, newThumbLeft));
+  }, []);
+
+  // Observa mudanças no scroll e tamanho
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => updateScrollbar();
+    container.addEventListener('scroll', handleScroll);
+    
+    // ResizeObserver para detectar mudanças de tamanho
+    const resizeObserver = new ResizeObserver(() => {
+      updateScrollbar();
+    });
+    resizeObserver.observe(container);
+
+    // Atualiza inicial com delay para garantir que o conteúdo carregou
+    const timer = setTimeout(updateScrollbar, 100);
+    const timer2 = setTimeout(updateScrollbar, 500);
+
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+      resizeObserver.disconnect();
+      clearTimeout(timer);
+      clearTimeout(timer2);
+    };
+  }, [updateScrollbar]);
+
+  // Wheel handler inteligente - permite scroll vertical dentro dos quadros
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     const handleWheel = (e: WheelEvent) => {
-      // Converter scroll vertical para horizontal
+      const target = e.target as HTMLElement;
+      
+      // Se o mouse está dentro de uma área com scroll vertical, não intercepta
+      const verticalScrollArea = target.closest('[data-pipeline-vertical-scroll="true"]');
+      if (verticalScrollArea) {
+        // Verifica se o elemento pode scrollar verticalmente
+        const scrollableElement = verticalScrollArea.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement;
+        if (scrollableElement) {
+          const { scrollTop, scrollHeight, clientHeight } = scrollableElement;
+          const canScrollUp = scrollTop > 0;
+          const canScrollDown = scrollTop < scrollHeight - clientHeight - 1;
+          
+          // Se pode scrollar na direção do wheel, deixa o scroll vertical acontecer
+          if ((e.deltaY < 0 && canScrollUp) || (e.deltaY > 0 && canScrollDown)) {
+            return; // Não faz nada, deixa o scroll vertical normal acontecer
+          }
+        }
+      }
+      
+      // Fora dos quadros ou nos limites do scroll vertical: converte para scroll horizontal
       if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
         e.preventDefault();
         container.scrollLeft += e.deltaY;
@@ -33,7 +111,6 @@ export default function AdminPipeline() {
 
     container.addEventListener('wheel', handleWheel, { passive: false });
     
-    // Prevent body scroll when on pipeline page
     document.body.style.overflow = 'hidden';
     return () => {
       container.removeEventListener('wheel', handleWheel);
@@ -41,10 +118,12 @@ export default function AdminPipeline() {
     };
   }, []);
 
+  // Drag no container do pipeline (arrastar o fundo)
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!containerRef.current) return;
-    // Não iniciar drag se clicando em card arrastável
+    // Não inicia drag se clicando em card arrastável ou na scrollbar custom
     if ((e.target as HTMLElement).closest('[data-rbd-draggable-id]')) return;
+    if ((e.target as HTMLElement).closest('[data-pipeline-scrollbar]')) return;
     
     setIsDragging(true);
     setStartX(e.pageX - containerRef.current.offsetLeft);
@@ -61,6 +140,68 @@ export default function AdminPipeline() {
 
   const handleMouseUp = () => {
     setIsDragging(false);
+  };
+
+  // Drag no thumb da scrollbar custom
+  const handleThumbMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingThumb(true);
+    setDragStartX(e.clientX);
+    setDragStartScrollLeft(containerRef.current?.scrollLeft || 0);
+  };
+
+  useEffect(() => {
+    if (!isDraggingThumb) return;
+
+    const handleMove = (e: MouseEvent) => {
+      const container = containerRef.current;
+      const track = trackRef.current;
+      if (!container || !track) return;
+
+      const deltaX = e.clientX - dragStartX;
+      const trackWidth = track.clientWidth;
+      const { scrollWidth, clientWidth } = container;
+      const maxScrollLeft = scrollWidth - clientWidth;
+      
+      // Calcula a proporção do movimento no track para o scroll
+      const scrollPerPixel = maxScrollLeft / (trackWidth - thumbWidth);
+      const newScrollLeft = dragStartScrollLeft + (deltaX * scrollPerPixel);
+      
+      container.scrollLeft = Math.max(0, Math.min(maxScrollLeft, newScrollLeft));
+    };
+
+    const handleUp = () => {
+      setIsDraggingThumb(false);
+    };
+
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('mouseup', handleUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMove);
+      document.removeEventListener('mouseup', handleUp);
+    };
+  }, [isDraggingThumb, dragStartX, dragStartScrollLeft, thumbWidth]);
+
+  // Click no track (pula para a posição)
+  const handleTrackClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const track = trackRef.current;
+    const container = containerRef.current;
+    if (!track || !container) return;
+    
+    // Não processa se clicou no thumb
+    if ((e.target as HTMLElement).closest('[data-scrollbar-thumb]')) return;
+
+    const rect = track.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const trackWidth = track.clientWidth;
+    const { scrollWidth, clientWidth } = container;
+    const maxScrollLeft = scrollWidth - clientWidth;
+    
+    // Calcula a posição do scroll baseado no click
+    const targetScrollLeft = (clickX / trackWidth) * maxScrollLeft;
+    container.scrollTo({ left: targetScrollLeft, behavior: 'smooth' });
   };
 
   return (
@@ -102,12 +243,13 @@ export default function AdminPipeline() {
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
-          className={`admin-pipeline-scroll flex-1 min-h-0 px-4 md:px-6 pb-6 select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+          className={`flex-1 min-h-0 px-4 md:px-6 pb-2 select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
           style={{
-            overflowX: 'scroll',
+            overflowX: 'auto',
             overflowY: 'hidden',
             WebkitOverflowScrolling: 'touch',
-            scrollbarGutter: 'stable',
+            scrollbarWidth: 'none', // Esconde scrollbar nativa no Firefox
+            msOverflowStyle: 'none', // Esconde scrollbar nativa no IE/Edge
           }}
         >
           <div 
@@ -118,38 +260,37 @@ export default function AdminPipeline() {
           </div>
         </div>
 
-        {/* Estilos da scrollbar horizontal laranja - FORÇAR VISÍVEL */}
+        {/* Custom Scrollbar - Sempre visível */}
+        <div 
+          data-pipeline-scrollbar="true"
+          className="flex-shrink-0 px-4 md:px-6 pb-4"
+        >
+          <div 
+            ref={trackRef}
+            onClick={handleTrackClick}
+            className="relative h-3 bg-muted/50 rounded-full cursor-pointer hover:bg-muted/70 transition-colors"
+          >
+            <div
+              data-scrollbar-thumb="true"
+              onMouseDown={handleThumbMouseDown}
+              className={`absolute top-0 h-full rounded-full transition-colors cursor-grab active:cursor-grabbing ${
+                isDraggingThumb 
+                  ? 'bg-primary' 
+                  : 'bg-primary/70 hover:bg-primary'
+              }`}
+              style={{
+                width: `${thumbWidth}px`,
+                left: `${thumbLeft}px`,
+                minWidth: '60px',
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Esconde a scrollbar nativa do webkit */}
         <style>{`
-          .admin-pipeline-scroll {
-            scrollbar-width: auto !important;
-            scrollbar-color: #EB6608 hsl(var(--muted) / 0.5) !important;
-          }
-          
-          .admin-pipeline-scroll::-webkit-scrollbar {
-            height: 14px !important;
-            display: block !important;
-            visibility: visible !important;
-          }
-          
-          .admin-pipeline-scroll::-webkit-scrollbar-track {
-            background: hsl(var(--muted) / 0.5) !important;
-            border-radius: 7px !important;
-            margin: 0 16px !important;
-          }
-          
-          .admin-pipeline-scroll::-webkit-scrollbar-thumb {
-            background: linear-gradient(180deg, #EB6608 0%, #d45a07 100%) !important;
-            border-radius: 7px !important;
-            border: 3px solid hsl(var(--muted) / 0.5) !important;
-            min-width: 80px !important;
-          }
-          
-          .admin-pipeline-scroll::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(180deg, #ff7a1a 0%, #EB6608 100%) !important;
-          }
-          
-          .admin-pipeline-scroll::-webkit-scrollbar-thumb:active {
-            background: linear-gradient(180deg, #EB6608 0%, #c24d06 100%) !important;
+          div[style*="overflow-x: auto"]::-webkit-scrollbar {
+            display: none;
           }
         `}</style>
       </div>

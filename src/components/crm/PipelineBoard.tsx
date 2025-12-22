@@ -252,10 +252,8 @@ export function PipelineBoard() {
 
                     {/* Lista de Leads com scroll vertical - mouse wheel habilitado */}
                     <div 
+                      data-pipeline-vertical-scroll="true"
                       className="flex-1 overflow-hidden"
-                      onWheel={(e) => {
-                        e.stopPropagation();
-                      }}
                     >
                       <ScrollArea className="h-full p-2">
                         <div className="space-y-2">
