@@ -37,15 +37,6 @@ export default function AdminPipeline() {
     const { scrollWidth, clientWidth, scrollLeft: containerScrollLeft } = container;
     const trackWidth = track.clientWidth;
 
-    // ✅ DEBUG TEMPORÁRIO (remover depois):
-    console.log('📊 Pipeline Scrollbar Debug:', {
-      scrollWidth,
-      clientWidth,
-      hasOverflow: scrollWidth > clientWidth,
-      scrollLeft: containerScrollLeft,
-      trackWidth,
-    });
-
     // Verifica se há overflow
     const overflow = scrollWidth > clientWidth + 1;
     setHasOverflow(overflow);
@@ -57,13 +48,16 @@ export default function AdminPipeline() {
     }
 
     const ratio = clientWidth / scrollWidth;
-    const newThumbWidth = Math.max(ratio * trackWidth, 60); // mínimo 60px
+    const newThumbWidth = Math.max(Math.round(ratio * trackWidth), 60); // mínimo 60px
     const maxScrollLeft = scrollWidth - clientWidth;
+    
+    // ✅ Cálculo preciso do thumbLeft para ir até o final
+    const maxThumbLeft = trackWidth - newThumbWidth;
     const scrollRatio = maxScrollLeft > 0 ? containerScrollLeft / maxScrollLeft : 0;
-    const newThumbLeft = scrollRatio * (trackWidth - newThumbWidth);
+    const newThumbLeft = Math.round(scrollRatio * maxThumbLeft);
 
     setThumbWidth(newThumbWidth);
-    setThumbLeft(Math.max(0, Math.min(newThumbLeft, trackWidth - newThumbWidth)));
+    setThumbLeft(Math.max(0, Math.min(newThumbLeft, maxThumbLeft)));
   }, []);
 
   // Observa mudanças no scroll, tamanho do container E do conteúdo
@@ -107,7 +101,7 @@ export default function AdminPipeline() {
     };
   }, [updateScrollbar]);
 
-  // Wheel handler inteligente - permite scroll vertical dentro dos quadros
+  // Wheel handler - scroll vertical APENAS dentro dos quadros
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -115,24 +109,14 @@ export default function AdminPipeline() {
     const handleWheel = (e: WheelEvent) => {
       const target = e.target as HTMLElement;
       
-      // Se o mouse está dentro de uma área com scroll vertical, não intercepta
+      // ✅ Se o mouse está dentro de um quadro, NÃO INTERCEPTA NADA
+      // Deixa o scroll vertical do quadro funcionar normalmente
       const verticalScrollArea = target.closest('[data-pipeline-vertical-scroll="true"]');
       if (verticalScrollArea) {
-        // Verifica se o elemento pode scrollar verticalmente
-        const scrollableElement = verticalScrollArea.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement;
-        if (scrollableElement) {
-          const { scrollTop, scrollHeight, clientHeight } = scrollableElement;
-          const canScrollUp = scrollTop > 0;
-          const canScrollDown = scrollTop < scrollHeight - clientHeight - 1;
-          
-          // Se pode scrollar na direção do wheel, deixa o scroll vertical acontecer
-          if ((e.deltaY < 0 && canScrollUp) || (e.deltaY > 0 && canScrollDown)) {
-            return; // Não faz nada, deixa o scroll vertical normal acontecer
-          }
-        }
+        return; // Não faz nada, deixa o ScrollArea do quadro lidar com o scroll
       }
       
-      // Fora dos quadros ou nos limites do scroll vertical: converte para scroll horizontal
+      // ✅ APENAS fora dos quadros: converte scroll vertical para horizontal
       if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
         e.preventDefault();
         container.scrollLeft += e.deltaY;
