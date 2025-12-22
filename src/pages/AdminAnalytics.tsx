@@ -353,24 +353,43 @@ const AdminAnalytics = () => {
           </Select>
         </div>
 
-        {/* Métricas Adicionais - Nova Linha */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 animate-fade-in" style={{ animationDelay: "50ms" }}>
-          <Card className="group relative overflow-hidden border-border/30 bg-gradient-to-br from-card via-card to-card/80 hover:border-red-500/40 transition-all duration-500">
-            <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+        {/* Métricas Adicionais - Boas primeiro, ruins depois */}
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 sm:gap-4 animate-fade-in" style={{ animationDelay: "50ms" }}>
+          {/* 1. Leads Hoje (verde - bom) */}
+          <Card className="group relative overflow-hidden border-border/30 bg-gradient-to-br from-card via-card to-card/80 hover:border-emerald-500/40 transition-all duration-500">
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <CardContent className="p-4 sm:p-6 relative z-10">
               <div className="flex flex-col gap-3">
-                <div className="p-2.5 sm:p-3 bg-gradient-to-br from-red-500/20 to-red-500/5 rounded-xl w-fit border border-red-500/20">
-                  <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 text-red-500" />
+                <div className="p-2.5 sm:p-3 bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 rounded-xl w-fit border border-emerald-500/20">
+                  <CalendarDays className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-500" />
                 </div>
                 <div>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-medium">Taxa Abandono</p>
-                  <p className="text-2xl sm:text-3xl font-black text-foreground mt-1">{stats.abandonRate}%</p>
-                  <p className="text-xs text-muted-foreground">{stats.abandoned} leads</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-medium">Leads Hoje</p>
+                  <p className="text-2xl sm:text-3xl font-black text-foreground mt-1">{additionalMetrics.leadsToday}</p>
+                  <p className="text-xs text-muted-foreground">novos leads</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
+          {/* 2. Taxa Conclusão (primary - bom) */}
+          <Card className="group relative overflow-hidden border-border/30 bg-gradient-to-br from-card via-card to-card/80 hover:border-primary/40 transition-all duration-500">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <CardContent className="p-4 sm:p-6 relative z-10">
+              <div className="flex flex-col gap-3">
+                <div className="p-2.5 sm:p-3 bg-gradient-to-br from-primary/20 to-primary/5 rounded-xl w-fit border border-primary/20">
+                  <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                </div>
+                <div>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-medium">Taxa Conclusão</p>
+                  <p className="text-2xl sm:text-3xl font-black text-foreground mt-1">{stats.rate}%</p>
+                  <p className="text-xs text-muted-foreground">{stats.completed} completos</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 3. Tempo Médio (roxo - neutro) */}
           <Card className="group relative overflow-hidden border-border/30 bg-gradient-to-br from-card via-card to-card/80 hover:border-purple-500/40 transition-all duration-500">
             <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <CardContent className="p-4 sm:p-6 relative z-10">
@@ -387,17 +406,18 @@ const AdminAnalytics = () => {
             </CardContent>
           </Card>
 
-          <Card className="group relative overflow-hidden border-border/30 bg-gradient-to-br from-card via-card to-card/80 hover:border-emerald-500/40 transition-all duration-500">
-            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          {/* 4. Taxa Abandono (vermelho - ruim - por último) */}
+          <Card className="group relative overflow-hidden border-border/30 bg-gradient-to-br from-card via-card to-card/80 hover:border-red-500/40 transition-all duration-500">
+            <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <CardContent className="p-4 sm:p-6 relative z-10">
               <div className="flex flex-col gap-3">
-                <div className="p-2.5 sm:p-3 bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 rounded-xl w-fit border border-emerald-500/20">
-                  <CalendarDays className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-500" />
+                <div className="p-2.5 sm:p-3 bg-gradient-to-br from-red-500/20 to-red-500/5 rounded-xl w-fit border border-red-500/20">
+                  <AlertTriangle className="h-5 w-5 sm:h-6 sm:w-6 text-red-500" />
                 </div>
                 <div>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-medium">Leads Hoje</p>
-                  <p className="text-2xl sm:text-3xl font-black text-foreground mt-1">{additionalMetrics.leadsToday}</p>
-                  <p className="text-xs text-muted-foreground">novos leads</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-medium">Taxa Abandono</p>
+                  <p className="text-2xl sm:text-3xl font-black text-foreground mt-1">{stats.abandonRate}%</p>
+                  <p className="text-xs text-muted-foreground">{stats.abandoned} leads</p>
                 </div>
               </div>
             </CardContent>

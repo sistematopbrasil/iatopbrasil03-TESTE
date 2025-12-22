@@ -538,6 +538,23 @@ export function ConsultantDashboard() {
                 </div>
               </div>
 
+              {/* Respostas Adicionais */}
+              {(selectedLead as any).extra_answers && Object.keys((selectedLead as any).extra_answers).length > 0 && (
+                <div className="p-3 bg-muted/50 rounded-lg space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase">Respostas Adicionais</p>
+                  <div className="grid grid-cols-1 gap-2 text-sm">
+                    {Object.entries((selectedLead as any).extra_answers)
+                      .sort((a: any, b: any) => (a[1].order_index || 0) - (b[1].order_index || 0))
+                      .map(([key, value]: [string, any]) => (
+                        <div key={key} className="flex justify-between items-center">
+                          <span className="text-muted-foreground truncate">{value.question}:</span>
+                          <span className="text-foreground font-medium truncate ml-2">{value.answer || '-'}</span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
               {selectedLead.phone && (
                 <Button
                   className="w-full"
