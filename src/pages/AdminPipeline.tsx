@@ -113,9 +113,9 @@ export default function AdminPipeline() {
 
   return (
     <AdminLayout>
-      <div className="h-full w-full max-w-full flex flex-col overflow-hidden">
+      <div className="h-full w-full max-w-full flex flex-col" style={{ overflow: 'hidden' }}>
         {/* Header */}
-        <div className="flex-shrink-0 px-4 md:px-6 pt-4 md:pt-6 pb-3 md:pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="flex-shrink-0 px-4 md:px-6 pt-4 md:pt-6 pb-2 md:pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
             <h1 className="text-xl md:text-2xl font-bold text-foreground">Pipeline de Vendas</h1>
             <p className="text-sm text-muted-foreground mt-1 hidden sm:block">
@@ -145,16 +145,18 @@ export default function AdminPipeline() {
         {/* Pipeline Board - Container sem scrollbar nativa visível */}
         <div 
           ref={scrollContainerRef}
-          className="flex-1 min-h-0 px-4 md:px-6 overflow-x-auto overflow-y-hidden scrollbar-none"
+          className="flex-1 min-h-0 px-4 md:px-6 scrollbar-none"
           style={{ 
+            overflowX: 'auto',
+            overflowY: 'hidden',
             WebkitOverflowScrolling: 'touch',
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
           }}
         >
           <div 
-            className="inline-flex gap-3 md:gap-4 h-full"
-            style={{ minWidth: 'max-content' }}
+            className="inline-flex gap-3 md:gap-4"
+            style={{ minWidth: 'max-content', height: '100%' }}
           >
             <PipelineBoard />
             {/* Spacer para garantir que o último quadro apareça completo */}
