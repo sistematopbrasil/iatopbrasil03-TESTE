@@ -102,48 +102,52 @@ export default function AdminPipeline() {
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
-          className={`admin-pipeline-scroll flex-1 min-h-0 px-4 md:px-6 pb-4 md:pb-6 select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+          className={`admin-pipeline-scroll flex-1 min-h-0 px-4 md:px-6 pb-6 select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
           style={{
             overflowX: 'scroll',
             overflowY: 'hidden',
+            WebkitOverflowScrolling: 'touch',
           }}
         >
           <div 
-            className="inline-flex gap-3 md:gap-4 h-full"
+            className="inline-flex gap-3 md:gap-4 h-full pb-2"
             style={{ minWidth: 'max-content' }}
           >
             <PipelineBoard />
           </div>
         </div>
 
-        {/* Estilos da scrollbar horizontal laranja */}
+        {/* Estilos da scrollbar horizontal laranja - FORÇAR VISÍVEL */}
         <style>{`
+          .admin-pipeline-scroll {
+            scrollbar-width: auto !important;
+            scrollbar-color: #EB6608 hsl(var(--muted) / 0.5) !important;
+          }
+          
           .admin-pipeline-scroll::-webkit-scrollbar {
-            height: 12px;
+            height: 14px !important;
+            display: block !important;
           }
           
           .admin-pipeline-scroll::-webkit-scrollbar-track {
-            background: rgba(13, 13, 13, 0.1);
-            border-radius: 6px;
+            background: hsl(var(--muted) / 0.5) !important;
+            border-radius: 7px !important;
+            margin: 0 16px !important;
           }
           
           .admin-pipeline-scroll::-webkit-scrollbar-thumb {
-            background: #EB6608;
-            border-radius: 6px;
-            border: 2px solid transparent;
-            background-clip: padding-box;
+            background: linear-gradient(180deg, #EB6608 0%, #d45a07 100%) !important;
+            border-radius: 7px !important;
+            border: 3px solid hsl(var(--muted) / 0.5) !important;
+            min-width: 80px !important;
           }
           
           .admin-pipeline-scroll::-webkit-scrollbar-thumb:hover {
-            background: #d45a07;
-            border: 2px solid transparent;
-            background-clip: padding-box;
+            background: linear-gradient(180deg, #ff7a1a 0%, #EB6608 100%) !important;
           }
-
-          /* Firefox */
-          .admin-pipeline-scroll {
-            scrollbar-width: thin;
-            scrollbar-color: #EB6608 rgba(13, 13, 13, 0.1);
+          
+          .admin-pipeline-scroll::-webkit-scrollbar-thumb:active {
+            background: linear-gradient(180deg, #EB6608 0%, #c24d06 100%) !important;
           }
         `}</style>
       </div>

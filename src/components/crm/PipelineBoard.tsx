@@ -218,27 +218,41 @@ export function PipelineBoard() {
                     ref={provided.innerRef}
                     {...provided.droppableProps}
                     className={cn(
-                      "flex flex-col w-[280px] md:w-[320px] shrink-0 h-full",
-                      snapshot.isDraggingOver && "bg-muted/50 rounded-lg",
+                      "flex flex-col w-[260px] md:w-[300px] shrink-0 h-full rounded-xl",
+                      "bg-card/80 border border-border/60",
+                      "shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)]",
+                      snapshot.isDraggingOver && "bg-primary/10 border-primary/40 shadow-[inset_0_0_20px_rgba(235,102,8,0.1)]",
                     )}
                   >
                     {/* Header do Stage */}
                     <div
-                      className="flex items-center justify-between p-3 md:p-4 rounded-t-lg mb-2 md:mb-3"
-                      style={{ backgroundColor: `${stage.color}15` }}
+                      className="flex items-center justify-between p-3 rounded-t-xl border-b"
+                      style={{ 
+                        backgroundColor: `${stage.color}20`,
+                        borderColor: `${stage.color}40`
+                      }}
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-lg">{getIconComponent(stage.icon)}</span>
-                        <h3 className="font-semibold text-sm md:text-base truncate">{stage.name}</h3>
-                        <Badge variant="secondary" className="ml-1 flex-shrink-0">
+                        <span 
+                          className="w-8 h-8 rounded-lg flex items-center justify-center"
+                          style={{ backgroundColor: `${stage.color}30` }}
+                        >
+                          {getIconComponent(stage.icon)}
+                        </span>
+                        <h3 className="font-semibold text-sm truncate">{stage.name}</h3>
+                        <Badge 
+                          variant="secondary" 
+                          className="ml-1 flex-shrink-0 text-xs"
+                          style={{ backgroundColor: `${stage.color}25`, color: stage.color }}
+                        >
                           {stageLeads.length}
                         </Badge>
                       </div>
                     </div>
 
-                    {/* Lista de Leads com scroll vertical */}
-                    <ScrollArea className="flex-1 pr-2">
-                      <div className="space-y-2 md:space-y-3">
+                    {/* Lista de Leads com scroll vertical e padding interno */}
+                    <ScrollArea className="flex-1 p-2">
+                      <div className="space-y-2">
                         {stageLeads.map((lead, index) => (
                           <Draggable key={lead.id} draggableId={lead.id} index={index}>
                             {(provided, snapshot) => (

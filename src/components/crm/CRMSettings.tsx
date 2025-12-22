@@ -23,32 +23,32 @@ export function CRMSettings({ onClose }: CRMSettingsProps) {
         </Button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4">
-        <Tabs defaultValue="quick-replies">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-4">
+        <Tabs defaultValue="quick-replies" className="w-full max-w-full">
           <TabsList className="glass w-full mb-4 grid grid-cols-3">
-            <TabsTrigger value="quick-replies" className="gap-2">
-              <Zap className="w-4 h-4" />
+            <TabsTrigger value="quick-replies" className="gap-1 sm:gap-2 text-xs sm:text-sm px-2">
+              <Zap className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
               <span className="hidden sm:inline">Respostas</span>
             </TabsTrigger>
-            <TabsTrigger value="tags" className="gap-2">
-              <Tag className="w-4 h-4" />
+            <TabsTrigger value="tags" className="gap-1 sm:gap-2 text-xs sm:text-sm px-2">
+              <Tag className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
               <span className="hidden sm:inline">Tags</span>
             </TabsTrigger>
-            <TabsTrigger value="whatsapp" className="gap-2">
-              <MessageSquare className="w-4 h-4" />
+            <TabsTrigger value="whatsapp" className="gap-1 sm:gap-2 text-xs sm:text-sm px-2">
+              <MessageSquare className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
               <span className="hidden sm:inline">WhatsApp</span>
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="quick-replies">
+          <TabsContent value="quick-replies" className="overflow-x-hidden">
             <QuickRepliesManager />
           </TabsContent>
 
-          <TabsContent value="tags">
+          <TabsContent value="tags" className="overflow-x-hidden">
             <TagsManager />
           </TabsContent>
 
-          <TabsContent value="whatsapp">
+          <TabsContent value="whatsapp" className="overflow-x-hidden">
             <WhatsAppConnectionSettings />
           </TabsContent>
         </Tabs>
