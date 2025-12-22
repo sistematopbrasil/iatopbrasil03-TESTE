@@ -14,11 +14,9 @@ import logoDark from "@/assets/logo-top-brasil.png";
 
 interface AdminLayoutProps {
   children: ReactNode;
-  /** Desabilita o scroll vertical da página (usado pelo Pipeline) */
-  disableVerticalScroll?: boolean;
 }
 
-export const AdminLayout = ({ children, disableVerticalScroll = false }: AdminLayoutProps) => {
+export const AdminLayout = ({ children }: AdminLayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -249,13 +247,7 @@ export const AdminLayout = ({ children, disableVerticalScroll = false }: AdminLa
           </header>
 
           {/* Page Content */}
-          <div 
-            className={`h-[calc(100vh-64px)] md:h-screen ${
-              disableVerticalScroll 
-                ? 'overflow-hidden' 
-                : 'overflow-y-auto overflow-x-hidden'
-            }`}
-          >
+          <div className="h-[calc(100vh-64px)] md:h-screen overflow-hidden">
             {children}
           </div>
         </main>
