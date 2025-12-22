@@ -78,7 +78,7 @@ export default function AdminPipeline() {
 
     const handleScroll = () => updateScrollbar();
     container.addEventListener('scroll', handleScroll, { passive: true });
-    
+
     const resizeObserver = new ResizeObserver(() => updateScrollbar());
     resizeObserver.observe(container);
     if (content) resizeObserver.observe(content);
@@ -89,8 +89,11 @@ export default function AdminPipeline() {
       mutationObserver.observe(content, { childList: true, subtree: true });
     }
 
-    // Atualiza inicial
-    const timers = [100, 300, 600].map(delay => setTimeout(updateScrollbar, delay));
+    // ✅ Atualiza já no mount (evita estado inicial “sem barra”)
+    updateScrollbar();
+
+    // Reforços iniciais (conteúdo pode renderizar em etapas)
+    const timers = [100, 300, 600].map((delay) => setTimeout(updateScrollbar, delay));
 
     return () => {
       container.removeEventListener('scroll', handleScroll);
@@ -208,25 +211,25 @@ export default function AdminPipeline() {
         >
           <div 
             ref={trackRef}
-            className={`relative h-3 rounded-full transition-colors ${
+            className={`relative h-3 rounded-full border border-border/60 transition-colors ${
               hasOverflow 
                 ? 'bg-muted/50' 
-                : 'bg-muted/30'
+                : 'bg-muted/40'
             }`}
           >
             <div
               ref={thumbRef}
               data-scrollbar-thumb="true"
               onPointerDown={handleThumbPointerDown}
-              className={`absolute top-0 h-full rounded-full ${
+              className={`absolute left-0 top-0 h-full rounded-full shadow-sm ${
                 !hasOverflow 
-                  ? 'bg-muted/40 cursor-default'
-                  : 'bg-primary/70 hover:bg-primary cursor-grab'
+                  ? 'bg-muted/50 cursor-default'
+                  : 'bg-primary/80 hover:bg-primary cursor-grab'
               }`}
               style={{
                 width: hasOverflow ? `${thumbWidth}px` : '100%',
                 minWidth: hasOverflow ? '60px' : undefined,
-                touchAction: 'none', // Importante para Pointer Events
+                touchAction: 'none',
               }}
             />
           </div>
