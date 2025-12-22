@@ -14,17 +14,19 @@ import {
 
 export default function AdminPipeline() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
   
   // Custom scrollbar state
-  const [thumbWidth, setThumbWidth] = useState(100);
+  const [thumbWidth, setThumbWidth] = useState(0);
   const [thumbLeft, setThumbLeft] = useState(0);
   const [isDraggingThumb, setIsDraggingThumb] = useState(false);
   const [dragStartX, setDragStartX] = useState(0);
   const [dragStartScrollLeft, setDragStartScrollLeft] = useState(0);
+  const [hasOverflow, setHasOverflow] = useState(false);
 
   // Atualiza o thumb da scrollbar custom
   const updateScrollbar = useCallback(() => {
@@ -32,10 +34,14 @@ export default function AdminPipeline() {
     const track = trackRef.current;
     if (!container || !track) return;
 
-    const { scrollWidth, clientWidth, scrollLeft } = container;
+    const { scrollWidth, clientWidth, scrollLeft: containerScrollLeft } = container;
     const trackWidth = track.clientWidth;
 
-    if (scrollWidth <= clientWidth) {
+    // Verifica se há overflow
+    const overflow = scrollWidth > clientWidth + 1;
+    setHasOverflow(overflow);
+
+    if (!overflow) {
       setThumbWidth(trackWidth);
       setThumbLeft(0);
       return;
@@ -44,36 +50,51 @@ export default function AdminPipeline() {
     const ratio = clientWidth / scrollWidth;
     const newThumbWidth = Math.max(ratio * trackWidth, 60); // mínimo 60px
     const maxScrollLeft = scrollWidth - clientWidth;
-    const scrollRatio = scrollLeft / maxScrollLeft;
+    const scrollRatio = maxScrollLeft > 0 ? containerScrollLeft / maxScrollLeft : 0;
     const newThumbLeft = scrollRatio * (trackWidth - newThumbWidth);
 
     setThumbWidth(newThumbWidth);
-    setThumbLeft(Math.max(0, newThumbLeft));
+    setThumbLeft(Math.max(0, Math.min(newThumbLeft, trackWidth - newThumbWidth)));
   }, []);
 
-  // Observa mudanças no scroll e tamanho
+  // Observa mudanças no scroll, tamanho do container E do conteúdo
   useEffect(() => {
     const container = containerRef.current;
+    const content = contentRef.current;
+    const track = trackRef.current;
     if (!container) return;
 
     const handleScroll = () => updateScrollbar();
     container.addEventListener('scroll', handleScroll);
     
-    // ResizeObserver para detectar mudanças de tamanho
+    // ResizeObserver para detectar mudanças de tamanho em todos os elementos relevantes
     const resizeObserver = new ResizeObserver(() => {
-      updateScrollbar();
+      requestAnimationFrame(updateScrollbar);
     });
+    
     resizeObserver.observe(container);
+    if (content) resizeObserver.observe(content);
+    if (track) resizeObserver.observe(track);
 
-    // Atualiza inicial com delay para garantir que o conteúdo carregou
-    const timer = setTimeout(updateScrollbar, 100);
-    const timer2 = setTimeout(updateScrollbar, 500);
+    // MutationObserver para detectar quando filhos são adicionados/removidos (stages carregando)
+    const mutationObserver = new MutationObserver(() => {
+      requestAnimationFrame(updateScrollbar);
+    });
+    
+    if (content) {
+      mutationObserver.observe(content, { childList: true, subtree: true });
+    }
+
+    // Atualiza inicial com delays progressivos para garantir que o conteúdo carregou
+    const timers = [100, 300, 600, 1000].map(delay => 
+      setTimeout(updateScrollbar, delay)
+    );
 
     return () => {
       container.removeEventListener('scroll', handleScroll);
       resizeObserver.disconnect();
-      clearTimeout(timer);
-      clearTimeout(timer2);
+      mutationObserver.disconnect();
+      timers.forEach(clearTimeout);
     };
   }, [updateScrollbar]);
 
@@ -159,10 +180,15 @@ export default function AdminPipeline() {
       const track = trackRef.current;
       if (!container || !track) return;
 
-      const deltaX = e.clientX - dragStartX;
       const trackWidth = track.clientWidth;
       const { scrollWidth, clientWidth } = container;
       const maxScrollLeft = scrollWidth - clientWidth;
+      
+      // Guard clauses - evita divisão por zero
+      if (maxScrollLeft <= 0) return;
+      if (trackWidth - thumbWidth <= 0) return;
+
+      const deltaX = e.clientX - dragStartX;
       
       // Calcula a proporção do movimento no track para o scroll
       const scrollPerPixel = maxScrollLeft / (trackWidth - thumbWidth);
@@ -248,11 +274,12 @@ export default function AdminPipeline() {
             overflowX: 'auto',
             overflowY: 'hidden',
             WebkitOverflowScrolling: 'touch',
-            scrollbarWidth: 'none', // Esconde scrollbar nativa no Firefox
-            msOverflowStyle: 'none', // Esconde scrollbar nativa no IE/Edge
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
           }}
         >
           <div 
+            ref={contentRef}
             className="inline-flex gap-3 md:gap-4 h-full pb-2"
             style={{ minWidth: 'max-content' }}
           >
@@ -268,20 +295,26 @@ export default function AdminPipeline() {
           <div 
             ref={trackRef}
             onClick={handleTrackClick}
-            className="relative h-3 bg-muted/50 rounded-full cursor-pointer hover:bg-muted/70 transition-colors"
+            className={`relative h-3 rounded-full transition-colors ${
+              hasOverflow 
+                ? 'bg-muted/50 cursor-pointer hover:bg-muted/70' 
+                : 'bg-muted/30 cursor-default'
+            }`}
           >
             <div
               data-scrollbar-thumb="true"
-              onMouseDown={handleThumbMouseDown}
-              className={`absolute top-0 h-full rounded-full transition-colors cursor-grab active:cursor-grabbing ${
-                isDraggingThumb 
-                  ? 'bg-primary' 
-                  : 'bg-primary/70 hover:bg-primary'
+              onMouseDown={hasOverflow ? handleThumbMouseDown : undefined}
+              className={`absolute top-0 h-full rounded-full transition-all ${
+                !hasOverflow 
+                  ? 'bg-muted/40 cursor-default'
+                  : isDraggingThumb 
+                    ? 'bg-primary cursor-grabbing' 
+                    : 'bg-primary/70 hover:bg-primary cursor-grab'
               }`}
               style={{
-                width: `${thumbWidth}px`,
+                width: hasOverflow ? `${thumbWidth}px` : '100%',
                 left: `${thumbLeft}px`,
-                minWidth: '60px',
+                minWidth: hasOverflow ? '60px' : undefined,
               }}
             />
           </div>
@@ -289,7 +322,7 @@ export default function AdminPipeline() {
 
         {/* Esconde a scrollbar nativa do webkit */}
         <style>{`
-          div[style*="overflow-x: auto"]::-webkit-scrollbar {
+          [data-pipeline-container]::-webkit-scrollbar {
             display: none;
           }
         `}</style>
