@@ -247,7 +247,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
           </header>
 
           {/* Page Content */}
-          <div className="h-[calc(100vh-64px)] md:h-screen overflow-y-auto">
+          <div className="h-[calc(100vh-64px)] md:h-screen overflow-hidden">
             {children}
           </div>
         </main>
