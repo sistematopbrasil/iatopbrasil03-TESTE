@@ -16,50 +16,60 @@ export default function AdminPipeline() {
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [startX, setStartX] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
+  const thumbRef = useRef<HTMLDivElement>(null);
   
-  // Custom scrollbar state
-  const [thumbWidth, setThumbWidth] = useState(0);
-  const [thumbLeft, setThumbLeft] = useState(0);
-  const [isDraggingThumb, setIsDraggingThumb] = useState(false);
-  const [dragStartX, setDragStartX] = useState(0);
-  const [dragStartScrollLeft, setDragStartScrollLeft] = useState(0);
+  // Refs para métricas (evita re-renders durante drag)
+  const metricsRef = useRef({
+    thumbWidth: 0,
+    maxScrollLeft: 0,
+    maxThumbLeft: 0,
+    trackWidth: 0,
+  });
+  
+  // Estado apenas para visibilidade
   const [hasOverflow, setHasOverflow] = useState(false);
+  const [thumbWidth, setThumbWidth] = useState(0);
 
-  // Atualiza o thumb da scrollbar custom
+  // Atualiza métricas e posição do thumb
   const updateScrollbar = useCallback(() => {
     const container = containerRef.current;
     const track = trackRef.current;
-    if (!container || !track) return;
+    const thumb = thumbRef.current;
+    if (!container || !track || !thumb) return;
 
     const { scrollWidth, clientWidth, scrollLeft: containerScrollLeft } = container;
     const trackWidth = track.clientWidth;
 
-    // Verifica se há overflow
     const overflow = scrollWidth > clientWidth + 1;
     setHasOverflow(overflow);
 
     if (!overflow) {
       setThumbWidth(trackWidth);
-      setThumbLeft(0);
+      thumb.style.transform = 'translateX(0px)';
+      thumb.style.width = '100%';
+      metricsRef.current = { thumbWidth: trackWidth, maxScrollLeft: 0, maxThumbLeft: 0, trackWidth };
       return;
     }
 
     const ratio = clientWidth / scrollWidth;
     const newThumbWidth = Math.max(Math.round(ratio * trackWidth), 60);
     const maxScrollLeft = scrollWidth - clientWidth;
-    
     const maxThumbLeft = trackWidth - newThumbWidth;
     const scrollRatio = maxScrollLeft > 0 ? containerScrollLeft / maxScrollLeft : 0;
     const newThumbLeft = Math.round(scrollRatio * maxThumbLeft);
 
+    // Atualiza estado para largura (só quando muda)
     setThumbWidth(newThumbWidth);
-    setThumbLeft(Math.max(0, Math.min(newThumbLeft, maxThumbLeft)));
+    
+    // Atualiza DOM diretamente para posição (sem delay)
+    thumb.style.width = `${newThumbWidth}px`;
+    thumb.style.transform = `translateX(${Math.max(0, Math.min(newThumbLeft, maxThumbLeft))}px)`;
+
+    // Guarda métricas em ref
+    metricsRef.current = { thumbWidth: newThumbWidth, maxScrollLeft, maxThumbLeft, trackWidth };
   }, []);
 
-  // Observa mudanças no scroll, tamanho do container E do conteúdo
+  // Observa mudanças
   useEffect(() => {
     const container = containerRef.current;
     const content = contentRef.current;
@@ -67,30 +77,20 @@ export default function AdminPipeline() {
     if (!container) return;
 
     const handleScroll = () => updateScrollbar();
-    container.addEventListener('scroll', handleScroll);
+    container.addEventListener('scroll', handleScroll, { passive: true });
     
-    // ResizeObserver para detectar mudanças de tamanho em todos os elementos relevantes
-    const resizeObserver = new ResizeObserver(() => {
-      requestAnimationFrame(updateScrollbar);
-    });
-    
+    const resizeObserver = new ResizeObserver(() => updateScrollbar());
     resizeObserver.observe(container);
     if (content) resizeObserver.observe(content);
     if (track) resizeObserver.observe(track);
 
-    // MutationObserver para detectar quando filhos são adicionados/removidos (stages carregando)
-    const mutationObserver = new MutationObserver(() => {
-      requestAnimationFrame(updateScrollbar);
-    });
-    
+    const mutationObserver = new MutationObserver(() => updateScrollbar());
     if (content) {
       mutationObserver.observe(content, { childList: true, subtree: true });
     }
 
-    // Atualiza inicial com delays progressivos para garantir que o conteúdo carregou
-    const timers = [100, 300, 600, 1000].map(delay => 
-      setTimeout(updateScrollbar, delay)
-    );
+    // Atualiza inicial
+    const timers = [100, 300, 600].map(delay => setTimeout(updateScrollbar, delay));
 
     return () => {
       container.removeEventListener('scroll', handleScroll);
@@ -100,100 +100,54 @@ export default function AdminPipeline() {
     };
   }, [updateScrollbar]);
 
-
-  // Drag no container do pipeline (arrastar o fundo)
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (!containerRef.current) return;
-    // Não inicia drag se clicando em card arrastável ou na scrollbar custom
-    if ((e.target as HTMLElement).closest('[data-rbd-draggable-id]')) return;
-    if ((e.target as HTMLElement).closest('[data-pipeline-scrollbar]')) return;
+  // Drag no thumb usando Pointer Events (sem delay)
+  const handleThumbPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!hasOverflow) return;
     
-    setIsDragging(true);
-    setStartX(e.pageX - containerRef.current.offsetLeft);
-    setScrollLeft(containerRef.current.scrollLeft);
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || !containerRef.current) return;
-    e.preventDefault();
-    const x = e.pageX - containerRef.current.offsetLeft;
-    const walk = (x - startX) * 2;
-    containerRef.current.scrollLeft = scrollLeft - walk;
-    updateScrollbar(); // ✅ Atualiza thumb imediatamente sem delay
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  // Drag no thumb da scrollbar custom
-  const handleThumbMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDraggingThumb(true);
-    setDragStartX(e.clientX);
-    setDragStartScrollLeft(containerRef.current?.scrollLeft || 0);
-  };
-
-  useEffect(() => {
-    if (!isDraggingThumb) return;
-
-    const handleMove = (e: MouseEvent) => {
-      const container = containerRef.current;
-      const track = trackRef.current;
-      if (!container || !track) return;
-
-      const trackWidth = track.clientWidth;
-      const { scrollWidth, clientWidth } = container;
-      const maxScrollLeft = scrollWidth - clientWidth;
-      
-      // Guard clauses - evita divisão por zero
-      if (maxScrollLeft <= 0) return;
-      if (trackWidth - thumbWidth <= 0) return;
-
-      const deltaX = e.clientX - dragStartX;
-      
-      // Calcula a proporção do movimento no track para o scroll
-      const scrollPerPixel = maxScrollLeft / (trackWidth - thumbWidth);
-      const newScrollLeft = dragStartScrollLeft + (deltaX * scrollPerPixel);
-      
-      container.scrollLeft = Math.max(0, Math.min(maxScrollLeft, newScrollLeft));
-    };
-
-    const handleUp = () => {
-      setIsDraggingThumb(false);
-    };
-
-    document.addEventListener('mousemove', handleMove);
-    document.addEventListener('mouseup', handleUp);
-    document.addEventListener('mouseleave', handleUp); // ✅ Captura mouse saindo da janela
-
-    return () => {
-      document.removeEventListener('mousemove', handleMove);
-      document.removeEventListener('mouseup', handleUp);
-      document.removeEventListener('mouseleave', handleUp);
-    };
-  }, [isDraggingThumb, dragStartX, dragStartScrollLeft, thumbWidth]);
-
-  // Click no track (pula para a posição)
-  const handleTrackClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const track = trackRef.current;
+    
+    const thumb = thumbRef.current;
     const container = containerRef.current;
-    if (!track || !container) return;
-    
-    // Não processa se clicou no thumb
-    if ((e.target as HTMLElement).closest('[data-scrollbar-thumb]')) return;
+    const track = trackRef.current;
+    if (!thumb || !container || !track) return;
 
-    const rect = track.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const trackWidth = track.clientWidth;
-    const { scrollWidth, clientWidth } = container;
-    const maxScrollLeft = scrollWidth - clientWidth;
-    
-    // Calcula a posição do scroll baseado no click
-    const targetScrollLeft = (clickX / trackWidth) * maxScrollLeft;
-    container.scrollTo({ left: targetScrollLeft, behavior: 'smooth' });
-  };
+    // Captura o pointer
+    thumb.setPointerCapture(e.pointerId);
+    thumb.style.cursor = 'grabbing';
+
+    const startX = e.clientX;
+    const startScrollLeft = container.scrollLeft;
+    const { maxScrollLeft, maxThumbLeft, thumbWidth: tw } = metricsRef.current;
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const deltaX = moveEvent.clientX - startX;
+      
+      // Calcula nova posição do scroll
+      const scrollPerPixel = maxThumbLeft > 0 ? maxScrollLeft / maxThumbLeft : 0;
+      const newScrollLeft = Math.max(0, Math.min(maxScrollLeft, startScrollLeft + deltaX * scrollPerPixel));
+      
+      // Aplica scroll
+      container.scrollLeft = newScrollLeft;
+      
+      // Calcula e aplica posição do thumb diretamente no DOM
+      const scrollRatio = maxScrollLeft > 0 ? newScrollLeft / maxScrollLeft : 0;
+      const newThumbLeft = Math.round(scrollRatio * maxThumbLeft);
+      thumb.style.transform = `translateX(${Math.max(0, Math.min(newThumbLeft, maxThumbLeft))}px)`;
+    };
+
+    const handlePointerUp = () => {
+      thumb.releasePointerCapture(e.pointerId);
+      thumb.style.cursor = 'grab';
+      thumb.removeEventListener('pointermove', handlePointerMove);
+      thumb.removeEventListener('pointerup', handlePointerUp);
+      thumb.removeEventListener('pointercancel', handlePointerUp);
+    };
+
+    thumb.addEventListener('pointermove', handlePointerMove);
+    thumb.addEventListener('pointerup', handlePointerUp);
+    thumb.addEventListener('pointercancel', handlePointerUp);
+  }, [hasOverflow]);
 
   return (
     <AdminLayout>
@@ -203,11 +157,10 @@ export default function AdminPipeline() {
           <div>
             <h1 className="text-xl md:text-2xl font-bold text-foreground">Pipeline de Vendas</h1>
             <p className="text-sm text-muted-foreground mt-1 hidden sm:block">
-              Arraste os leads entre as colunas • Use scroll ou arraste para navegar
+              Arraste os leads entre as colunas • Arraste a barra para navegar
             </p>
           </div>
           
-          {/* Botão para gerenciar quadros */}
           <Sheet>
             <SheetTrigger asChild>
               <Button variant="outline" size="sm" className="gap-2 self-start sm:self-auto">
@@ -230,11 +183,7 @@ export default function AdminPipeline() {
         {/* Pipeline Board - Container com scroll horizontal */}
         <div 
           ref={containerRef}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-          className={`pipeline-scroll-container flex-1 min-h-0 px-4 md:px-6 pb-2 select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+          className="pipeline-scroll-container flex-1 min-h-0 px-4 md:px-6 pb-2"
           style={{
             overflowX: 'auto',
             overflowY: 'hidden',
@@ -247,43 +196,43 @@ export default function AdminPipeline() {
             style={{ minWidth: 'max-content' }}
           >
             <PipelineBoard />
+            {/* Spacer para garantir que o último quadro apareça completo */}
+            <div className="w-4 md:w-6 shrink-0" aria-hidden="true" />
           </div>
         </div>
 
-        {/* Custom Scrollbar - Sempre visível */}
+        {/* Custom Scrollbar */}
         <div 
           data-pipeline-scrollbar="true"
           className="flex-shrink-0 px-4 md:px-6 pb-4"
         >
           <div 
             ref={trackRef}
-            onClick={handleTrackClick}
             className={`relative h-3 rounded-full transition-colors ${
               hasOverflow 
-                ? 'bg-muted/50 cursor-pointer hover:bg-muted/70' 
-                : 'bg-muted/30 cursor-default'
+                ? 'bg-muted/50' 
+                : 'bg-muted/30'
             }`}
           >
             <div
+              ref={thumbRef}
               data-scrollbar-thumb="true"
-              onMouseDown={hasOverflow ? handleThumbMouseDown : undefined}
-              className={`absolute top-0 h-full rounded-full transition-all ${
+              onPointerDown={handleThumbPointerDown}
+              className={`absolute top-0 h-full rounded-full ${
                 !hasOverflow 
                   ? 'bg-muted/40 cursor-default'
-                  : isDraggingThumb 
-                    ? 'bg-primary cursor-grabbing' 
-                    : 'bg-primary/70 hover:bg-primary cursor-grab'
+                  : 'bg-primary/70 hover:bg-primary cursor-grab'
               }`}
               style={{
                 width: hasOverflow ? `${thumbWidth}px` : '100%',
-                left: `${thumbLeft}px`,
                 minWidth: hasOverflow ? '60px' : undefined,
+                touchAction: 'none', // Importante para Pointer Events
               }}
             />
           </div>
         </div>
 
-        {/* Esconde a scrollbar nativa do container do pipeline */}
+        {/* Esconde a scrollbar nativa */}
         <style>{`
           .pipeline-scroll-container::-webkit-scrollbar {
             display: none;
