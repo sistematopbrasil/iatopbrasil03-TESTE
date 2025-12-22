@@ -90,53 +90,53 @@ export function WhatsAppConnectionSettings() {
   const isConnected = instance?.status === 'connected';
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-x-hidden max-w-full">
       {/* Status Card */}
-      <Card className={`p-6 border-2 ${
+      <Card className={`p-4 sm:p-6 border-2 overflow-hidden ${
         isConnected 
           ? 'border-green-500/20 bg-green-500/5' 
           : 'border-destructive/20 bg-destructive/5'
       }`}>
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-4">
-            <div className={`w-16 h-16 rounded-full flex items-center justify-center ${
+        <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+          <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
+            <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center flex-shrink-0 ${
               isConnected ? 'bg-green-500/20' : 'bg-destructive/20'
             }`}>
               {isConnected ? (
-                <CheckCircle2 className="w-8 h-8 text-green-500" />
+                <CheckCircle2 className="w-6 h-6 sm:w-8 sm:h-8 text-green-500" />
               ) : (
-                <XCircle className="w-8 h-8 text-destructive" />
+                <XCircle className="w-6 h-6 sm:w-8 sm:h-8 text-destructive" />
               )}
             </div>
 
-            <div>
-              <h3 className="text-xl font-bold text-foreground mb-2">
+            <div className="min-w-0 flex-1">
+              <h3 className="text-base sm:text-xl font-bold text-foreground mb-2">
                 {isConnected ? 'WhatsApp Conectado' : 'WhatsApp Desconectado'}
               </h3>
               
               {isConnected && instance ? (
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Phone className="w-4 h-4 text-primary" />
+                <div className="space-y-2 text-xs sm:text-sm">
+                  <div className="flex flex-wrap items-center gap-1 sm:gap-2 text-muted-foreground">
+                    <Phone className="w-3 h-3 sm:w-4 sm:h-4 text-primary flex-shrink-0" />
                     <span className="font-semibold">Número:</span>
-                    <span>{instance.phone_number || 'Não identificado'}</span>
+                    <span className="truncate">{instance.phone_number || 'Não identificado'}</span>
                   </div>
                   
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Calendar className="w-4 h-4 text-primary" />
-                    <span className="font-semibold">Conectado desde:</span>
-                    <span>
+                  <div className="flex flex-wrap items-center gap-1 sm:gap-2 text-muted-foreground">
+                    <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-primary flex-shrink-0" />
+                    <span className="font-semibold">Desde:</span>
+                    <span className="truncate">
                       {instance.last_connected_at 
-                        ? format(new Date(instance.last_connected_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
+                        ? format(new Date(instance.last_connected_at), "dd/MM/yy HH:mm", { locale: ptBR })
                         : 'Data desconhecida'
                       }
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <Badge className="bg-green-600 text-white">Ativo</Badge>
-                    <span className="text-xs text-muted-foreground">
-                      Recebendo mensagens em tempo real
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge className="bg-green-600 text-white text-[10px] sm:text-xs">Ativo</Badge>
+                    <span className="text-[10px] sm:text-xs text-muted-foreground">
+                      Recebendo em tempo real
                     </span>
                   </div>
                 </div>
@@ -153,12 +153,12 @@ export function WhatsAppConnectionSettings() {
 
           {/* Actions */}
           {isConnected && instance && (
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-shrink-0">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={loadInstance}
-                className="glass"
+                className="glass h-8 w-8 p-0"
               >
                 <RefreshCw className="w-4 h-4" />
               </Button>
@@ -167,17 +167,17 @@ export function WhatsAppConnectionSettings() {
                 size="sm"
                 onClick={handleDisconnect}
                 disabled={isDisconnecting}
-                className="text-destructive hover:bg-destructive/20 hover:text-destructive"
+                className="text-destructive hover:bg-destructive/20 hover:text-destructive h-8 text-xs"
               >
                 {isDisconnecting ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Desconectando...
+                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                    <span className="hidden sm:inline">Desconectando...</span>
                   </>
                 ) : (
                   <>
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Desconectar
+                    <LogOut className="w-3 h-3 sm:mr-1" />
+                    <span className="hidden sm:inline">Desconectar</span>
                   </>
                 )}
               </Button>
@@ -188,25 +188,25 @@ export function WhatsAppConnectionSettings() {
 
       {/* Technical Info */}
       {instance && (
-        <Card className="glass p-6">
-          <h4 className="text-sm font-semibold text-muted-foreground mb-4">
+        <Card className="glass p-4 sm:p-6 overflow-hidden">
+          <h4 className="text-xs sm:text-sm font-semibold text-muted-foreground mb-3 sm:mb-4">
             Informações Técnicas
           </h4>
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Nome da Instância:</span>
-              <span className="text-foreground font-mono">{instance.instance_name}</span>
+          <div className="space-y-2 sm:space-y-3 text-xs sm:text-sm">
+            <div className="flex justify-between gap-2">
+              <span className="text-muted-foreground flex-shrink-0">Instância:</span>
+              <span className="text-foreground font-mono truncate max-w-[150px] sm:max-w-none">{instance.instance_name}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Status:</span>
-              <Badge variant={isConnected ? 'default' : 'outline'}>
+            <div className="flex justify-between gap-2">
+              <span className="text-muted-foreground flex-shrink-0">Status:</span>
+              <Badge variant={isConnected ? 'default' : 'outline'} className="text-[10px] sm:text-xs">
                 {instance.status || 'desconectado'}
               </Badge>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Criado em:</span>
-              <span className="text-foreground">
-                {format(new Date(instance.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+            <div className="flex justify-between gap-2">
+              <span className="text-muted-foreground flex-shrink-0">Criado:</span>
+              <span className="text-foreground truncate">
+                {format(new Date(instance.created_at), "dd/MM/yy HH:mm", { locale: ptBR })}
               </span>
             </div>
           </div>

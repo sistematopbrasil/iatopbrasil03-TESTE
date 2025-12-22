@@ -309,7 +309,14 @@ export function ConsultantDashboard() {
                     ))}
                   </Pie>
                   <Tooltip
-                    contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                    contentStyle={{ 
+                      background: 'hsl(var(--card))', 
+                      border: '1px solid hsl(var(--border))',
+                      color: 'hsl(var(--foreground))',
+                      borderRadius: '8px',
+                      padding: '8px 12px'
+                    }}
+                    labelStyle={{ color: 'hsl(var(--foreground))' }}
                     formatter={(value: number) => [`${value} leads`, '']}
                   />
                   <Legend
@@ -327,7 +334,7 @@ export function ConsultantDashboard() {
           </CardContent>
         </Card>
 
-        {/* Barras: Leads por Quadro */}
+        {/* Donut: Leads por Quadro do Pipeline */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Leads por Quadro do Pipeline</CardTitle>
@@ -335,19 +342,40 @@ export function ConsultantDashboard() {
           <CardContent>
             {pipelineData.length > 0 ? (
               <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={pipelineData} layout="vertical" margin={{ left: 10, right: 10 }}>
-                  <XAxis type="number" hide />
-                  <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 11, fill: 'hsl(var(--foreground))' }} />
-                  <Tooltip
-                    contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
-                    formatter={(value: number) => [`${value} leads`, '']}
-                  />
-                  <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                <PieChart>
+                  <Pie
+                    data={pipelineData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={80}
+                    paddingAngle={2}
+                    dataKey="count"
+                    nameKey="name"
+                    stroke="hsl(var(--background))"
+                    strokeWidth={2}
+                  >
                     {pipelineData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
-                  </Bar>
-                </BarChart>
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ 
+                      background: 'hsl(var(--card))', 
+                      border: '1px solid hsl(var(--border))',
+                      color: 'hsl(var(--foreground))',
+                      borderRadius: '8px',
+                      padding: '8px 12px'
+                    }}
+                    labelStyle={{ color: 'hsl(var(--foreground))' }}
+                    formatter={(value: number) => [`${value} leads`, '']}
+                  />
+                  <Legend
+                    formatter={(value, entry: any) => (
+                      <span className="text-foreground text-xs">{value} ({entry.payload.count})</span>
+                    )}
+                  />
+                </PieChart>
               </ResponsiveContainer>
             ) : (
               <div className="h-[220px] flex items-center justify-center text-muted-foreground">
@@ -370,7 +398,14 @@ export function ConsultantDashboard() {
               <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
               <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
               <Tooltip
-                contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                contentStyle={{ 
+                  background: 'hsl(var(--card))', 
+                  border: '1px solid hsl(var(--border))',
+                  color: 'hsl(var(--foreground))',
+                  borderRadius: '8px',
+                  padding: '8px 12px'
+                }}
+                labelStyle={{ color: 'hsl(var(--foreground))' }}
                 formatter={(value: number) => [`${value} leads`, '']}
               />
               <Line type="monotone" dataKey="leads" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: 'hsl(var(--primary))' }} />
