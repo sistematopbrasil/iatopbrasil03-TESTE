@@ -37,8 +37,11 @@ export default function AdminPipeline() {
     const { scrollWidth, clientWidth, scrollLeft: containerScrollLeft } = container;
     const trackWidth = track.clientWidth;
 
-    // Verifica se há overflow
-    const overflow = scrollWidth > clientWidth + 1;
+    // ✅ CORREÇÃO: Adiciona margem de segurança para o padding final
+    const effectiveScrollWidth = scrollWidth + 48; // 48px = padding final (md:px-6 = 24px * 2)
+
+    // Verifica se há overflow usando effectiveScrollWidth
+    const overflow = effectiveScrollWidth > clientWidth + 1;
     setHasOverflow(overflow);
 
     if (!overflow) {
@@ -47,11 +50,11 @@ export default function AdminPipeline() {
       return;
     }
 
-    const ratio = clientWidth / scrollWidth;
-    const newThumbWidth = Math.max(Math.round(ratio * trackWidth), 60); // mínimo 60px
-    const maxScrollLeft = scrollWidth - clientWidth;
+    // ✅ USA effectiveScrollWidth em todos os cálculos
+    const ratio = clientWidth / effectiveScrollWidth;
+    const newThumbWidth = Math.max(Math.round(ratio * trackWidth), 60);
+    const maxScrollLeft = effectiveScrollWidth - clientWidth;
     
-    // ✅ Cálculo preciso do thumbLeft para ir até o final
     const maxThumbLeft = trackWidth - newThumbWidth;
     const scrollRatio = maxScrollLeft > 0 ? containerScrollLeft / maxScrollLeft : 0;
     const newThumbLeft = Math.round(scrollRatio * maxThumbLeft);
@@ -101,36 +104,6 @@ export default function AdminPipeline() {
     };
   }, [updateScrollbar]);
 
-  // Wheel handler - scroll vertical APENAS dentro dos quadros
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const handleWheel = (e: WheelEvent) => {
-      const target = e.target as HTMLElement;
-      
-      // ✅ Se o mouse está dentro de um quadro, NÃO INTERCEPTA NADA
-      // Deixa o scroll vertical do quadro funcionar normalmente
-      const verticalScrollArea = target.closest('[data-pipeline-vertical-scroll="true"]');
-      if (verticalScrollArea) {
-        return; // Não faz nada, deixa o ScrollArea do quadro lidar com o scroll
-      }
-      
-      // ✅ APENAS fora dos quadros: converte scroll vertical para horizontal
-      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-        e.preventDefault();
-        container.scrollLeft += e.deltaY;
-      }
-    };
-
-    container.addEventListener('wheel', handleWheel, { passive: false });
-    
-    document.body.style.overflow = 'hidden';
-    return () => {
-      container.removeEventListener('wheel', handleWheel);
-      document.body.style.overflow = '';
-    };
-  }, []);
 
   // Drag no container do pipeline (arrastar o fundo)
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -196,10 +169,12 @@ export default function AdminPipeline() {
 
     document.addEventListener('mousemove', handleMove);
     document.addEventListener('mouseup', handleUp);
+    document.addEventListener('mouseleave', handleUp); // ✅ Captura mouse saindo da janela
 
     return () => {
       document.removeEventListener('mousemove', handleMove);
       document.removeEventListener('mouseup', handleUp);
+      document.removeEventListener('mouseleave', handleUp);
     };
   }, [isDraggingThumb, dragStartX, dragStartScrollLeft, thumbWidth]);
 
