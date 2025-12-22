@@ -37,6 +37,15 @@ export default function AdminPipeline() {
     const { scrollWidth, clientWidth, scrollLeft: containerScrollLeft } = container;
     const trackWidth = track.clientWidth;
 
+    // ✅ DEBUG TEMPORÁRIO (remover depois):
+    console.log('📊 Pipeline Scrollbar Debug:', {
+      scrollWidth,
+      clientWidth,
+      hasOverflow: scrollWidth > clientWidth,
+      scrollLeft: containerScrollLeft,
+      trackWidth,
+    });
+
     // Verifica se há overflow
     const overflow = scrollWidth > clientWidth + 1;
     setHasOverflow(overflow);
