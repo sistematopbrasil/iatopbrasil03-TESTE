@@ -312,10 +312,10 @@ export function ConsultantDashboard() {
                     contentStyle={{ 
                       background: 'hsl(var(--card))', 
                       border: '1px solid hsl(var(--border))',
-                      color: 'hsl(var(--foreground))',
                       borderRadius: '8px',
                       padding: '8px 12px'
                     }}
+                    itemStyle={{ color: 'hsl(var(--foreground))' }}
                     labelStyle={{ color: 'hsl(var(--foreground))' }}
                     formatter={(value: number) => [`${value} leads`, '']}
                   />
@@ -363,10 +363,10 @@ export function ConsultantDashboard() {
                     contentStyle={{ 
                       background: 'hsl(var(--card))', 
                       border: '1px solid hsl(var(--border))',
-                      color: 'hsl(var(--foreground))',
                       borderRadius: '8px',
                       padding: '8px 12px'
                     }}
+                    itemStyle={{ color: 'hsl(var(--foreground))' }}
                     labelStyle={{ color: 'hsl(var(--foreground))' }}
                     formatter={(value: number) => [`${value} leads`, '']}
                   />
@@ -401,10 +401,10 @@ export function ConsultantDashboard() {
                 contentStyle={{ 
                   background: 'hsl(var(--card))', 
                   border: '1px solid hsl(var(--border))',
-                  color: 'hsl(var(--foreground))',
                   borderRadius: '8px',
                   padding: '8px 12px'
                 }}
+                itemStyle={{ color: 'hsl(var(--foreground))' }}
                 labelStyle={{ color: 'hsl(var(--foreground))' }}
                 formatter={(value: number) => [`${value} leads`, '']}
               />

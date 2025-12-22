@@ -107,6 +107,7 @@ export default function AdminPipeline() {
             overflowX: 'scroll',
             overflowY: 'hidden',
             WebkitOverflowScrolling: 'touch',
+            scrollbarGutter: 'stable',
           }}
         >
           <div 
@@ -127,6 +128,7 @@ export default function AdminPipeline() {
           .admin-pipeline-scroll::-webkit-scrollbar {
             height: 14px !important;
             display: block !important;
+            visibility: visible !important;
           }
           
           .admin-pipeline-scroll::-webkit-scrollbar-track {
