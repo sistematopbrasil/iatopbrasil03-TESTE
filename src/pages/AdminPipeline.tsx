@@ -37,11 +37,8 @@ export default function AdminPipeline() {
     const { scrollWidth, clientWidth, scrollLeft: containerScrollLeft } = container;
     const trackWidth = track.clientWidth;
 
-    // ✅ CORREÇÃO: Adiciona margem de segurança para o padding final
-    const effectiveScrollWidth = scrollWidth + 48; // 48px = padding final (md:px-6 = 24px * 2)
-
-    // Verifica se há overflow usando effectiveScrollWidth
-    const overflow = effectiveScrollWidth > clientWidth + 1;
+    // Verifica se há overflow
+    const overflow = scrollWidth > clientWidth + 1;
     setHasOverflow(overflow);
 
     if (!overflow) {
@@ -50,10 +47,9 @@ export default function AdminPipeline() {
       return;
     }
 
-    // ✅ USA effectiveScrollWidth em todos os cálculos
-    const ratio = clientWidth / effectiveScrollWidth;
+    const ratio = clientWidth / scrollWidth;
     const newThumbWidth = Math.max(Math.round(ratio * trackWidth), 60);
-    const maxScrollLeft = effectiveScrollWidth - clientWidth;
+    const maxScrollLeft = scrollWidth - clientWidth;
     
     const maxThumbLeft = trackWidth - newThumbWidth;
     const scrollRatio = maxScrollLeft > 0 ? containerScrollLeft / maxScrollLeft : 0;
@@ -123,6 +119,7 @@ export default function AdminPipeline() {
     const x = e.pageX - containerRef.current.offsetLeft;
     const walk = (x - startX) * 2;
     containerRef.current.scrollLeft = scrollLeft - walk;
+    updateScrollbar(); // ✅ Atualiza thumb imediatamente sem delay
   };
 
   const handleMouseUp = () => {
@@ -237,16 +234,11 @@ export default function AdminPipeline() {
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
-          className={`flex-1 min-h-0 px-4 md:px-6 pb-2 select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+          className={`pipeline-scroll-container flex-1 min-h-0 px-4 md:px-6 pb-2 select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
           style={{
             overflowX: 'auto',
             overflowY: 'hidden',
             WebkitOverflowScrolling: 'touch',
-            scrollbarWidth: 'none',
-            msOverflowStyle: 'none',
-            width: '100%',
-            maxWidth: '100vw',
-            position: 'relative',
           }}
         >
           <div 
@@ -291,10 +283,18 @@ export default function AdminPipeline() {
           </div>
         </div>
 
-        {/* Esconde a scrollbar nativa do webkit */}
+        {/* Esconde a scrollbar nativa do container do pipeline */}
         <style>{`
-          [data-pipeline-container]::-webkit-scrollbar {
+          .pipeline-scroll-container::-webkit-scrollbar {
             display: none;
+          }
+          .pipeline-scroll-container {
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+          }
+          html, body, #root {
+            overflow-x: hidden;
+            max-width: 100vw;
           }
         `}</style>
       </div>
