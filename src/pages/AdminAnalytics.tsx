@@ -496,37 +496,37 @@ const AdminAnalytics = () => {
           />
         </div>
 
-        {/* Conversion Funnel */}
-        <div className="animate-fade-in" style={{ animationDelay: "200ms" }}>
-          <ConversionFunnel submissions={allSubmissions} isLoading={isLoading} />
-        </div>
-
         {/* Charts Grid - Todos os gráficos de respostas */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-          <div className="animate-fade-in" style={{ animationDelay: "250ms" }}>
+          <div className="animate-fade-in" style={{ animationDelay: "200ms" }}>
             {renderDonutChart(relationshipData, "Estado Civil", "Distribuição por estado civil")}
           </div>
-          <div className="animate-fade-in" style={{ animationDelay: "300ms" }}>
+          <div className="animate-fade-in" style={{ animationDelay: "250ms" }}>
             {renderDonutChart(vehicleData, "Possui Veículo", "Leads com veículo próprio")}
           </div>
-          <div className="animate-fade-in" style={{ animationDelay: "350ms" }}>
+          <div className="animate-fade-in" style={{ animationDelay: "300ms" }}>
             {renderDonutChart(licenseData, "Possui CNH", "Carteira de motorista")}
           </div>
-          <div className="animate-fade-in" style={{ animationDelay: "400ms" }}>
+          <div className="animate-fade-in" style={{ animationDelay: "350ms" }}>
             {renderDonutChart(employmentData, "Situação Profissional", "Distribuição por emprego")}
           </div>
-          <div className="animate-fade-in" style={{ animationDelay: "450ms" }}>
+          <div className="animate-fade-in" style={{ animationDelay: "400ms" }}>
             {renderDonutChart(salesExpData, "Experiência com Vendas", "Experiência em vendas")}
           </div>
-          <div className="animate-fade-in" style={{ animationDelay: "500ms" }}>
+          <div className="animate-fade-in" style={{ animationDelay: "450ms" }}>
             {renderDonutChart(protectionExpData, "Exp. Proteção Veicular", "Experiência no ramo")}
           </div>
-          <div className="animate-fade-in" style={{ animationDelay: "550ms" }}>
+          <div className="animate-fade-in" style={{ animationDelay: "500ms" }}>
             {renderDonutChart(currentIncomeData, "Faixa de Ganhos Atual", "Renda atual")}
           </div>
-          <div className="animate-fade-in" style={{ animationDelay: "600ms" }}>
+          <div className="animate-fade-in" style={{ animationDelay: "550ms" }}>
             {renderDonutChart(desiredIncomeData, "Ganhos Desejados", "Expectativa de ganhos")}
           </div>
+        </div>
+
+        {/* Conversion Funnel - At the end */}
+        <div className="animate-fade-in" style={{ animationDelay: "600ms" }}>
+          <ConversionFunnel submissions={allSubmissions} isLoading={isLoading} />
         </div>
       </div>
     </AdminLayout>

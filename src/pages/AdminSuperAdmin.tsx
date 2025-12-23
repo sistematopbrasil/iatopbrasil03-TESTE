@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrentConsultant, isSuperAdmin } from '@/lib/consultant-context';
 import { StatCard } from '@/components/ui/stat-card';
-import { Users, TrendingUp, Flame, CalendarDays, UserPlus } from 'lucide-react';
+import { Users, TrendingUp, Flame, UserPlus } from 'lucide-react';
 import { ConsultantsTable } from '@/components/super-admin/ConsultantsTable';
 import { SuperAdminCharts } from '@/components/super-admin/SuperAdminCharts';
 import { AdminLayout } from '@/components/admin/AdminLayout';
@@ -97,8 +97,8 @@ export default function AdminSuperAdmin() {
       <div className="space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-            👑 Painel Super Admin
+          <h1 className="text-3xl font-bold text-foreground">
+            Painel Super Admin
           </h1>
           <p className="text-muted-foreground mt-1">
             Visão geral de todos os consultores e métricas consolidadas
@@ -106,7 +106,7 @@ export default function AdminSuperAdmin() {
         </div>
 
         {/* Métricas gerais */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             title="Consultores Ativos"
             value={metrics?.totalConsultants || 0}
@@ -129,11 +129,6 @@ export default function AdminSuperAdmin() {
             value={metrics?.hotLeads || 0}
             icon={Flame}
             variant="warning"
-          />
-          <StatCard
-            title="Total de Eventos"
-            value={metrics?.totalEvents || 0}
-            icon={CalendarDays}
           />
         </div>
 

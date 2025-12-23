@@ -10,9 +10,9 @@ import { Loader2 } from 'lucide-react';
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--warning))', 'hsl(var(--success))', 'hsl(var(--info))', 'hsl(var(--destructive))'];
 const TEMP_COLORS = {
-  hot: '#ef4444',
-  warm: '#f59e0b', 
-  cold: '#3b82f6',
+  hot: '#f97316',   // Laranja vibrante
+  warm: '#eab308', // Amarelo mais definido
+  cold: '#06b6d4', // Ciano moderno
 };
 
 export function SuperAdminCharts() {

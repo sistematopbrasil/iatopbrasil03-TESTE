@@ -3,14 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Question } from "./types";
 import logoIcon from "@/assets/logo-icon.png";
 
 interface QuestionScreenProps {
   question: Question;
   onAnswer: (questionId: number, answer: string) => void;
-  onBack: () => void;
   progress: number;
   questionNumber: number;
   totalQuestions: number;
@@ -20,7 +19,6 @@ interface QuestionScreenProps {
 export const QuestionScreen = ({
   question,
   onAnswer,
-  onBack,
   progress,
   questionNumber,
   totalQuestions,
@@ -169,17 +167,6 @@ export const QuestionScreen = ({
 
           {/* Navigation Buttons */}
           <div className="flex gap-4 mt-8">
-            {questionNumber > 1 && (
-              <Button
-                variant="outline"
-                onClick={onBack}
-                className="px-6"
-              >
-                <ArrowLeft className="mr-2 h-5 w-5" />
-                Voltar
-              </Button>
-            )}
-            
             {question.type !== "choice" && (
               <Button
                 onClick={validateAndSubmit}

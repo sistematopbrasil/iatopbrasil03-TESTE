@@ -5,12 +5,12 @@ import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Trophy, TrendingUp, Users, Calendar, Loader2, Star, Award } from 'lucide-react';
+import { Trophy, TrendingUp, Users, Calendar, Loader2, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { getCurrentConsultant, isSuperAdmin } from '@/lib/consultant-context';
-import { calculateLeadPoints, getUserLevel } from '@/lib/ranking-service';
+import { calculateLeadPoints } from '@/lib/ranking-service';
 
 interface RankingEntry {
   consultant_id: string;
@@ -220,7 +220,6 @@ export default function AdminRanking() {
                     Number(consultant.warm_leads || 0),
                     Number(consultant.cold_leads || 0)
                   );
-                  const level = getUserLevel(points);
                   
                   return (
                     <div 
@@ -242,7 +241,6 @@ export default function AdminRanking() {
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-foreground truncate">{consultant.full_name}</p>
                         <div className="flex items-center gap-2 text-sm">
-                          <span className="text-2xl">{level.badge}</span>
                           <span className="text-primary font-bold">{points.toLocaleString()} pts</span>
                         </div>
                       </div>
@@ -267,91 +265,85 @@ export default function AdminRanking() {
                           <th className="text-center py-4 px-4 text-muted-foreground font-medium">Taxa Conv.</th>
                         </>
                       ) : (
-                        <>
-                          <th className="text-center py-4 px-4 text-muted-foreground font-medium">Pontuação</th>
-                          <th className="text-center py-4 px-4 text-muted-foreground font-medium">Nível</th>
-                        </>
+                        <th className="text-center py-4 px-4 text-muted-foreground font-medium">Pontuação</th>
                       )}
                       <th className="text-center py-4 px-4 text-muted-foreground font-medium">Último Lead</th>
                     </tr>
                   </thead>
                   <tbody>
-                  {ranking.map((consultant) => {
-                    const points = calculateLeadPoints(
-                      Number(consultant.hot_leads || 0),
-                      Number(consultant.warm_leads || 0),
-                      Number(consultant.cold_leads || 0)
-                    );
-                    const level = getUserLevel(points);
-                    
-                    return (
-                      <tr 
-                        key={consultant.consultant_id}
-                        className="border-b border-border hover:bg-muted/50 transition-colors"
-                      >
-                        {/* Position */}
-                        <td className="py-4 px-4">
-                          <div className={cn(
-                            "w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg text-white",
-                            getMedalColor(consultant.ranking_position)
-                          )}>
-                            {getMedalIcon(consultant.ranking_position)}
-                          </div>
-                        </td>
-
-                        {/* Name with Photo */}
-                        <td className="py-4 px-4">
-                          <div className="flex items-center gap-3">
-                            <Avatar className="w-10 h-10">
-                              <AvatarImage src={consultant.profile_photo || undefined} alt={consultant.full_name} />
-                              <AvatarFallback className="bg-primary/10 text-primary font-bold">
-                                {consultant.full_name?.[0]?.toUpperCase() || '?'}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="font-semibold text-foreground">{consultant.full_name}</p>
-                              <p className="text-sm text-muted-foreground">@{consultant.quiz_slug}</p>
+                    {ranking.map((consultant) => {
+                      const points = calculateLeadPoints(
+                        Number(consultant.hot_leads || 0),
+                        Number(consultant.warm_leads || 0),
+                        Number(consultant.cold_leads || 0)
+                      );
+                      
+                      return (
+                        <tr 
+                          key={consultant.consultant_id}
+                          className="border-b border-border hover:bg-muted/50 transition-colors"
+                        >
+                          {/* Position */}
+                          <td className="py-4 px-4">
+                            <div className={cn(
+                              "w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg text-white",
+                              getMedalColor(consultant.ranking_position)
+                            )}>
+                              {getMedalIcon(consultant.ranking_position)}
                             </div>
-                          </div>
-                        </td>
+                          </td>
 
-                        {isAdmin ? (
-                          <>
-                            {/* Total Leads */}
-                            <td className="text-center py-4 px-4">
-                              <span className="text-xl font-bold text-foreground">{consultant.total_leads}</span>
-                            </td>
+                          {/* Name with Photo */}
+                          <td className="py-4 px-4">
+                            <div className="flex items-center gap-3">
+                              <Avatar className="w-10 h-10">
+                                <AvatarImage src={consultant.profile_photo || undefined} alt={consultant.full_name} />
+                                <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                                  {consultant.full_name?.[0]?.toUpperCase() || '?'}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="font-semibold text-foreground">{consultant.full_name}</p>
+                                <p className="text-sm text-muted-foreground">@{consultant.quiz_slug}</p>
+                              </div>
+                            </div>
+                          </td>
 
-                            {/* Hot Leads */}
-                            <td className="text-center py-4 px-4">
-                              <span className="text-lg font-semibold text-red-500">{consultant.hot_leads}</span>
-                            </td>
+                          {isAdmin ? (
+                            <>
+                              {/* Total Leads */}
+                              <td className="text-center py-4 px-4">
+                                <span className="text-xl font-bold text-foreground">{consultant.total_leads}</span>
+                              </td>
 
-                            {/* Warm Leads */}
-                            <td className="text-center py-4 px-4">
-                              <span className="text-lg font-semibold text-yellow-500">{consultant.warm_leads}</span>
-                            </td>
+                              {/* Hot Leads */}
+                              <td className="text-center py-4 px-4">
+                                <span className="text-lg font-semibold text-red-500">{consultant.hot_leads}</span>
+                              </td>
 
-                            {/* Cold Leads */}
-                            <td className="text-center py-4 px-4">
-                              <span className="text-lg font-semibold text-blue-500">{consultant.cold_leads}</span>
-                            </td>
+                              {/* Warm Leads */}
+                              <td className="text-center py-4 px-4">
+                                <span className="text-lg font-semibold text-yellow-500">{consultant.warm_leads}</span>
+                              </td>
 
-                            {/* Conversion Rate */}
-                            <td className="text-center py-4 px-4">
-                              <span className={cn(
-                                "text-lg font-bold",
-                                Number(consultant.conversion_rate) >= 70 && "text-green-500",
-                                Number(consultant.conversion_rate) >= 40 && Number(consultant.conversion_rate) < 70 && "text-yellow-500",
-                                Number(consultant.conversion_rate) < 40 && "text-red-500"
-                              )}>
-                                {consultant.conversion_rate}%
-                              </span>
-                            </td>
-                          </>
-                        ) : (
-                          <>
-                            {/* Points */}
+                              {/* Cold Leads */}
+                              <td className="text-center py-4 px-4">
+                                <span className="text-lg font-semibold text-blue-500">{consultant.cold_leads}</span>
+                              </td>
+
+                              {/* Conversion Rate */}
+                              <td className="text-center py-4 px-4">
+                                <span className={cn(
+                                  "text-lg font-bold",
+                                  Number(consultant.conversion_rate) >= 70 && "text-green-500",
+                                  Number(consultant.conversion_rate) >= 40 && Number(consultant.conversion_rate) < 70 && "text-yellow-500",
+                                  Number(consultant.conversion_rate) < 40 && "text-red-500"
+                                )}>
+                                  {consultant.conversion_rate}%
+                                </span>
+                              </td>
+                            </>
+                          ) : (
                             <td className="text-center py-4 px-4">
                               <div className="flex items-center justify-center gap-1">
                                 <Star className="w-5 h-5 text-primary" />
@@ -359,24 +351,15 @@ export default function AdminRanking() {
                                 <span className="text-sm text-muted-foreground">pts</span>
                               </div>
                             </td>
+                          )}
 
-                            {/* Level */}
-                            <td className="text-center py-4 px-4">
-                              <div className="flex items-center justify-center gap-2">
-                                <span className="text-2xl">{level.badge}</span>
-                                <span className={cn("font-semibold", level.color)}>{level.level}</span>
-                              </div>
-                            </td>
-                          </>
-                        )}
-
-                        {/* Last Lead */}
-                        <td className="text-center py-4 px-4 text-sm text-muted-foreground">
-                          {consultant.last_lead_date 
-                            ? format(new Date(consultant.last_lead_date), 'dd/MM/yyyy', { locale: ptBR })
-                            : '-'}
-                        </td>
-                      </tr>
+                          {/* Last Lead */}
+                          <td className="text-center py-4 px-4 text-sm text-muted-foreground">
+                            {consultant.last_lead_date 
+                              ? format(new Date(consultant.last_lead_date), 'dd/MM/yyyy', { locale: ptBR })
+                              : '-'}
+                          </td>
+                        </tr>
                       );
                     })}
                   </tbody>

@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, GripVertical, Edit2, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Edit2, Loader2, Eye, EyeOff, Lock } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -27,6 +27,7 @@ interface Question {
   options?: string[];
   order_index: number;
   is_active: boolean;
+  is_default?: boolean;
 }
 
 export function QuizQuestionsEditor() {
@@ -39,6 +40,7 @@ export function QuizQuestionsEditor() {
     queryFn: getCurrentConsultant,
   });
 
+  // Fetch all questions (including inactive ones to allow reactivation)
   const { data: questions, isLoading } = useQuery({
     queryKey: ['quiz-questions', consultant?.id],
     queryFn: async () => {
@@ -48,7 +50,6 @@ export function QuizQuestionsEditor() {
         .from('quiz_questions')
         .select('*')
         .eq('consultant_id', consultant.id)
-        .eq('is_active', true)
         .order('order_index');
 
       if (error) throw error;
@@ -81,6 +82,7 @@ export function QuizQuestionsEditor() {
             question_type: question.question_type,
             options: question.options,
             order_index: (questions?.length || 0) + 1,
+            is_default: false, // User-created questions are not default
           });
 
         if (error) throw error;
@@ -97,20 +99,41 @@ export function QuizQuestionsEditor() {
     },
   });
 
+  // Toggle question visibility (for default questions)
+  const toggleVisibilityMutation = useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      const { error } = await supabase
+        .from('quiz_questions')
+        .update({ is_active: isActive })
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: (_, { isActive }) => {
+      queryClient.invalidateQueries({ queryKey: ['quiz-questions'] });
+      toast.success(isActive ? 'Pergunta ativada!' : 'Pergunta ocultada!');
+    },
+  });
+
+  // Delete mutation (only for non-default questions)
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
         .from('quiz_questions')
-        .update({ is_active: false })
+        .delete()
         .eq('id', id);
 
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['quiz-questions'] });
-      toast.success('Pergunta removida!');
+      toast.success('Pergunta excluída!');
     },
   });
+
+  // Separate active and inactive questions
+  const activeQuestions = questions?.filter(q => q.is_active) || [];
+  const inactiveQuestions = questions?.filter(q => !q.is_active) || [];
 
   if (isLoading) {
     return (
@@ -156,10 +179,12 @@ export function QuizQuestionsEditor() {
           </Dialog>
         </div>
       </CardHeader>
-      <CardContent>
-        {questions && questions.length > 0 ? (
+      <CardContent className="space-y-6">
+        {/* Active Questions */}
+        {activeQuestions.length > 0 ? (
           <div className="space-y-3">
-            {questions.map((q, index) => (
+            <h3 className="text-sm font-semibold text-muted-foreground">Perguntas Ativas</h3>
+            {activeQuestions.map((q, index) => (
               <div
                 key={q.id}
                 className="p-4 rounded-lg border border-border bg-card hover:shadow-md transition-all"
@@ -170,9 +195,17 @@ export function QuizQuestionsEditor() {
                   </div>
                   
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground mb-2">
-                      {q.question_text}
-                    </p>
+                    <div className="flex items-center gap-2 mb-2">
+                      <p className="font-medium text-foreground">
+                        {q.question_text}
+                      </p>
+                      {q.is_default && (
+                        <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                          <Lock className="w-3 h-3" />
+                          Padrão
+                        </Badge>
+                      )}
+                    </div>
                     
                     <div className="flex items-center gap-3 text-sm text-muted-foreground mb-3">
                       <span className="bg-muted px-2 py-1 rounded text-xs">
@@ -212,19 +245,34 @@ export function QuizQuestionsEditor() {
                         <Edit2 className="w-3 h-3 mr-1" />
                         Editar
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          if (confirm('Tem certeza que deseja excluir esta pergunta?')) {
-                            deleteMutation.mutate(q.id);
-                          }
-                        }}
-                        className="text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="w-3 h-3 mr-1" />
-                        Excluir
-                      </Button>
+                      
+                      {q.is_default ? (
+                        // Default questions can only be hidden
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => toggleVisibilityMutation.mutate({ id: q.id, isActive: false })}
+                          className="text-yellow-600 hover:bg-yellow-500/10"
+                        >
+                          <EyeOff className="w-3 h-3 mr-1" />
+                          Ocultar
+                        </Button>
+                      ) : (
+                        // Non-default questions can be deleted
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            if (confirm('Tem certeza que deseja excluir esta pergunta?')) {
+                              deleteMutation.mutate(q.id);
+                            }
+                          }}
+                          className="text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="w-3 h-3 mr-1" />
+                          Excluir
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -233,8 +281,45 @@ export function QuizQuestionsEditor() {
           </div>
         ) : (
           <div className="text-center py-8 text-muted-foreground">
-            <p>Nenhuma pergunta cadastrada.</p>
+            <p>Nenhuma pergunta ativa.</p>
             <p className="text-sm mt-2">Clique em "Nova Pergunta" para começar.</p>
+          </div>
+        )}
+
+        {/* Inactive/Hidden Questions */}
+        {inactiveQuestions.length > 0 && (
+          <div className="space-y-3 pt-4 border-t border-border">
+            <h3 className="text-sm font-semibold text-muted-foreground">Perguntas Ocultas</h3>
+            {inactiveQuestions.map((q) => (
+              <div
+                key={q.id}
+                className="p-4 rounded-lg border border-border bg-muted/50 opacity-70"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-8 h-8 bg-muted text-muted-foreground rounded-full flex items-center justify-center font-bold text-sm">
+                    <EyeOff className="w-4 h-4" />
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-muted-foreground mb-2">
+                      {q.question_text}
+                    </p>
+
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => toggleVisibilityMutation.mutate({ id: q.id, isActive: true })}
+                        className="text-green-600 hover:bg-green-500/10"
+                      >
+                        <Eye className="w-3 h-3 mr-1" />
+                        Ativar
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </CardContent>
