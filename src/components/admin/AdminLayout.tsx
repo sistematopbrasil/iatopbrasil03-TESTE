@@ -1,4 +1,4 @@
-import { ReactNode, useEffect } from "react";
+import { ReactNode } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,31 +24,13 @@ export const AdminLayout = ({ children, disableVerticalScroll = false }: AdminLa
   const { toast } = useToast();
   const { theme, resolvedTheme } = useTheme();
 
-
   // Determina se está no modo claro
   const isLightMode = resolvedTheme === 'light' || theme === 'light';
-
-  // Pipeline: trava scroll vertical do documento (só permite scroll dentro dos quadros)
-  useEffect(() => {
-    if (!disableVerticalScroll) return;
-
-    const prevHtmlOverflow = document.documentElement.style.overflow;
-    const prevBodyOverflow = document.body.style.overflow;
-
-    document.documentElement.style.overflow = 'hidden';
-    document.body.style.overflow = 'hidden';
-
-    return () => {
-      document.documentElement.style.overflow = prevHtmlOverflow;
-      document.body.style.overflow = prevBodyOverflow;
-    };
-  }, [disableVerticalScroll]);
 
   const { data: currentUser } = useQuery({
     queryKey: ['current-user-layout'],
     queryFn: getCurrentConsultant,
   });
-
 
   const handleLogout = async () => {
     await supabase.auth.signOut();

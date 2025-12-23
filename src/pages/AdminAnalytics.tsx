@@ -120,12 +120,17 @@ const AdminAnalytics = () => {
 
   // Métricas adicionais
   const additionalMetrics = useMemo(() => {
-    if (!allSubmissions) return { leadsLastHour: 0, avgTime: '--', leadsToday: 0 };
+    if (!allSubmissions) return { peakHour: '--', peakCount: 0, avgTime: '--', leadsToday: 0 };
 
-    // Leads na última hora
-    const oneHourAgo = new Date();
-    oneHourAgo.setHours(oneHourAgo.getHours() - 1);
-    const leadsLastHour = allSubmissions.filter(s => new Date(s.created_at) >= oneHourAgo).length;
+    // Horário de pico
+    const hourCounts: Record<number, number> = {};
+    allSubmissions.forEach((sub) => {
+      const hour = new Date(sub.created_at).getHours();
+      hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+    });
+    const peakEntry = Object.entries(hourCounts).sort((a, b) => Number(b[1]) - Number(a[1]))[0];
+    const peakHour = peakEntry ? `${peakEntry[0]}h` : '--';
+    const peakCount = peakEntry ? Number(peakEntry[1]) : 0;
 
     // Leads hoje
     const today = new Date();
@@ -136,13 +141,11 @@ const AdminAnalytics = () => {
     const completedSubs = allSubmissions.filter(s => s.completion_percentage === 100);
     let avgTime = '--';
     if (completedSubs.length > 0) {
-      const times = completedSubs
-        .map(s => {
-          const start = new Date(s.created_at).getTime();
-          const end = new Date(s.updated_at).getTime();
-          return (end - start) / 1000 / 60; // minutos
-        })
-        .filter(t => t > 0 && t < 60); // Filtrar tempos razoáveis (< 60 min)
+      const times = completedSubs.map(s => {
+        const start = new Date(s.created_at).getTime();
+        const end = new Date(s.updated_at).getTime();
+        return (end - start) / 1000 / 60; // minutos
+      }).filter(t => t > 0 && t < 60); // Filtrar tempos razoáveis (< 60 min)
 
       if (times.length > 0) {
         const avg = times.reduce((a, b) => a + b, 0) / times.length;
@@ -150,7 +153,7 @@ const AdminAnalytics = () => {
       }
     }
 
-    return { leadsLastHour, avgTime, leadsToday };
+    return { peakHour, peakCount, avgTime, leadsToday };
   }, [allSubmissions]);
 
   // Agregar dados excluindo valores nulos
@@ -369,7 +372,7 @@ const AdminAnalytics = () => {
             </CardContent>
           </Card>
 
-          {/* 2. Leads (última hora) */}
+          {/* 2. Horário de Pico (ciano - neutro) */}
           <Card className="group relative overflow-hidden border-border/30 bg-gradient-to-br from-card via-card to-card/80 hover:border-cyan-500/40 transition-all duration-500">
             <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <CardContent className="p-4 sm:p-6 relative z-10">
@@ -378,9 +381,9 @@ const AdminAnalytics = () => {
                   <Clock className="h-5 w-5 sm:h-6 sm:w-6 text-cyan-500" />
                 </div>
                 <div>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-medium">Leads (1h)</p>
-                  <p className="text-2xl sm:text-3xl font-black text-foreground mt-1">{additionalMetrics.leadsLastHour}</p>
-                  <p className="text-xs text-muted-foreground">últimos 60 min</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-medium">Horário de Pico</p>
+                  <p className="text-2xl sm:text-3xl font-black text-foreground mt-1">{additionalMetrics.peakHour}</p>
+                  <p className="text-xs text-muted-foreground">{additionalMetrics.peakCount} leads</p>
                 </div>
               </div>
             </CardContent>
