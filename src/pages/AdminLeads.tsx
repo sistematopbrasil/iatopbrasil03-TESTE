@@ -376,7 +376,6 @@ export default function AdminLeads() {
     const headers = [
       'Nome',
       'Telefone',
-      'Email',
       'Idade',
       'Estado Civil',
       'Localização',
@@ -389,7 +388,6 @@ export default function AdminLeads() {
       'Renda Atual',
       'Renda Desejada',
       'Motivação',
-      'Score',
       'Temperatura',
       'Quadro Pipeline',
       '% Conclusão',
@@ -399,7 +397,6 @@ export default function AdminLeads() {
     const rows = filteredLeads.map(lead => [
       lead.name || '',
       lead.phone || '',
-      (lead as any).email || '',
       lead.age || '',
       lead.relationship_status || '',
       lead.location || '',
@@ -412,7 +409,6 @@ export default function AdminLeads() {
       lead.current_income || '',
       lead.desired_income || '',
       lead.motivation || '',
-      lead.lead_score || 0,
       lead.temperature === 'hot' ? 'Quente' : lead.temperature === 'warm' ? 'Morno' : lead.temperature === 'cold' ? 'Frio' : '',
       lead.pipeline_stage_id ? (stageMap.get(lead.pipeline_stage_id) || '') : '',
       lead.completion_percentage,

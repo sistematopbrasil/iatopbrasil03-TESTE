@@ -826,15 +826,6 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
 
           {/* Navigation */}
           <div className="mt-8 flex gap-4">
-            <Button
-              variant="outline"
-              onClick={handleBack}
-              className="px-6 border-[#2A2A2A] text-gray-300 hover:text-white hover:bg-[#2A2A2A] hover:border-[#EB6608]/50"
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Voltar
-            </Button>
-            
             {isTextQuestion && (
               <Button
                 onClick={() => handleAnswer(inputValue)}
