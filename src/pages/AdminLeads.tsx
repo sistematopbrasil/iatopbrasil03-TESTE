@@ -45,6 +45,19 @@ interface Lead {
   lead_score: number | null;
   temperature: LeadTemperature | null;
   extra_answers?: any;
+  pipeline_stage_id?: string | null;
+}
+
+interface PipelineStage {
+  id: string;
+  name: string;
+  color: string;
+}
+
+interface CrmTag {
+  id: string;
+  name: string;
+  color: string;
 }
 
 type TemperatureFilter = 'all' | 'hot' | 'warm' | 'cold';
@@ -69,13 +82,26 @@ export default function AdminLeads() {
   const [employmentStatus, setEmploymentStatus] = useState("all");
   const [salesExperience, setSalesExperience] = useState("all");
   const [incomeRange, setIncomeRange] = useState("all");
+  const [pipelineStageFilter, setPipelineStageFilter] = useState("all");
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
     const init = async () => {
       const user = await getCurrentConsultant();
       setCurrentUser(user);
+      
+      // Fetch pipeline stages
+      if (user?.organization_id) {
+        const { data: stages } = await supabase
+          .from('pipeline_stages')
+          .select('id, name, color')
+          .eq('organization_id', user.organization_id)
+          .order('order_index', { ascending: true });
+        
+        if (stages) setPipelineStages(stages);
+      }
     };
     init();
   }, []);
@@ -88,7 +114,7 @@ export default function AdminLeads() {
 
   useEffect(() => {
     filterLeads();
-  }, [searchQuery, statusFilter, temperatureFilter, dateRange, leads, cnh, vehicle, employmentStatus, salesExperience, incomeRange]);
+  }, [searchQuery, statusFilter, temperatureFilter, dateRange, leads, cnh, vehicle, employmentStatus, salesExperience, incomeRange, pipelineStageFilter]);
 
   // ✅ REMOVIDO filtro completion_percentage=100 para mostrar leads incompletos também
   const fetchLeads = async () => {
@@ -204,6 +230,11 @@ export default function AdminLeads() {
       });
     }
 
+    // Pipeline stage filter
+    if (pipelineStageFilter !== "all") {
+      filtered = filtered.filter(lead => lead.pipeline_stage_id === pipelineStageFilter);
+    }
+
     setFilteredLeads(filtered);
   };
 
@@ -235,9 +266,10 @@ export default function AdminLeads() {
     setEmploymentStatus("all");
     setSalesExperience("all");
     setIncomeRange("all");
+    setPipelineStageFilter("all");
   };
 
-  const activeFiltersCount = [cnh, vehicle, employmentStatus, salesExperience, incomeRange].filter(f => f !== "all").length;
+  const activeFiltersCount = [cnh, vehicle, employmentStatus, salesExperience, incomeRange, pipelineStageFilter].filter(f => f !== "all").length;
 
   // Abrir CRM com dados do lead
   const handleOpenCRM = (e: React.MouseEvent, lead: Lead) => {
@@ -593,6 +625,26 @@ export default function AdminLeads() {
                     <SelectItem value="Acima de R$5.000">Acima de R$5.000</SelectItem>
                   </SelectContent>
                 </Select>
+
+                <Select value={pipelineStageFilter} onValueChange={setPipelineStageFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Quadro" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Quadro: Todos</SelectItem>
+                    {pipelineStages.map(stage => (
+                      <SelectItem key={stage.id} value={stage.id}>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-2 h-2 rounded-full" 
+                            style={{ backgroundColor: stage.color }}
+                          />
+                          {stage.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               
               {activeFiltersCount > 0 && (
@@ -804,6 +856,29 @@ export default function AdminLeads() {
             </DialogHeader>
             {selectedLead && (
               <div className="space-y-4">
+                {/* Pipeline Stage Badge */}
+                {selectedLead.pipeline_stage_id && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Quadro:</span>
+                    {(() => {
+                      const stage = pipelineStages.find(s => s.id === selectedLead.pipeline_stage_id);
+                      if (!stage) return <span className="text-sm">-</span>;
+                      return (
+                        <Badge 
+                          style={{ backgroundColor: `${stage.color}20`, color: stage.color, borderColor: stage.color }}
+                          className="border"
+                        >
+                          <div 
+                            className="w-2 h-2 rounded-full mr-1.5" 
+                            style={{ backgroundColor: stage.color }}
+                          />
+                          {stage.name}
+                        </Badge>
+                      );
+                    })()}
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Nome</p>
