@@ -370,10 +370,36 @@ export default function AdminLeads() {
   };
 
   const exportToCSV = () => {
-    const headers = ['Nome', 'Telefone', 'Idade', 'Estado Civil', 'Localização', 'Possui Veículo', 'Possui CNH', 'Situação Profissional', 'Trabalho Atual', 'Experiência em Vendas', 'Experiência com Proteção Veicular', 'Renda Atual', 'Renda Desejada', 'Motivação', 'Score', 'Temperatura', '% Conclusão', 'Data'];
+    // Get pipeline stage names map
+    const stageMap = new Map(pipelineStages.map(s => [s.id, s.name]));
+    
+    const headers = [
+      'Nome',
+      'Telefone',
+      'Email',
+      'Idade',
+      'Estado Civil',
+      'Localização',
+      'Possui Veículo',
+      'Possui CNH',
+      'Situação Profissional',
+      'Trabalho Atual',
+      'Experiência em Vendas',
+      'Experiência com Proteção Veicular',
+      'Renda Atual',
+      'Renda Desejada',
+      'Motivação',
+      'Score',
+      'Temperatura',
+      'Quadro Pipeline',
+      '% Conclusão',
+      'Data'
+    ];
+    
     const rows = filteredLeads.map(lead => [
       lead.name || '',
       lead.phone || '',
+      (lead as any).email || '',
       lead.age || '',
       lead.relationship_status || '',
       lead.location || '',
@@ -387,12 +413,14 @@ export default function AdminLeads() {
       lead.desired_income || '',
       lead.motivation || '',
       lead.lead_score || 0,
-      lead.temperature || '',
+      lead.temperature === 'hot' ? 'Quente' : lead.temperature === 'warm' ? 'Morno' : lead.temperature === 'cold' ? 'Frio' : '',
+      lead.pipeline_stage_id ? (stageMap.get(lead.pipeline_stage_id) || '') : '',
       lead.completion_percentage,
       format(new Date(lead.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })
     ]);
 
-    const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+    // Use semicolon as separator for better Excel pt-BR compatibility
+    const csv = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(';')).join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);

@@ -738,6 +738,7 @@ export type Database = {
           created_at: string | null
           id: string
           is_active: boolean | null
+          is_default: boolean | null
           options: Json | null
           order_index: number
           question_text: string
@@ -749,6 +750,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_active?: boolean | null
+          is_default?: boolean | null
           options?: Json | null
           order_index?: number
           question_text: string
@@ -760,6 +762,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_active?: boolean | null
+          is_default?: boolean | null
           options?: Json | null
           order_index?: number
           question_text?: string

@@ -150,11 +150,12 @@ serve(async (req) => {
 
     console.log('Consultant created successfully with id:', userData.id);
 
-    // Create default questions for the consultant
+    // Create default questions for the consultant with is_default = true
     const questionsToInsert = DEFAULT_QUESTIONS.map(q => ({
       ...q,
       consultant_id: userData.id,
       is_active: true,
+      is_default: true, // Mark as default questions
     }));
 
     const { error: questionsError } = await supabaseAdmin
