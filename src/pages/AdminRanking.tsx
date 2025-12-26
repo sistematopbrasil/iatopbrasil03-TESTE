@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { getCurrentConsultant, isSuperAdmin } from '@/lib/consultant-context';
-import { calculateLeadPoints } from '@/lib/ranking-service';
+import { calculateLeadPoints, NOVOS_CONSULTORES_BONUS } from '@/lib/ranking-service';
 
 interface RankingEntry {
   consultant_id: string;
@@ -24,6 +24,8 @@ interface RankingEntry {
   last_lead_date: string | null;
   ranking_position: number;
   profile_photo?: string | null;
+  consultants_recruited?: number;
+  total_points?: number;
 }
 
 export default function AdminRanking() {
@@ -64,7 +66,7 @@ export default function AdminRanking() {
     queryFn: async () => {
       const { periodStart, periodEnd } = getPeriodDates();
       
-      // Get ranking data
+      // Get ranking data from leads
       const { data: rankingData, error } = await supabase.rpc('get_consultant_ranking_dynamic', {
         period_start: periodStart,
         period_end: periodEnd,
@@ -75,24 +77,66 @@ export default function AdminRanking() {
         throw error;
       }
 
-      // Fetch profile photos for all consultants
+      // Fetch profile photos and ranking_scores for all consultants
       const consultantIds = (rankingData || []).map((r: any) => r.consultant_id);
       
-      if (consultantIds.length > 0) {
-        const { data: usersData } = await supabase
-          .from('users')
-          .select('id, profile_photo')
-          .in('id', consultantIds);
-
-        const photoMap = new Map(usersData?.map(u => [u.id, u.profile_photo]) || []);
-        
-        return (rankingData || []).map((r: any) => ({
-          ...r,
-          profile_photo: photoMap.get(r.consultant_id) || null,
-        })) as RankingEntry[];
+      if (consultantIds.length === 0) {
+        return [] as RankingEntry[];
       }
 
-      return (rankingData || []) as RankingEntry[];
+      // Fetch photos
+      const { data: usersData } = await supabase
+        .from('users')
+        .select('id, profile_photo')
+        .in('id', consultantIds);
+
+      const photoMap = new Map(usersData?.map(u => [u.id, u.profile_photo]) || []);
+
+      // Fetch ranking_scores for current month (for Novos Consultores bonus)
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+
+      const { data: rankingScores } = await supabase
+        .from('ranking_scores')
+        .select('consultant_id, consultants_recruited, total_points')
+        .in('consultant_id', consultantIds)
+        .eq('period_start', monthStart)
+        .eq('period_end', monthEnd);
+
+      const scoresMap = new Map(
+        rankingScores?.map(r => [r.consultant_id, { 
+          consultants_recruited: r.consultants_recruited || 0,
+          total_points: r.total_points || 0
+        }]) || []
+      );
+
+      // Calculate final points including Novos Consultores bonus
+      const enrichedRanking = (rankingData || []).map((r: any) => {
+        const scores = scoresMap.get(r.consultant_id) || { consultants_recruited: 0, total_points: 0 };
+        const leadPoints = calculateLeadPoints(
+          Number(r.hot_leads || 0),
+          Number(r.warm_leads || 0),
+          Number(r.cold_leads || 0)
+        );
+        const novosConsultoresPoints = scores.consultants_recruited * NOVOS_CONSULTORES_BONUS;
+        const totalPoints = leadPoints + novosConsultoresPoints;
+
+        return {
+          ...r,
+          profile_photo: photoMap.get(r.consultant_id) || null,
+          consultants_recruited: scores.consultants_recruited,
+          total_points: totalPoints,
+        };
+      }) as RankingEntry[];
+
+      // Sort by total_points descending and update ranking_position
+      enrichedRanking.sort((a, b) => (b.total_points || 0) - (a.total_points || 0));
+      enrichedRanking.forEach((entry, index) => {
+        entry.ranking_position = index + 1;
+      });
+
+      return enrichedRanking;
     },
   });
 
@@ -110,21 +154,20 @@ export default function AdminRanking() {
     return 'bg-muted';
   };
 
-  // Calculate totals and points
+  // Calculate totals
   const totals = ranking?.reduce(
     (acc, c) => ({
       leads: acc.leads + Number(c.total_leads || 0),
       hot: acc.hot + Number(c.hot_leads || 0),
       warm: acc.warm + Number(c.warm_leads || 0),
       cold: acc.cold + Number(c.cold_leads || 0),
-      points: acc.points + calculateLeadPoints(
-        Number(c.hot_leads || 0),
-        Number(c.warm_leads || 0),
-        Number(c.cold_leads || 0)
-      ),
+      points: acc.points + (c.total_points || 0),
     }),
     { leads: 0, hot: 0, warm: 0, cold: 0, points: 0 }
   ) || { leads: 0, hot: 0, warm: 0, cold: 0, points: 0 };
+
+  // Get current consultant's points
+  const myPoints = ranking?.find(r => r.consultant_id === currentUser?.id)?.total_points || 0;
 
   if (isLoading) {
     return (
@@ -182,8 +225,12 @@ export default function AdminRanking() {
             <div className="flex items-center gap-3">
               <Star className="w-8 h-8 text-primary" />
               <div>
-                <p className="text-sm text-muted-foreground">Pontuação Total</p>
-                <p className="text-2xl font-bold text-foreground">{totals.points.toLocaleString()} pts</p>
+                <p className="text-sm text-muted-foreground">
+                  {isAdmin ? 'Pontuação Total' : 'Sua Pontuação'}
+                </p>
+                <p className="text-2xl font-bold text-foreground">
+                  {isAdmin ? totals.points.toLocaleString() : myPoints.toLocaleString()} pts
+                </p>
               </div>
             </div>
           </Card>
@@ -214,39 +261,44 @@ export default function AdminRanking() {
             <>
               {/* Mobile: Cards */}
               <div className="md:hidden space-y-3">
-                {ranking.map((consultant) => {
-                  const points = calculateLeadPoints(
-                    Number(consultant.hot_leads || 0),
-                    Number(consultant.warm_leads || 0),
-                    Number(consultant.cold_leads || 0)
-                  );
-                  
-                  return (
-                    <div 
-                      key={consultant.consultant_id}
-                      className="flex items-center gap-3 p-3 rounded-lg border border-border bg-card"
-                    >
-                      <div className={cn(
-                        "w-10 h-10 rounded-full flex items-center justify-center font-bold text-white flex-shrink-0",
-                        getMedalColor(consultant.ranking_position)
-                      )}>
-                        {getMedalIcon(consultant.ranking_position)}
-                      </div>
-                      <Avatar className="w-10 h-10 flex-shrink-0">
-                        <AvatarImage src={consultant.profile_photo || undefined} alt={consultant.full_name} />
-                        <AvatarFallback className="bg-primary/10 text-primary font-bold">
-                          {consultant.full_name?.[0]?.toUpperCase() || '?'}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-foreground truncate">{consultant.full_name}</p>
-                        <div className="flex items-center gap-2 text-sm">
-                          <span className="text-primary font-bold">{points.toLocaleString()} pts</span>
-                        </div>
+                {ranking.map((consultant) => (
+                  <div 
+                    key={consultant.consultant_id}
+                    className={cn(
+                      "flex items-center gap-3 p-3 rounded-lg border border-border bg-card",
+                      consultant.consultant_id === currentUser?.id && "ring-2 ring-primary"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-10 h-10 rounded-full flex items-center justify-center font-bold text-white flex-shrink-0",
+                      getMedalColor(consultant.ranking_position)
+                    )}>
+                      {getMedalIcon(consultant.ranking_position)}
+                    </div>
+                    <Avatar className="w-10 h-10 flex-shrink-0">
+                      <AvatarImage src={consultant.profile_photo || undefined} alt={consultant.full_name} />
+                      <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                        {consultant.full_name?.[0]?.toUpperCase() || '?'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-foreground truncate">
+                        {consultant.full_name}
+                        {consultant.consultant_id === currentUser?.id && ' (Você)'}
+                      </p>
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-primary font-bold">
+                          {(consultant.total_points || 0).toLocaleString()} pts
+                        </span>
+                        {(consultant.consultants_recruited || 0) > 0 && (
+                          <span className="text-muted-foreground text-xs">
+                            (+{consultant.consultants_recruited} consultores)
+                          </span>
+                        )}
                       </div>
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
 
               {/* Desktop: Table */}
@@ -262,7 +314,7 @@ export default function AdminRanking() {
                           <th className="text-center py-4 px-4 text-muted-foreground font-medium">Quentes</th>
                           <th className="text-center py-4 px-4 text-muted-foreground font-medium">Mornos</th>
                           <th className="text-center py-4 px-4 text-muted-foreground font-medium">Frios</th>
-                          <th className="text-center py-4 px-4 text-muted-foreground font-medium">Taxa Conv.</th>
+                          <th className="text-center py-4 px-4 text-muted-foreground font-medium">Consultores</th>
                         </>
                       ) : (
                         <th className="text-center py-4 px-4 text-muted-foreground font-medium">Pontuação</th>
@@ -271,97 +323,92 @@ export default function AdminRanking() {
                     </tr>
                   </thead>
                   <tbody>
-                    {ranking.map((consultant) => {
-                      const points = calculateLeadPoints(
-                        Number(consultant.hot_leads || 0),
-                        Number(consultant.warm_leads || 0),
-                        Number(consultant.cold_leads || 0)
-                      );
-                      
-                      return (
-                        <tr 
-                          key={consultant.consultant_id}
-                          className="border-b border-border hover:bg-muted/50 transition-colors"
-                        >
-                          {/* Position */}
-                          <td className="py-4 px-4">
-                            <div className={cn(
-                              "w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg text-white",
-                              getMedalColor(consultant.ranking_position)
-                            )}>
-                              {getMedalIcon(consultant.ranking_position)}
+                    {ranking.map((consultant) => (
+                      <tr 
+                        key={consultant.consultant_id}
+                        className={cn(
+                          "border-b border-border hover:bg-muted/50 transition-colors",
+                          consultant.consultant_id === currentUser?.id && "bg-primary/5"
+                        )}
+                      >
+                        {/* Position */}
+                        <td className="py-4 px-4">
+                          <div className={cn(
+                            "w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg text-white",
+                            getMedalColor(consultant.ranking_position)
+                          )}>
+                            {getMedalIcon(consultant.ranking_position)}
+                          </div>
+                        </td>
+
+                        {/* Name with Photo */}
+                        <td className="py-4 px-4">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="w-10 h-10">
+                              <AvatarImage src={consultant.profile_photo || undefined} alt={consultant.full_name} />
+                              <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                                {consultant.full_name?.[0]?.toUpperCase() || '?'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-semibold text-foreground">
+                                {consultant.full_name}
+                                {consultant.consultant_id === currentUser?.id && ' (Você)'}
+                              </p>
+                              <p className="text-sm text-muted-foreground">@{consultant.quiz_slug}</p>
                             </div>
-                          </td>
+                          </div>
+                        </td>
 
-                          {/* Name with Photo */}
-                          <td className="py-4 px-4">
-                            <div className="flex items-center gap-3">
-                              <Avatar className="w-10 h-10">
-                                <AvatarImage src={consultant.profile_photo || undefined} alt={consultant.full_name} />
-                                <AvatarFallback className="bg-primary/10 text-primary font-bold">
-                                  {consultant.full_name?.[0]?.toUpperCase() || '?'}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="font-semibold text-foreground">{consultant.full_name}</p>
-                                <p className="text-sm text-muted-foreground">@{consultant.quiz_slug}</p>
-                              </div>
-                            </div>
-                          </td>
-
-                          {isAdmin ? (
-                            <>
-                              {/* Total Leads */}
-                              <td className="text-center py-4 px-4">
-                                <span className="text-xl font-bold text-foreground">{consultant.total_leads}</span>
-                              </td>
-
-                              {/* Hot Leads */}
-                              <td className="text-center py-4 px-4">
-                                <span className="text-lg font-semibold text-red-500">{consultant.hot_leads}</span>
-                              </td>
-
-                              {/* Warm Leads */}
-                              <td className="text-center py-4 px-4">
-                                <span className="text-lg font-semibold text-yellow-500">{consultant.warm_leads}</span>
-                              </td>
-
-                              {/* Cold Leads */}
-                              <td className="text-center py-4 px-4">
-                                <span className="text-lg font-semibold text-blue-500">{consultant.cold_leads}</span>
-                              </td>
-
-                              {/* Conversion Rate */}
-                              <td className="text-center py-4 px-4">
-                                <span className={cn(
-                                  "text-lg font-bold",
-                                  Number(consultant.conversion_rate) >= 70 && "text-green-500",
-                                  Number(consultant.conversion_rate) >= 40 && Number(consultant.conversion_rate) < 70 && "text-yellow-500",
-                                  Number(consultant.conversion_rate) < 40 && "text-red-500"
-                                )}>
-                                  {consultant.conversion_rate}%
-                                </span>
-                              </td>
-                            </>
-                          ) : (
+                        {isAdmin ? (
+                          <>
+                            {/* Total Leads */}
                             <td className="text-center py-4 px-4">
-                              <div className="flex items-center justify-center gap-1">
-                                <Star className="w-5 h-5 text-primary" />
-                                <span className="text-xl font-bold text-foreground">{points.toLocaleString()}</span>
-                                <span className="text-sm text-muted-foreground">pts</span>
-                              </div>
+                              <span className="text-xl font-bold text-foreground">{consultant.total_leads}</span>
                             </td>
-                          )}
 
-                          {/* Last Lead */}
-                          <td className="text-center py-4 px-4 text-sm text-muted-foreground">
-                            {consultant.last_lead_date 
-                              ? format(new Date(consultant.last_lead_date), 'dd/MM/yyyy', { locale: ptBR })
-                              : '-'}
+                            {/* Hot Leads */}
+                            <td className="text-center py-4 px-4">
+                              <span className="text-lg font-semibold text-red-500">{consultant.hot_leads}</span>
+                            </td>
+
+                            {/* Warm Leads */}
+                            <td className="text-center py-4 px-4">
+                              <span className="text-lg font-semibold text-yellow-500">{consultant.warm_leads}</span>
+                            </td>
+
+                            {/* Cold Leads */}
+                            <td className="text-center py-4 px-4">
+                              <span className="text-lg font-semibold text-blue-500">{consultant.cold_leads}</span>
+                            </td>
+
+                            {/* Consultores Recrutados */}
+                            <td className="text-center py-4 px-4">
+                              <span className="text-lg font-semibold text-purple-500">
+                                {consultant.consultants_recruited || 0}
+                              </span>
+                            </td>
+                          </>
+                        ) : (
+                          <td className="text-center py-4 px-4">
+                            <div className="flex items-center justify-center gap-1">
+                              <Star className="w-5 h-5 text-primary" />
+                              <span className="text-xl font-bold text-foreground">
+                                {(consultant.total_points || 0).toLocaleString()}
+                              </span>
+                              <span className="text-sm text-muted-foreground">pts</span>
+                            </div>
                           </td>
-                        </tr>
-                      );
-                    })}
+                        )}
+
+                        {/* Last Lead */}
+                        <td className="text-center py-4 px-4 text-sm text-muted-foreground">
+                          {consultant.last_lead_date 
+                            ? format(new Date(consultant.last_lead_date), 'dd/MM/yyyy', { locale: ptBR })
+                            : '-'}
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -390,6 +437,10 @@ export default function AdminRanking() {
             <div className="flex items-center gap-1.5">
               <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
               <span className="text-foreground font-medium">❄️ 5pts</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-purple-500" />
+              <span className="text-foreground font-medium">👥 100pts</span>
             </div>
           </div>
         )}
