@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 
-// Points configuration
+// Points configuration - ALINHADO COM O BANCO (100 por consultor recrutado)
 export const POINTS_CONFIG = {
   lead_captured: 10,
   lead_hot: 20,
@@ -8,7 +8,7 @@ export const POINTS_CONFIG = {
   lead_contacted: 15,
   lead_qualified: 25,
   lead_converted: 100,
-  consultant_recruited: 200,
+  consultant_recruited: 100, // Alterado de 200 para 100 para alinhar com o banco
   event_hosted: 30,
 };
 
@@ -21,6 +21,9 @@ export const LEAD_TEMPERATURE_POINTS = {
 
 // Bônus para leads convertidos
 export const CONVERSION_BONUS = 50;
+
+// Bônus para Novos Consultores (alinhado com banco)
+export const NOVOS_CONSULTORES_BONUS = 100;
 
 /**
  * Verifica se um nome de stage indica conversão

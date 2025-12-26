@@ -9,61 +9,98 @@ const corsHeaders = {
 const EVOLUTION_API_URL = Deno.env.get('EVOLUTION_API_URL') || '';
 const EVOLUTION_API_KEY = Deno.env.get('EVOLUTION_API_KEY') || '';
 
-async function evolutionRequest(endpoint: string, options: RequestInit = {}, instanceId?: string, supabaseAdmin?: any) {
-  const url = `${EVOLUTION_API_URL}${endpoint}`;
-  console.log('🔵 Evolution API Request:', { url, method: options.method || 'GET' });
+/**
+ * Gera variantes do telefone brasileiro (com/sem 9 adicional após DDD)
+ */
+function getPhoneVariants(phone: string): string[] {
+  const cleaned = phone.replace(/\D/g, '');
+  const variants: string[] = [cleaned];
   
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': EVOLUTION_API_KEY,
-      ...options.headers,
-    },
-  });
-  
-  const data = await response.json();
-  
-  if (!response.ok) {
-    console.error('❌ Evolution API Error:', { status: response.status, data });
+  // Formato esperado: 55 + DDD(2) + número(8 ou 9)
+  if (cleaned.startsWith('55') && cleaned.length >= 12) {
+    const ddd = cleaned.slice(2, 4);
+    const rest = cleaned.slice(4);
     
-    // Detectar número inexistente no WhatsApp (exists: false)
+    // Se tem 9 dígitos no número (total 13), criar variante sem o 9
+    if (rest.length === 9 && rest.startsWith('9')) {
+      const withoutNine = `55${ddd}${rest.slice(1)}`;
+      variants.push(withoutNine);
+    }
+    // Se tem 8 dígitos no número (total 12), criar variante com o 9
+    else if (rest.length === 8) {
+      const withNine = `55${ddd}9${rest}`;
+      variants.push(withNine);
+    }
+  }
+  
+  console.log('📱 Variantes de telefone geradas:', variants);
+  return variants;
+}
+
+interface SendResult {
+  success: boolean;
+  response?: any;
+  error?: string;
+  usedPhone?: string;
+}
+
+async function trySendMessage(
+  instanceName: string,
+  endpoint: string,
+  requestBody: any,
+  phoneVariants: string[]
+): Promise<SendResult> {
+  for (const phone of phoneVariants) {
+    const formattedPhone = phone + '@s.whatsapp.net';
+    const bodyWithPhone = { ...requestBody, number: formattedPhone };
+    
+    console.log(`🔵 Tentando enviar para: ${phone}`);
+    
+    const url = `${EVOLUTION_API_URL}${endpoint}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': EVOLUTION_API_KEY,
+      },
+      body: JSON.stringify(bodyWithPhone),
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      console.log(`✅ Mensagem enviada com sucesso para: ${phone}`);
+      return { success: true, response: data, usedPhone: phone };
+    }
+    
+    // Verificar se é erro de número inexistente
     const responseMessages = data?.response?.message;
     if (Array.isArray(responseMessages)) {
       const invalidNumber = responseMessages.find((m: any) => m.exists === false);
       if (invalidNumber) {
-        console.log('⚠️ Número não existe no WhatsApp:', invalidNumber.number);
-        throw new Error('Este número não está registrado no WhatsApp. Verifique se o número está correto.');
+        console.log(`⚠️ Número ${phone} não existe no WhatsApp, tentando próxima variante...`);
+        continue; // Tenta próxima variante
       }
     }
     
-    // Detectar erro "Connection Closed" e atualizar status no banco
+    // Verificar erro de conexão
     const errorMessage = data?.message || data?.response?.message || '';
     const errorStr = typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage);
     
     if (errorStr.includes('Connection Closed') || errorStr.includes('Disconnected')) {
-      console.log('⚠️ WhatsApp desconectado detectado. Atualizando status no banco...');
-      
-      if (instanceId && supabaseAdmin) {
-        await supabaseAdmin
-          .from('whatsapp_instances')
-          .update({ 
-            status: 'disconnected',
-            connection_state: { error: 'Connection Closed', detected_at: new Date().toISOString() },
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', instanceId);
-        console.log('✅ Status da instância atualizado para disconnected');
-      }
-      
-      throw new Error('WhatsApp desconectado. Por favor, reconecte escaneando o QR Code novamente na aba CRM.');
+      return { success: false, error: 'CONNECTION_CLOSED', response: data };
     }
     
-    throw new Error(data.message || 'Erro na Evolution API');
+    // Outro erro - não tentar mais variantes
+    console.error('❌ Erro no envio:', data);
+    return { success: false, error: data.message || 'Erro na Evolution API', response: data };
   }
   
-  console.log('✅ Evolution API Success:', data);
-  return data;
+  // Nenhuma variante funcionou
+  return { 
+    success: false, 
+    error: 'Este número não está registrado no WhatsApp. Verifique se o número está correto.' 
+  };
 }
 
 serve(async (req) => {
@@ -126,6 +163,11 @@ serve(async (req) => {
       throw new Error('WhatsApp não está conectado. Reconecte na aba CRM > WhatsApp.');
     }
 
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
     // Verificar conexão real na Evolution API antes de enviar
     try {
       const connectionUrl = `${EVOLUTION_API_URL}/instance/connectionState/${instance.instance_name}`;
@@ -141,18 +183,11 @@ serve(async (req) => {
       const connectionData = await connectionCheck.json();
       console.log('🔵 Status da conexão Evolution API:', connectionData);
       
-      // Verificar se a conexão está aberta
       const connectionState = connectionData?.instance?.state || connectionData?.state;
       if (connectionState !== 'open' && connectionState !== 'connected') {
         console.log('❌ Conexão fechada. Atualizando status no banco...');
         
-        // Atualizar status no banco para refletir desconexão
-        const supabaseService = createClient(
-          Deno.env.get('SUPABASE_URL') ?? '',
-          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-        );
-        
-        await supabaseService
+        await supabaseAdmin
           .from('whatsapp_instances')
           .update({ 
             status: 'disconnected',
@@ -175,11 +210,6 @@ serve(async (req) => {
       throw new Error('ID da conversa é obrigatório');
     }
 
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
     const { data: conversation, error: convError } = await supabaseAdmin
       .from('crm_conversations')
       .select('*')
@@ -195,73 +225,70 @@ serve(async (req) => {
       throw new Error('Número de telefone não encontrado na conversa');
     }
 
-    console.log('🔵 Enviando mensagem para:', phone);
+    console.log('🔵 Telefone original da conversa:', phone);
 
-    // Formatar número (remover caracteres especiais, adicionar @s.whatsapp.net)
-    const formattedPhone = phone.replace(/\D/g, '') + '@s.whatsapp.net';
+    // Gerar variantes do telefone (com/sem 9)
+    const phoneVariants = getPhoneVariants(phone);
 
-    let evolutionResponse;
-    let endpoint;
-    let requestBody;
+    // Preparar endpoint e body base (sem número, será adicionado pelo trySendMessage)
+    let endpoint: string;
+    let baseRequestBody: any;
 
     switch (type) {
       case 'text':
         endpoint = `/message/sendText/${instance.instance_name}`;
-        requestBody = {
-          number: formattedPhone,
-          text: content,
-        };
+        baseRequestBody = { text: content };
         break;
       case 'audio':
         endpoint = `/message/sendWhatsAppAudio/${instance.instance_name}`;
-        requestBody = {
-          number: formattedPhone,
-          audio: media_url,
-        };
+        baseRequestBody = { audio: media_url };
         break;
       case 'image':
         endpoint = `/message/sendMedia/${instance.instance_name}`;
-        requestBody = {
-          number: formattedPhone,
-          mediatype: 'image',
-          media: media_url,
-          caption: caption || '',
-        };
+        baseRequestBody = { mediatype: 'image', media: media_url, caption: caption || '' };
         break;
       case 'video':
         endpoint = `/message/sendMedia/${instance.instance_name}`;
-        requestBody = {
-          number: formattedPhone,
-          mediatype: 'video',
-          media: media_url,
-          caption: caption || '',
-        };
+        baseRequestBody = { mediatype: 'video', media: media_url, caption: caption || '' };
         break;
       case 'document':
         endpoint = `/message/sendMedia/${instance.instance_name}`;
-        requestBody = {
-          number: formattedPhone,
-          mediatype: 'document',
-          media: media_url,
-          fileName: file_name || 'document',
-        };
+        baseRequestBody = { mediatype: 'document', media: media_url, fileName: file_name || 'document' };
         break;
       default:
         throw new Error('Tipo de mensagem não suportado');
     }
 
-    evolutionResponse = await evolutionRequest(
-      endpoint, 
-      {
-        method: 'POST',
-        body: JSON.stringify(requestBody),
-      },
-      instance.id,
-      supabaseAdmin
-    );
+    // Tentar enviar com fallback de variantes
+    const sendResult = await trySendMessage(instance.instance_name, endpoint, baseRequestBody, phoneVariants);
+
+    if (!sendResult.success) {
+      if (sendResult.error === 'CONNECTION_CLOSED') {
+        await supabaseAdmin
+          .from('whatsapp_instances')
+          .update({ 
+            status: 'disconnected',
+            connection_state: { error: 'Connection Closed', detected_at: new Date().toISOString() },
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', instance.id);
+        
+        throw new Error('WhatsApp desconectado. Por favor, reconecte escaneando o QR Code novamente na aba CRM.');
+      }
+      throw new Error(sendResult.error || 'Erro ao enviar mensagem');
+    }
+
+    // Se usou um telefone diferente do original, atualizar a conversa
+    if (sendResult.usedPhone && sendResult.usedPhone !== phone.replace(/\D/g, '')) {
+      console.log(`📱 Atualizando telefone da conversa de ${phone} para ${sendResult.usedPhone}`);
+      await supabaseAdmin
+        .from('crm_conversations')
+        .update({ contact_phone: sendResult.usedPhone })
+        .eq('id', conversation.id);
+    }
 
     // Salvar mensagem no banco
-    const messageId = evolutionResponse?.key?.id || `sent-${Date.now()}`;
+    const messageId = sendResult.response?.key?.id || `sent-${Date.now()}`;
     
     const { error: msgError } = await supabaseAdmin
       .from('crm_messages')
@@ -275,7 +302,7 @@ serve(async (req) => {
         media_filename: file_name || null,
         status: 'sent',
         timestamp: new Date().toISOString(),
-        metadata: evolutionResponse,
+        metadata: sendResult.response,
       });
 
     if (msgError) {
@@ -294,7 +321,6 @@ serve(async (req) => {
     // Mover lead para "Primeiro Contato" se estiver no primeiro quadro
     if (conversation.lead_id) {
       try {
-        // Buscar primeiro e segundo estágio do pipeline
         const { data: stages } = await supabaseAdmin
           .from('pipeline_stages')
           .select('id, order_index')
@@ -306,7 +332,6 @@ serve(async (req) => {
           const firstStageId = stages[0].id;
           const secondStageId = stages[1].id;
 
-          // Verificar se lead está no primeiro estágio
           const { data: lead } = await supabaseAdmin
             .from('quiz_submissions_new')
             .select('pipeline_stage_id')
@@ -347,10 +372,8 @@ serve(async (req) => {
   } catch (error: any) {
     console.error('❌ Erro:', error);
     
-    // Melhorar mensagem de erro para o usuário
     let userMessage = error?.message || 'Erro desconhecido';
     
-    // Detectar erros comuns e traduzir - incluindo resposta da Evolution API
     const errorStr = JSON.stringify(error).toLowerCase();
     
     if (userMessage.includes('not registered') || 
