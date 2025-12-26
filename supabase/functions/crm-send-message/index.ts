@@ -27,9 +27,21 @@ async function evolutionRequest(endpoint: string, options: RequestInit = {}, ins
   if (!response.ok) {
     console.error('❌ Evolution API Error:', { status: response.status, data });
     
+    // Detectar número inexistente no WhatsApp (exists: false)
+    const responseMessages = data?.response?.message;
+    if (Array.isArray(responseMessages)) {
+      const invalidNumber = responseMessages.find((m: any) => m.exists === false);
+      if (invalidNumber) {
+        console.log('⚠️ Número não existe no WhatsApp:', invalidNumber.number);
+        throw new Error('Este número não está registrado no WhatsApp. Verifique se o número está correto.');
+      }
+    }
+    
     // Detectar erro "Connection Closed" e atualizar status no banco
     const errorMessage = data?.message || data?.response?.message || '';
-    if (errorMessage.includes('Connection Closed') || errorMessage.includes('Disconnected')) {
+    const errorStr = typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage);
+    
+    if (errorStr.includes('Connection Closed') || errorStr.includes('Disconnected')) {
       console.log('⚠️ WhatsApp desconectado detectado. Atualizando status no banco...');
       
       if (instanceId && supabaseAdmin) {
@@ -338,11 +350,20 @@ serve(async (req) => {
     // Melhorar mensagem de erro para o usuário
     let userMessage = error?.message || 'Erro desconhecido';
     
-    // Detectar erros comuns e traduzir
-    if (userMessage.includes('not registered') || userMessage.includes('not on whatsapp') || userMessage.includes('invalid number')) {
-      userMessage = 'Este número não está registrado no WhatsApp. Verifique se o número está correto e possui WhatsApp.';
-    } else if (userMessage.includes('Connection Closed') || userMessage.includes('Disconnected') || userMessage.includes('desconectado')) {
+    // Detectar erros comuns e traduzir - incluindo resposta da Evolution API
+    const errorStr = JSON.stringify(error).toLowerCase();
+    
+    if (userMessage.includes('not registered') || 
+        userMessage.includes('not on whatsapp') || 
+        userMessage.includes('invalid number') ||
+        errorStr.includes('exists') && errorStr.includes('false')) {
+      userMessage = 'Este número não está registrado no WhatsApp. Verifique se o número está correto e possui WhatsApp ativo.';
+    } else if (userMessage.includes('Connection Closed') || 
+               userMessage.includes('Disconnected') || 
+               userMessage.includes('desconectado')) {
       userMessage = 'WhatsApp desconectado. Por favor, reconecte escaneando o QR Code na aba CRM > WhatsApp.';
+    } else if (userMessage === 'Erro na Evolution API') {
+      userMessage = 'Não foi possível enviar a mensagem. Verifique se o número possui WhatsApp ou reconecte seu WhatsApp.';
     }
     
     return new Response(

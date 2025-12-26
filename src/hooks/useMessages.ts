@@ -166,6 +166,7 @@ export function useMessages(conversationId: string | null) {
               : m
           )
         );
+        // Mostrar mensagem de erro específica
         toast.error(result.error || 'Erro ao enviar mensagem');
         return false;
       }
@@ -179,7 +180,7 @@ export function useMessages(conversationId: string | null) {
         )
       );
 
-      toast.success('Mensagem enviada!');
+      // Não mostrar toast de sucesso para ser mais rápido - a mensagem aparecendo é feedback suficiente
       return true;
     } catch (error: any) {
       // Update temp message to error state
