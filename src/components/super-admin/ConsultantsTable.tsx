@@ -2,12 +2,12 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrentConsultant, getQuizUrl } from '@/lib/consultant-context';
 import { Button } from '@/components/ui/button';
-import { Copy, ExternalLink, UserPlus, TrendingUp } from 'lucide-react';
-import { getUserLevel } from '@/lib/ranking-service';
+import { Copy, ExternalLink, UserPlus, TrendingUp, Trophy } from 'lucide-react';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import { CreateConsultantDialog } from './CreateConsultantDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { startOfMonth, endOfMonth, format } from 'date-fns';
 
 export function ConsultantsTable() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -70,6 +70,38 @@ export function ConsultantsTable() {
     enabled: !!currentUser,
   });
 
+  // Buscar pontuação individual de cada consultor
+  const { data: consultantScores } = useQuery({
+    queryKey: ['consultant-scores-all', currentUser?.organization_id],
+    queryFn: async () => {
+      if (!currentUser) return {};
+
+      const now = new Date();
+      const periodStart = format(startOfMonth(now), 'yyyy-MM-dd');
+      const periodEnd = format(endOfMonth(now), 'yyyy-MM-dd');
+
+      const { data, error } = await supabase
+        .from('ranking_scores')
+        .select('consultant_id, total_points, consultants_recruited')
+        .eq('organization_id', currentUser.organization_id)
+        .eq('period_start', periodStart)
+        .eq('period_end', periodEnd);
+
+      if (error) throw error;
+
+      // Map by consultant_id
+      const scores: Record<string, { total_points: number; consultants_recruited: number }> = {};
+      data?.forEach((score) => {
+        scores[score.consultant_id] = {
+          total_points: score.total_points || 0,
+          consultants_recruited: score.consultants_recruited || 0,
+        };
+      });
+      return scores;
+    },
+    enabled: !!currentUser,
+  });
+
   const copyQuizLink = (slug: string) => {
     const link = getQuizUrl(slug);
     navigator.clipboard.writeText(link);
@@ -111,8 +143,8 @@ export function ConsultantsTable() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
                     Consultor
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
-                    Nível
+                  <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+                    Pontuação
                   </th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
                     Leads
@@ -140,11 +172,10 @@ export function ConsultantsTable() {
               <tbody className="divide-y divide-border">
                 {consultants?.map((consultant) => {
                   const metrics = consultantMetrics?.[consultant.id] || { total: 0, converted: 0, hot: 0 };
+                  const scores = consultantScores?.[consultant.id] || { total_points: 0, consultants_recruited: 0 };
                   const conversionRate = metrics.total > 0 
                     ? ((metrics.converted / metrics.total) * 100).toFixed(1) 
                     : '0.0';
-                  const points = metrics.total * 10; // Simplified scoring
-                  const level = getUserLevel(points);
 
                   return (
                     <tr key={consultant.id} className="hover:bg-muted/30">
@@ -158,10 +189,13 @@ export function ConsultantsTable() {
                           </p>
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                        <span className={`text-sm font-medium ${level.color}`}>
-                          {level.badge} {level.level}
-                        </span>
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <Trophy className="w-4 h-4 text-amber-500" />
+                          <span className="text-sm font-bold text-foreground">
+                            {scores.total_points}
+                          </span>
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-center">
                         <span className="text-sm font-semibold text-foreground">
