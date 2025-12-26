@@ -2,12 +2,13 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrentConsultant, getQuizUrl } from '@/lib/consultant-context';
 import { Button } from '@/components/ui/button';
-import { Copy, ExternalLink, UserPlus, TrendingUp, Trophy } from 'lucide-react';
+import { Copy, ExternalLink, UserPlus, Trophy } from 'lucide-react';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import { CreateConsultantDialog } from './CreateConsultantDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
+import { LEAD_TEMPERATURE_POINTS, CONVERSION_BONUS } from '@/lib/ranking-service';
 
 export function ConsultantsTable() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -35,44 +36,80 @@ export function ConsultantsTable() {
     enabled: !!currentUser,
   });
 
-  // Buscar métricas de leads por consultor
+  // Buscar stages de conversão
+  const { data: conversionStageIds } = useQuery({
+    queryKey: ['conversion-stages', currentUser?.organization_id],
+    queryFn: async () => {
+      if (!currentUser) return [];
+      const { data } = await supabase
+        .from('pipeline_stages')
+        .select('id')
+        .eq('organization_id', currentUser.organization_id)
+        .or('name.ilike.%convertido%,name.ilike.%consultor%');
+      return data?.map(s => s.id) || [];
+    },
+    enabled: !!currentUser,
+  });
+
+  // Buscar métricas de leads por consultor (com contagem por temperatura)
   const { data: consultantMetrics } = useQuery({
-    queryKey: ['consultant-metrics-all', currentUser?.organization_id],
+    queryKey: ['consultant-metrics-all', currentUser?.organization_id, conversionStageIds],
     queryFn: async () => {
       if (!currentUser) return {};
 
       const { data, error } = await supabase
         .from('quiz_submissions_new')
-        .select('consultant_id, stage, temperature')
+        .select('consultant_id, temperature, pipeline_stage_id')
         .eq('organization_id', currentUser.organization_id)
         .eq('completion_percentage', 100);
 
       if (error) throw error;
 
       // Agregar métricas por consultant_id
-      const metrics: Record<string, { total: number; converted: number; hot: number }> = {};
+      const metrics: Record<string, { 
+        total: number; 
+        converted: number; 
+        hot: number; 
+        warm: number;
+        cold: number;
+        convertedHot: number;
+        convertedWarm: number;
+      }> = {};
+      
       data?.forEach((lead) => {
         if (lead.consultant_id) {
           if (!metrics[lead.consultant_id]) {
-            metrics[lead.consultant_id] = { total: 0, converted: 0, hot: 0 };
+            metrics[lead.consultant_id] = { 
+              total: 0, converted: 0, hot: 0, warm: 0, cold: 0,
+              convertedHot: 0, convertedWarm: 0 
+            };
           }
           metrics[lead.consultant_id].total++;
-          if (lead.stage === 'convertido') {
+          
+          const isConverted = lead.pipeline_stage_id && conversionStageIds?.includes(lead.pipeline_stage_id);
+          if (isConverted) {
             metrics[lead.consultant_id].converted++;
           }
+          
           if (lead.temperature === 'hot') {
             metrics[lead.consultant_id].hot++;
+            if (isConverted) metrics[lead.consultant_id].convertedHot++;
+          } else if (lead.temperature === 'warm') {
+            metrics[lead.consultant_id].warm++;
+            if (isConverted) metrics[lead.consultant_id].convertedWarm++;
+          } else {
+            metrics[lead.consultant_id].cold++;
           }
         }
       });
       return metrics;
     },
-    enabled: !!currentUser,
+    enabled: !!currentUser && !!conversionStageIds,
   });
 
-  // Buscar pontuação individual de cada consultor
-  const { data: consultantScores } = useQuery({
-    queryKey: ['consultant-scores-all', currentUser?.organization_id],
+  // Buscar consultants_recruited da tabela ranking_scores
+  const { data: recruitedCounts } = useQuery({
+    queryKey: ['consultant-recruited-all', currentUser?.organization_id],
     queryFn: async () => {
       if (!currentUser) return {};
 
@@ -82,25 +119,45 @@ export function ConsultantsTable() {
 
       const { data, error } = await supabase
         .from('ranking_scores')
-        .select('consultant_id, total_points, consultants_recruited')
+        .select('consultant_id, consultants_recruited')
         .eq('organization_id', currentUser.organization_id)
         .eq('period_start', periodStart)
         .eq('period_end', periodEnd);
 
       if (error) throw error;
 
-      // Map by consultant_id
-      const scores: Record<string, { total_points: number; consultants_recruited: number }> = {};
+      const counts: Record<string, number> = {};
       data?.forEach((score) => {
-        scores[score.consultant_id] = {
-          total_points: score.total_points || 0,
-          consultants_recruited: score.consultants_recruited || 0,
-        };
+        counts[score.consultant_id] = score.consultants_recruited || 0;
       });
-      return scores;
+      return counts;
     },
     enabled: !!currentUser,
   });
+
+  // Calcular pontuação total correta
+  const calculateScore = (consultantId: string): number => {
+    const m = consultantMetrics?.[consultantId] || { 
+      hot: 0, warm: 0, cold: 0, convertedHot: 0, convertedWarm: 0 
+    };
+    const recruited = recruitedCounts?.[consultantId] || 0;
+    
+    // Pontos base por temperatura
+    const basePoints = 
+      (m.hot * LEAD_TEMPERATURE_POINTS.hot) +
+      (m.warm * LEAD_TEMPERATURE_POINTS.warm) +
+      (m.cold * LEAD_TEMPERATURE_POINTS.cold);
+    
+    // Bônus de conversão
+    const conversionBonus = 
+      (m.convertedHot * CONVERSION_BONUS) +
+      (m.convertedWarm * CONVERSION_BONUS);
+    
+    // Bônus de recrutamento (100 pts cada)
+    const recruitedBonus = recruited * 100;
+    
+    return basePoints + conversionBonus + recruitedBonus;
+  };
 
   const copyQuizLink = (slug: string) => {
     const link = getQuizUrl(slug);
@@ -136,7 +193,104 @@ export function ConsultantsTable() {
         </CardHeader>
 
         <CardContent className="p-0 overflow-x-hidden">
-          <div className="overflow-x-auto min-w-0">
+          {/* Mobile: Card-based layout */}
+          <div className="block md:hidden space-y-3 p-4">
+            {consultants?.map((consultant) => {
+              const metrics = consultantMetrics?.[consultant.id] || { total: 0, converted: 0, hot: 0 };
+              const score = calculateScore(consultant.id);
+              const conversionRate = metrics.total > 0 
+                ? ((metrics.converted / metrics.total) * 100).toFixed(1) 
+                : '0.0';
+
+              return (
+                <div 
+                  key={consultant.id} 
+                  className="bg-muted/30 rounded-lg p-3 space-y-2"
+                >
+                  {/* Header row */}
+                  <div className="flex items-center justify-between">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-foreground truncate">
+                        {consultant.full_name}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {consultant.email}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 ml-2">
+                      <Trophy className="w-4 h-4 text-amber-500" />
+                      <span className="text-sm font-bold text-foreground">
+                        {score}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* Stats row */}
+                  <div className="grid grid-cols-4 gap-2 text-center">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Leads</p>
+                      <p className="text-sm font-semibold">{metrics.total}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Conv.</p>
+                      <p className="text-sm font-semibold text-green-600">{metrics.converted}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Taxa</p>
+                      <p className="text-sm font-medium">{conversionRate}%</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Quentes</p>
+                      <p className="text-sm font-semibold text-orange-500">{metrics.hot}</p>
+                    </div>
+                  </div>
+
+                  {/* Actions row */}
+                  <div className="flex items-center justify-between pt-1 border-t border-border/50">
+                    <div className="flex items-center gap-2">
+                      {consultant.is_active ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-600">
+                          Ativo
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/10 text-red-600">
+                          Inativo
+                        </span>
+                      )}
+                      {consultant.quiz_slug && (
+                        <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded truncate max-w-[100px]">
+                          /{consultant.quiz_slug}
+                        </code>
+                      )}
+                    </div>
+                    {consultant.quiz_slug && (
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => copyQuizLink(consultant.quiz_slug!)}
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => openQuizLink(consultant.quiz_slug!)}
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Desktop: Table layout */}
+          <div className="hidden md:block overflow-x-auto min-w-0">
             <table className="w-full">
               <thead className="bg-muted/50 border-y border-border">
                 <tr>
@@ -151,9 +305,6 @@ export function ConsultantsTable() {
                   </th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
                     Convertidos
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
-                    Taxa Conv.
                   </th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
                     Quentes 🔥
@@ -172,10 +323,7 @@ export function ConsultantsTable() {
               <tbody className="divide-y divide-border">
                 {consultants?.map((consultant) => {
                   const metrics = consultantMetrics?.[consultant.id] || { total: 0, converted: 0, hot: 0 };
-                  const scores = consultantScores?.[consultant.id] || { total_points: 0, consultants_recruited: 0 };
-                  const conversionRate = metrics.total > 0 
-                    ? ((metrics.converted / metrics.total) * 100).toFixed(1) 
-                    : '0.0';
+                  const score = calculateScore(consultant.id);
 
                   return (
                     <tr key={consultant.id} className="hover:bg-muted/30">
@@ -193,7 +341,7 @@ export function ConsultantsTable() {
                         <div className="flex items-center justify-center gap-1">
                           <Trophy className="w-4 h-4 text-amber-500" />
                           <span className="text-sm font-bold text-foreground">
-                            {scores.total_points}
+                            {score}
                           </span>
                         </div>
                       </td>
@@ -206,12 +354,6 @@ export function ConsultantsTable() {
                         <span className="text-sm font-semibold text-green-600">
                           {metrics.converted}
                         </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <TrendingUp className="w-3 h-3 text-muted-foreground" />
-                          <span className="text-sm font-medium">{conversionRate}%</span>
-                        </div>
                       </td>
                       <td className="px-4 py-3 text-center">
                         <span className="text-sm font-semibold text-orange-500">

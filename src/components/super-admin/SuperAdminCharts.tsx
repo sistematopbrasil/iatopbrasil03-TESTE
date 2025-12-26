@@ -150,79 +150,85 @@ export function SuperAdminCharts() {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 overflow-x-hidden">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 overflow-x-hidden max-w-full">
       {/* Gráfico 1: Leads por dia */}
-      <Card className="lg:col-span-2">
-        <CardHeader>
-          <CardTitle className="text-lg">📈 Leads Capturados (últimos 30 dias)</CardTitle>
+      <Card className="lg:col-span-2 overflow-hidden">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base sm:text-lg">📈 Leads Capturados (30 dias)</CardTitle>
         </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={leadsPerDay}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis 
-                dataKey="date" 
-                tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }}
-                interval="preserveStartEnd"
-                tickMargin={5}
-              />
-              <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} width={30} />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: 'hsl(var(--card))', 
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '8px',
-                }}
-                labelStyle={{ color: 'hsl(var(--foreground))' }}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="leads" 
-                stroke="hsl(var(--primary))" 
-                strokeWidth={2}
-                dot={{ fill: 'hsl(var(--primary))', strokeWidth: 2 }}
-                activeDot={{ r: 6 }}
-                name="Leads"
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
-
-      {/* Gráfico 2: Top consultores */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">🏆 Top 5 Consultores</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {topConsultants && topConsultants.length > 0 ? (
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={topConsultants} layout="vertical">
+        <CardContent className="px-2 sm:px-6">
+          <div className="w-full h-[200px] sm:h-[250px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={leadsPerDay} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis type="number" tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
-                <YAxis 
-                  dataKey="name" 
-                  type="category" 
-                  width={80}
-                  tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
+                <XAxis 
+                  dataKey="date" 
+                  tick={{ fontSize: 8, fill: 'hsl(var(--muted-foreground))' }}
+                  interval="preserveStartEnd"
+                  tickMargin={5}
                 />
+                <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} width={25} />
                 <Tooltip 
                   contentStyle={{ 
                     backgroundColor: 'hsl(var(--card))', 
                     border: '1px solid hsl(var(--border))',
                     borderRadius: '8px',
+                    fontSize: '12px',
                   }}
+                  labelStyle={{ color: 'hsl(var(--foreground))' }}
                 />
-                <Bar 
+                <Line 
+                  type="monotone" 
                   dataKey="leads" 
-                  fill="hsl(var(--primary))" 
-                  radius={[0, 4, 4, 0]}
+                  stroke="hsl(var(--primary))" 
+                  strokeWidth={2}
+                  dot={{ fill: 'hsl(var(--primary))', strokeWidth: 2, r: 2 }}
+                  activeDot={{ r: 4 }}
                   name="Leads"
                 />
-              </BarChart>
+              </LineChart>
             </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Gráfico 2: Top consultores */}
+      <Card className="overflow-hidden">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base sm:text-lg">🏆 Top 5 Consultores</CardTitle>
+        </CardHeader>
+        <CardContent className="px-2 sm:px-6">
+          {topConsultants && topConsultants.length > 0 ? (
+            <div className="w-full h-[200px] sm:h-[250px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={topConsultants} layout="vertical" margin={{ top: 5, right: 15, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis type="number" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+                  <YAxis 
+                    dataKey="name" 
+                    type="category" 
+                    width={60}
+                    tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--card))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                    }}
+                  />
+                  <Bar 
+                    dataKey="leads" 
+                    fill="hsl(var(--primary))" 
+                    radius={[0, 4, 4, 0]}
+                    name="Leads"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           ) : (
-            <div className="flex items-center justify-center h-[250px] text-muted-foreground">
+            <div className="flex items-center justify-center h-[200px] text-muted-foreground text-sm">
               Nenhum dado disponível
             </div>
           )}
@@ -230,39 +236,42 @@ export function SuperAdminCharts() {
       </Card>
 
       {/* Gráfico 3: Distribuição por temperatura */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">🌡️ Distribuição por Temperatura</CardTitle>
+      <Card className="overflow-hidden">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base sm:text-lg">🌡️ Distribuição por Temperatura</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-2 sm:px-6">
           {temperatureDistribution && temperatureDistribution.length > 0 ? (
-            <ResponsiveContainer width="100%" height={250}>
-              <PieChart>
-                <Pie
-                  data={temperatureDistribution}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {temperatureDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: 'hsl(var(--card))', 
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px',
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            <div className="w-full h-[200px] sm:h-[250px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                  <Pie
+                    data={temperatureDistribution}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name.split(' ')[0]} ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={65}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {temperatureDistribution.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--card))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
           ) : (
-            <div className="flex items-center justify-center h-[250px] text-muted-foreground">
+            <div className="flex items-center justify-center h-[200px] text-muted-foreground text-sm">
               Nenhum dado disponível
             </div>
           )}
