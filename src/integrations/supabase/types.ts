@@ -1351,6 +1351,10 @@ export type Database = {
         Args: { org_id: string }
         Returns: string
       }
+      get_novos_consultores_stage_id: {
+        Args: { org_id: string }
+        Returns: string
+      }
       get_user_organization_id: { Args: never; Returns: string }
       is_super_admin: { Args: never; Returns: boolean }
       map_stage_enum_to_uuid: {

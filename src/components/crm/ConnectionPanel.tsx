@@ -23,6 +23,7 @@ export function ConnectionPanel() {
     createInstance,
     connectInstance,
     disconnectInstance,
+    refreshQRCode,
   } = useWhatsAppConnection();
 
   const { conversations, totalUnread } = useConversations();
@@ -202,9 +203,14 @@ export function ConnectionPanel() {
               </div>
             )}
 
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-              Atualização automática a cada 5 segundos
+            <div className="flex flex-col items-center gap-2">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                Atualizando automaticamente...
+              </div>
+              <Button size="sm" variant="ghost" onClick={refreshQRCode} className="text-xs">
+                <QrCode className="w-3 h-3 mr-1" /> Atualizar QR Code
+              </Button>
             </div>
           </div>
         </Card>

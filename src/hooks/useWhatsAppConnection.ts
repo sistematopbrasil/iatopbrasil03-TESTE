@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { crmService, WhatsAppInstance } from '@/lib/crm-service';
 import { toast } from 'sonner';
 
@@ -7,20 +7,37 @@ export function useWhatsAppConnection() {
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
+  const pollRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     loadInstance();
+    return () => stopPolling();
   }, []);
 
+  // Polling enquanto houver QR visível ou status connecting
   useEffect(() => {
-    if (instance?.status === 'connecting' || isConnecting) {
-      const interval = setInterval(async () => {
-        await refreshQRCode();
-      }, 5000);
-
-      return () => clearInterval(interval);
+    const shouldPoll = qrCode !== null || isConnecting || instance?.status === 'connecting';
+    if (shouldPoll) {
+      startPolling();
+    } else {
+      stopPolling();
     }
-  }, [instance?.status, isConnecting]);
+    return () => stopPolling();
+  }, [qrCode, isConnecting, instance?.status]);
+
+  function startPolling() {
+    if (pollRef.current) return;
+    pollRef.current = setInterval(async () => {
+      await refreshQRCode();
+    }, 3500); // Intervalo mais curto para refresh mais ágil
+  }
+
+  function stopPolling() {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }
 
   async function loadInstance() {
     setIsLoading(true);
@@ -29,6 +46,7 @@ export function useWhatsAppConnection() {
       setInstance(data);
 
       if (data?.status === 'connecting') {
+        setIsConnecting(true);
         await refreshQRCode();
       }
     } catch (error) {
@@ -40,11 +58,13 @@ export function useWhatsAppConnection() {
 
   async function createInstance() {
     setIsLoading(true);
+    setIsConnecting(true);
     try {
       const result = await crmService.createInstance();
 
       if (!result.success) {
         toast.error(result.error || 'Erro ao criar instância');
+        setIsConnecting(false);
         return;
       }
 
@@ -54,6 +74,7 @@ export function useWhatsAppConnection() {
       await connectInstance();
     } catch (error: any) {
       toast.error(error.message || 'Erro ao criar instância');
+      setIsConnecting(false);
     } finally {
       setIsLoading(false);
     }
@@ -66,6 +87,7 @@ export function useWhatsAppConnection() {
 
       if (!result.success) {
         toast.error(result.error || 'Erro ao gerar QR Code');
+        setIsConnecting(false);
         return;
       }
 
@@ -73,12 +95,13 @@ export function useWhatsAppConnection() {
         toast.success('WhatsApp conectado com sucesso!');
         await loadInstance();
         setQrCode(null);
+        setIsConnecting(false);
       } else if (result.data?.qr_code) {
         setQrCode(result.data.qr_code);
+        // manter isConnecting = true para continuar poll
       }
     } catch (error: any) {
       toast.error(error.message || 'Erro ao conectar');
-    } finally {
       setIsConnecting(false);
     }
   }
@@ -90,11 +113,14 @@ export function useWhatsAppConnection() {
       if (result.success) {
         if (result.data?.status === 'connected') {
           toast.success('WhatsApp conectado com sucesso!');
-          await loadInstance();
+          setInstance((prev) => prev ? { ...prev, status: 'connected' } : prev);
           setQrCode(null);
           setIsConnecting(false);
+          stopPolling();
+          await loadInstance();
         } else if (result.data?.qr_code) {
           setQrCode(result.data.qr_code);
+          setInstance((prev) => prev ? { ...prev, status: 'connecting' } : prev);
         }
       }
     } catch (error) {
@@ -112,7 +138,6 @@ export function useWhatsAppConnection() {
     try {
       setIsLoading(true);
       
-      // Call edge function to disconnect
       const { supabase } = await import('@/integrations/supabase/client');
       const { error } = await supabase.functions.invoke('crm-disconnect-instance', {
         body: { instanceId: instance.id }
@@ -140,6 +165,6 @@ export function useWhatsAppConnection() {
     createInstance,
     connectInstance,
     disconnectInstance,
-    refreshQRCode,
+    refreshQRCode, // exposto para refresh manual
   };
 }

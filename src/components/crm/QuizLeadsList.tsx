@@ -24,6 +24,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { getCurrentConsultant, isSuperAdmin } from '@/lib/consultant-context';
 
 interface QuizLeadsListProps {
   onStartConversation: (phone: string, leadData: any) => void;
@@ -47,12 +48,29 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
     try {
       setIsLoading(true);
 
-      const { data, error } = await supabase
+      // Buscar usuário logado para filtrar por consultant_id ou organization_id
+      const currentUser = await getCurrentConsultant();
+      if (!currentUser) {
+        toast.error('Erro ao identificar usuário');
+        setLeads([]);
+        return;
+      }
+
+      let query = supabase
         .from('quiz_submissions_new')
         .select('*')
         .not('phone', 'is', null)
-        // ✅ SEM filtro de completion_percentage (mostrar completos e incompletos)
         .order('created_at', { ascending: false });
+
+      // Filtrar por consultant_id se não for super admin
+      if (!isSuperAdmin(currentUser.role)) {
+        query = query.eq('consultant_id', currentUser.id);
+      } else {
+        // Super admin vê todos da organização
+        query = query.eq('organization_id', currentUser.organization_id);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 

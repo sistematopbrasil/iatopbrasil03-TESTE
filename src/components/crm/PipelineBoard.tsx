@@ -104,103 +104,20 @@ export function PipelineBoard() {
     return lower.includes('novo') && lower.includes('consultor');
   };
 
-  // Função para adicionar/remover pontos baseado na mudança de stage
-  // IMPORTANTE: total_points é GENERATED ALWAYS AS, então atualizamos consultants_recruited
-  // que agora vale 100 pontos por unidade na fórmula do banco
-  const updateConversionPoints = async (
-    consultantId: string | null, 
-    organizationId: string | null, 
-    previousStageName: string | null,
-    newStageName: string | null,
-    action: 'add' | 'remove'
-  ) => {
-    if (!consultantId || !organizationId) {
-      console.log('❌ Sem consultant_id ou organization_id para atualizar pontos');
-      return;
+  // ⚠️ Pontuação agora é gerenciada pelo trigger no banco (sync_ranking_consultants_recruited)
+  // Este helper apenas exibe feedback visual, mas a lógica real está no backend
+  const showPointsFeedback = (previousStageName: string | null, newStageName: string | null) => {
+    const wasInNovosConsultores = isNovosConsultoresStage(previousStageName);
+    const isNowInNovosConsultores = isNovosConsultoresStage(newStageName);
+
+    if (!wasInNovosConsultores && isNowInNovosConsultores) {
+      toast.success('🎯 +100 pontos! Lead convertido em consultor!');
+    } else if (wasInNovosConsultores && !isNowInNovosConsultores) {
+      toast.info('📉 -100 pontos - Lead removido de Novos Consultores');
     }
-    
-    const recruitedDelta = action === 'add' ? 1 : -1;
-    
-    console.log(`🎯 ${action === 'add' ? 'Adicionando' : 'Removendo'} consultor recrutado - Previous: ${previousStageName}, New: ${newStageName}`);
-    
-    try {
-      // Buscar período atual (mês corrente)
-      const now = new Date();
-      const periodStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-      const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
-      
-      // Verificar se já existe registro para este período
-      const { data: existingScore, error: fetchError } = await supabase
-        .from('ranking_scores')
-        .select('id, consultants_recruited')
-        .eq('consultant_id', consultantId)
-        .eq('organization_id', organizationId)
-        .eq('period_start', periodStart)
-        .eq('period_end', periodEnd)
-        .maybeSingle();
-      
-      if (fetchError) {
-        console.error('❌ Erro ao buscar ranking:', fetchError);
-        return;
-      }
-      
-      if (existingScore) {
-        // Atualizar registro existente - apenas consultants_recruited
-        // total_points será recalculado automaticamente pelo banco
-        const newRecruited = Math.max(0, (existingScore.consultants_recruited || 0) + recruitedDelta);
-        
-        const { error: updateError } = await supabase
-          .from('ranking_scores')
-          .update({
-            consultants_recruited: newRecruited,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingScore.id);
-        
-        if (updateError) {
-          console.error('❌ Erro ao atualizar ranking:', updateError);
-          return;
-        }
-        
-        console.log(`✅ Ranking atualizado: consultants_recruited=${newRecruited} (total_points será recalculado automaticamente)`);
-      } else if (action === 'add') {
-        // Criar novo registro apenas se estiver adicionando
-        const { error: insertError } = await supabase
-          .from('ranking_scores')
-          .insert({
-            consultant_id: consultantId,
-            organization_id: organizationId,
-            period_start: periodStart,
-            period_end: periodEnd,
-            consultants_recruited: 1,
-            leads_captured: 0,
-            leads_contacted: 0,
-            leads_qualified: 0,
-            leads_converted: 0,
-            events_hosted: 0
-          });
-        
-        if (insertError) {
-          console.error('❌ Erro ao criar ranking:', insertError);
-          return;
-        }
-        
-        console.log('✅ Novo registro de ranking criado com 1 consultor recrutado (100 pontos)');
-      }
-      
-      if (action === 'add') {
-        toast.success('🎯 +100 pontos! Lead convertido em consultor!');
-      } else {
-        toast.info('📉 -100 pontos - Lead removido de Novos Consultores');
-      }
-      
-      // Invalidar queries de ranking para atualizar UI
-      queryClient.invalidateQueries({ queryKey: ['ranking'] });
-      queryClient.invalidateQueries({ queryKey: ['consultant-ranking'] });
-    } catch (error) {
-      console.error('❌ Erro ao atualizar pontos:', error);
-      toast.error('Erro ao contabilizar pontos');
-    }
+    // Atualizar ranking na UI
+    queryClient.invalidateQueries({ queryKey: ['ranking'] });
+    queryClient.invalidateQueries({ queryKey: ['consultant-ranking'] });
   };
 
   const updateStageMutation = useMutation({
@@ -238,25 +155,18 @@ export function PipelineBoard() {
         organizationId: lead?.organization_id 
       };
     },
-    onSuccess: async (data) => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['pipeline-leads'] });
+      
+      // ⚠️ Pontuação agora é gerenciada pelo trigger no banco
+      // Exibir feedback visual e invalidar ranking
+      showPointsFeedback(data?.previousStageName, data?.newStageName);
       
       const wasInNovosConsultores = isNovosConsultoresStage(data?.previousStageName);
       const isNowInNovosConsultores = isNovosConsultoresStage(data?.newStageName);
       
-      console.log(`🔄 Stage change: "${data?.previousStageName}" → "${data?.newStageName}"`);
-      console.log(`   wasInNovosConsultores: ${wasInNovosConsultores}, isNowInNovosConsultores: ${isNowInNovosConsultores}`);
-      
-      // Adicionar pontos se ENTROU em Novos Consultores
-      if (!wasInNovosConsultores && isNowInNovosConsultores) {
-        await updateConversionPoints(data.consultantId, data.organizationId, data.previousStageName, data.newStageName, 'add');
-      }
-      // Remover pontos se SAIU de Novos Consultores
-      else if (wasInNovosConsultores && !isNowInNovosConsultores) {
-        await updateConversionPoints(data.consultantId, data.organizationId, data.previousStageName, data.newStageName, 'remove');
-      }
-      // Apenas moveu entre outros stages
-      else {
+      // Se não foi entrar/sair de Novos Consultores, feedback genérico
+      if (wasInNovosConsultores === isNowInNovosConsultores) {
         toast.success('Lead movido com sucesso!');
       }
     },
