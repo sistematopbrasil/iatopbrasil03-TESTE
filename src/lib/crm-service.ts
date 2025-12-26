@@ -336,7 +336,24 @@ class CRMService {
         },
       });
 
-      if (error) throw error;
+      // SDK throws FunctionsHttpError for non-2xx, so error may already be populated
+      if (error) {
+        // Try to extract backend-provided message from error context
+        const ctx = (error as any).context;
+        let backendError = '';
+        if (ctx && typeof ctx.json === 'function') {
+          try {
+            const jsonBody = await ctx.json();
+            backendError = jsonBody?.error || '';
+          } catch { /* ignore parse fail */ }
+        }
+        throw new Error(backendError || error.message || 'Erro ao enviar mensagem');
+      }
+
+      // Backend returns { success, error } – propagate its error if present
+      if (data && !data.success && data.error) {
+        throw new Error(data.error);
+      }
 
       return data;
     } catch (error: any) {
