@@ -1,17 +1,36 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrentConsultant, getQuizUrl } from '@/lib/consultant-context';
 import { Button } from '@/components/ui/button';
-import { Copy, ExternalLink, UserPlus, Trophy } from 'lucide-react';
+import { Copy, ExternalLink, UserPlus, Trophy, Power, Trash2, MoreVertical } from 'lucide-react';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import { CreateConsultantDialog } from './CreateConsultantDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
 import { LEAD_TEMPERATURE_POINTS, CONVERSION_BONUS } from '@/lib/ranking-service';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 export function ConsultantsTable() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [consultantToDelete, setConsultantToDelete] = useState<{ id: string; name: string } | null>(null);
+  const queryClient = useQueryClient();
   
   const { data: currentUser } = useQuery({
     queryKey: ['current-user'],
@@ -133,6 +152,46 @@ export function ConsultantsTable() {
       return counts;
     },
     enabled: !!currentUser,
+  });
+
+  // Mutation para ativar/desativar consultor
+  const toggleActiveMutation = useMutation({
+    mutationFn: async ({ consultantId, isActive }: { consultantId: string; isActive: boolean }) => {
+      const { error } = await supabase
+        .from('users')
+        .update({ is_active: !isActive })
+        .eq('id', consultantId);
+      
+      if (error) throw error;
+      return !isActive;
+    },
+    onSuccess: (newStatus) => {
+      queryClient.invalidateQueries({ queryKey: ['all-consultants'] });
+      toast.success(newStatus ? 'Consultor ativado!' : 'Consultor desativado!');
+    },
+    onError: () => {
+      toast.error('Erro ao atualizar status do consultor');
+    },
+  });
+
+  // Mutation para excluir consultor
+  const deleteMutation = useMutation({
+    mutationFn: async (consultantId: string) => {
+      const { error } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', consultantId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['all-consultants'] });
+      toast.success('Consultor excluído com sucesso!');
+      setConsultantToDelete(null);
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Erro ao excluir consultor');
+    },
   });
 
   // Calcular pontuação total correta
@@ -263,26 +322,47 @@ export function ConsultantsTable() {
                         </code>
                       )}
                     </div>
-                    {consultant.quiz_slug && (
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0"
-                          onClick={() => copyQuizLink(consultant.quiz_slug!)}
-                        >
-                          <Copy className="w-3.5 h-3.5" />
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                          <MoreVertical className="w-3.5 h-3.5" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0"
-                          onClick={() => openQuizLink(consultant.quiz_slug!)}
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {consultant.quiz_slug && (
+                          <>
+                            <DropdownMenuItem onClick={() => copyQuizLink(consultant.quiz_slug!)}>
+                              <Copy className="w-4 h-4 mr-2" />
+                              Copiar link
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openQuizLink(consultant.quiz_slug!)}>
+                              <ExternalLink className="w-4 h-4 mr-2" />
+                              Abrir quiz
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                          </>
+                        )}
+                        <DropdownMenuItem
+                          onClick={() => toggleActiveMutation.mutate({ 
+                            consultantId: consultant.id, 
+                            isActive: consultant.is_active 
+                          })}
                         >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    )}
+                          <Power className="w-4 h-4 mr-2" />
+                          {consultant.is_active ? 'Desativar' : 'Ativar'}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => setConsultantToDelete({ 
+                            id: consultant.id, 
+                            name: consultant.full_name 
+                          })}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Excluir
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
               );
@@ -381,26 +461,47 @@ export function ConsultantsTable() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-center">
-                        {consultant.quiz_slug && (
-                          <div className="flex gap-1 justify-center">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => copyQuizLink(consultant.quiz_slug!)}
-                              title="Copiar link do quiz"
-                            >
-                              <Copy className="w-4 h-4" />
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <MoreVertical className="w-4 h-4" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openQuizLink(consultant.quiz_slug!)}
-                              title="Abrir quiz"
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {consultant.quiz_slug && (
+                              <>
+                                <DropdownMenuItem onClick={() => copyQuizLink(consultant.quiz_slug!)}>
+                                  <Copy className="w-4 h-4 mr-2" />
+                                  Copiar link do quiz
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => openQuizLink(consultant.quiz_slug!)}>
+                                  <ExternalLink className="w-4 h-4 mr-2" />
+                                  Abrir quiz
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                              </>
+                            )}
+                            <DropdownMenuItem
+                              onClick={() => toggleActiveMutation.mutate({ 
+                                consultantId: consultant.id, 
+                                isActive: consultant.is_active 
+                              })}
                             >
-                              <ExternalLink className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        )}
+                              <Power className="w-4 h-4 mr-2" />
+                              {consultant.is_active ? 'Desativar' : 'Ativar'}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => setConsultantToDelete({ 
+                                id: consultant.id, 
+                                name: consultant.full_name 
+                              })}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Excluir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </td>
                     </tr>
                   );
@@ -421,6 +522,29 @@ export function ConsultantsTable() {
         open={isCreateOpen} 
         onOpenChange={setIsCreateOpen} 
       />
+
+      {/* Dialog de confirmação de exclusão */}
+      <AlertDialog open={!!consultantToDelete} onOpenChange={() => setConsultantToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir consultor?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o consultor <strong>{consultantToDelete?.name}</strong>?
+              Esta ação não pode ser desfeita. Todos os leads associados a este consultor serão mantidos,
+              mas não terão mais um consultor responsável.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90"
+              onClick={() => consultantToDelete && deleteMutation.mutate(consultantToDelete.id)}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
