@@ -105,15 +105,17 @@ export function ConsultantDashboard() {
     const warmLeads = leads.filter(l => l.temperature === 'warm').length;
     const coldLeads = leads.filter(l => l.temperature === 'cold').length;
 
-    // Find conversion stage
-    const conversionStage = pipelineStages?.find(s =>
+    // Find conversion stages (includes "novos consultores")
+    const conversionStages = pipelineStages?.filter(s =>
       s.name.toLowerCase().includes('convertido') ||
       s.name.toLowerCase().includes('fechado') ||
-      s.name.toLowerCase().includes('ganho')
-    );
-    const convertedLeads = conversionStage
-      ? leads.filter(l => l.pipeline_stage_id === conversionStage.id).length
-      : 0;
+      s.name.toLowerCase().includes('ganho') ||
+      s.name.toLowerCase().includes('consultor')
+    ) || [];
+    const conversionStageIds = conversionStages.map(s => s.id);
+    const convertedLeads = leads.filter(l => 
+      l.pipeline_stage_id && conversionStageIds.includes(l.pipeline_stage_id)
+    ).length;
 
     // Best capture hour
     const hourCounts: Record<number, number> = {};

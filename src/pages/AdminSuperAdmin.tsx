@@ -43,12 +43,25 @@ export default function AdminSuperAdmin() {
         .eq('organization_id', currentUser.organization_id)
         .eq('completion_percentage', 100);
 
-      // Leads convertidos
-      const { count: convertedLeads } = await supabase
-        .from('quiz_submissions_new')
-        .select('*', { count: 'exact', head: true })
+      // Buscar stages de conversão (incluindo "novos consultores")
+      const { data: conversionStages } = await supabase
+        .from('pipeline_stages')
+        .select('id, name')
         .eq('organization_id', currentUser.organization_id)
-        .eq('stage', 'convertido');
+        .or('name.ilike.%convertido%,name.ilike.%consultor%');
+
+      const conversionStageIds = conversionStages?.map(s => s.id) || [];
+
+      // Contar leads nos stages de conversão
+      let convertedLeadsCount = 0;
+      if (conversionStageIds.length > 0) {
+        const { count } = await supabase
+          .from('quiz_submissions_new')
+          .select('*', { count: 'exact', head: true })
+          .eq('organization_id', currentUser.organization_id)
+          .in('pipeline_stage_id', conversionStageIds);
+        convertedLeadsCount = count || 0;
+      }
 
       // Leads HOT
       const { count: hotLeads } = await supabase
@@ -63,19 +76,17 @@ export default function AdminSuperAdmin() {
         .select('*', { count: 'exact', head: true })
         .eq('organization_id', currentUser.organization_id);
 
-      // Consultores recrutados (com recruited_by preenchido)
-      // Por enquanto, mostramos o total de consultores criados
-      const conversionRate = totalLeads && totalLeads > 0 
-        ? ((convertedLeads || 0) / totalLeads * 100).toFixed(1)
-        : '0.0';
+      // Remover cálculo antigo de conversionRate (será feito abaixo)
 
       return {
         totalConsultants: totalConsultants || 0,
         totalLeads: totalLeads || 0,
         hotLeads: hotLeads || 0,
         totalEvents: totalEvents || 0,
-        convertedLeads: convertedLeads || 0,
-        conversionRate,
+        convertedLeads: convertedLeadsCount,
+        conversionRate: totalLeads && totalLeads > 0 
+          ? ((convertedLeadsCount) / totalLeads * 100).toFixed(1)
+          : '0.0',
       };
     },
     enabled: !!currentUser,
@@ -94,19 +105,19 @@ export default function AdminSuperAdmin() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
+      <div className="space-y-6 overflow-x-hidden max-w-full">
         {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
             Painel Super Admin
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-muted-foreground mt-1 text-sm">
             Visão geral de todos os consultores e métricas consolidadas
           </p>
         </div>
 
         {/* Métricas gerais */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <StatCard
             title="Consultores Ativos"
             value={metrics?.totalConsultants || 0}
@@ -118,7 +129,7 @@ export default function AdminSuperAdmin() {
             icon={TrendingUp}
           />
           <StatCard
-            title="Leads Convertidos"
+            title="Novos Consultores"
             value={metrics?.convertedLeads || 0}
             subtitle={`${metrics?.conversionRate}% conversão`}
             icon={UserPlus}

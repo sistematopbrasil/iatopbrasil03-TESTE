@@ -5,7 +5,7 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, CheckCircle, Clock, TrendingUp, AlertTriangle, Timer, CalendarDays } from "lucide-react";
+import { Users, CheckCircle, Clock, TrendingUp, AlertTriangle, Timer, CalendarDays, UserPlus } from "lucide-react";
 import {
   PieChart,
   Pie,
@@ -118,19 +118,30 @@ const AdminAnalytics = () => {
     return { total, completed, rate, abandoned, abandonRate };
   }, [allSubmissions]);
 
+  // Buscar stages de conversão (novos consultores)
+  const { data: conversionStages } = useQuery({
+    queryKey: ['conversion-stages-analytics', currentUser?.organization_id],
+    queryFn: async () => {
+      if (!currentUser) return [];
+      const { data } = await supabase
+        .from('pipeline_stages')
+        .select('id, name')
+        .eq('organization_id', currentUser.organization_id)
+        .or('name.ilike.%consultor%');
+      return data || [];
+    },
+    enabled: !!currentUser,
+  });
+
   // Métricas adicionais
   const additionalMetrics = useMemo(() => {
-    if (!allSubmissions) return { peakHour: '--', peakCount: 0, avgTime: '--', leadsToday: 0 };
+    if (!allSubmissions) return { novosConsultores: 0, avgTime: '--', leadsToday: 0 };
 
-    // Horário de pico
-    const hourCounts: Record<number, number> = {};
-    allSubmissions.forEach((sub) => {
-      const hour = new Date(sub.created_at).getHours();
-      hourCounts[hour] = (hourCounts[hour] || 0) + 1;
-    });
-    const peakEntry = Object.entries(hourCounts).sort((a, b) => Number(b[1]) - Number(a[1]))[0];
-    const peakHour = peakEntry ? `${peakEntry[0]}h` : '--';
-    const peakCount = peakEntry ? Number(peakEntry[1]) : 0;
+    // Novos consultores (leads no stage de novos consultores)
+    const conversionStageIds = conversionStages?.map(s => s.id) || [];
+    const novosConsultores = allSubmissions.filter(s => 
+      s.pipeline_stage_id && conversionStageIds.includes(s.pipeline_stage_id)
+    ).length;
 
     // Leads hoje
     const today = new Date();
@@ -153,8 +164,8 @@ const AdminAnalytics = () => {
       }
     }
 
-    return { peakHour, peakCount, avgTime, leadsToday };
-  }, [allSubmissions]);
+    return { novosConsultores, avgTime, leadsToday };
+  }, [allSubmissions, conversionStages]);
 
   // Agregar dados excluindo valores nulos
   const aggregateData = (field: string) => {
@@ -372,18 +383,18 @@ const AdminAnalytics = () => {
             </CardContent>
           </Card>
 
-          {/* 2. Horário de Pico (ciano - neutro) */}
-          <Card className="group relative overflow-hidden border-border/30 bg-gradient-to-br from-card via-card to-card/80 hover:border-cyan-500/40 transition-all duration-500">
-            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          {/* 2. Novos Consultores (verde - sucesso) */}
+          <Card className="group relative overflow-hidden border-border/30 bg-gradient-to-br from-card via-card to-card/80 hover:border-green-500/40 transition-all duration-500">
+            <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <CardContent className="p-4 sm:p-6 relative z-10">
               <div className="flex flex-col gap-3">
-                <div className="p-2.5 sm:p-3 bg-gradient-to-br from-cyan-500/20 to-cyan-500/5 rounded-xl w-fit border border-cyan-500/20">
-                  <Clock className="h-5 w-5 sm:h-6 sm:w-6 text-cyan-500" />
+                <div className="p-2.5 sm:p-3 bg-gradient-to-br from-green-500/20 to-green-500/5 rounded-xl w-fit border border-green-500/20">
+                  <UserPlus className="h-5 w-5 sm:h-6 sm:w-6 text-green-500" />
                 </div>
                 <div>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-medium">Horário de Pico</p>
-                  <p className="text-2xl sm:text-3xl font-black text-foreground mt-1">{additionalMetrics.peakHour}</p>
-                  <p className="text-xs text-muted-foreground">{additionalMetrics.peakCount} leads</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-medium">Novos Consultores</p>
+                  <p className="text-2xl sm:text-3xl font-black text-foreground mt-1">{additionalMetrics.novosConsultores}</p>
+                  <p className="text-xs text-muted-foreground">convertidos</p>
                 </div>
               </div>
             </CardContent>

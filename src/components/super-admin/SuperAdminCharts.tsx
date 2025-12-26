@@ -150,7 +150,7 @@ export function SuperAdminCharts() {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 overflow-x-hidden">
       {/* Gráfico 1: Leads por dia */}
       <Card className="lg:col-span-2">
         <CardHeader>
@@ -162,10 +162,11 @@ export function SuperAdminCharts() {
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis 
                 dataKey="date" 
-                tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }}
                 interval="preserveStartEnd"
+                tickMargin={5}
               />
-              <YAxis tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
+              <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} width={30} />
               <Tooltip 
                 contentStyle={{ 
                   backgroundColor: 'hsl(var(--card))', 

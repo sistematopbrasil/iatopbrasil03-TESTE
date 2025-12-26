@@ -92,19 +92,19 @@ export function ConsultantsTable() {
 
   return (
     <>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-4">
-          <CardTitle className="text-lg">
+      <Card className="overflow-hidden">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4">
+          <CardTitle className="text-base sm:text-lg">
             👥 Todos os Consultores ({consultants?.length || 0})
           </CardTitle>
-          <Button onClick={() => setIsCreateOpen(true)} size="sm">
+          <Button onClick={() => setIsCreateOpen(true)} size="sm" className="w-full sm:w-auto">
             <UserPlus className="w-4 h-4 mr-2" />
             Novo Consultor
           </Button>
         </CardHeader>
 
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
+        <CardContent className="p-0 overflow-x-hidden">
+          <div className="overflow-x-auto min-w-0">
             <table className="w-full">
               <thead className="bg-muted/50 border-y border-border">
                 <tr>
