@@ -105,6 +105,8 @@ export function PipelineBoard() {
   };
 
   // Função para adicionar/remover pontos baseado na mudança de stage
+  // IMPORTANTE: total_points é GENERATED ALWAYS AS, então atualizamos consultants_recruited
+  // que agora vale 100 pontos por unidade na fórmula do banco
   const updateConversionPoints = async (
     consultantId: string | null, 
     organizationId: string | null, 
@@ -117,10 +119,9 @@ export function PipelineBoard() {
       return;
     }
     
-    const pointsDelta = action === 'add' ? 100 : -100;
-    const convertedDelta = action === 'add' ? 1 : -1;
+    const recruitedDelta = action === 'add' ? 1 : -1;
     
-    console.log(`🎯 ${action === 'add' ? 'Adicionando' : 'Removendo'} 100 pontos - Previous: ${previousStageName}, New: ${newStageName}`);
+    console.log(`🎯 ${action === 'add' ? 'Adicionando' : 'Removendo'} consultor recrutado - Previous: ${previousStageName}, New: ${newStageName}`);
     
     try {
       // Buscar período atual (mês corrente)
@@ -131,7 +132,7 @@ export function PipelineBoard() {
       // Verificar se já existe registro para este período
       const { data: existingScore, error: fetchError } = await supabase
         .from('ranking_scores')
-        .select('id, leads_converted, total_points')
+        .select('id, consultants_recruited')
         .eq('consultant_id', consultantId)
         .eq('organization_id', organizationId)
         .eq('period_start', periodStart)
@@ -144,15 +145,14 @@ export function PipelineBoard() {
       }
       
       if (existingScore) {
-        // Atualizar registro existente
-        const newConverted = Math.max(0, (existingScore.leads_converted || 0) + convertedDelta);
-        const newPoints = Math.max(0, (existingScore.total_points || 0) + pointsDelta);
+        // Atualizar registro existente - apenas consultants_recruited
+        // total_points será recalculado automaticamente pelo banco
+        const newRecruited = Math.max(0, (existingScore.consultants_recruited || 0) + recruitedDelta);
         
         const { error: updateError } = await supabase
           .from('ranking_scores')
           .update({
-            leads_converted: newConverted,
-            total_points: newPoints,
+            consultants_recruited: newRecruited,
             updated_at: new Date().toISOString()
           })
           .eq('id', existingScore.id);
@@ -162,9 +162,9 @@ export function PipelineBoard() {
           return;
         }
         
-        console.log(`✅ Ranking atualizado: leads_converted=${newConverted}, total_points=${newPoints}`);
+        console.log(`✅ Ranking atualizado: consultants_recruited=${newRecruited} (total_points será recalculado automaticamente)`);
       } else if (action === 'add') {
-        // Criar novo registro apenas se estiver adicionando pontos
+        // Criar novo registro apenas se estiver adicionando
         const { error: insertError } = await supabase
           .from('ranking_scores')
           .insert({
@@ -172,12 +172,11 @@ export function PipelineBoard() {
             organization_id: organizationId,
             period_start: periodStart,
             period_end: periodEnd,
-            leads_converted: 1,
-            total_points: 100,
+            consultants_recruited: 1,
             leads_captured: 0,
             leads_contacted: 0,
             leads_qualified: 0,
-            consultants_recruited: 0,
+            leads_converted: 0,
             events_hosted: 0
           });
         
@@ -186,7 +185,7 @@ export function PipelineBoard() {
           return;
         }
         
-        console.log('✅ Novo registro de ranking criado com 100 pontos');
+        console.log('✅ Novo registro de ranking criado com 1 consultor recrutado (100 pontos)');
       }
       
       if (action === 'add') {
