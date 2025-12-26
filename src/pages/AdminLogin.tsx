@@ -67,11 +67,6 @@ export default function AdminLogin() {
         return;
       }
 
-      toast({
-        title: "Login realizado!",
-        description: "Bem-vindo ao painel administrativo.",
-      });
-
       navigate('/admin/dashboard');
     } catch (error: any) {
       toast({
