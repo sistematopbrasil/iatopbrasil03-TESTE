@@ -79,10 +79,24 @@ export default function AdminCRM() {
     }
   };
 
+  // Show loading state to avoid flash
+  if (isLoading) {
+    return (
+      <AdminLayout>
+        <div className="h-[calc(100vh-64px)] flex items-center justify-center">
+          <div className="text-center space-y-2">
+            <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-sm text-muted-foreground">Verificando conexão...</p>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
   return (
     <AdminLayout>
       <div className="h-[calc(100vh-64px)] flex flex-col overflow-hidden">
-        {!isConnected && !isLoading ? (
+        {!isConnected ? (
           <div className="p-4">
             <ConnectionPanel />
           </div>

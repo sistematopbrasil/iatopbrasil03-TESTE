@@ -55,24 +55,26 @@ export function ConsultantsTable() {
     enabled: !!currentUser,
   });
 
-  // Buscar stages de conversão
-  const { data: conversionStageIds } = useQuery({
-    queryKey: ['conversion-stages', currentUser?.organization_id],
+  // Buscar stage "Novos Consultores" para contar convertidos
+  const { data: novosConsultoresStageId } = useQuery({
+    queryKey: ['novos-consultores-stage', currentUser?.organization_id],
     queryFn: async () => {
-      if (!currentUser) return [];
+      if (!currentUser) return null;
       const { data } = await supabase
         .from('pipeline_stages')
         .select('id')
         .eq('organization_id', currentUser.organization_id)
-        .or('name.ilike.%convertido%,name.ilike.%consultor%');
-      return data?.map(s => s.id) || [];
+        .ilike('name', '%novos%consultor%')
+        .limit(1)
+        .single();
+      return data?.id || null;
     },
     enabled: !!currentUser,
   });
 
   // Buscar métricas de leads por consultor (com contagem por temperatura)
   const { data: consultantMetrics } = useQuery({
-    queryKey: ['consultant-metrics-all', currentUser?.organization_id, conversionStageIds],
+    queryKey: ['consultant-metrics-all', currentUser?.organization_id, novosConsultoresStageId],
     queryFn: async () => {
       if (!currentUser) return {};
 
@@ -87,43 +89,42 @@ export function ConsultantsTable() {
       // Agregar métricas por consultant_id
       const metrics: Record<string, { 
         total: number; 
-        converted: number; 
+        converted: number; // Leads em "Novos Consultores"
         hot: number; 
         warm: number;
         cold: number;
-        convertedHot: number;
-        convertedWarm: number;
       }> = {};
       
       data?.forEach((lead) => {
         if (lead.consultant_id) {
           if (!metrics[lead.consultant_id]) {
             metrics[lead.consultant_id] = { 
-              total: 0, converted: 0, hot: 0, warm: 0, cold: 0,
-              convertedHot: 0, convertedWarm: 0 
+              total: 0, converted: 0, hot: 0, warm: 0, cold: 0
             };
           }
           metrics[lead.consultant_id].total++;
           
-          const isConverted = lead.pipeline_stage_id && conversionStageIds?.includes(lead.pipeline_stage_id);
-          if (isConverted) {
+          // Convertidos = leads em "Novos Consultores"
+          const isNovosConsultores = lead.pipeline_stage_id === novosConsultoresStageId;
+          if (isNovosConsultores) {
             metrics[lead.consultant_id].converted++;
           }
           
-          if (lead.temperature === 'hot') {
-            metrics[lead.consultant_id].hot++;
-            if (isConverted) metrics[lead.consultant_id].convertedHot++;
-          } else if (lead.temperature === 'warm') {
-            metrics[lead.consultant_id].warm++;
-            if (isConverted) metrics[lead.consultant_id].convertedWarm++;
-          } else {
-            metrics[lead.consultant_id].cold++;
+          // Contagem de temperatura (não inclui os que estão em Novos Consultores para evitar dupla contagem)
+          if (!isNovosConsultores) {
+            if (lead.temperature === 'hot') {
+              metrics[lead.consultant_id].hot++;
+            } else if (lead.temperature === 'warm') {
+              metrics[lead.consultant_id].warm++;
+            } else {
+              metrics[lead.consultant_id].cold++;
+            }
           }
         }
       });
       return metrics;
     },
-    enabled: !!currentUser && !!conversionStageIds,
+    enabled: !!currentUser,
   });
 
   // Buscar consultants_recruited da tabela ranking_scores
@@ -197,25 +198,20 @@ export function ConsultantsTable() {
   // Calcular pontuação total correta
   const calculateScore = (consultantId: string): number => {
     const m = consultantMetrics?.[consultantId] || { 
-      hot: 0, warm: 0, cold: 0, convertedHot: 0, convertedWarm: 0 
+      hot: 0, warm: 0, cold: 0, converted: 0
     };
     const recruited = recruitedCounts?.[consultantId] || 0;
     
-    // Pontos base por temperatura
+    // Pontos base por temperatura (leads que NÃO estão em Novos Consultores)
     const basePoints = 
       (m.hot * LEAD_TEMPERATURE_POINTS.hot) +
       (m.warm * LEAD_TEMPERATURE_POINTS.warm) +
       (m.cold * LEAD_TEMPERATURE_POINTS.cold);
     
-    // Bônus de conversão
-    const conversionBonus = 
-      (m.convertedHot * CONVERSION_BONUS) +
-      (m.convertedWarm * CONVERSION_BONUS);
-    
-    // Bônus de recrutamento (100 pts cada)
+    // Bônus de recrutamento (100 pts cada - para leads em Novos Consultores)
     const recruitedBonus = recruited * 100;
     
-    return basePoints + conversionBonus + recruitedBonus;
+    return basePoints + recruitedBonus;
   };
 
   const copyQuizLink = (slug: string) => {
@@ -257,9 +253,6 @@ export function ConsultantsTable() {
             {consultants?.map((consultant) => {
               const metrics = consultantMetrics?.[consultant.id] || { total: 0, converted: 0, hot: 0 };
               const score = calculateScore(consultant.id);
-              const conversionRate = metrics.total > 0 
-                ? ((metrics.converted / metrics.total) * 100).toFixed(1) 
-                : '0.0';
 
               return (
                 <div 
@@ -285,18 +278,14 @@ export function ConsultantsTable() {
                   </div>
                   
                   {/* Stats row */}
-                  <div className="grid grid-cols-4 gap-2 text-center">
+                  <div className="grid grid-cols-3 gap-2 text-center">
                     <div>
                       <p className="text-xs text-muted-foreground">Leads</p>
                       <p className="text-sm font-semibold">{metrics.total}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-muted-foreground">Conv.</p>
+                      <p className="text-xs text-muted-foreground">Convertidos</p>
                       <p className="text-sm font-semibold text-green-600">{metrics.converted}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Taxa</p>
-                      <p className="text-sm font-medium">{conversionRate}%</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Quentes</p>

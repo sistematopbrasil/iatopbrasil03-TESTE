@@ -340,7 +340,7 @@ const AdminAnalytics = () => {
 
   return (
     <AdminLayout>
-      <div className="space-y-4 sm:space-y-6 overflow-x-hidden">
+      <div className="space-y-4 sm:space-y-6 overflow-x-hidden px-2 sm:px-4 lg:px-6">
         {/* Header */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 animate-fade-in">
           <div className="min-w-0">

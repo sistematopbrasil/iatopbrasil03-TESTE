@@ -1,11 +1,8 @@
-import { POINTS_CONFIG } from '@/lib/ranking-service';
 import { 
   Users, 
   Phone, 
-  CheckCircle, 
   Star, 
-  UserPlus, 
-  Calendar 
+  UserPlus 
 } from 'lucide-react';
 
 interface PointsBreakdownProps {
@@ -20,54 +17,39 @@ interface PointsBreakdownProps {
 }
 
 export function PointsBreakdown({ metrics }: PointsBreakdownProps) {
+  // Ordenar em ordem crescente de pontos por unidade (5, 15, 30, 100)
   const items = [
     {
       icon: Users,
-      label: 'Leads Capturados',
-      count: metrics?.leads_captured || 0,
-      pointsPer: POINTS_CONFIG.lead_captured,
+      label: 'Leads Frios',
+      count: 0,
+      pointsPer: 5,
       color: 'text-blue-500',
       bgColor: 'bg-blue-500/10',
     },
     {
       icon: Phone,
-      label: 'Leads Contatados',
-      count: metrics?.leads_contacted || 0,
-      pointsPer: POINTS_CONFIG.lead_contacted,
-      color: 'text-purple-500',
-      bgColor: 'bg-purple-500/10',
-    },
-    {
-      icon: CheckCircle,
-      label: 'Leads Qualificados',
-      count: metrics?.leads_qualified || 0,
-      pointsPer: POINTS_CONFIG.lead_qualified,
+      label: 'Leads Mornos',
+      count: 0,
+      pointsPer: 15,
       color: 'text-yellow-500',
       bgColor: 'bg-yellow-500/10',
     },
     {
       icon: Star,
-      label: 'Leads Convertidos',
-      count: metrics?.leads_converted || 0,
-      pointsPer: POINTS_CONFIG.lead_converted,
-      color: 'text-green-500',
-      bgColor: 'bg-green-500/10',
+      label: 'Leads Quentes',
+      count: 0,
+      pointsPer: 30,
+      color: 'text-orange-500',
+      bgColor: 'bg-orange-500/10',
     },
     {
       icon: UserPlus,
       label: 'Consultores Recrutados',
       count: metrics?.consultants_recruited || 0,
-      pointsPer: POINTS_CONFIG.consultant_recruited,
-      color: 'text-orange-500',
-      bgColor: 'bg-orange-500/10',
-    },
-    {
-      icon: Calendar,
-      label: 'Eventos Realizados',
-      count: metrics?.events_hosted || 0,
-      pointsPer: POINTS_CONFIG.event_hosted,
-      color: 'text-indigo-500',
-      bgColor: 'bg-indigo-500/10',
+      pointsPer: 100,
+      color: 'text-green-500',
+      bgColor: 'bg-green-500/10',
     },
   ];
 
