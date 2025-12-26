@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, Edit2, Loader2, Eye, EyeOff, Lock } from 'lucide-react';
+import { Plus, Trash2, Edit2, Loader2, Eye, EyeOff, Lock, GripVertical } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -17,6 +17,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 
 type QuestionType = 'multiple_choice' | 'open_text' | 'yes_no';
 
@@ -99,6 +100,27 @@ export function QuizQuestionsEditor() {
     },
   });
 
+  // Reorder mutation
+  const reorderMutation = useMutation({
+    mutationFn: async (reorderedQuestions: { id: string; order_index: number }[]) => {
+      // Update each question's order_index
+      for (const q of reorderedQuestions) {
+        const { error } = await supabase
+          .from('quiz_questions')
+          .update({ order_index: q.order_index })
+          .eq('id', q.id);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quiz-questions'] });
+      toast.success('Ordem atualizada!');
+    },
+    onError: (error: Error) => {
+      toast.error('Erro ao reordenar: ' + error.message);
+    },
+  });
+
   // Toggle question visibility (for default questions)
   const toggleVisibilityMutation = useMutation({
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
@@ -131,6 +153,29 @@ export function QuizQuestionsEditor() {
     },
   });
 
+  // Handle drag end
+  const handleDragEnd = (result: DropResult) => {
+    if (!result.destination || !activeQuestions) return;
+
+    const sourceIndex = result.source.index;
+    const destIndex = result.destination.index;
+
+    if (sourceIndex === destIndex) return;
+
+    // Reorder the array
+    const reordered = Array.from(activeQuestions);
+    const [removed] = reordered.splice(sourceIndex, 1);
+    reordered.splice(destIndex, 0, removed);
+
+    // Create updates with new order indices
+    const updates = reordered.map((q, index) => ({
+      id: q.id,
+      order_index: index + 1,
+    }));
+
+    reorderMutation.mutate(updates);
+  };
+
   // Separate active and inactive questions
   const activeQuestions = questions?.filter(q => q.is_active) || [];
   const inactiveQuestions = questions?.filter(q => !q.is_active) || [];
@@ -151,7 +196,7 @@ export function QuizQuestionsEditor() {
         <div className="flex items-center justify-between">
           <div>
             <CardTitle>Perguntas do Quiz</CardTitle>
-            <CardDescription>Personalize as perguntas do seu quiz</CardDescription>
+            <CardDescription>Personalize as perguntas do seu quiz. Arraste para reordenar.</CardDescription>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
@@ -180,104 +225,132 @@ export function QuizQuestionsEditor() {
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Active Questions */}
+        {/* Active Questions with Drag & Drop */}
         {activeQuestions.length > 0 ? (
           <div className="space-y-3">
             <h3 className="text-sm font-semibold text-muted-foreground">Perguntas Ativas</h3>
-            {activeQuestions.map((q, index) => (
-              <div
-                key={q.id}
-                className="p-4 rounded-lg border border-border bg-card hover:shadow-md transition-all"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-8 h-8 bg-primary/10 text-primary rounded-full flex items-center justify-center font-bold text-sm">
-                    {index + 1}
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      <p className="font-medium text-foreground">
-                        {q.question_text}
-                      </p>
-                      {q.is_default && (
-                        <Badge variant="secondary" className="text-xs flex items-center gap-1">
-                          <Lock className="w-3 h-3" />
-                          Padrão
-                        </Badge>
-                      )}
-                    </div>
-                    
-                    <div className="flex items-center gap-3 text-sm text-muted-foreground mb-3">
-                      <span className="bg-muted px-2 py-1 rounded text-xs">
-                        {q.question_type === 'multiple_choice' ? '📋 Múltipla Escolha' :
-                         q.question_type === 'yes_no' ? '✓ Sim/Não' :
-                         '✍️ Texto Aberto'}
-                      </span>
-                      {q.options && (
-                        <span className="text-xs">
-                          {(q.options as string[]).length} opções
-                        </span>
-                      )}
-                    </div>
-
-                    {q.options && (q.options as string[]).length > 0 && (
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {(q.options as string[]).map((opt, i) => (
-                          <span
-                            key={i}
-                            className="text-xs bg-background border border-border px-3 py-1 rounded-full"
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <Droppable droppableId="questions">
+                {(provided) => (
+                  <div
+                    {...provided.droppableProps}
+                    ref={provided.innerRef}
+                    className="space-y-3"
+                  >
+                    {activeQuestions.map((q, index) => (
+                      <Draggable key={q.id} draggableId={q.id} index={index}>
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            className={`p-4 rounded-lg border border-border bg-card hover:shadow-md transition-all ${
+                              snapshot.isDragging ? 'shadow-lg ring-2 ring-primary/20' : ''
+                            }`}
                           >
-                            {opt}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+                            <div className="flex items-start gap-3">
+                              {/* Drag Handle */}
+                              <div
+                                {...provided.dragHandleProps}
+                                className="flex-shrink-0 w-8 h-8 bg-muted rounded-lg flex items-center justify-center cursor-grab active:cursor-grabbing hover:bg-muted/80"
+                              >
+                                <GripVertical className="w-4 h-4 text-muted-foreground" />
+                              </div>
 
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setEditingQuestion(q);
-                          setIsDialogOpen(true);
-                        }}
-                      >
-                        <Edit2 className="w-3 h-3 mr-1" />
-                        Editar
-                      </Button>
-                      
-                      {q.is_default ? (
-                        // Default questions can only be hidden
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => toggleVisibilityMutation.mutate({ id: q.id, isActive: false })}
-                          className="text-yellow-600 hover:bg-yellow-500/10"
-                        >
-                          <EyeOff className="w-3 h-3 mr-1" />
-                          Ocultar
-                        </Button>
-                      ) : (
-                        // Non-default questions can be deleted
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            if (confirm('Tem certeza que deseja excluir esta pergunta?')) {
-                              deleteMutation.mutate(q.id);
-                            }
-                          }}
-                          className="text-destructive hover:bg-destructive/10"
-                        >
-                          <Trash2 className="w-3 h-3 mr-1" />
-                          Excluir
-                        </Button>
-                      )}
-                    </div>
+                              <div className="flex-shrink-0 w-8 h-8 bg-primary/10 text-primary rounded-full flex items-center justify-center font-bold text-sm">
+                                {index + 1}
+                              </div>
+                              
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                  <p className="font-medium text-foreground">
+                                    {q.question_text}
+                                  </p>
+                                  {q.is_default && (
+                                    <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                                      <Lock className="w-3 h-3" />
+                                      Padrão
+                                    </Badge>
+                                  )}
+                                </div>
+                                
+                                <div className="flex items-center gap-3 text-sm text-muted-foreground mb-3 flex-wrap">
+                                  <span className="bg-muted px-2 py-1 rounded text-xs">
+                                    {q.question_type === 'multiple_choice' ? '📋 Múltipla Escolha' :
+                                     q.question_type === 'yes_no' ? '✓ Sim/Não' :
+                                     '✍️ Texto Aberto'}
+                                  </span>
+                                  {q.options && (
+                                    <span className="text-xs">
+                                      {(q.options as string[]).length} opções
+                                    </span>
+                                  )}
+                                </div>
+
+                                {q.options && (q.options as string[]).length > 0 && (
+                                  <div className="flex flex-wrap gap-2 mb-3">
+                                    {(q.options as string[]).map((opt, i) => (
+                                      <span
+                                        key={i}
+                                        className="text-xs bg-background border border-border px-3 py-1 rounded-full"
+                                      >
+                                        {opt}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+
+                                <div className="flex gap-2 flex-wrap">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setEditingQuestion(q);
+                                      setIsDialogOpen(true);
+                                    }}
+                                  >
+                                    <Edit2 className="w-3 h-3 mr-1" />
+                                    Editar
+                                  </Button>
+                                  
+                                  {q.is_default ? (
+                                    // Default questions can only be hidden
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => toggleVisibilityMutation.mutate({ id: q.id, isActive: false })}
+                                      className="text-yellow-600 hover:bg-yellow-500/10"
+                                    >
+                                      <EyeOff className="w-3 h-3 mr-1" />
+                                      Ocultar
+                                    </Button>
+                                  ) : (
+                                    // Non-default questions can be deleted
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        if (confirm('Tem certeza que deseja excluir esta pergunta?')) {
+                                          deleteMutation.mutate(q.id);
+                                        }
+                                      }}
+                                      className="text-destructive hover:bg-destructive/10"
+                                    >
+                                      <Trash2 className="w-3 h-3 mr-1" />
+                                      Excluir
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
                   </div>
-                </div>
-              </div>
-            ))}
+                )}
+              </Droppable>
+            </DragDropContext>
           </div>
         ) : (
           <div className="text-center py-8 text-muted-foreground">
@@ -480,7 +553,7 @@ function QuestionForm({
           Cancelar
         </Button>
         <Button type="submit" className="flex-1" disabled={isPending}>
-          {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+          {isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
           Salvar
         </Button>
       </div>

@@ -32,7 +32,8 @@ export function isConversionStage(stageName: string | null | undefined): boolean
          name.includes('fechado') || 
          name.includes('ganho') ||
          name.includes('venda') ||
-         name.includes('fechamento');
+         name.includes('fechamento') ||
+         name.includes('consultor'); // Novos consultores = conversão
 }
 
 /**
@@ -231,7 +232,7 @@ export async function getConsultantLeadStats(consultantId: string) {
     const { data: stages } = await supabase
       .from('pipeline_stages')
       .select('id, name')
-      .or('name.ilike.%convertido%,name.ilike.%fechado%,name.ilike.%ganho%');
+      .or('name.ilike.%convertido%,name.ilike.%fechado%,name.ilike.%ganho%,name.ilike.%consultor%');
 
     const conversionStageIds = stages?.map(s => s.id) || [];
 

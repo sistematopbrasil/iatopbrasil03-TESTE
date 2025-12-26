@@ -334,10 +334,21 @@ serve(async (req) => {
     );
   } catch (error: any) {
     console.error('❌ Erro:', error);
+    
+    // Melhorar mensagem de erro para o usuário
+    let userMessage = error?.message || 'Erro desconhecido';
+    
+    // Detectar erros comuns e traduzir
+    if (userMessage.includes('not registered') || userMessage.includes('not on whatsapp') || userMessage.includes('invalid number')) {
+      userMessage = 'Este número não está registrado no WhatsApp. Verifique se o número está correto e possui WhatsApp.';
+    } else if (userMessage.includes('Connection Closed') || userMessage.includes('Disconnected') || userMessage.includes('desconectado')) {
+      userMessage = 'WhatsApp desconectado. Por favor, reconecte escaneando o QR Code na aba CRM > WhatsApp.';
+    }
+    
     return new Response(
       JSON.stringify({
         success: false,
-        error: error?.message || 'Erro desconhecido',
+        error: userMessage,
       }),
       {
         status: 400,
