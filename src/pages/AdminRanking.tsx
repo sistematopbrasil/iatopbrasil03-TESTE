@@ -111,21 +111,30 @@ export default function AdminRanking() {
         }]) || []
       );
 
-      // Calculate final points including Novos Consultores bonus
+      // Calculate final points - leads in "Novos Consultores" only count as recruited bonus (100 pts)
+      // NOT as lead temperature points (to avoid double counting)
       const enrichedRanking = (rankingData || []).map((r: any) => {
         const scores = scoresMap.get(r.consultant_id) || { consultants_recruited: 0, total_points: 0 };
+        
+        // Leads that are in "Novos Consultores" are counted via consultants_recruited, not via temperature
+        // So we subtract recruited from the temperature counts to avoid double counting
+        const recruited = scores.consultants_recruited;
+        
+        // Lead temperature points (excluding those in Novos Consultores)
         const leadPoints = calculateLeadPoints(
-          Number(r.hot_leads || 0),
+          Math.max(0, Number(r.hot_leads || 0) - recruited),
           Number(r.warm_leads || 0),
           Number(r.cold_leads || 0)
         );
-        const novosConsultoresPoints = scores.consultants_recruited * NOVOS_CONSULTORES_BONUS;
+        
+        // Recruited consultants bonus (100 pts each)
+        const novosConsultoresPoints = recruited * NOVOS_CONSULTORES_BONUS;
         const totalPoints = leadPoints + novosConsultoresPoints;
 
         return {
           ...r,
           profile_photo: photoMap.get(r.consultant_id) || null,
-          consultants_recruited: scores.consultants_recruited,
+          consultants_recruited: recruited,
           total_points: totalPoints,
         };
       }) as RankingEntry[];

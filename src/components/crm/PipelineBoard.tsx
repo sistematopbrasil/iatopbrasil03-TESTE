@@ -156,8 +156,6 @@ export function PipelineBoard() {
       };
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['pipeline-leads'] });
-      
       // ⚠️ Pontuação agora é gerenciada pelo trigger no banco
       // Exibir feedback visual e invalidar ranking
       showPointsFeedback(data?.previousStageName, data?.newStageName);
@@ -169,10 +167,15 @@ export function PipelineBoard() {
       if (wasInNovosConsultores === isNowInNovosConsultores) {
         toast.success('Lead movido com sucesso!');
       }
+      
+      // Invalidar após sucesso para sincronizar com o servidor
+      queryClient.invalidateQueries({ queryKey: ['pipeline-leads'] });
     },
-    onError: (error) => {
+    onError: (error, variables) => {
       console.error('❌ Erro na mutation:', error);
       toast.error('Erro ao mover lead');
+      // Reverter otimistic update ao invalidar query
+      queryClient.invalidateQueries({ queryKey: ['pipeline-leads'] });
     },
   });
 
@@ -181,8 +184,19 @@ export function PipelineBoard() {
 
     const leadId = result.draggableId;
     const newStageId = result.destination.droppableId;
+    const oldStageId = result.source.droppableId;
 
-    if (result.source.droppableId === newStageId) return;
+    if (oldStageId === newStageId) return;
+
+    // ✅ Optimistic update - atualizar imediatamente na UI
+    queryClient.setQueryData(['pipeline-leads', currentUser?.id], (oldData: any[] | undefined) => {
+      if (!oldData) return oldData;
+      return oldData.map(lead => 
+        lead.id === leadId 
+          ? { ...lead, pipeline_stage_id: newStageId }
+          : lead
+      );
+    });
 
     // Encontrar o nome do novo stage
     const targetStage = stages.find(s => s.id === newStageId);
