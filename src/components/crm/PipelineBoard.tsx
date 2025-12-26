@@ -97,101 +97,172 @@ export function PipelineBoard() {
     enabled: !!currentUser,
   });
 
-  // ✅ MUTATION ATUALIZADA - Usa pipeline_stage_id (UUID)
-  // Função para adicionar pontos quando lead vai para "Novos Consultores"
-  const addConversionPoints = async (consultantId: string | null, organizationId: string | null, stageName: string) => {
-    if (!consultantId || !organizationId) return;
+  // Helper para verificar se é stage "Novos Consultores"
+  const isNovosConsultoresStage = (stageName: string | null | undefined) => {
+    if (!stageName) return false;
+    const lower = stageName.toLowerCase();
+    return lower.includes('novo') && lower.includes('consultor');
+  };
+
+  // Função para adicionar/remover pontos baseado na mudança de stage
+  const updateConversionPoints = async (
+    consultantId: string | null, 
+    organizationId: string | null, 
+    previousStageName: string | null,
+    newStageName: string | null,
+    action: 'add' | 'remove'
+  ) => {
+    if (!consultantId || !organizationId) {
+      console.log('❌ Sem consultant_id ou organization_id para atualizar pontos');
+      return;
+    }
     
-    // Verificar se é o stage "Novos Consultores" ou "Novo Consultor"
-    if (stageName.toLowerCase().includes('novo') && stageName.toLowerCase().includes('consultor')) {
-      console.log('🎯 Lead movido para Novos Consultores - Adicionando 100 pontos ao consultor:', consultantId);
+    const pointsDelta = action === 'add' ? 100 : -100;
+    const convertedDelta = action === 'add' ? 1 : -1;
+    
+    console.log(`🎯 ${action === 'add' ? 'Adicionando' : 'Removendo'} 100 pontos - Previous: ${previousStageName}, New: ${newStageName}`);
+    
+    try {
+      // Buscar período atual (mês corrente)
+      const now = new Date();
+      const periodStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+      const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
       
-      try {
-        // Buscar período atual (mês corrente)
-        const now = new Date();
-        const periodStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-        const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+      // Verificar se já existe registro para este período
+      const { data: existingScore, error: fetchError } = await supabase
+        .from('ranking_scores')
+        .select('id, leads_converted, total_points')
+        .eq('consultant_id', consultantId)
+        .eq('organization_id', organizationId)
+        .eq('period_start', periodStart)
+        .eq('period_end', periodEnd)
+        .maybeSingle();
+      
+      if (fetchError) {
+        console.error('❌ Erro ao buscar ranking:', fetchError);
+        return;
+      }
+      
+      if (existingScore) {
+        // Atualizar registro existente
+        const newConverted = Math.max(0, (existingScore.leads_converted || 0) + convertedDelta);
+        const newPoints = Math.max(0, (existingScore.total_points || 0) + pointsDelta);
         
-        // Verificar se já existe registro para este período
-        const { data: existingScore } = await supabase
+        const { error: updateError } = await supabase
           .from('ranking_scores')
-          .select('id, leads_converted, total_points')
-          .eq('consultant_id', consultantId)
-          .eq('organization_id', organizationId)
-          .eq('period_start', periodStart)
-          .eq('period_end', periodEnd)
-          .maybeSingle();
+          .update({
+            leads_converted: newConverted,
+            total_points: newPoints,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingScore.id);
         
-        if (existingScore) {
-          // Atualizar registro existente - incrementar leads_converted e total_points
-          await supabase
-            .from('ranking_scores')
-            .update({
-              leads_converted: (existingScore.leads_converted || 0) + 1,
-              total_points: (existingScore.total_points || 0) + 100,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', existingScore.id);
-        } else {
-          // Criar novo registro de ranking
-          await supabase
-            .from('ranking_scores')
-            .insert({
-              consultant_id: consultantId,
-              organization_id: organizationId,
-              period_start: periodStart,
-              period_end: periodEnd,
-              leads_converted: 1,
-              total_points: 100,
-              leads_captured: 0,
-              leads_contacted: 0,
-              leads_qualified: 0,
-              consultants_recruited: 0,
-              events_hosted: 0
-            });
+        if (updateError) {
+          console.error('❌ Erro ao atualizar ranking:', updateError);
+          return;
         }
         
-        toast.success('🎯 +100 pontos! Lead convertido em consultor!');
+        console.log(`✅ Ranking atualizado: leads_converted=${newConverted}, total_points=${newPoints}`);
+      } else if (action === 'add') {
+        // Criar novo registro apenas se estiver adicionando pontos
+        const { error: insertError } = await supabase
+          .from('ranking_scores')
+          .insert({
+            consultant_id: consultantId,
+            organization_id: organizationId,
+            period_start: periodStart,
+            period_end: periodEnd,
+            leads_converted: 1,
+            total_points: 100,
+            leads_captured: 0,
+            leads_contacted: 0,
+            leads_qualified: 0,
+            consultants_recruited: 0,
+            events_hosted: 0
+          });
         
-        // Invalidar queries de ranking para atualizar UI
-        queryClient.invalidateQueries({ queryKey: ['ranking'] });
-        queryClient.invalidateQueries({ queryKey: ['consultant-ranking'] });
-      } catch (error) {
-        console.error('Erro ao adicionar pontos:', error);
-        toast.error('Erro ao contabilizar pontos');
+        if (insertError) {
+          console.error('❌ Erro ao criar ranking:', insertError);
+          return;
+        }
+        
+        console.log('✅ Novo registro de ranking criado com 100 pontos');
       }
+      
+      if (action === 'add') {
+        toast.success('🎯 +100 pontos! Lead convertido em consultor!');
+      } else {
+        toast.info('📉 -100 pontos - Lead removido de Novos Consultores');
+      }
+      
+      // Invalidar queries de ranking para atualizar UI
+      queryClient.invalidateQueries({ queryKey: ['ranking'] });
+      queryClient.invalidateQueries({ queryKey: ['consultant-ranking'] });
+    } catch (error) {
+      console.error('❌ Erro ao atualizar pontos:', error);
+      toast.error('Erro ao contabilizar pontos');
     }
   };
 
   const updateStageMutation = useMutation({
-    mutationFn: async ({ leadId, newStageId, stageName }: { leadId: string; newStageId: string; stageName: string }) => {
-      const { error } = await supabase
+    mutationFn: async ({ leadId, newStageId, newStageName }: { leadId: string; newStageId: string; newStageName: string }) => {
+      // Primeiro, buscar dados atuais do lead incluindo stage anterior
+      const { data: lead, error: leadError } = await supabase
+        .from('quiz_submissions_new')
+        .select('consultant_id, organization_id, pipeline_stage_id')
+        .eq('id', leadId)
+        .single();
+      
+      if (leadError) throw leadError;
+      
+      const previousStageId = lead?.pipeline_stage_id;
+      
+      // Buscar nome do stage anterior
+      let previousStageName: string | null = null;
+      if (previousStageId) {
+        const previousStage = stages.find(s => s.id === previousStageId);
+        previousStageName = previousStage?.name || null;
+      }
+      
+      // Atualizar para novo stage
+      const { error: updateError } = await supabase
         .from('quiz_submissions_new')
         .update({ pipeline_stage_id: newStageId })
         .eq('id', leadId);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
       
-      // Buscar consultant_id e organization_id do lead para dar pontos
-      const { data: lead } = await supabase
-        .from('quiz_submissions_new')
-        .select('consultant_id, organization_id')
-        .eq('id', leadId)
-        .single();
-
-      return { stageName, consultantId: lead?.consultant_id, organizationId: lead?.organization_id };
+      return { 
+        newStageName, 
+        previousStageName,
+        consultantId: lead?.consultant_id, 
+        organizationId: lead?.organization_id 
+      };
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: ['pipeline-leads'] });
       
-      // Adicionar pontos se for "Novos Consultores"
-      if (data?.stageName && data.stageName.toLowerCase().includes('novo') && data.stageName.toLowerCase().includes('consultor')) {
-        addConversionPoints(data.consultantId, data.organizationId, data.stageName);
-      } else {
+      const wasInNovosConsultores = isNovosConsultoresStage(data?.previousStageName);
+      const isNowInNovosConsultores = isNovosConsultoresStage(data?.newStageName);
+      
+      console.log(`🔄 Stage change: "${data?.previousStageName}" → "${data?.newStageName}"`);
+      console.log(`   wasInNovosConsultores: ${wasInNovosConsultores}, isNowInNovosConsultores: ${isNowInNovosConsultores}`);
+      
+      // Adicionar pontos se ENTROU em Novos Consultores
+      if (!wasInNovosConsultores && isNowInNovosConsultores) {
+        await updateConversionPoints(data.consultantId, data.organizationId, data.previousStageName, data.newStageName, 'add');
+      }
+      // Remover pontos se SAIU de Novos Consultores
+      else if (wasInNovosConsultores && !isNowInNovosConsultores) {
+        await updateConversionPoints(data.consultantId, data.organizationId, data.previousStageName, data.newStageName, 'remove');
+      }
+      // Apenas moveu entre outros stages
+      else {
         toast.success('Lead movido com sucesso!');
       }
     },
-    onError: () => {
+    onError: (error) => {
+      console.error('❌ Erro na mutation:', error);
       toast.error('Erro ao mover lead');
     },
   });
@@ -200,15 +271,15 @@ export function PipelineBoard() {
     if (!result.destination) return;
 
     const leadId = result.draggableId;
-    const newStageId = result.destination.droppableId; // ✅ Agora é UUID
+    const newStageId = result.destination.droppableId;
 
     if (result.source.droppableId === newStageId) return;
 
-    // Encontrar o nome do stage para verificar se é "Novos Consultores"
+    // Encontrar o nome do novo stage
     const targetStage = stages.find(s => s.id === newStageId);
-    const stageName = targetStage?.name || '';
+    const newStageName = targetStage?.name || '';
 
-    updateStageMutation.mutate({ leadId, newStageId, stageName });
+    updateStageMutation.mutate({ leadId, newStageId, newStageName });
   };
 
   // ✅ SIMPLIFICADO - Filtra direto por pipeline_stage_id (UUID)
