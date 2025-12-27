@@ -319,11 +319,12 @@ export default function AdminRanking() {
                       <th className="text-left py-4 px-4 text-muted-foreground font-medium">Consultor</th>
                       {isAdmin ? (
                         <>
+                          <th className="text-center py-4 px-4 text-muted-foreground font-medium">Pontuação</th>
                           <th className="text-center py-4 px-4 text-muted-foreground font-medium">Total Leads</th>
                           <th className="text-center py-4 px-4 text-muted-foreground font-medium">Quentes</th>
                           <th className="text-center py-4 px-4 text-muted-foreground font-medium">Mornos</th>
                           <th className="text-center py-4 px-4 text-muted-foreground font-medium">Frios</th>
-                          <th className="text-center py-4 px-4 text-muted-foreground font-medium">Consultores</th>
+                          <th className="text-center py-4 px-4 text-muted-foreground font-medium">Novos Cons.</th>
                         </>
                       ) : (
                         <th className="text-center py-4 px-4 text-muted-foreground font-medium">Pontuação</th>
@@ -371,6 +372,16 @@ export default function AdminRanking() {
 
                         {isAdmin ? (
                           <>
+                            {/* Points - Added for super admin */}
+                            <td className="text-center py-4 px-4">
+                              <div className="flex items-center justify-center gap-1">
+                                <Star className="w-5 h-5 text-primary" />
+                                <span className="text-xl font-bold text-foreground">
+                                  {(consultant.total_points || 0).toLocaleString()}
+                                </span>
+                              </div>
+                            </td>
+
                             {/* Total Leads */}
                             <td className="text-center py-4 px-4">
                               <span className="text-xl font-bold text-foreground">{consultant.total_leads}</span>
@@ -431,25 +442,25 @@ export default function AdminRanking() {
           )}
         </Card>
 
-        {/* Points Legend - Only for consultants (minimal version) */}
+        {/* Points Legend - Only for consultants (minimal version) - Ascending order */}
         {!isAdmin && (
           <div className="flex flex-wrap items-center justify-center gap-3 md:gap-6 py-3 px-4 bg-muted/30 rounded-lg text-sm w-full overflow-hidden">
             <span className="text-muted-foreground text-center">Pontuação:</span>
             <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-red-500 flex-shrink-0" />
-              <span className="text-foreground font-medium text-xs sm:text-sm">🔥 30pts</span>
+              <div className="w-2.5 h-2.5 rounded-full bg-blue-500 flex-shrink-0" />
+              <span className="text-foreground font-medium text-xs sm:text-sm">❄️ 5pts</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="w-2.5 h-2.5 rounded-full bg-yellow-500 flex-shrink-0" />
               <span className="text-foreground font-medium text-xs sm:text-sm">🌡️ 15pts</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-              <span className="text-foreground font-medium">❄️ 5pts</span>
+              <div className="w-2.5 h-2.5 rounded-full bg-red-500 flex-shrink-0" />
+              <span className="text-foreground font-medium text-xs sm:text-sm">🔥 30pts</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-purple-500" />
-              <span className="text-foreground font-medium">👥 100pts</span>
+              <div className="w-2.5 h-2.5 rounded-full bg-purple-500 flex-shrink-0" />
+              <span className="text-foreground font-medium text-xs sm:text-sm">👥 100pts</span>
             </div>
           </div>
         )}
