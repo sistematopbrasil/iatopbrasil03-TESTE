@@ -245,15 +245,15 @@ serve(async (req) => {
         break;
       case 'image':
         endpoint = `/message/sendMedia/${instance.instance_name}`;
-        baseRequestBody = { mediatype: 'image', media: media_url, caption: caption || '' };
+        baseRequestBody = { mediatype: 'image', media: media_url, caption: caption || content || '' };
         break;
       case 'video':
         endpoint = `/message/sendMedia/${instance.instance_name}`;
-        baseRequestBody = { mediatype: 'video', media: media_url, caption: caption || '' };
+        baseRequestBody = { mediatype: 'video', media: media_url, caption: caption || content || '' };
         break;
       case 'document':
         endpoint = `/message/sendMedia/${instance.instance_name}`;
-        baseRequestBody = { mediatype: 'document', media: media_url, fileName: file_name || 'document' };
+        baseRequestBody = { mediatype: 'document', media: media_url, fileName: file_name || 'document', caption: caption || content || '' };
         break;
       default:
         throw new Error('Tipo de mensagem não suportado');

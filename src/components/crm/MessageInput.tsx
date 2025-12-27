@@ -297,12 +297,15 @@ export function MessageInput({ conversationId, onSend, isSending, onOpenSettings
                 {formatFileSize(filePreview.file.size)}
               </p>
 
-              <Input
-                placeholder="Adicionar legenda (opcional)"
-                value={caption}
-                onChange={(e) => setCaption(e.target.value)}
-                className="mt-2 glass text-sm h-8"
-              />
+              {/* Mostrar campo de legenda apenas para imagem, vídeo e documento (não para áudio) */}
+              {filePreview.type !== 'audio' && (
+                <Input
+                  placeholder="Adicionar legenda (opcional)"
+                  value={caption}
+                  onChange={(e) => setCaption(e.target.value)}
+                  className="mt-2 glass text-sm h-8"
+                />
+              )}
             </div>
 
             <Button

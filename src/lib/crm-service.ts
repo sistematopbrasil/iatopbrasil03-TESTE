@@ -333,6 +333,8 @@ class CRMService {
           content,
           media_url: mediaUrl,
           file_name: fileName,
+          // Para imagem, vídeo e documento, enviar caption separadamente
+          caption: (type === 'image' || type === 'video' || type === 'document') ? content : undefined,
         },
       });
 
