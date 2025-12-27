@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTracking } from "@/hooks/useTracking";
+import { useMetaPixel } from "@/hooks/useMetaPixel";
 import { 
   saveTrackingSession, 
   linkTrackingToSubmission, 
@@ -35,6 +36,8 @@ interface QuizContainerProps {
 export const QuizContainer = ({ organization, config, consultantId: propConsultantId }: QuizContainerProps = {}) => {
   const { slug } = useParams<{ slug: string }>();
   const { trackingData, getSessionId } = useTracking();
+  
+  // Pixel será inicializado após carregar o consultor (ver useEffect abaixo)
 
   // Step: -1 = welcome, 0+ = question index
   const [currentStep, setCurrentStep] = useState(-1);
@@ -56,7 +59,7 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
       
       const { data, error } = await supabase
         .from("users")
-        .select("id, full_name, organization_id, quiz_slug, whatsapp_button_url, quiz_cover_image, quiz_image_position, quiz_image_size, quiz_image_shape")
+        .select("id, full_name, organization_id, quiz_slug, whatsapp_button_url, quiz_cover_image, quiz_image_position, quiz_image_size, quiz_image_shape, pixel_id")
         .eq("quiz_slug", slug)
         .eq("is_active", true)
         .maybeSingle();
@@ -66,6 +69,9 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
     },
     enabled: !!slug,
   });
+
+  // Inicializar Meta Pixel do consultor
+  const { trackEvent } = useMetaPixel({ pixelId: consultant?.pixel_id });
 
   // Fetch ALL questions for the consultant (order_index 1-14)
   const { data: questions, isLoading: loadingQuestions } = useQuery({
@@ -85,6 +91,13 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
     },
     enabled: !!consultant?.id,
   });
+
+  // Disparar evento Lead do Meta Pixel quando quiz for completado
+  useEffect(() => {
+    if (isComplete && consultant?.pixel_id) {
+      trackEvent('Lead');
+    }
+  }, [isComplete, consultant?.pixel_id, trackEvent]);
 
   // Initialize organization
   useEffect(() => {
@@ -478,7 +491,16 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
   };
 
   const handleWhatsAppClick = () => {
-    const phone = consultant?.whatsapp_button_url || "5531996308591";
+    const whatsappValue = consultant?.whatsapp_button_url;
+    
+    // Se for um link completo (começa com http), usar diretamente
+    if (whatsappValue && whatsappValue.startsWith('http')) {
+      window.open(whatsappValue, "_blank");
+      return;
+    }
+    
+    // Se for um número ou não tiver valor, formatar como link wa.me
+    const phone = whatsappValue || "5531996308591";
     const cleanPhone = phone.replace(/\D/g, '');
     const message = encodeURIComponent("Olá! Acabei de completar o quiz de perfil. Gostaria de saber mais sobre ser consultor TOP Brasil.");
     window.open(`https://wa.me/${cleanPhone}?text=${message}`, "_blank");
