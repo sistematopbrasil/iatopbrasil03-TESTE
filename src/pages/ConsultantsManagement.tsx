@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrentConsultant } from '@/lib/consultant-context';
 import { Navigate } from 'react-router-dom';
@@ -13,16 +14,53 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Target, TrendingUp, Flame, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Target, Flame, Loader2, MoreVertical, Copy, ExternalLink, UserX, UserCheck, Trash2, Users } from 'lucide-react';
+import { toast } from 'sonner';
+import { calculateLeadPoints, NOVOS_CONSULTORES_BONUS } from '@/lib/ranking-service';
 
 export default function ConsultantsManagement() {
+  const queryClient = useQueryClient();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [consultantToDelete, setConsultantToDelete] = useState<{ id: string; name: string } | null>(null);
+
   const { data: currentUser, isLoading: loadingUser } = useQuery({
     queryKey: ['current-user-consultants'],
     queryFn: getCurrentConsultant,
   });
 
+  // Get Novos Consultores stage ID
+  const { data: novosConsultoresStageId } = useQuery({
+    queryKey: ['novos-consultores-stage', currentUser?.organization_id],
+    queryFn: async () => {
+      if (!currentUser?.organization_id) return null;
+      const { data } = await supabase.rpc('get_novos_consultores_stage_id', {
+        org_id: currentUser.organization_id
+      });
+      return data;
+    },
+    enabled: !!currentUser?.organization_id,
+  });
+
   const { data: consultants, isLoading: loadingConsultants } = useQuery({
-    queryKey: ['all-consultants-management'],
+    queryKey: ['all-consultants-management', novosConsultoresStageId],
     queryFn: async () => {
       if (!currentUser) return [];
 
@@ -42,36 +80,114 @@ export default function ConsultantsManagement() {
             .eq('consultant_id', user.id)
             .eq('completion_percentage', 100);
 
-          const { count: convertedLeads } = await supabase
-            .from('quiz_submissions_new')
-            .select('*', { count: 'exact', head: true })
-            .eq('consultant_id', user.id)
-            .eq('stage', 'convertido');
+          // Count leads by temperature (excluding those in Novos Consultores)
+          let hotLeads = 0, warmLeads = 0, coldLeads = 0, novosConsultores = 0;
 
-          const { count: hotLeads } = await supabase
-            .from('quiz_submissions_new')
-            .select('*', { count: 'exact', head: true })
-            .eq('consultant_id', user.id)
-            .eq('temperature', 'hot');
+          if (novosConsultoresStageId) {
+            // Get leads NOT in Novos Consultores for temperature counts
+            const { data: tempLeads } = await supabase
+              .from('quiz_submissions_new')
+              .select('temperature')
+              .eq('consultant_id', user.id)
+              .eq('completion_percentage', 100)
+              .neq('pipeline_stage_id', novosConsultoresStageId);
 
-          const conversionRate = totalLeads && totalLeads > 0 
-            ? ((convertedLeads || 0) / totalLeads * 100).toFixed(1) 
-            : '0.0';
+            hotLeads = tempLeads?.filter(l => l.temperature === 'hot').length || 0;
+            warmLeads = tempLeads?.filter(l => l.temperature === 'warm').length || 0;
+            coldLeads = tempLeads?.filter(l => l.temperature === 'cold').length || 0;
+
+            // Count leads in Novos Consultores
+            const { count } = await supabase
+              .from('quiz_submissions_new')
+              .select('*', { count: 'exact', head: true })
+              .eq('consultant_id', user.id)
+              .eq('pipeline_stage_id', novosConsultoresStageId);
+
+            novosConsultores = count || 0;
+          } else {
+            // If no Novos Consultores stage, just count by temperature
+            const { count: hotCount } = await supabase
+              .from('quiz_submissions_new')
+              .select('*', { count: 'exact', head: true })
+              .eq('consultant_id', user.id)
+              .eq('temperature', 'hot');
+
+            hotLeads = hotCount || 0;
+          }
+
+          // Calculate score: leads by temperature + Novos Consultores bonus
+          const leadPoints = calculateLeadPoints(hotLeads, warmLeads, coldLeads);
+          const novosPoints = novosConsultores * NOVOS_CONSULTORES_BONUS;
+          const totalScore = leadPoints + novosPoints;
 
           return {
             ...user,
             totalLeads: totalLeads || 0,
-            convertedLeads: convertedLeads || 0,
-            hotLeads: hotLeads || 0,
-            conversionRate,
+            novosConsultores,
+            hotLeads,
+            totalScore,
           };
         }) || []
       );
 
       return consultantsWithMetrics;
     },
-    enabled: !!currentUser,
+    enabled: !!currentUser && novosConsultoresStageId !== undefined,
   });
+
+  // Toggle active mutation
+  const toggleActiveMutation = useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      const { error } = await supabase
+        .from('users')
+        .update({ is_active: isActive })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: (_, { isActive }) => {
+      queryClient.invalidateQueries({ queryKey: ['all-consultants-management'] });
+      toast.success(isActive ? 'Consultor ativado' : 'Consultor desativado');
+    },
+    onError: () => {
+      toast.error('Erro ao alterar status do consultor');
+    },
+  });
+
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['all-consultants-management'] });
+      toast.success('Consultor excluído');
+      setDeleteDialogOpen(false);
+      setConsultantToDelete(null);
+    },
+    onError: () => {
+      toast.error('Erro ao excluir consultor');
+    },
+  });
+
+  const copyQuizLink = (slug: string) => {
+    const url = `${window.location.origin}/quiz/${slug}`;
+    navigator.clipboard.writeText(url);
+    toast.success('Link copiado!');
+  };
+
+  const openQuizLink = (slug: string) => {
+    const url = `${window.location.origin}/quiz/${slug}`;
+    window.open(url, '_blank');
+  };
+
+  const handleDelete = (consultant: { id: string; full_name: string }) => {
+    setConsultantToDelete({ id: consultant.id, name: consultant.full_name });
+    setDeleteDialogOpen(true);
+  };
 
   if (loadingUser) {
     return (
@@ -121,8 +237,8 @@ export default function ConsultantsManagement() {
                   </TableHead>
                   <TableHead className="text-center">
                     <div className="flex items-center justify-center gap-1">
-                      <TrendingUp className="w-4 h-4" />
-                      <span className="hidden sm:inline">Conv.</span>
+                      <Users className="w-4 h-4" />
+                      <span className="hidden sm:inline">Novos Cons.</span>
                     </div>
                   </TableHead>
                   <TableHead className="text-center">
@@ -131,8 +247,8 @@ export default function ConsultantsManagement() {
                       <span className="hidden sm:inline">Quentes</span>
                     </div>
                   </TableHead>
-                  <TableHead className="text-center hidden sm:table-cell">Taxa</TableHead>
                   <TableHead className="text-center hidden md:table-cell">Status</TableHead>
+                  <TableHead className="text-center">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -157,21 +273,66 @@ export default function ConsultantsManagement() {
                     <TableCell className="text-center font-semibold">
                       {consultant.totalLeads}
                     </TableCell>
-                    <TableCell className="text-center font-semibold text-green-600">
-                      {consultant.convertedLeads}
+                    <TableCell className="text-center font-semibold text-purple-600">
+                      {consultant.novosConsultores}
                     </TableCell>
                     <TableCell className="text-center font-semibold text-orange-600">
                       {consultant.hotLeads}
-                    </TableCell>
-                    <TableCell className="text-center hidden sm:table-cell">
-                      <Badge variant="outline">
-                        {consultant.conversionRate}%
-                      </Badge>
                     </TableCell>
                     <TableCell className="text-center hidden md:table-cell">
                       <Badge variant={consultant.is_active ? "default" : "secondary"}>
                         {consultant.is_active ? 'Ativo' : 'Inativo'}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {consultant.quiz_slug && (
+                            <>
+                              <DropdownMenuItem onClick={() => copyQuizLink(consultant.quiz_slug!)}>
+                                <Copy className="mr-2 h-4 w-4" />
+                                Copiar link
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openQuizLink(consultant.quiz_slug!)}>
+                                <ExternalLink className="mr-2 h-4 w-4" />
+                                Abrir quiz
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                            </>
+                          )}
+                          <DropdownMenuItem 
+                            onClick={() => toggleActiveMutation.mutate({ 
+                              id: consultant.id, 
+                              isActive: !consultant.is_active 
+                            })}
+                          >
+                            {consultant.is_active ? (
+                              <>
+                                <UserX className="mr-2 h-4 w-4" />
+                                Desativar
+                              </>
+                            ) : (
+                              <>
+                                <UserCheck className="mr-2 h-4 w-4" />
+                                Ativar
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => handleDelete(consultant)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Excluir
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -187,6 +348,28 @@ export default function ConsultantsManagement() {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir consultor</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir <strong>{consultantToDelete?.name}</strong>? 
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => consultantToDelete && deleteMutation.mutate(consultantToDelete.id)}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AdminLayout>
   );
 }
