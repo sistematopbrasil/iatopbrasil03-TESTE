@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { v4 as uuidv4 } from "uuid";
 import { useTracking } from "@/hooks/useTracking";
 import { useMetaPixel } from "@/hooks/useMetaPixel";
 import { 
@@ -183,7 +184,10 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
         console.warn('Erro ao obter estágio default:', stageError);
       }
 
+      const leadId = uuidv4();
+
       const submissionData = {
+        id: leadId,
         organization_id: orgId,
         consultant_id: consultant?.id || propConsultantId || null,
         name,
@@ -207,11 +211,11 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
         user_agent: trackingData?.user_agent || navigator.userAgent,
       };
 
-      const { data, error } = await supabase
+      // IMPORTANTE: não pedir retorno (RETURNING/SELECT) aqui, pois o RLS de SELECT
+      // pode bloquear o retorno mesmo com INSERT público.
+      const { error } = await supabase
         .from("quiz_submissions_new")
-        .insert(submissionData)
-        .select("id")
-        .single();
+        .insert(submissionData);
 
       if (error) {
         console.error("Erro ao criar lead:", error);
@@ -219,16 +223,14 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
         return null;
       }
 
-      sessionStorage.setItem("quiz_lead_id", data.id);
-      leadIdRef.current = data.id;
-      setCurrentLeadId(data.id);
+      sessionStorage.setItem("quiz_lead_id", leadId);
+      leadIdRef.current = leadId;
+      setCurrentLeadId(leadId);
 
       // Não bloquear UX por causa do tracking
-      if (data.id) {
-        void linkTrackingToSubmission(sessionId, data.id);
-      }
+      void linkTrackingToSubmission(sessionId, leadId);
 
-      return data.id;
+      return leadId;
     } catch (err) {
       console.error("Erro ao criar lead:", err);
       toast.error("Não foi possível iniciar o quiz. Tente novamente.");
