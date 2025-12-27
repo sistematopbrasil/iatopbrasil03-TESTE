@@ -718,7 +718,8 @@ export function ConsultantSettings() {
                   placeholder="https://wa.me/5511999999999?text=Olá!"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Link exibido após o lead completar o quiz (deixe em branco para usar o padrão)
+                  Cole um link completo (ex: https://wa.me/5511999999999?text=Olá!) ou apenas o número com DDD (ex: 5511999999999).
+                  Deixe em branco para usar o padrão.
                 </p>
               </div>
 
