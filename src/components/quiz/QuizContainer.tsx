@@ -51,7 +51,7 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
   const isCreatingLead = useRef(false);
   const leadIdRef = useRef<string | null>(null);
 
-  // Fetch consultant by slug
+  // Fetch consultant by slug - com cache para evitar recarregamentos
   const { data: consultant, isLoading: loadingConsultant } = useQuery({
     queryKey: ["consultant-by-slug", slug],
     queryFn: async () => {
@@ -68,12 +68,14 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
       return data;
     },
     enabled: !!slug,
+    staleTime: 5 * 60 * 1000, // 5 minutos
+    gcTime: 10 * 60 * 1000, // 10 minutos
   });
 
-  // Inicializar Meta Pixel do consultor
-  const { trackEvent } = useMetaPixel({ pixelId: consultant?.pixel_id });
+  // Inicializar Meta Pixel do consultor (só quando carregado)
+  const { trackEvent } = useMetaPixel({ pixelId: consultant?.pixel_id || undefined });
 
-  // Fetch ALL questions for the consultant (order_index 1-14)
+  // Fetch ALL questions for the consultant - com cache
   const { data: questions, isLoading: loadingQuestions } = useQuery({
     queryKey: ["quiz-questions-public", consultant?.id],
     queryFn: async () => {
@@ -90,7 +92,12 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
       return (data || []) as QuizQuestion[];
     },
     enabled: !!consultant?.id,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
+
+  // Estado para verificar se tudo está pronto para iniciar
+  const isReady = !loadingConsultant && !loadingQuestions && !!consultant && (questions?.length ?? 0) > 0;
 
   // Disparar evento Lead do Meta Pixel quando quiz for completado
   useEffect(() => {
@@ -152,13 +159,12 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
       return leadIdRef.current;
     }
     
-    let orgId = organizationId;
-    if (!orgId && consultant?.organization_id) {
-      orgId = consultant.organization_id;
-    }
+    // IMPORTANTE: Usar diretamente consultant.organization_id para evitar race condition
+    const orgId = consultant?.organization_id || organizationId;
     
     if (!orgId) {
-      console.error("Organization ID not available");
+      console.error("Organization ID not available - consultant:", consultant);
+      toast.error("Erro: consultor não encontrado. Recarregue a página.");
       return null;
     }
 
@@ -426,6 +432,11 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
 
   // Handlers
   const handleStartQuiz = async () => {
+    // Verificar se dados estão prontos antes de iniciar
+    if (!consultant?.organization_id) {
+      toast.error("Carregando dados... Aguarde um momento.");
+      return;
+    }
     await saveTracking();
     setCurrentStep(0);
   };
@@ -700,9 +711,17 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
             <Button
               onClick={handleStartQuiz}
               size="lg"
-              className="w-full text-lg py-6 bg-[#EB6608] hover:bg-[#EB6608]/90 text-white shadow-lg shadow-[#EB6608]/30"
+              disabled={!isReady}
+              className="w-full text-lg py-6 bg-[#EB6608] hover:bg-[#EB6608]/90 text-white shadow-lg shadow-[#EB6608]/30 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Começar Avaliação Agora
+              {!isReady ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Carregando...
+                </>
+              ) : (
+                'Começar Avaliação Agora'
+              )}
             </Button>
           </div>
         </div>
