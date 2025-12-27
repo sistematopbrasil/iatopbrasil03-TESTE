@@ -57,7 +57,10 @@ export function MessageInput({ conversationId, onSend, isSending, onOpenSettings
   const [isUploading, setIsUploading] = useState(false);
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
   const [pendingMediaSend, setPendingMediaSend] = useState<PendingMediaSend | null>(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [filteredSuggestions, setFilteredSuggestions] = useState<QuickReply[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Load quick replies from database
   useEffect(() => {
@@ -92,6 +95,47 @@ export function MessageInput({ conversationId, onSend, isSending, onOpenSettings
       e.preventDefault();
       handleSend();
     }
+    // ESC para fechar sugestões
+    if (e.key === 'Escape') {
+      setShowSuggestions(false);
+    }
+  }
+
+  // Detectar digitação de / para sugestões
+  function handleMessageChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    const value = e.target.value;
+    setMessage(value);
+
+    // Verificar se está digitando um atalho (começa com /)
+    if (value.startsWith('/') && value.length >= 2) {
+      const searchTerm = value.toLowerCase();
+      const matches = quickReplies.filter(qr => 
+        qr.shortcut.toLowerCase().includes(searchTerm)
+      );
+      setFilteredSuggestions(matches);
+      setShowSuggestions(matches.length > 0);
+    } else {
+      setShowSuggestions(false);
+      setFilteredSuggestions([]);
+    }
+  }
+
+  function handleSelectSuggestion(qr: QuickReply) {
+    if (qr.type !== 'text' && qr.media_url) {
+      setPendingMediaSend({
+        type: qr.type as any,
+        content: qr.content || '',
+        mediaUrl: qr.media_url,
+        fileName: qr.media_filename,
+        shortcut: qr.shortcut,
+      });
+      setMessage('');
+    } else {
+      setMessage(qr.content || '');
+    }
+    setShowSuggestions(false);
+    setFilteredSuggestions([]);
+    textareaRef.current?.focus();
   }
 
   function handleFileSelect(type: 'image' | 'video' | 'audio' | 'document') {
@@ -222,8 +266,8 @@ export function MessageInput({ conversationId, onSend, isSending, onOpenSettings
     setPendingMediaSend(null);
   }
 
-  return (
-    <div className="p-4 border-t border-border bg-card/50">
+    return (
+    <div className="p-4 border-t border-border bg-card/50 relative">
       {/* File Preview */}
       {filePreview && (
         <Card className="glass p-4 mb-3 border-primary/20">
@@ -293,48 +337,67 @@ export function MessageInput({ conversationId, onSend, isSending, onOpenSettings
         </Card>
       )}
 
-      {/* Quick Replies */}
-      <div className="mb-3">
-        <ScrollArea className="w-full">
-          <div className="flex gap-2 pb-1">
-            {quickReplies.slice(0, 6).map((qr) => (
-              <Badge
+      {/* Quick Reply Suggestions while typing */}
+      {showSuggestions && filteredSuggestions.length > 0 && (
+        <Card className="absolute bottom-full left-0 right-0 mb-2 p-2 z-10 border border-border bg-card shadow-lg max-h-48 overflow-y-auto">
+          <div className="space-y-1">
+            {filteredSuggestions.map((qr) => (
+              <button
                 key={qr.id}
-                variant="outline"
-                className="cursor-pointer hover:bg-primary/20 hover:border-primary transition-all text-xs whitespace-nowrap flex-shrink-0"
-                onClick={async () => {
-                  if (qr.type !== 'text' && qr.media_url) {
-                    // Show confirmation dialog for media
-                    setPendingMediaSend({
-                      type: qr.type as any,
-                      content: qr.content || '',
-                      mediaUrl: qr.media_url,
-                      fileName: qr.media_filename,
-                      shortcut: qr.shortcut,
-                    });
-                  } else {
-                    // Fill text directly
-                    setMessage(qr.content || '');
-                  }
-                }}
-                title={qr.description || qr.shortcut}
+                className="w-full text-left px-3 py-2 rounded-md hover:bg-primary/20 transition-colors flex items-center gap-2"
+                onClick={() => handleSelectSuggestion(qr)}
               >
-                <Zap className="w-3 h-3 mr-1 text-primary" />
-                {qr.shortcut}
-              </Badge>
+                <Zap className="w-4 h-4 text-primary flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <span className="font-medium text-sm">{qr.shortcut}</span>
+                  {qr.description && (
+                    <span className="text-xs text-muted-foreground ml-2">{qr.description}</span>
+                  )}
+                </div>
+              </button>
             ))}
-            {onOpenSettings && (
-              <Badge
-                variant="outline"
-                className="cursor-pointer hover:bg-muted/50 transition-all text-xs whitespace-nowrap flex-shrink-0"
-                onClick={onOpenSettings}
-              >
-                <Settings className="w-3 h-3 mr-1" />
-                Configurar
-              </Badge>
-            )}
           </div>
-        </ScrollArea>
+        </Card>
+      )}
+
+      {/* Quick Replies - Horizontal scroll */}
+      <div className="mb-3 overflow-hidden">
+        <div className="flex gap-2 pb-1 overflow-x-auto scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
+          {quickReplies.map((qr) => (
+            <Badge
+              key={qr.id}
+              variant="outline"
+              className="cursor-pointer hover:bg-primary/20 hover:border-primary transition-all text-xs whitespace-nowrap flex-shrink-0"
+              onClick={async () => {
+                if (qr.type !== 'text' && qr.media_url) {
+                  setPendingMediaSend({
+                    type: qr.type as any,
+                    content: qr.content || '',
+                    mediaUrl: qr.media_url,
+                    fileName: qr.media_filename,
+                    shortcut: qr.shortcut,
+                  });
+                } else {
+                  setMessage(qr.content || '');
+                }
+              }}
+              title={qr.description || qr.shortcut}
+            >
+              <Zap className="w-3 h-3 mr-1 text-primary" />
+              {qr.shortcut}
+            </Badge>
+          ))}
+          {onOpenSettings && (
+            <Badge
+              variant="outline"
+              className="cursor-pointer hover:bg-muted/50 transition-all text-xs whitespace-nowrap flex-shrink-0"
+              onClick={onOpenSettings}
+            >
+              <Settings className="w-3 h-3 mr-1" />
+              Configurar
+            </Badge>
+          )}
+        </div>
       </div>
 
       <div className="flex items-end gap-2">
@@ -384,10 +447,12 @@ export function MessageInput({ conversationId, onSend, isSending, onOpenSettings
 
         {/* Text Input */}
         <Textarea
+          ref={textareaRef}
           value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onKeyPress={handleKeyPress}
-          placeholder="Digite sua mensagem... (Enter para enviar)"
+          onChange={handleMessageChange}
+          onKeyDown={handleKeyPress}
+          onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+          placeholder="Digite sua mensagem... (Enter para enviar, / para atalhos)"
           className="flex-1 min-h-[44px] max-h-[120px] resize-none glass border-border focus:border-primary transition-all"
           disabled={isSending || !!filePreview}
         />

@@ -109,7 +109,7 @@ export default function AdminCRM() {
       <div className="h-[calc(100vh-64px)] flex flex-col overflow-hidden">
         {!isConnected ? (
           <div className="p-4">
-            <ConnectionPanel />
+            <ConnectionPanel onOpenConversations={() => setActiveTab('conversations')} />
           </div>
         ) : (
           <>
