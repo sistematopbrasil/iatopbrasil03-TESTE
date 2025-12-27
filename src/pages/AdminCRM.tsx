@@ -19,6 +19,17 @@ export default function AdminCRM() {
   const { isConnected, isLoading, instance } = useWhatsAppConnection();
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [activeTab, setActiveTab] = useState<'conversations' | 'quiz-leads' | 'settings'>('conversations');
+  const [wasConnected, setWasConnected] = useState(false);
+
+  // Quando conectar com sucesso, ir automaticamente para aba de conversas
+  useEffect(() => {
+    if (isConnected && !wasConnected) {
+      setActiveTab('conversations');
+      setWasConnected(true);
+    } else if (!isConnected) {
+      setWasConnected(false);
+    }
+  }, [isConnected, wasConnected]);
 
   // Processar state vindo de outras páginas (Pipeline, Leads)
   useEffect(() => {
