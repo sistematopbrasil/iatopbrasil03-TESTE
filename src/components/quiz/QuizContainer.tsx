@@ -53,8 +53,8 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
   const isCreatingLead = useRef(false);
   const leadIdRef = useRef<string | null>(null);
 
-  // Fetch consultant by slug - com cache para evitar recarregamentos
-  const { data: consultant, isLoading: loadingConsultant } = useQuery({
+  // Fetch consultant by slug - cache curto para refletir mudanças rápidas
+  const { data: consultant, isLoading: loadingConsultant, refetch: refetchConsultant } = useQuery({
     queryKey: ["consultant-by-slug", slug],
     queryFn: async () => {
       if (!slug) return null;
@@ -72,9 +72,26 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
       return data;
     },
     enabled: !!slug,
-    staleTime: 5 * 60 * 1000, // 5 minutos
-    gcTime: 10 * 60 * 1000, // 10 minutos
+    staleTime: 30 * 1000, // 30 segundos - cache curto para refletir mudanças
+    gcTime: 5 * 60 * 1000, // 5 minutos
+    refetchOnMount: 'always', // Sempre refetch ao montar
+    refetchOnWindowFocus: true, // Refetch ao voltar para a aba
   });
+
+  // Escutar atualizações de outras abas (quando admin salva configurações)
+  useEffect(() => {
+    if (!slug) return;
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === `consultant-updated:${slug}` && e.newValue) {
+        console.log('🔄 Detectada atualização do consultor, recarregando dados...');
+        refetchConsultant();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [slug, refetchConsultant]);
 
   // Inicializar Meta Pixel do consultor (só quando carregado)
   const { trackEvent } = useMetaPixel({ pixelId: consultant?.pixel_id || undefined });
@@ -240,8 +257,9 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
     }
   };
 
-  // ATUALIZAR LEAD a cada resposta
-  const updateLeadProgress = async (questionOrderIndex: number, questionId: string, questionText: string, value: string) => {
+  // ATUALIZAR LEAD a cada resposta - NON-BLOCKING (fire-and-forget)
+  // Não bloqueia a UI esperando o update, melhora a responsividade em redes lentas
+  const updateLeadProgress = useCallback((questionOrderIndex: number, questionId: string, questionText: string, value: string) => {
     const leadId = currentLeadId || leadIdRef.current;
     if (!leadId) return;
 
@@ -301,40 +319,49 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
       default:
         // Para perguntas extras (order_index > 14), salvar em extra_answers
         if (questionOrderIndex > 14) {
-          try {
-            // Buscar extra_answers atual
-            const { data: currentLead } = await supabase
-              .from("quiz_submissions_new")
-              .select("extra_answers")
-              .eq("id", leadId)
-              .single();
+          // Fire-and-forget para extras também
+          (async () => {
+            try {
+              const { data: currentLead } = await supabase
+                .from("quiz_submissions_new")
+                .select("extra_answers")
+                .eq("id", leadId)
+                .single();
 
-            const currentExtras = (currentLead?.extra_answers as Record<string, any>) || {};
-            
-            // Adicionar/atualizar a resposta
-            currentExtras[questionId] = {
-              question: questionText,
-              answer: value,
-              order_index: questionOrderIndex
-            };
+              const currentExtras = (currentLead?.extra_answers as Record<string, any>) || {};
+              
+              currentExtras[questionId] = {
+                question: questionText,
+                answer: value,
+                order_index: questionOrderIndex
+              };
 
-            updateData.extra_answers = currentExtras;
-          } catch (err) {
-            console.error("Erro ao atualizar extra_answers:", err);
-          }
+              await supabase
+                .from("quiz_submissions_new")
+                .update({ 
+                  extra_answers: currentExtras,
+                  completion_percentage: progressPercentage,
+                  updated_at: new Date().toISOString()
+                })
+                .eq("id", leadId);
+            } catch (err) {
+              console.error("Erro ao atualizar extra_answers:", err);
+            }
+          })();
+          return; // Retorna cedo, já tratamos extras acima
         }
         break;
     }
 
-    try {
-      await supabase
-        .from("quiz_submissions_new")
-        .update(updateData)
-        .eq("id", leadId);
-    } catch (error) {
-      console.error("Erro ao atualizar lead:", error);
-    }
-  };
+    // Fire-and-forget: não bloquear a UI esperando a resposta
+    supabase
+      .from("quiz_submissions_new")
+      .update(updateData)
+      .eq("id", leadId)
+      .then(({ error }) => {
+        if (error) console.error("Erro ao atualizar lead:", error);
+      });
+  }, [currentLeadId, questions?.length]);
 
   // FINALIZAR LEAD - Buscar dados reais do banco para calcular temperatura correta
   const finalizeLead = async () => {
@@ -478,8 +505,8 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
         return;
       }
     } else {
-      // Atualizar lead com a resposta (incluindo questionId e questionText para extras)
-      await updateLeadProgress(currentQuestion.order_index, currentQuestion.id, currentQuestion.question_text, value);
+      // Atualizar lead com a resposta - fire-and-forget (não bloqueia UI)
+      updateLeadProgress(currentQuestion.order_index, currentQuestion.id, currentQuestion.question_text, value);
     }
 
     // Próxima pergunta ou finalizar

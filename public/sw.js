@@ -1,4 +1,6 @@
-const CACHE_NAME = 'top-brasil-v1';
+const CACHE_NAME = 'top-brasil-v2';
+
+// Lista de URLs para cache - apenas assets estáticos do app shell
 const urlsToCache = [
   '/',
   '/admin/dashboard',
@@ -7,6 +9,28 @@ const urlsToCache = [
   '/admin/ranking',
   '/admin/settings',
 ];
+
+// Lista de padrões de URL que NÃO devem ser cacheados (APIs, backend)
+const noCachePatterns = [
+  /\.supabase\.co/,           // Todas as chamadas Supabase
+  /supabase/,                  // Supabase em geral
+  /\/rest\//,                  // APIs REST
+  /\/auth\//,                  // Autenticação
+  /\/storage\//,               // Storage
+  /api\./,                     // APIs externas
+  /\/functions\//,             // Edge functions
+];
+
+// Verifica se a URL deve ser cacheada
+function shouldCache(url) {
+  // Nunca cachear APIs e backend
+  for (const pattern of noCachePatterns) {
+    if (pattern.test(url)) {
+      return false;
+    }
+  }
+  return true;
+}
 
 // Install
 self.addEventListener('install', (event) => {
@@ -19,7 +43,7 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// Activate
+// Activate - limpa caches antigos
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -36,7 +60,7 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch - Network first, then cache
+// Fetch - Network first, cache apenas para assets estáticos
 self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
@@ -44,6 +68,13 @@ self.addEventListener('fetch', (event) => {
   // Skip chrome-extension and other non-http(s) requests
   if (!event.request.url.startsWith('http')) return;
 
+  // NÃO cachear chamadas de API/backend - sempre ir direto na rede
+  if (!shouldCache(event.request.url)) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
+  // Para assets estáticos: network first, fallback to cache
   event.respondWith(
     fetch(event.request)
       .then((response) => {

@@ -322,7 +322,17 @@ export function ConsultantSettings() {
       }
     },
     onSuccess: () => {
+      // Invalidar todos os caches relacionados ao consultor
       queryClient.invalidateQueries({ queryKey: ['current-consultant-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['consultant-by-slug'] });
+      queryClient.invalidateQueries({ queryKey: ['consultant'] });
+      queryClient.invalidateQueries({ queryKey: ['consultant-data'] });
+      
+      // Notificar outras abas/janelas sobre a atualização
+      if (consultant?.quiz_slug) {
+        localStorage.setItem(`consultant-updated:${consultant.quiz_slug}`, Date.now().toString());
+      }
+      
       toast.success('Configurações atualizadas!');
     },
     onError: (error: Error) => {
