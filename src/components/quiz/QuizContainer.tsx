@@ -264,7 +264,9 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
     if (!leadId) return;
 
     const totalQuestions = questions?.length || 14;
-    const progressPercentage = Math.round((questionOrderIndex / totalQuestions) * 99);
+    // Se for a última pergunta, já considerar 100%
+    const isLastQuestion = questionOrderIndex >= totalQuestions;
+    const progressPercentage = isLastQuestion ? 100 : Math.round((questionOrderIndex / totalQuestions) * 99);
 
     const updateData: Record<string, unknown> = {
       completion_percentage: progressPercentage,
