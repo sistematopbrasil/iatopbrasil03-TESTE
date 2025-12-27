@@ -10,9 +10,9 @@ import { Loader2 } from 'lucide-react';
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--warning))', 'hsl(var(--success))', 'hsl(var(--info))', 'hsl(var(--destructive))'];
 const TEMP_COLORS = {
-  hot: '#f97316',   // Laranja vibrante
-  warm: '#eab308', // Amarelo mais definido
-  cold: '#06b6d4', // Ciano moderno
+  hot: '#ef4444',   // Vermelho vibrante (Quente)
+  warm: '#f97316',  // Laranja (Morno)  
+  cold: '#3b82f6',  // Azul (Frio)
 };
 
 export function SuperAdminCharts() {
@@ -261,11 +261,18 @@ export function SuperAdminCharts() {
                   </Pie>
                   <Tooltip 
                     contentStyle={{ 
-                      backgroundColor: 'hsl(var(--card))', 
+                      backgroundColor: 'hsl(20 14% 10%)', 
                       border: '1px solid hsl(var(--border))',
                       borderRadius: '8px',
                       fontSize: '12px',
+                      color: '#fff',
                     }}
+                    labelStyle={{ color: '#fff', fontWeight: 'bold' }}
+                    itemStyle={{ color: '#fff' }}
+                    formatter={(value: number, name: string) => [
+                      `${value} leads`,
+                      name
+                    ]}
                   />
                 </PieChart>
               </ResponsiveContainer>
