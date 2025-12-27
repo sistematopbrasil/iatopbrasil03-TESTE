@@ -69,7 +69,7 @@ export function useWhatsAppConnection() {
       }
 
       setInstance(result.data!);
-      toast.success('Instância criada com sucesso!');
+      toast.success('Conexão iniciada! Escaneie o QR Code.');
 
       await connectInstance();
     } catch (error: any) {
