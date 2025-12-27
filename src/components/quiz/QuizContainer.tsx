@@ -35,8 +35,9 @@ interface QuizContainerProps {
 
 export const QuizContainer = ({ organization, config, consultantId: propConsultantId }: QuizContainerProps = {}) => {
   const { slug } = useParams<{ slug: string }>();
-  const { trackingData, getSessionId } = useTracking();
-  
+  // Otimização: não buscar IP no quiz (evita atraso de rede no carregamento)
+  const { trackingData, getSessionId } = useTracking({ fetchIP: false });
+
   // Pixel será inicializado após carregar o consultor (ver useEffect abaixo)
 
   // Step: -1 = welcome, 0+ = question index
@@ -46,7 +47,7 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
   const [currentLeadId, setCurrentLeadId] = useState<string | null>(null);
   const [isComplete, setIsComplete] = useState(false);
   const [inputValue, setInputValue] = useState("");
-  
+
   // Ref para evitar criação duplicada de leads
   const isCreatingLead = useRef(false);
   const leadIdRef = useRef<string | null>(null);
@@ -56,10 +57,12 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
     queryKey: ["consultant-by-slug", slug],
     queryFn: async () => {
       if (!slug) return null;
-      
+
       const { data, error } = await supabase
         .from("users")
-        .select("id, full_name, organization_id, quiz_slug, whatsapp_button_url, quiz_cover_image, quiz_image_position, quiz_image_size, quiz_image_shape, pixel_id")
+        .select(
+          "id, full_name, organization_id, quiz_slug, whatsapp_button_url, quiz_cover_image, quiz_image_position, quiz_image_size, quiz_image_shape, pixel_id"
+        )
         .eq("quiz_slug", slug)
         .eq("is_active", true)
         .maybeSingle();
@@ -80,7 +83,7 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
     queryKey: ["quiz-questions-public", consultant?.id],
     queryFn: async () => {
       if (!consultant?.id) return [];
-      
+
       const { data, error } = await supabase
         .from("quiz_questions")
         .select("id, question_text, question_type, options, order_index")
@@ -141,7 +144,7 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
   // Calculate score from answers
   const calculateScoreFromAnswers = useCallback(() => {
     const quizDataMapped: Record<number, string> = {};
-    
+
     questions?.forEach((q) => {
       const answer = answers[q.id];
       if (answer) {
@@ -158,10 +161,10 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
     if (isCreatingLead.current || leadIdRef.current) {
       return leadIdRef.current;
     }
-    
+
     // IMPORTANTE: Usar diretamente consultant.organization_id para evitar race condition
     const orgId = consultant?.organization_id || organizationId;
-    
+
     if (!orgId) {
       console.error("Organization ID not available - consultant:", consultant);
       toast.error("Erro: consultor não encontrado. Recarregue a página.");
@@ -170,17 +173,15 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
 
     isCreatingLead.current = true;
     const sessionId = getSessionId();
-    
-    try {
-      // Buscar o primeiro estágio do pipeline para auto-assign
-      const { data: stages } = await supabase
-        .from('pipeline_stages')
-        .select('id')
-        .eq('organization_id', orgId)
-        .order('order_index', { ascending: true })
-        .limit(1);
 
-      const firstStageId = stages?.[0]?.id || null;
+    try {
+      // Otimização: pegar estágio default via função do backend (evita query extra)
+      const { data: defaultStageId, error: stageError } = await supabase.rpc('get_default_pipeline_stage_id', {
+        org_id: orgId,
+      });
+      if (stageError) {
+        console.warn('Erro ao obter estágio default:', stageError);
+      }
 
       const submissionData = {
         organization_id: orgId,
@@ -189,7 +190,7 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
         lead_score: 0,
         temperature: 'cold' as const,
         stage: "novo" as const,
-        pipeline_stage_id: firstStageId, // Auto-assign to first stage
+        pipeline_stage_id: defaultStageId || null,
         completion_percentage: 7,
         session_id: sessionId,
         utm_source: trackingData?.utm_source || null,
@@ -214,24 +215,26 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
 
       if (error) {
         console.error("Erro ao criar lead:", error);
-        isCreatingLead.current = false;
+        toast.error(`Não foi possível iniciar o quiz: ${error.message}`);
         return null;
       }
 
       sessionStorage.setItem("quiz_lead_id", data.id);
       leadIdRef.current = data.id;
       setCurrentLeadId(data.id);
-      
+
+      // Não bloquear UX por causa do tracking
       if (data.id) {
-        await linkTrackingToSubmission(sessionId, data.id);
+        void linkTrackingToSubmission(sessionId, data.id);
       }
 
-      isCreatingLead.current = false;
       return data.id;
     } catch (err) {
       console.error("Erro ao criar lead:", err);
-      isCreatingLead.current = false;
+      toast.error("Não foi possível iniciar o quiz. Tente novamente.");
       return null;
+    } finally {
+      isCreatingLead.current = false;
     }
   };
 
