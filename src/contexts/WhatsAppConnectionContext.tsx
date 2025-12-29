@@ -331,34 +331,42 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
     }
   }, [loadInstance, isConnecting, qrCode, instance?.id, checkConnectionHealth]);
 
+  // Refresh via banco de dados (sem chamar edge function repetidamente)
   const refreshQRCode = useCallback(async () => {
     try {
-      const result = await crmService.getQRCode();
-
-      if (result.success) {
-        if (result.data?.status === 'connected') {
-          // Verificar se está realmente conectado
-          const isReallyConnected = await checkConnectionHealth();
-          
-          if (isReallyConnected) {
+      // Priorizar leitura do banco para evitar chamadas repetidas à Evolution API
+      const instanceData = await crmService.getInstance();
+      
+      if (!instanceData) return;
+      
+      // Atualizar estado local com dados do banco
+      setInstance(instanceData);
+      
+      if (instanceData.status === 'connected') {
+        // Verificar se está realmente conectado
+        const isReallyConnected = await checkConnectionHealth();
+        
+        if (isReallyConnected) {
+          if (isConnecting) {
             toast.success('WhatsApp conectado com sucesso!');
-            setInstance((prev) => prev ? { ...prev, status: 'connected' } : prev);
-            setQrCode(null);
-            setIsConnecting(false);
-            setConnectionVerified(true);
-            stopPolling();
-            clearConnectTimeout();
-            await loadInstance();
           }
-        } else if (result.data?.qr_code) {
-          setQrCode(result.data.qr_code);
-          setInstance((prev) => prev ? { ...prev, status: 'connecting' } : prev);
+          setQrCode(null);
+          setIsConnecting(false);
+          setConnectionVerified(true);
+          stopPolling();
+          clearConnectTimeout();
         }
+      } else if (instanceData.qr_code) {
+        // QR Code já está no banco (atualizado por webhook)
+        setQrCode(instanceData.qr_code);
+      } else if (instanceData.status === 'connecting' && !qrCode) {
+        // Ainda connecting mas sem QR - aguardar mais um pouco
+        console.log('⏳ Status connecting mas sem QR Code ainda...');
       }
     } catch (error) {
       console.error('Erro ao atualizar QR Code:', error);
     }
-  }, [loadInstance, checkConnectionHealth]);
+  }, [checkConnectionHealth, isConnecting, qrCode]);
 
   const disconnectInstance = useCallback(async () => {
     if (!instance) return;

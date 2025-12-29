@@ -76,14 +76,28 @@ class CRMService {
     }
   }
 
-  async getQRCode(forceNewQR = false): Promise<{ success: boolean; data?: { status: string; qr_code: string | null }; error?: string }> {
+  async getQRCode(forceNewQR = false): Promise<{ success: boolean; data?: { status: string; qr_code: string | null; message?: string }; error?: string }> {
     try {
       const { data, error } = await supabase.functions.invoke('crm-get-qrcode', {
         method: 'POST',
         body: { forceNewQR },
       });
 
-      if (error) throw error;
+      // Tratar FunctionsHttpError para extrair mensagem real do backend
+      if (error) {
+        const ctx = (error as any).context;
+        let backendError = '';
+        if (ctx && typeof ctx.json === 'function') {
+          try {
+            const jsonBody = await ctx.json();
+            backendError = jsonBody?.error || '';
+          } catch { /* ignore parse fail */ }
+        }
+        return {
+          success: false,
+          error: backendError || error.message || 'Erro ao buscar QR Code',
+        };
+      }
 
       return data;
     } catch (error: any) {

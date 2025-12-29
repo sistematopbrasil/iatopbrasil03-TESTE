@@ -33,6 +33,31 @@ async function evolutionRequest(endpoint: string, options: RequestInit = {}) {
   return data;
 }
 
+// Helper para aguardar QR Code no banco com retry
+async function waitForQRCodeInDB(supabaseAdmin: any, instanceId: string, maxAttempts = 5, delayMs = 800): Promise<string | null> {
+  for (let i = 0; i < maxAttempts; i++) {
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+    
+    const { data } = await supabaseAdmin
+      .from('whatsapp_instances')
+      .select('qr_code, status')
+      .eq('id', instanceId)
+      .single();
+    
+    if (data?.qr_code) {
+      console.log(`✅ QR Code encontrado no banco na tentativa ${i + 1}`);
+      return data.qr_code;
+    }
+    
+    if (data?.status === 'connected') {
+      console.log('✅ Instância já conectada');
+      return null;
+    }
+  }
+  
+  return null;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -52,7 +77,10 @@ serve(async (req) => {
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      throw new Error('Não autorizado');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Não autorizado' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const supabase = createClient(
@@ -67,7 +95,10 @@ serve(async (req) => {
 
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
-      throw new Error('Usuário não autenticado');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Usuário não autenticado' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Buscar dados do usuário
@@ -78,7 +109,10 @@ serve(async (req) => {
       .single();
 
     if (userDataError || !userData) {
-      throw new Error('Dados do usuário não encontrados');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Dados do usuário não encontrados' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Buscar instância do usuário
@@ -89,10 +123,18 @@ serve(async (req) => {
       .single();
 
     if (instanceError || !instance) {
-      throw new Error('Instância não encontrada. Crie uma instância primeiro.');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Instância não encontrada. Crie uma instância primeiro.' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log('🔵 Buscando QR Code para:', instance.instance_name);
+
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
 
     // Buscar status da instância
     let connectionState = 'close';
@@ -107,11 +149,6 @@ serve(async (req) => {
 
     console.log('🔵 Status da conexão:', connectionState);
 
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
     // Se forceNewQR, desconectar primeiro para gerar novo QR
     if (forceNewQR && connectionState === 'open') {
       console.log('🔄 forceNewQR: desconectando antes de gerar novo QR');
@@ -120,8 +157,14 @@ serve(async (req) => {
           method: 'DELETE',
         });
         // Aguardar um pouco para o logout processar
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 1500));
         connectionState = 'close';
+        
+        // Atualizar status no banco
+        await supabaseAdmin
+          .from('whatsapp_instances')
+          .update({ status: 'disconnected', qr_code: null })
+          .eq('id', instance.id);
       } catch (e: any) {
         console.log('⚠️ Erro ao forçar logout:', e?.message);
       }
@@ -150,13 +193,68 @@ serve(async (req) => {
       );
     }
 
-    // Buscar QR Code
-    const qrResponse = await evolutionRequest(`/instance/connect/${instance.instance_name}`);
-    const qrCode = qrResponse?.qrcode?.base64 || qrResponse?.qrcode?.code || qrResponse?.base64;
+    // Tentar gerar QR Code
+    let qrCode: string | null = null;
+    
+    try {
+      const qrResponse = await evolutionRequest(`/instance/connect/${instance.instance_name}`);
+      qrCode = qrResponse?.qrcode?.base64 || qrResponse?.qrcode?.code || qrResponse?.base64 || null;
+      
+      // Verificar se agora está conectado (sem precisar de QR)
+      if (qrResponse?.instance?.state === 'open') {
+        console.log('✅ Instância conectou sem QR Code');
+        await supabaseAdmin
+          .from('whatsapp_instances')
+          .update({
+            status: 'connected',
+            last_connected_at: new Date().toISOString(),
+            qr_code: null,
+          })
+          .eq('id', instance.id);
 
+        return new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              status: 'connected',
+              qr_code: null,
+            },
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } catch (e: any) {
+      console.log('⚠️ Erro ao chamar connect:', e?.message);
+    }
+
+    // Se não veio QR no response, aguardar um pouco e verificar no banco (webhook pode ter atualizado)
     if (!qrCode) {
-      console.log('⚠️ QR Code não disponível, resposta:', qrResponse);
-      throw new Error('QR Code não disponível. Tente novamente.');
+      console.log('⏳ QR Code não veio no response, aguardando webhook...');
+      
+      // Marcar como connecting
+      await supabaseAdmin
+        .from('whatsapp_instances')
+        .update({ status: 'connecting' })
+        .eq('id', instance.id);
+      
+      // Aguardar QR Code aparecer no banco (webhook pode ter atualizado)
+      qrCode = await waitForQRCodeInDB(supabaseAdmin, instance.id, 5, 800);
+    }
+
+    // Se ainda não tem QR, retornar status "connecting" (frontend vai fazer polling)
+    if (!qrCode) {
+      console.log('⏳ QR Code ainda não disponível, retornando status connecting');
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            status: 'connecting',
+            qr_code: null,
+            message: 'Aguardando QR Code. O sistema tentará obter automaticamente.',
+          },
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Atualizar QR Code no banco
@@ -188,7 +286,7 @@ serve(async (req) => {
         error: error?.message || 'Erro desconhecido',
       }),
       {
-        status: 400,
+        status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );

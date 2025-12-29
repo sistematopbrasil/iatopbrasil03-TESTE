@@ -15,15 +15,7 @@ export function useMessages(conversationId: string | null) {
   const channelRef = useRef<any>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  useEffect(() => {
-    // Create audio element for notifications
-    audioRef.current = new Audio('/notification.mp3');
-    audioRef.current.volume = 0.5;
-
-    return () => {
-      audioRef.current = null;
-    };
-  }, []);
+  // Audio element not needed - using inline data URI in playNotificationSound
 
   useEffect(() => {
     if (conversationId) {
