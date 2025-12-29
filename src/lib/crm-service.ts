@@ -76,10 +76,11 @@ class CRMService {
     }
   }
 
-  async getQRCode(): Promise<{ success: boolean; data?: { status: string; qr_code: string | null }; error?: string }> {
+  async getQRCode(forceNewQR = false): Promise<{ success: boolean; data?: { status: string; qr_code: string | null }; error?: string }> {
     try {
       const { data, error } = await supabase.functions.invoke('crm-get-qrcode', {
         method: 'POST',
+        body: { forceNewQR },
       });
 
       if (error) throw error;
