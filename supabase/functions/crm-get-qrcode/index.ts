@@ -39,6 +39,17 @@ serve(async (req) => {
   }
 
   try {
+    // Ler parâmetros do body
+    let forceNewQR = false;
+    try {
+      const body = await req.json();
+      forceNewQR = body?.forceNewQR === true;
+    } catch {
+      // Body vazio é OK
+    }
+
+    console.log('🔵 forceNewQR:', forceNewQR);
+
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       throw new Error('Não autorizado');
@@ -101,7 +112,22 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Se já está conectado
+    // Se forceNewQR, desconectar primeiro para gerar novo QR
+    if (forceNewQR && connectionState === 'open') {
+      console.log('🔄 forceNewQR: desconectando antes de gerar novo QR');
+      try {
+        await evolutionRequest(`/instance/logout/${instance.instance_name}`, {
+          method: 'DELETE',
+        });
+        // Aguardar um pouco para o logout processar
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        connectionState = 'close';
+      } catch (e: any) {
+        console.log('⚠️ Erro ao forçar logout:', e?.message);
+      }
+    }
+
+    // Se já está conectado (e não forçamos novo QR)
     if (connectionState === 'open') {
       await supabaseAdmin
         .from('whatsapp_instances')

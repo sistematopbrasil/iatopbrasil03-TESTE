@@ -3,9 +3,10 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, X, User, MessageSquare, MoreVertical, Trash2, CheckCircle, MessageCircle, ArrowLeft, Sparkles } from 'lucide-react';
+import { Loader2, X, User, MessageSquare, MoreVertical, Trash2, CheckCircle, MessageCircle, ArrowLeft, Sparkles, WifiOff } from 'lucide-react';
 import { Conversation } from '@/lib/crm-service';
 import { useMessages } from '@/hooks/useMessages';
+import { useWhatsAppConnectionContext } from '@/contexts/WhatsAppConnectionContext';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
 import { LeadProfile } from './LeadProfile';
@@ -42,11 +43,12 @@ interface ChatWindowProps {
 
 export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
   const { messages, isLoading, isSending, sendMessage } = useMessages(conversation?.id || null);
+  const { isConnected, connectInstance } = useWhatsAppConnectionContext();
   const [showProfile, setShowProfile] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const queryClient = useQueryClient();
 
-  // ✅ Buscar stages do pipeline do BANCO (sem hardcoded)
+  // Buscar stages do pipeline
   const { data: pipelineStages = [] } = useQuery({
     queryKey: ['pipeline-stages'],
     queryFn: async () => {
@@ -58,7 +60,7 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
     },
   });
 
-  // Buscar stage atual do lead usando pipeline_stage_id
+  // Buscar stage atual do lead
   const { data: currentLead } = useQuery({
     queryKey: ['lead-stage', conversation?.lead_id],
     queryFn: async () => {
@@ -73,7 +75,7 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
     enabled: !!conversation?.lead_id,
   });
 
-  // ✅ Mutation ATUALIZADA - Usa pipeline_stage_id (UUID)
+  // Mutation para atualizar stage
   const updateStageMutation = useMutation({
     mutationFn: async (newStageId: string) => {
       if (!conversation?.lead_id) throw new Error('Lead não vinculado');
@@ -108,6 +110,22 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
         .then(() => {});
     }
   }, [conversation?.id]);
+
+  // Handler para envio que verifica reconexão
+  const handleSendMessage = async (type: string, content: string, mediaUrl?: string, fileName?: string) => {
+    const result = await sendMessage(type as any, content, mediaUrl, fileName);
+    
+    if (result?.needsReconnect) {
+      toast.error('WhatsApp desconectado! Clique em Reconectar.', {
+        action: {
+          label: 'Reconectar',
+          onClick: () => connectInstance(),
+        },
+      });
+    }
+    
+    return result;
+  };
 
   const handleChangeStatus = async (status: 'open' | 'closed') => {
     if (!conversation) return;
@@ -156,18 +174,15 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
     );
   }
 
-  // Encontrar o stage atual pelo pipeline_stage_id
   const currentStage = pipelineStages.find(s => s.id === currentLead?.pipeline_stage_id);
 
   return (
     <div className="h-full w-full flex">
-      {/* Chat */}
       <Card className="glass-card flex-1 w-full flex flex-col overflow-hidden">
         {/* Header */}
         <div className="p-3 border-b border-border bg-gradient-to-r from-primary/5 to-transparent flex-shrink-0">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-3 min-w-0">
-              {/* Botão voltar (mobile) */}
               <Button
                 variant="ghost"
                 size="sm"
@@ -209,7 +224,6 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
 
             {/* Actions */}
             <div className="flex items-center gap-1 flex-shrink-0">
-              {/* Dropdown de Pipeline Stage - USA STAGES DO BANCO */}
               {conversation.lead_id && pipelineStages.length > 0 && (
                 <div className="hidden sm:flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">Quadro:</span>
@@ -254,7 +268,6 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="glass-card border-border">
-                  {/* Mover para quadro (mobile) - USA STAGES DO BANCO */}
                   {conversation.lead_id && pipelineStages.length > 0 && (
                     <>
                       <div className="sm:hidden px-2 py-1.5 text-xs font-semibold text-muted-foreground">
@@ -304,7 +317,20 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
           </div>
         </div>
 
-        {/* Messages - Takes all remaining space */}
+        {/* Banner de desconexão */}
+        {!isConnected && (
+          <div className="flex-shrink-0 px-4 py-2 bg-destructive/10 border-b border-destructive/20 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-sm text-destructive">
+              <WifiOff className="w-4 h-4" />
+              <span>WhatsApp desconectado</span>
+            </div>
+            <Button size="sm" variant="destructive" onClick={connectInstance}>
+              Reconectar
+            </Button>
+          </div>
+        )}
+
+        {/* Messages */}
         <div className="flex-1 min-h-0 relative bg-gradient-to-b from-transparent to-muted/20">
           {isLoading ? (
             <div className="absolute inset-0 flex items-center justify-center">
@@ -326,13 +352,13 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
         <div className="flex-shrink-0">
           <MessageInput 
             conversationId={conversation.id} 
-            onSend={sendMessage} 
-            isSending={isSending} 
+            onSend={handleSendMessage} 
+            isSending={isSending || !isConnected}
           />
         </div>
       </Card>
 
-      {/* Profile Drawer - Sheet lateral responsivo */}
+      {/* Profile Drawer */}
       <Sheet open={showProfile} onOpenChange={setShowProfile}>
         <SheetContent side="right" className="w-full sm:w-[400px] lg:w-[450px] overflow-y-auto p-0">
           <SheetHeader className="p-4 border-b border-border">
