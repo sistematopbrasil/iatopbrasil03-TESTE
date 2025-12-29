@@ -1,10 +1,36 @@
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { AlertTriangle, QrCode, Loader2, WifiOff } from 'lucide-react';
+import { AlertTriangle, QrCode, Loader2, WifiOff, RefreshCw } from 'lucide-react';
 import { useWhatsAppConnectionContext } from '@/contexts/WhatsAppConnectionContext';
 
 export function DisconnectedOverlay() {
   const { connectInstance, isConnecting, qrCode, refreshQRCode } = useWhatsAppConnectionContext();
+  const [waitingTooLong, setWaitingTooLong] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
+
+  // Timeout para mostrar opção de retry se QR demorar muito
+  useEffect(() => {
+    if (isConnecting && !qrCode) {
+      setWaitingTooLong(false);
+      const timeout = setTimeout(() => {
+        setWaitingTooLong(true);
+      }, 10000); // 10 segundos
+      return () => clearTimeout(timeout);
+    } else {
+      setWaitingTooLong(false);
+    }
+  }, [isConnecting, qrCode]);
+
+  const handleRetry = async () => {
+    setIsRetrying(true);
+    setWaitingTooLong(false);
+    try {
+      await connectInstance();
+    } finally {
+      setIsRetrying(false);
+    }
+  };
 
   // Se está mostrando QR Code, mostrar tela de escaneamento
   if (isConnecting && qrCode) {
@@ -54,6 +80,28 @@ export function DisconnectedOverlay() {
                 Aguarde enquanto preparamos a conexão
               </p>
             </div>
+            
+            {/* Mostrar opção de retry se demorar muito */}
+            {waitingTooLong && (
+              <div className="flex flex-col items-center gap-3 pt-2 border-t border-border w-full">
+                <p className="text-xs text-muted-foreground">
+                  Está demorando mais que o esperado...
+                </p>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={handleRetry}
+                  disabled={isRetrying}
+                >
+                  {isRetrying ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                  )}
+                  Tentar novamente
+                </Button>
+              </div>
+            )}
           </div>
         </Card>
       </div>
