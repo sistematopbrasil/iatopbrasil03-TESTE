@@ -297,8 +297,8 @@ export function MessageInput({ conversationId, onSend, isSending, onOpenSettings
                 {formatFileSize(filePreview.file.size)}
               </p>
 
-              {/* Mostrar campo de legenda apenas para imagem, vídeo e documento (não para áudio) */}
-              {filePreview.type !== 'audio' && (
+              {/* Mostrar campo de legenda apenas para imagem e vídeo */}
+              {(filePreview.type === 'image' || filePreview.type === 'video') && (
                 <Input
                   placeholder="Adicionar legenda (opcional)"
                   value={caption}

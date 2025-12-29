@@ -171,7 +171,10 @@ export default function AdminCRM() {
               )}
               
               {activeTab === 'settings' && (
-                <CRMSettings onClose={() => setActiveTab('conversations')} />
+                <CRMSettings 
+                  onClose={() => setActiveTab('conversations')} 
+                  onOpenConversations={() => setActiveTab('conversations')} 
+                />
               )}
             </div>
           </>

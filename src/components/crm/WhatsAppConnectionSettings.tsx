@@ -11,11 +11,18 @@ import {
   Calendar,
   AlertCircle,
   LogOut,
-  RefreshCw
+  RefreshCw,
+  MessageSquare,
+  QrCode
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { useWhatsAppConnection } from '@/hooks/useWhatsAppConnection';
+
+interface WhatsAppConnectionSettingsProps {
+  onOpenConversations?: () => void;
+}
 
 interface WhatsAppInstance {
   id: string;
@@ -26,10 +33,12 @@ interface WhatsAppInstance {
   created_at: string;
 }
 
-export function WhatsAppConnectionSettings() {
+export function WhatsAppConnectionSettings({ onOpenConversations }: WhatsAppConnectionSettingsProps) {
   const [instance, setInstance] = useState<WhatsAppInstance | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  const { createInstance, isConnecting: hookIsConnecting } = useWhatsAppConnection();
 
   useEffect(() => {
     loadInstance();
@@ -152,37 +161,81 @@ export function WhatsAppConnectionSettings() {
           </div>
 
           {/* Actions */}
-          {isConnected && instance && (
-            <div className="flex gap-2 flex-shrink-0">
+          <div className="flex flex-wrap gap-2 flex-shrink-0">
+            {isConnected && instance && (
+              <>
+                {onOpenConversations && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={onOpenConversations}
+                    className="h-8 text-xs"
+                  >
+                    <MessageSquare className="w-3 h-3 sm:mr-1" />
+                    <span className="hidden sm:inline">Abrir Conversas</span>
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={loadInstance}
+                  className="glass h-8 w-8 p-0"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDisconnect}
+                  disabled={isDisconnecting}
+                  className="text-destructive hover:bg-destructive/20 hover:text-destructive h-8 text-xs"
+                >
+                  {isDisconnecting ? (
+                    <>
+                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                      <span className="hidden sm:inline">Desconectando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <LogOut className="w-3 h-3 sm:mr-1" />
+                      <span className="hidden sm:inline">Desconectar</span>
+                    </>
+                  )}
+                </Button>
+              </>
+            )}
+
+            {/* Botão de reconectar quando desconectado */}
+            {!isConnected && instance && (
               <Button
-                variant="outline"
+                variant="default"
                 size="sm"
-                onClick={loadInstance}
-                className="glass h-8 w-8 p-0"
+                onClick={async () => {
+                  setIsReconnecting(true);
+                  try {
+                    await createInstance();
+                    await loadInstance();
+                  } finally {
+                    setIsReconnecting(false);
+                  }
+                }}
+                disabled={isReconnecting || hookIsConnecting}
+                className="h-8 text-xs"
               >
-                <RefreshCw className="w-4 h-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDisconnect}
-                disabled={isDisconnecting}
-                className="text-destructive hover:bg-destructive/20 hover:text-destructive h-8 text-xs"
-              >
-                {isDisconnecting ? (
+                {(isReconnecting || hookIsConnecting) ? (
                   <>
                     <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                    <span className="hidden sm:inline">Desconectando...</span>
+                    <span>Conectando...</span>
                   </>
                 ) : (
                   <>
-                    <LogOut className="w-3 h-3 sm:mr-1" />
-                    <span className="hidden sm:inline">Desconectar</span>
+                    <QrCode className="w-3 h-3 sm:mr-1" />
+                    <span>Reconectar WhatsApp</span>
                   </>
                 )}
               </Button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </Card>
 
