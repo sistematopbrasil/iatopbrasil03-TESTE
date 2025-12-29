@@ -158,20 +158,16 @@ serve(async (req) => {
       throw new Error('Instância não encontrada');
     }
 
-    // Verificar status no banco
-    if (instance.status !== 'connected') {
-      throw new Error('WhatsApp não está conectado. Reconecte na aba CRM > WhatsApp.');
-    }
-
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Verificar conexão real na Evolution API antes de enviar
+    // ⚡ PRIMEIRO: Verificar conexão real na Evolution API ANTES de checar o banco
+    let realConnectionState = 'unknown';
     try {
       const connectionUrl = `${EVOLUTION_API_URL}/instance/connectionState/${instance.instance_name}`;
-      console.log('🔵 Verificando conexão:', connectionUrl);
+      console.log('🔵 Verificando conexão real:', connectionUrl);
       
       const connectionCheck = await fetch(connectionUrl, {
         headers: {
@@ -183,26 +179,67 @@ serve(async (req) => {
       const connectionData = await connectionCheck.json();
       console.log('🔵 Status da conexão Evolution API:', connectionData);
       
-      const connectionState = connectionData?.instance?.state || connectionData?.state;
-      if (connectionState !== 'open' && connectionState !== 'connected') {
-        console.log('❌ Conexão fechada. Atualizando status no banco...');
+      realConnectionState = connectionData?.instance?.state || connectionData?.state || 'unknown';
+      
+      // Se está realmente conectado, atualizar banco para 'connected' se necessário
+      if (realConnectionState === 'open' || realConnectionState === 'connected') {
+        if (instance.status !== 'connected') {
+          console.log('✅ Conexão OK, atualizando status no banco para connected');
+          await supabaseAdmin
+            .from('whatsapp_instances')
+            .update({ 
+              status: 'connected',
+              connection_state: connectionData,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', instance.id);
+        }
+      } else {
+        // Conexão não está open - atualizar banco e retornar erro estruturado
+        console.log('❌ Conexão não está open. Estado real:', realConnectionState);
         
         await supabaseAdmin
           .from('whatsapp_instances')
           .update({ 
-            status: 'disconnected',
+            status: realConnectionState === 'close' ? 'disconnected' : 'connecting',
             connection_state: connectionData,
             updated_at: new Date().toISOString()
           })
           .eq('id', instance.id);
         
-        throw new Error(`WhatsApp desconectado (${connectionState || 'closed'}). Reconecte escaneando o QR Code novamente na aba CRM.`);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `WhatsApp desconectado (${realConnectionState}). Escaneie o QR Code novamente.`,
+            errorCode: 'WHATSAPP_NOT_CONNECTED',
+            needsReconnect: true,
+            connectionState: realConnectionState,
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
       }
     } catch (connError: any) {
-      if (connError.message.includes('WhatsApp desconectado')) {
-        throw connError;
+      console.warn('⚠️ Não foi possível verificar conexão, verificando status no banco:', connError.message);
+      
+      // Fallback: checar status no banco
+      if (instance.status !== 'connected') {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'WhatsApp não está conectado. Reconecte na aba CRM > WhatsApp.',
+            errorCode: 'WHATSAPP_NOT_CONNECTED',
+            needsReconnect: true,
+            connectionState: instance.status,
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
       }
-      console.warn('⚠️ Não foi possível verificar conexão, tentando enviar mesmo assim:', connError.message);
     }
 
     // Buscar conversa para obter o telefone
@@ -273,7 +310,18 @@ serve(async (req) => {
           })
           .eq('id', instance.id);
         
-        throw new Error('WhatsApp desconectado. Por favor, reconecte escaneando o QR Code novamente na aba CRM.');
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'WhatsApp desconectado. Escaneie o QR Code novamente.',
+            errorCode: 'WHATSAPP_NOT_CONNECTED',
+            needsReconnect: true,
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
       }
       throw new Error(sendResult.error || 'Erro ao enviar mensagem');
     }
@@ -373,6 +421,7 @@ serve(async (req) => {
     console.error('❌ Erro:', error);
     
     let userMessage = error?.message || 'Erro desconhecido';
+    let needsReconnect = false;
     
     const errorStr = JSON.stringify(error).toLowerCase();
     
@@ -384,15 +433,18 @@ serve(async (req) => {
     } else if (userMessage.includes('Connection Closed') || 
                userMessage.includes('Disconnected') || 
                userMessage.includes('desconectado')) {
-      userMessage = 'WhatsApp desconectado. Por favor, reconecte escaneando o QR Code na aba CRM > WhatsApp.';
+      userMessage = 'WhatsApp desconectado. Escaneie o QR Code novamente.';
+      needsReconnect = true;
     } else if (userMessage === 'Erro na Evolution API') {
       userMessage = 'Não foi possível enviar a mensagem. Verifique se o número possui WhatsApp ou reconecte seu WhatsApp.';
+      needsReconnect = true;
     }
     
     return new Response(
       JSON.stringify({
         success: false,
         error: userMessage,
+        needsReconnect,
       }),
       {
         status: 400,
