@@ -1,7 +1,7 @@
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, Smartphone, QrCode, CheckCircle2, AlertCircle, MessageSquare, Users, Clock, Wifi, WifiOff, Settings, LogOut } from 'lucide-react';
-import { useWhatsAppConnection } from '@/hooks/useWhatsAppConnection';
+import { Loader2, Smartphone, QrCode, CheckCircle2, AlertCircle, MessageSquare, Users, Clock, Wifi, Settings, LogOut } from 'lucide-react';
+import { useWhatsAppConnectionContext } from '@/contexts/WhatsAppConnectionContext';
 import { useConversations } from '@/hooks/useConversations';
 import { StatCard } from '@/components/ui/stat-card';
 import { format } from 'date-fns';
@@ -28,7 +28,7 @@ export function ConnectionPanel({ onOpenConversations }: ConnectionPanelProps) {
     connectInstance,
     disconnectInstance,
     refreshQRCode,
-  } = useWhatsAppConnection();
+  } = useWhatsAppConnectionContext();
 
   const { conversations, totalUnread } = useConversations();
   const openConversations = conversations.filter(c => c.status === 'open').length;
@@ -190,7 +190,7 @@ export function ConnectionPanel({ onOpenConversations }: ConnectionPanelProps) {
     );
   }
 
-  // Conectando (QR Code)
+  // Conectando (QR Code) ou desconectado com instância existente
   if (instance.status === 'connecting' || qrCode) {
     return (
       <div className="flex items-center justify-center min-h-[500px]">
@@ -231,7 +231,7 @@ export function ConnectionPanel({ onOpenConversations }: ConnectionPanelProps) {
     );
   }
 
-  // Desconectado
+  // Desconectado (instância existe mas não está conectando)
   return (
     <div className="flex items-center justify-center min-h-[500px]">
       <Card className="glass-card p-10 text-center max-w-md animate-scale-in">

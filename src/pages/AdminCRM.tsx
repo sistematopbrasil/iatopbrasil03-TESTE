@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useWhatsAppConnection } from '@/hooks/useWhatsAppConnection';
+import { WhatsAppConnectionProvider, useWhatsAppConnectionContext } from '@/contexts/WhatsAppConnectionContext';
 import { ConnectionPanel } from '@/components/crm/ConnectionPanel';
 import { ConversationList } from '@/components/crm/ConversationList';
 import { ChatWindow } from '@/components/crm/ChatWindow';
@@ -14,9 +14,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { normalizePhone } from '@/lib/phone-utils';
 
-export default function AdminCRM() {
+function AdminCRMContent() {
   const location = useLocation();
-  const { isConnected, isLoading, instance } = useWhatsAppConnection();
+  const { isConnected, isLoading, instance } = useWhatsAppConnectionContext();
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [activeTab, setActiveTab] = useState<'conversations' | 'quiz-leads' | 'settings'>('conversations');
   const [wasConnected, setWasConnected] = useState(false);
@@ -181,5 +181,13 @@ export default function AdminCRM() {
         )}
       </div>
     </AdminLayout>
+  );
+}
+
+export default function AdminCRM() {
+  return (
+    <WhatsAppConnectionProvider>
+      <AdminCRMContent />
+    </WhatsAppConnectionProvider>
   );
 }

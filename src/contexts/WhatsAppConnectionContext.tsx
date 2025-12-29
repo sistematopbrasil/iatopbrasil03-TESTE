@@ -1,17 +1,40 @@
-import { useState, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { crmService, WhatsAppInstance } from '@/lib/crm-service';
 import { toast } from 'sonner';
 
-export function useWhatsAppConnection() {
+interface WhatsAppConnectionContextType {
+  instance: WhatsAppInstance | null;
+  qrCode: string | null;
+  isLoading: boolean;
+  isConnecting: boolean;
+  isConnected: boolean;
+  createInstance: () => Promise<void>;
+  connectInstance: () => Promise<void>;
+  disconnectInstance: () => Promise<void>;
+  refreshInstance: () => Promise<void>;
+  refreshQRCode: () => Promise<void>;
+}
+
+const WhatsAppConnectionContext = createContext<WhatsAppConnectionContextType | null>(null);
+
+export function WhatsAppConnectionProvider({ children }: { children: ReactNode }) {
   const [instance, setInstance] = useState<WhatsAppInstance | null>(null);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
+  const mountedRef = useRef(true);
 
+  // Carrega instância inicial
   useEffect(() => {
+    mountedRef.current = true;
     loadInstance();
-    return () => stopPolling();
+    
+    return () => {
+      mountedRef.current = false;
+      stopPolling();
+    };
   }, []);
 
   // Polling enquanto houver QR visível ou status connecting
@@ -28,8 +51,10 @@ export function useWhatsAppConnection() {
   function startPolling() {
     if (pollRef.current) return;
     pollRef.current = setInterval(async () => {
-      await refreshQRCode();
-    }, 3500); // Intervalo mais curto para refresh mais ágil
+      if (mountedRef.current) {
+        await refreshQRCode();
+      }
+    }, 3500);
   }
 
   function stopPolling() {
@@ -39,10 +64,12 @@ export function useWhatsAppConnection() {
     }
   }
 
-  async function loadInstance() {
+  const loadInstance = useCallback(async () => {
+    if (!mountedRef.current) return;
     setIsLoading(true);
     try {
       const data = await crmService.getInstance();
+      if (!mountedRef.current) return;
       setInstance(data);
 
       if (data?.status === 'connecting') {
@@ -52,11 +79,13 @@ export function useWhatsAppConnection() {
     } catch (error) {
       console.error('Erro ao carregar instância:', error);
     } finally {
-      setIsLoading(false);
+      if (mountedRef.current) {
+        setIsLoading(false);
+      }
     }
-  }
+  }, []);
 
-  async function createInstance() {
+  const createInstance = useCallback(async () => {
     setIsLoading(true);
     setIsConnecting(true);
     try {
@@ -71,6 +100,7 @@ export function useWhatsAppConnection() {
       setInstance(result.data!);
       toast.success('Conexão iniciada! Escaneie o QR Code.');
 
+      // Buscar QR Code
       await connectInstance();
     } catch (error: any) {
       toast.error(error.message || 'Erro ao criar instância');
@@ -78,9 +108,9 @@ export function useWhatsAppConnection() {
     } finally {
       setIsLoading(false);
     }
-  }
+  }, []);
 
-  async function connectInstance() {
+  const connectInstance = useCallback(async () => {
     setIsConnecting(true);
     try {
       const result = await crmService.getQRCode();
@@ -98,15 +128,20 @@ export function useWhatsAppConnection() {
         setIsConnecting(false);
       } else if (result.data?.qr_code) {
         setQrCode(result.data.qr_code);
+        setInstance((prev) => prev ? { ...prev, status: 'connecting' } : prev);
         // manter isConnecting = true para continuar poll
+      } else {
+        // Não tem QR nem está conectado - pode ser estado "close"
+        // Tentar novamente em alguns segundos via polling
+        console.log('⏳ Aguardando QR Code...');
       }
     } catch (error: any) {
       toast.error(error.message || 'Erro ao conectar');
       setIsConnecting(false);
     }
-  }
+  }, [loadInstance]);
 
-  async function refreshQRCode() {
+  const refreshQRCode = useCallback(async () => {
     try {
       const result = await crmService.getQRCode();
 
@@ -126,25 +161,24 @@ export function useWhatsAppConnection() {
     } catch (error) {
       console.error('Erro ao atualizar QR Code:', error);
     }
-  }
+  }, [loadInstance]);
 
-  async function disconnectInstance() {
+  const disconnectInstance = useCallback(async () => {
     if (!instance) return;
-    
+
     if (!confirm('Tem certeza que deseja desconectar o WhatsApp? Você precisará escanear o QR Code novamente.')) {
       return;
     }
-    
+
     try {
       setIsLoading(true);
-      
-      const { supabase } = await import('@/integrations/supabase/client');
+
       const { error } = await supabase.functions.invoke('crm-disconnect-instance', {
         body: { instanceId: instance.id }
       });
 
       if (error) throw error;
-      
+
       setInstance({ ...instance, status: 'disconnected' });
       setQrCode(null);
       toast.success('WhatsApp desconectado com sucesso!');
@@ -154,9 +188,13 @@ export function useWhatsAppConnection() {
     } finally {
       setIsLoading(false);
     }
-  }
+  }, [instance]);
 
-  return {
+  const refreshInstance = useCallback(async () => {
+    await loadInstance();
+  }, [loadInstance]);
+
+  const value: WhatsAppConnectionContextType = {
     instance,
     qrCode,
     isLoading,
@@ -165,6 +203,21 @@ export function useWhatsAppConnection() {
     createInstance,
     connectInstance,
     disconnectInstance,
-    refreshQRCode, // exposto para refresh manual
+    refreshInstance,
+    refreshQRCode,
   };
+
+  return (
+    <WhatsAppConnectionContext.Provider value={value}>
+      {children}
+    </WhatsAppConnectionContext.Provider>
+  );
+}
+
+export function useWhatsAppConnectionContext() {
+  const context = useContext(WhatsAppConnectionContext);
+  if (!context) {
+    throw new Error('useWhatsAppConnectionContext must be used within a WhatsAppConnectionProvider');
+  }
+  return context;
 }
