@@ -324,7 +324,7 @@ class CRMService {
     content: string,
     mediaUrl?: string,
     fileName?: string
-  ): Promise<{ success: boolean; data?: Message; error?: string }> {
+  ): Promise<{ success: boolean; data?: Message; error?: string; needsReconnect?: boolean }> {
     try {
       const { data, error } = await supabase.functions.invoke('crm-send-message', {
         body: {
@@ -343,21 +343,31 @@ class CRMService {
         // Try to extract backend-provided message from error context
         const ctx = (error as any).context;
         let backendError = '';
+        let needsReconnect = false;
         if (ctx && typeof ctx.json === 'function') {
           try {
             const jsonBody = await ctx.json();
             backendError = jsonBody?.error || '';
+            needsReconnect = jsonBody?.needsReconnect || false;
           } catch { /* ignore parse fail */ }
         }
-        throw new Error(backendError || error.message || 'Erro ao enviar mensagem');
+        return {
+          success: false,
+          error: backendError || error.message || 'Erro ao enviar mensagem',
+          needsReconnect,
+        };
       }
 
-      // Backend returns { success, error } – propagate its error if present
-      if (data && !data.success && data.error) {
-        throw new Error(data.error);
+      // Backend returns { success, error, needsReconnect } – propagate if present
+      if (data && !data.success) {
+        return {
+          success: false,
+          error: data.error || 'Erro ao enviar mensagem',
+          needsReconnect: data.needsReconnect || false,
+        };
       }
 
-      return data;
+      return { success: true, data };
     } catch (error: any) {
       console.error('❌ Erro ao enviar mensagem:', error);
       return {

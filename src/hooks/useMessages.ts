@@ -119,8 +119,8 @@ export function useMessages(conversationId: string | null) {
     content: string,
     mediaUrl?: string,
     fileName?: string
-  ) {
-    if (!conversationId) return false;
+  ): Promise<{ success: boolean; needsReconnect?: boolean }> {
+    if (!conversationId) return { success: false };
 
     // Generate temp ID for optimistic update
     const tempId = `temp-${Date.now()}`;
@@ -166,9 +166,15 @@ export function useMessages(conversationId: string | null) {
               : m
           )
         );
+        
         // Mostrar mensagem de erro específica
-        toast.error(result.error || 'Erro ao enviar mensagem');
-        return false;
+        if (result.needsReconnect) {
+          toast.error(result.error || 'WhatsApp desconectado. Reconecte para enviar mensagens.');
+        } else {
+          toast.error(result.error || 'Erro ao enviar mensagem');
+        }
+        
+        return { success: false, needsReconnect: result.needsReconnect };
       }
 
       // Mark as sent (will be replaced by real message from realtime)
@@ -181,7 +187,7 @@ export function useMessages(conversationId: string | null) {
       );
 
       // Não mostrar toast de sucesso para ser mais rápido - a mensagem aparecendo é feedback suficiente
-      return true;
+      return { success: true };
     } catch (error: any) {
       // Update temp message to error state
       setMessages((prev) => 
@@ -192,7 +198,7 @@ export function useMessages(conversationId: string | null) {
         )
       );
       toast.error(error.message || 'Erro ao enviar mensagem');
-      return false;
+      return { success: false };
     } finally {
       setIsSending(false);
     }

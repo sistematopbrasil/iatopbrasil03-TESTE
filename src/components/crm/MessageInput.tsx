@@ -20,7 +20,7 @@ interface MessageInputProps {
     content: string,
     mediaUrl?: string,
     fileName?: string
-  ) => Promise<boolean>;
+  ) => Promise<boolean | { success: boolean; needsReconnect?: boolean }>;
   isSending: boolean;
   onOpenSettings?: () => void;
 }
