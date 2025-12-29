@@ -1,35 +1,48 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { AlertTriangle, QrCode, Loader2, WifiOff, RefreshCw } from 'lucide-react';
+import { AlertTriangle, QrCode, Loader2, WifiOff, RefreshCw, RotateCcw } from 'lucide-react';
 import { useWhatsAppConnectionContext } from '@/contexts/WhatsAppConnectionContext';
 
 export function DisconnectedOverlay() {
-  const { connectInstance, isConnecting, qrCode, refreshQRCode } = useWhatsAppConnectionContext();
+  const { 
+    connectInstance, 
+    isConnecting, 
+    qrCode, 
+    refreshQRCode,
+    repairConnection,
+    evolutionState 
+  } = useWhatsAppConnectionContext();
+  
   const [waitingTooLong, setWaitingTooLong] = useState(false);
-  const [isRetrying, setIsRetrying] = useState(false);
+  const [connectingTime, setConnectingTime] = useState(0);
 
-  // Timeout para mostrar opção de retry se QR demorar muito
+  // Timer para mostrar quanto tempo está conectando
   useEffect(() => {
-    if (isConnecting && !qrCode) {
+    if (isConnecting) {
+      setConnectingTime(0);
       setWaitingTooLong(false);
-      const timeout = setTimeout(() => {
-        setWaitingTooLong(true);
-      }, 10000); // 10 segundos
-      return () => clearTimeout(timeout);
+      
+      const interval = setInterval(() => {
+        setConnectingTime(prev => {
+          const newTime = prev + 1;
+          if (newTime >= 15 && !qrCode) {
+            setWaitingTooLong(true);
+          }
+          return newTime;
+        });
+      }, 1000);
+      
+      return () => clearInterval(interval);
     } else {
+      setConnectingTime(0);
       setWaitingTooLong(false);
     }
   }, [isConnecting, qrCode]);
 
-  const handleRetry = async () => {
-    setIsRetrying(true);
+  const handleHardReset = async () => {
     setWaitingTooLong(false);
-    try {
-      await connectInstance();
-    } finally {
-      setIsRetrying(false);
-    }
+    await repairConnection('hard');
   };
 
   // Se está mostrando QR Code, mostrar tela de escaneamento
@@ -52,14 +65,20 @@ export function DisconnectedOverlay() {
               <img src={qrCode} alt="QR Code" className="w-56 h-56" />
             </div>
 
-            <div className="flex flex-col items-center gap-2">
+            <div className="flex flex-col items-center gap-3 w-full">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                Atualizando automaticamente...
+                Verificando conexão... ({connectingTime}s)
               </div>
-              <Button size="sm" variant="ghost" onClick={refreshQRCode} className="text-xs">
-                <QrCode className="w-3 h-3 mr-1" /> Atualizar QR Code
-              </Button>
+              
+              <div className="flex gap-2">
+                <Button size="sm" variant="ghost" onClick={refreshQRCode} className="text-xs">
+                  <RefreshCw className="w-3 h-3 mr-1" /> Atualizar QR
+                </Button>
+                <Button size="sm" variant="ghost" onClick={handleHardReset} className="text-xs text-destructive hover:text-destructive">
+                  <RotateCcw className="w-3 h-3 mr-1" /> Resetar
+                </Button>
+              </div>
             </div>
           </div>
         </Card>
@@ -75,31 +94,46 @@ export function DisconnectedOverlay() {
           <div className="flex flex-col items-center gap-6">
             <Loader2 className="w-12 h-12 animate-spin text-primary" />
             <div>
-              <h3 className="text-xl font-bold text-foreground mb-2">Gerando QR Code...</h3>
+              <h3 className="text-xl font-bold text-foreground mb-2">
+                {waitingTooLong ? 'Conexão travada?' : 'Gerando QR Code...'}
+              </h3>
               <p className="text-muted-foreground text-sm">
-                Aguarde enquanto preparamos a conexão
+                {waitingTooLong 
+                  ? 'A conexão parece estar demorando mais que o normal'
+                  : `Aguarde enquanto preparamos a conexão (${connectingTime}s)`
+                }
               </p>
+              {evolutionState && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Estado: {evolutionState}
+                </p>
+              )}
             </div>
             
-            {/* Mostrar opção de retry se demorar muito */}
+            {/* Mostrar opções de repair se demorar muito */}
             {waitingTooLong && (
-              <div className="flex flex-col items-center gap-3 pt-2 border-t border-border w-full">
+              <div className="flex flex-col items-center gap-3 pt-4 border-t border-border w-full">
                 <p className="text-xs text-muted-foreground">
-                  Está demorando mais que o esperado...
+                  Tente uma das opções abaixo:
                 </p>
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  onClick={handleRetry}
-                  disabled={isRetrying}
-                >
-                  {isRetrying ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
+                <div className="flex gap-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={() => repairConnection('soft')}
+                  >
                     <RefreshCw className="w-4 h-4 mr-2" />
-                  )}
-                  Tentar novamente
-                </Button>
+                    Tentar novamente
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="destructive"
+                    onClick={handleHardReset}
+                  >
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                    Resetar sessão
+                  </Button>
+                </div>
               </div>
             )}
           </div>
@@ -129,14 +163,26 @@ export function DisconnectedOverlay() {
             </p>
           </div>
 
-          <Button
-            onClick={connectInstance}
-            size="lg"
-            className="bg-gradient-to-r from-primary to-primary-light hover:from-primary/90 hover:to-primary-light/90 shadow-glow"
-          >
-            <QrCode className="w-5 h-5 mr-2" />
-            Reconectar Agora
-          </Button>
+          <div className="flex flex-col gap-2 w-full">
+            <Button
+              onClick={connectInstance}
+              size="lg"
+              className="bg-gradient-to-r from-primary to-primary-light hover:from-primary/90 hover:to-primary-light/90 shadow-glow w-full"
+            >
+              <QrCode className="w-5 h-5 mr-2" />
+              Reconectar Agora
+            </Button>
+            
+            <Button
+              onClick={handleHardReset}
+              variant="ghost"
+              size="sm"
+              className="text-xs text-muted-foreground"
+            >
+              <RotateCcw className="w-3 h-3 mr-1" />
+              Problemas? Resetar sessão
+            </Button>
+          </div>
         </div>
       </Card>
     </div>

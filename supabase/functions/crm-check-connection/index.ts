@@ -17,7 +17,10 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      throw new Error('Não autorizado');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Não autorizado' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const supabase = createClient(
@@ -32,7 +35,10 @@ serve(async (req) => {
 
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
-      throw new Error('Usuário não autenticado');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Usuário não autenticado' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Buscar dados do usuário
@@ -43,7 +49,10 @@ serve(async (req) => {
       .single();
 
     if (userDataError || !userData) {
-      throw new Error('Dados do usuário não encontrados');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Dados do usuário não encontrados' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Buscar instância do usuário
@@ -63,13 +72,14 @@ serve(async (req) => {
       );
     }
 
-    console.log('🔍 Verificando conexão real para:', instance.instance_name);
+    console.log('🔍 Verificando conexão:', instance.instance_name);
 
     // Verificar estado real na Evolution API
     let realState = 'close';
+    let evolutionError = null;
+    
     try {
       const url = `${EVOLUTION_API_URL}/instance/connectionState/${instance.instance_name}`;
-      console.log('🔵 Chamando:', url);
       
       const response = await fetch(url, {
         headers: {
@@ -79,32 +89,48 @@ serve(async (req) => {
       });
       
       const data = await response.json();
-      console.log('🔵 Resposta Evolution API:', JSON.stringify(data));
-      
       realState = data?.instance?.state || 'close';
+      console.log('📊 Evolution state:', realState);
     } catch (e: any) {
-      console.error('❌ Erro ao verificar Evolution API:', e?.message);
+      evolutionError = e?.message;
+      console.error('❌ Erro Evolution API:', evolutionError);
     }
 
     const reallyConnected = realState === 'open';
     const dbStatus = instance.status;
     
-    console.log(`📊 Estado: DB=${dbStatus}, Evolution=${realState}, reallyConnected=${reallyConnected}`);
+    // Criar cliente admin para atualizar
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
 
-    // Se o banco diz conectado mas a Evolution diz não, atualizar banco
-    if (dbStatus === 'connected' && !reallyConnected) {
-      console.log('⚠️ Divergência detectada! Atualizando banco para disconnected');
-      
-      const supabaseAdmin = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-      );
-      
+    // ✅ AUTO-CORREÇÃO: Sincronizar banco com estado real da Evolution
+    if (reallyConnected && dbStatus !== 'connected') {
+      console.log('🔄 Corrigindo: Evolution=open, DB=' + dbStatus + ' → connected');
+      await supabaseAdmin
+        .from('whatsapp_instances')
+        .update({
+          status: 'connected',
+          qr_code: null,
+          last_connected_at: new Date().toISOString(),
+        })
+        .eq('id', instance.id);
+    } else if (!reallyConnected && dbStatus === 'connected') {
+      console.log('🔄 Corrigindo: Evolution=' + realState + ', DB=connected → disconnected');
       await supabaseAdmin
         .from('whatsapp_instances')
         .update({
           status: 'disconnected',
           qr_code: null,
+        })
+        .eq('id', instance.id);
+    } else if (realState === 'connecting' && dbStatus !== 'connecting') {
+      console.log('🔄 Corrigindo: Evolution=connecting, DB=' + dbStatus + ' → connecting');
+      await supabaseAdmin
+        .from('whatsapp_instances')
+        .update({
+          status: 'connecting',
         })
         .eq('id', instance.id);
     }
@@ -113,11 +139,12 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         data: {
-          status: reallyConnected ? 'connected' : 'disconnected',
+          status: reallyConnected ? 'connected' : (realState === 'connecting' ? 'connecting' : 'disconnected'),
           reallyConnected,
           evolutionState: realState,
           dbStatus,
           instanceId: instance.id,
+          evolutionError,
         },
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -126,13 +153,14 @@ serve(async (req) => {
     console.error('❌ Erro:', error);
     return new Response(
       JSON.stringify({
-        success: false,
-        error: error?.message || 'Erro desconhecido',
+        success: true, // Retornar success para não quebrar frontend
+        data: {
+          status: 'unknown',
+          reallyConnected: false,
+          error: error?.message,
+        },
       }),
-      {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

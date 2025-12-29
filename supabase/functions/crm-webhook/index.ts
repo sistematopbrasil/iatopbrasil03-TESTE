@@ -25,16 +25,26 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    console.log('🔵 Webhook recebido:', JSON.stringify(body, null, 2));
+    
+    // ✅ LOG SANITIZADO - sem base64 gigante
+    const event = body.event;
+    const instanceName = body.instance;
+    const data = body.data;
+    
+    const logSummary = {
+      event,
+      instance: instanceName,
+      state: data?.state || data?.qrcode?.instance || null,
+      hasQrCode: !!data?.qrcode?.base64,
+      qrCodeLength: data?.qrcode?.base64?.length || 0,
+      timestamp: new Date().toISOString(),
+    };
+    console.log('🔵 Webhook:', JSON.stringify(logSummary));
 
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
-
-    const event = body.event;
-    const instanceName = body.instance;
-    const data = body.data;
 
     // Buscar instância pelo nome
     const { data: instance, error: instanceError } = await supabaseAdmin
@@ -53,7 +63,7 @@ serve(async (req) => {
 
     // Normalizar evento para lowercase (Evolution API envia em diferentes formatos)
     const normalizedEvent = event?.toLowerCase()?.replace('.', '_');
-    console.log('📌 Evento normalizado:', normalizedEvent);
+    console.log('📌 Evento:', normalizedEvent);
 
     switch (normalizedEvent) {
       case 'qrcode_updated': {
@@ -68,43 +78,48 @@ serve(async (req) => {
               status: 'connecting',
             })
             .eq('id', instance.id);
+          console.log('✅ QR salvo no banco');
         }
         break;
       }
 
       case 'connection_update': {
-        console.log('🔗 Status de conexão atualizado:', data?.state);
         const state = data?.state;
+        console.log('🔗 Conexão:', state);
         
         let status: 'disconnected' | 'connecting' | 'connected' | 'error' = 'disconnected';
         
         if (state === 'open') {
           status = 'connected';
+          console.log('✅ CONEXÃO ESTABELECIDA!');
         } else if (state === 'connecting') {
           status = 'connecting';
         } else if (state === 'close') {
           status = 'disconnected';
+          console.log('❌ Conexão fechada');
         }
 
         const updateData: any = {
           status,
-          connection_state: data,
+          connection_state: { state, timestamp: new Date().toISOString() },
         };
 
         if (status === 'connected') {
           updateData.last_connected_at = new Date().toISOString();
-          updateData.qr_code = null;
+          updateData.qr_code = null; // Limpar QR ao conectar
         }
 
         await supabaseAdmin
           .from('whatsapp_instances')
           .update(updateData)
           .eq('id', instance.id);
+        
+        console.log('✅ Status atualizado:', status);
         break;
       }
 
       case 'messages_upsert': {
-        console.log('💬 Nova mensagem recebida');
+        console.log('💬 Nova mensagem');
         
         const messages = data?.messages || [data];
         
@@ -115,10 +130,7 @@ serve(async (req) => {
           if (!key || !messageContent) continue;
           
           // Ignorar mensagens enviadas por nós
-          if (key.fromMe) {
-            console.log('⏭️ Ignorando mensagem enviada por nós');
-            continue;
-          }
+          if (key.fromMe) continue;
           
           const remoteJid = key.remoteJid;
           const rawPhone = remoteJid?.replace('@s.whatsapp.net', '').replace('@g.us', '');
@@ -127,7 +139,6 @@ serve(async (req) => {
 
           // ✅ NORMALIZAR TELEFONE
           const normalizedPhone = normalizePhone(rawPhone);
-          console.log('📱 Telefone normalizado:', normalizedPhone);
           
           // Determinar tipo e conteúdo da mensagem
           let type = 'text';
@@ -180,8 +191,6 @@ serve(async (req) => {
           if (leadError) {
             console.error('❌ Erro ao buscar lead:', leadError);
           }
-
-          console.log('👤 Lead encontrado:', lead ? 'SIM' : 'NÃO', lead?.name);
           
           // Buscar ou criar conversa COM TELEFONE NORMALIZADO
           let { data: conversation } = await supabaseAdmin
@@ -193,17 +202,16 @@ serve(async (req) => {
           
           if (!conversation) {
             // ✅ CRIAR CONVERSA COM LEAD VINCULADO AUTOMATICAMENTE
-            console.log('🆕 Criando nova conversa...');
             const { data: newConv, error: convError } = await supabaseAdmin
               .from('crm_conversations')
               .insert({
                 instance_id: instance.id,
                 user_id: instance.user_id,
                 organization_id: instance.organization_id,
-                contact_phone: normalizedPhone, // ✅ Telefone normalizado
+                contact_phone: normalizedPhone,
                 contact_name: lead?.name || message.pushName || normalizedPhone,
                 contact_avatar: message.verifiedBizName ? null : undefined,
-                lead_id: lead?.id || null, // ✅ VÍNCULO AUTOMÁTICO COM LEAD
+                lead_id: lead?.id || null,
                 status: 'open',
               })
               .select()
@@ -215,11 +223,9 @@ serve(async (req) => {
             }
             
             conversation = newConv;
-            console.log('✅ Conversa criada com lead vinculado:', !!lead?.id);
           } else {
             // ✅ VINCULAR LEAD À CONVERSA EXISTENTE SE NÃO TIVER
             if (lead && !conversation.lead_id) {
-              console.log('🔗 Vinculando lead à conversa existente...');
               await supabaseAdmin
                 .from('crm_conversations')
                 .update({ 
@@ -227,8 +233,6 @@ serve(async (req) => {
                   contact_name: lead.name || conversation.contact_name,
                 })
                 .eq('id', conversation.id);
-              
-              console.log('✅ Lead vinculado à conversa existente');
             }
 
             // Atualizar nome do contato se disponível
@@ -247,10 +251,7 @@ serve(async (req) => {
             .eq('message_id', key.id)
             .single();
           
-          if (existingMsg) {
-            console.log('⏭️ Mensagem já existe:', key.id);
-            continue;
-          }
+          if (existingMsg) continue;
           
           // Inserir mensagem
           const { error: msgError } = await supabaseAdmin
@@ -269,15 +270,10 @@ serve(async (req) => {
               metadata: message,
             });
           
-          if (msgError) {
-            console.error('❌ Erro ao inserir mensagem:', msgError);
-          } else {
-            console.log('✅ Mensagem salva:', key.id);
-
+          if (!msgError) {
             // Mover lead para "Primeiro Contato" se estiver no primeiro quadro
             if (conversation.lead_id) {
               try {
-                // Buscar primeiro e segundo estágio do pipeline
                 const { data: stages } = await supabaseAdmin
                   .from('pipeline_stages')
                   .select('id, order_index')
@@ -289,7 +285,6 @@ serve(async (req) => {
                   const firstStageId = stages[0].id;
                   const secondStageId = stages[1].id;
 
-                  // Verificar se lead está no primeiro estágio
                   const { data: leadData } = await supabaseAdmin
                     .from('quiz_submissions_new')
                     .select('pipeline_stage_id')
@@ -297,7 +292,6 @@ serve(async (req) => {
                     .single();
 
                   if (leadData && leadData.pipeline_stage_id === firstStageId) {
-                    console.log('🔄 Movendo lead para Primeiro Contato (mensagem recebida)...');
                     await supabaseAdmin
                       .from('quiz_submissions_new')
                       .update({ 
@@ -306,11 +300,10 @@ serve(async (req) => {
                         last_contact_at: new Date().toISOString()
                       })
                       .eq('id', conversation.lead_id);
-                    console.log('✅ Lead movido para Primeiro Contato');
                   }
                 }
               } catch (moveError) {
-                console.warn('⚠️ Erro ao mover lead (não crítico):', moveError);
+                console.warn('⚠️ Erro ao mover lead:', moveError);
               }
             }
           }
@@ -319,8 +312,6 @@ serve(async (req) => {
       }
 
       case 'messages_update': {
-        console.log('🔄 Status de mensagem atualizado');
-        
         const updates = data || [];
         
         for (const update of updates) {

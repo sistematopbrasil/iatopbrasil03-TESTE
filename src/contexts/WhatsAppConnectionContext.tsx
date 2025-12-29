@@ -10,19 +10,22 @@ interface WhatsAppConnectionContextType {
   isConnecting: boolean;
   isConnected: boolean;
   connectionVerified: boolean;
+  evolutionState: string | null;
   createInstance: () => Promise<void>;
   connectInstance: () => Promise<void>;
   disconnectInstance: () => Promise<void>;
   refreshInstance: () => Promise<void>;
   refreshQRCode: () => Promise<void>;
   checkConnectionHealth: () => Promise<boolean>;
+  repairConnection: (mode: 'soft' | 'hard') => Promise<void>;
 }
 
 const WhatsAppConnectionContext = createContext<WhatsAppConnectionContextType | null>(null);
 
-const CONNECT_TIMEOUT_MS = 15000;
-const HEALTH_CHECK_INTERVAL_MS = 15000; // 15 segundos - mais frequente
-const MAX_FAILED_CHECKS = 2; // Após 2 falhas consecutivas, marca como desconectado
+const CONNECTION_TIMEOUT_MS = 90000; // 90 segundos - aumentado
+const HEALTH_CHECK_INTERVAL_MS = 15000;
+const ACTIVE_CHECK_INTERVAL_MS = 2000; // 2 segundos durante connecting
+const MAX_FAILED_CHECKS = 2;
 
 export function WhatsAppConnectionProvider({ children }: { children: ReactNode }) {
   const [instance, setInstance] = useState<WhatsAppInstance | null>(null);
@@ -30,12 +33,16 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
   const [isLoading, setIsLoading] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionVerified, setConnectionVerified] = useState(false);
+  const [evolutionState, setEvolutionState] = useState<string | null>(null);
+  
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const healthCheckRef = useRef<NodeJS.Timeout | null>(null);
+  const activeCheckRef = useRef<NodeJS.Timeout | null>(null);
   const connectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const mountedRef = useRef(true);
   const failedChecksRef = useRef(0);
   const lastToastRef = useRef<number>(0);
+  const isConnectingRef = useRef(false); // Evitar múltiplas chamadas
 
   // Carrega instância inicial
   useEffect(() => {
@@ -46,11 +53,12 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
       mountedRef.current = false;
       stopPolling();
       stopHealthCheck();
+      stopActiveCheck();
       clearConnectTimeout();
     };
   }, []);
 
-  // Polling enquanto houver QR visível ou status connecting
+  // Polling do banco enquanto houver QR visível ou status connecting
   useEffect(() => {
     const shouldPoll = qrCode !== null || isConnecting || instance?.status === 'connecting';
     if (shouldPoll) {
@@ -71,6 +79,16 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
     return () => stopHealthCheck();
   }, [instance?.status]);
 
+  // Verificação ativa durante connecting (a cada 2s)
+  useEffect(() => {
+    if (isConnecting) {
+      startActiveCheck();
+    } else {
+      stopActiveCheck();
+    }
+    return () => stopActiveCheck();
+  }, [isConnecting]);
+
   // Verificar conexão quando a janela receber foco
   useEffect(() => {
     const handleFocus = () => {
@@ -87,7 +105,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
     if (pollRef.current) return;
     pollRef.current = setInterval(async () => {
       if (mountedRef.current) {
-        await refreshQRCode();
+        await refreshFromDatabase();
       }
     }, 3500);
   }
@@ -116,6 +134,22 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
     }
   }
 
+  function startActiveCheck() {
+    if (activeCheckRef.current) return;
+    activeCheckRef.current = setInterval(async () => {
+      if (mountedRef.current && isConnecting) {
+        await checkConnectionHealth();
+      }
+    }, ACTIVE_CHECK_INTERVAL_MS);
+  }
+
+  function stopActiveCheck() {
+    if (activeCheckRef.current) {
+      clearInterval(activeCheckRef.current);
+      activeCheckRef.current = null;
+    }
+  }
+
   function clearConnectTimeout() {
     if (connectTimeoutRef.current) {
       clearTimeout(connectTimeoutRef.current);
@@ -125,15 +159,10 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
 
   const showDisconnectToast = useCallback(() => {
     const now = Date.now();
-    // Evitar spam de toasts - só mostrar se passou mais de 30 segundos
     if (now - lastToastRef.current > 30000) {
       lastToastRef.current = now;
       toast.error('WhatsApp desconectado! Reconecte para enviar mensagens.', {
         duration: 5000,
-        action: {
-          label: 'Reconectar',
-          onClick: () => connectInstance(),
-        },
       });
     }
   }, []);
@@ -148,9 +177,10 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
 
       if (data?.status === 'connecting') {
         setIsConnecting(true);
-        await refreshQRCode();
+        if (data.qr_code) {
+          setQrCode(data.qr_code);
+        }
       } else if (data?.status === 'connected') {
-        // Verificar se está REALMENTE conectado
         const isReallyConnected = await checkConnectionHealth();
         setConnectionVerified(isReallyConnected);
       }
@@ -163,215 +193,241 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
     }
   }, []);
 
-  const checkConnectionHealth = useCallback(async (): Promise<boolean> => {
-    if (!instance) return false;
-
+  // Ler do banco sem chamar Evolution API
+  const refreshFromDatabase = useCallback(async () => {
     try {
-      // Usar endpoint dedicado para verificar conexão real
+      const instanceData = await crmService.getInstance();
+      if (!instanceData || !mountedRef.current) return;
+      
+      setInstance(instanceData);
+      
+      if (instanceData.status === 'connected') {
+        if (isConnecting) {
+          toast.success('WhatsApp conectado com sucesso!');
+        }
+        setQrCode(null);
+        setIsConnecting(false);
+        isConnectingRef.current = false;
+        setConnectionVerified(true);
+        stopPolling();
+        stopActiveCheck();
+        clearConnectTimeout();
+      } else if (instanceData.qr_code && instanceData.qr_code !== qrCode) {
+        setQrCode(instanceData.qr_code);
+      }
+    } catch (error) {
+      console.error('Erro ao ler banco:', error);
+    }
+  }, [isConnecting, qrCode]);
+
+  const checkConnectionHealth = useCallback(async (): Promise<boolean> => {
+    try {
       const { data, error } = await supabase.functions.invoke('crm-check-connection');
       
       if (error) {
         console.error('Erro no health check:', error);
         failedChecksRef.current++;
         
-        if (failedChecksRef.current >= MAX_FAILED_CHECKS) {
+        if (failedChecksRef.current >= MAX_FAILED_CHECKS && instance?.status === 'connected') {
           setInstance((prev) => prev ? { ...prev, status: 'disconnected' } : prev);
           setConnectionVerified(false);
           showDisconnectToast();
           return false;
         }
-        return instance.status === 'connected';
+        return false;
       }
 
       const result = data;
-      console.log('🔍 Health check result:', result);
+      setEvolutionState(result?.data?.evolutionState || null);
 
       if (result?.data?.reallyConnected) {
-        // Realmente conectado
         failedChecksRef.current = 0;
         setConnectionVerified(true);
-        if (instance.status !== 'connected') {
+        
+        if (isConnecting) {
+          console.log('✅ Conexão detectada via check!');
+          toast.success('WhatsApp conectado com sucesso!');
           setInstance((prev) => prev ? { ...prev, status: 'connected' } : prev);
           setQrCode(null);
           setIsConnecting(false);
+          isConnectingRef.current = false;
+          stopActiveCheck();
+          clearConnectTimeout();
+        } else if (instance?.status !== 'connected') {
+          setInstance((prev) => prev ? { ...prev, status: 'connected' } : prev);
+          setQrCode(null);
         }
         return true;
       } else {
-        // Não está conectado de verdade
-        failedChecksRef.current++;
-        console.log(`⚠️ Health check failed (${failedChecksRef.current}/${MAX_FAILED_CHECKS})`);
-        
-        if (failedChecksRef.current >= MAX_FAILED_CHECKS) {
-          setInstance((prev) => prev ? { ...prev, status: 'disconnected' } : prev);
-          setQrCode(null);
-          setIsConnecting(false);
-          setConnectionVerified(false);
-          showDisconnectToast();
-          return false;
+        if (instance?.status === 'connected') {
+          failedChecksRef.current++;
+          
+          if (failedChecksRef.current >= MAX_FAILED_CHECKS) {
+            setInstance((prev) => prev ? { ...prev, status: 'disconnected' } : prev);
+            setQrCode(null);
+            setIsConnecting(false);
+            isConnectingRef.current = false;
+            setConnectionVerified(false);
+            showDisconnectToast();
+            return false;
+          }
         }
         return false;
       }
     } catch (error) {
       console.error('Erro no health check:', error);
-      failedChecksRef.current++;
-      
-      if (failedChecksRef.current >= MAX_FAILED_CHECKS) {
-        setInstance((prev) => prev ? { ...prev, status: 'disconnected' } : prev);
-        setConnectionVerified(false);
-        showDisconnectToast();
-        return false;
-      }
       return false;
     }
-  }, [instance, showDisconnectToast]);
+  }, [instance?.status, isConnecting, showDisconnectToast]);
 
   const createInstance = useCallback(async () => {
     setIsLoading(true);
     setIsConnecting(true);
+    isConnectingRef.current = true;
     try {
       const result = await crmService.createInstance();
 
       if (!result.success) {
         toast.error(result.error || 'Erro ao criar instância');
         setIsConnecting(false);
+        isConnectingRef.current = false;
         return;
       }
 
       setInstance(result.data!);
       toast.success('Conexão iniciada! Escaneie o QR Code.');
-
-      // Buscar QR Code
       await connectInstance();
     } catch (error: any) {
       toast.error(error.message || 'Erro ao criar instância');
       setIsConnecting(false);
+      isConnectingRef.current = false;
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   const connectInstance = useCallback(async () => {
+    // Evitar múltiplas chamadas simultâneas
+    if (isConnectingRef.current) {
+      console.log('⏳ Já está conectando, ignorando chamada duplicada');
+      return;
+    }
+
+    isConnectingRef.current = true;
     setIsConnecting(true);
     setQrCode(null);
     setConnectionVerified(false);
     failedChecksRef.current = 0;
     clearConnectTimeout();
 
-    // Timeout de segurança
+    // Timeout de segurança (90 segundos)
     connectTimeoutRef.current = setTimeout(() => {
-      if (mountedRef.current && isConnecting && !qrCode) {
-        console.log('⏰ Timeout ao aguardar QR Code');
-        setIsConnecting(false);
-        toast.error('Não foi possível obter o QR Code. Tente novamente.');
+      if (mountedRef.current && isConnectingRef.current) {
+        console.log('⏰ Timeout de conexão');
+        // Não resetar isConnecting aqui, apenas mostrar aviso
       }
-    }, CONNECT_TIMEOUT_MS);
+    }, CONNECTION_TIMEOUT_MS);
 
     try {
-      // SEMPRE forçar logout na Evolution API antes de pedir novo QR
-      if (instance?.id) {
-        console.log('🔄 Forçando logout antes de reconectar...');
-        try {
-          await supabase.functions.invoke('crm-disconnect-instance', {
-            body: { instanceId: instance.id, forceLogout: true }
-          });
-        } catch (e) {
-          console.log('⚠️ Logout prévio falhou (pode já estar deslogado):', e);
-        }
-        
-        // Delay para garantir que o logout foi processado
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
+      // Usar soft repair para conectar (não faz logout agressivo)
+      const { data, error } = await supabase.functions.invoke('crm-repair-connection', {
+        body: { mode: 'soft' }
+      });
 
-      // Buscar QR Code com forceNewQR
-      const result = await crmService.getQRCode(true);
-
-      if (!result.success) {
-        toast.error(result.error || 'Erro ao gerar QR Code');
+      if (error) {
+        console.error('Erro ao conectar:', error);
+        toast.error('Erro ao conectar. Tente novamente.');
         setIsConnecting(false);
+        isConnectingRef.current = false;
         clearConnectTimeout();
         return;
       }
 
-      if (result.data?.status === 'connected') {
-        // Verificar se está REALMENTE conectado
-        const isReallyConnected = await checkConnectionHealth();
-        
-        if (isReallyConnected) {
-          toast.success('WhatsApp conectado com sucesso!');
-          await loadInstance();
-          setQrCode(null);
-          setIsConnecting(false);
-          setConnectionVerified(true);
-        } else {
-          // Diz conectado mas não está - forçar novo QR
-          console.log('⚠️ Estado dizia conectado mas não está. Forçando novo QR...');
-          const retryResult = await crmService.getQRCode(true);
-          if (retryResult.data?.qr_code) {
-            setQrCode(retryResult.data.qr_code);
-            setInstance((prev) => prev ? { ...prev, status: 'connecting' } : prev);
-          }
-        }
+      console.log('🔗 Repair result:', data);
+
+      if (data?.data?.status === 'connected') {
+        toast.success('WhatsApp conectado com sucesso!');
+        await loadInstance();
+        setQrCode(null);
+        setIsConnecting(false);
+        isConnectingRef.current = false;
+        setConnectionVerified(true);
         clearConnectTimeout();
-      } else if (result.data?.qr_code) {
-        setQrCode(result.data.qr_code);
+      } else if (data?.data?.qr_code) {
+        setQrCode(data.data.qr_code);
         setInstance((prev) => prev ? { ...prev, status: 'connecting' } : prev);
-        clearConnectTimeout();
+        // Manter isConnecting = true para polling ativo
       } else {
-        console.log('⏳ Aguardando QR Code, tentando novamente...');
-        setTimeout(() => {
-          if (mountedRef.current && isConnecting) {
-            refreshQRCode();
-          }
-        }, 2000);
+        // QR ainda não disponível, aguardar webhook
+        console.log('⏳ Aguardando QR via webhook...');
+        setInstance((prev) => prev ? { ...prev, status: 'connecting' } : prev);
       }
     } catch (error: any) {
+      console.error('Erro ao conectar:', error);
       toast.error(error.message || 'Erro ao conectar');
       setIsConnecting(false);
+      isConnectingRef.current = false;
       clearConnectTimeout();
     }
-  }, [loadInstance, isConnecting, qrCode, instance?.id, checkConnectionHealth]);
+  }, [loadInstance]);
 
-  // Refresh via banco de dados (sem chamar edge function repetidamente)
-  const refreshQRCode = useCallback(async () => {
-    try {
-      // Priorizar leitura do banco para evitar chamadas repetidas à Evolution API
-      const instanceData = await crmService.getInstance();
-      
-      if (!instanceData) return;
-      
-      // Atualizar estado local com dados do banco
-      setInstance(instanceData);
-      
-      if (instanceData.status === 'connected') {
-        // Verificar se está realmente conectado
-        const isReallyConnected = await checkConnectionHealth();
-        
-        if (isReallyConnected) {
-          if (isConnecting) {
-            toast.success('WhatsApp conectado com sucesso!');
-          }
-          setQrCode(null);
-          setIsConnecting(false);
-          setConnectionVerified(true);
-          stopPolling();
-          clearConnectTimeout();
-        }
-      } else if (instanceData.qr_code) {
-        // QR Code já está no banco (atualizado por webhook)
-        setQrCode(instanceData.qr_code);
-      } else if (instanceData.status === 'connecting' && !qrCode) {
-        // Ainda connecting mas sem QR - aguardar mais um pouco
-        console.log('⏳ Status connecting mas sem QR Code ainda...');
-      }
-    } catch (error) {
-      console.error('Erro ao atualizar QR Code:', error);
+  const repairConnection = useCallback(async (mode: 'soft' | 'hard') => {
+    if (isConnectingRef.current) {
+      console.log('⏳ Já está processando, ignorando');
+      return;
     }
-  }, [checkConnectionHealth, isConnecting, qrCode]);
+
+    isConnectingRef.current = true;
+    setIsConnecting(true);
+    setQrCode(null);
+    
+    const loadingToast = toast.loading(
+      mode === 'hard' ? 'Resetando sessão...' : 'Reconectando...'
+    );
+
+    try {
+      const { data, error } = await supabase.functions.invoke('crm-repair-connection', {
+        body: { mode }
+      });
+
+      toast.dismiss(loadingToast);
+
+      if (error) {
+        toast.error('Erro ao reparar conexão');
+        setIsConnecting(false);
+        isConnectingRef.current = false;
+        return;
+      }
+
+      console.log('🔧 Repair result:', data);
+
+      if (data?.data?.status === 'connected') {
+        toast.success('WhatsApp conectado!');
+        setIsConnecting(false);
+        isConnectingRef.current = false;
+        await loadInstance();
+      } else if (data?.data?.qr_code) {
+        toast.success('QR Code gerado! Escaneie para conectar.');
+        setQrCode(data.data.qr_code);
+      } else {
+        toast.info('Aguardando QR Code...');
+      }
+    } catch (error: any) {
+      toast.dismiss(loadingToast);
+      toast.error(error.message || 'Erro ao reparar');
+      setIsConnecting(false);
+      isConnectingRef.current = false;
+    }
+  }, [loadInstance]);
+
+  const refreshQRCode = useCallback(async () => {
+    await refreshFromDatabase();
+  }, [refreshFromDatabase]);
 
   const disconnectInstance = useCallback(async () => {
     if (!instance) return;
 
-    if (!confirm('Tem certeza que deseja desconectar o WhatsApp? Você precisará escanear o QR Code novamente.')) {
+    if (!confirm('Tem certeza que deseja desconectar o WhatsApp?')) {
       return;
     }
 
@@ -379,6 +435,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
       setIsLoading(true);
       stopPolling();
       stopHealthCheck();
+      stopActiveCheck();
       clearConnectTimeout();
 
       const { error } = await supabase.functions.invoke('crm-disconnect-instance', {
@@ -390,11 +447,12 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
       setInstance({ ...instance, status: 'disconnected' });
       setQrCode(null);
       setIsConnecting(false);
+      isConnectingRef.current = false;
       setConnectionVerified(false);
-      toast.success('WhatsApp desconectado com sucesso!');
+      toast.success('WhatsApp desconectado!');
     } catch (error: any) {
       console.error('Erro ao desconectar:', error);
-      toast.error('Erro ao desconectar WhatsApp');
+      toast.error('Erro ao desconectar');
     } finally {
       setIsLoading(false);
     }
@@ -411,12 +469,14 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
     isConnecting,
     isConnected: instance?.status === 'connected' && connectionVerified,
     connectionVerified,
+    evolutionState,
     createInstance,
     connectInstance,
     disconnectInstance,
     refreshInstance,
     refreshQRCode,
     checkConnectionHealth,
+    repairConnection,
   };
 
   return (
