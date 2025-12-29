@@ -136,7 +136,7 @@ function AdminCRMContent() {
               {!isConnected ? (
                 /* Mostrar ConnectionPanel dentro da aba Conversas quando não conectado */
                 <div className="h-full overflow-auto">
-                  <ConnectionPanel onOpenConversations={() => setActiveTab('conversations')} />
+                  <ConnectionPanel />
                 </div>
               ) : (
                 /* Mostrar lista de conversas e chat quando conectado */

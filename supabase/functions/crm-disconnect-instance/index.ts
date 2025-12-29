@@ -17,11 +17,13 @@ serve(async (req) => {
       throw new Error("Não autorizado");
     }
 
-    const { instanceId } = await req.json();
+    const { instanceId, forceLogout } = await req.json();
 
     if (!instanceId) {
       throw new Error("ID da instância é obrigatório");
     }
+    
+    const isForceLogout = forceLogout === true;
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -65,19 +67,22 @@ serve(async (req) => {
       }
     }
 
-    // Atualizar status no banco
-    const { error: updateError } = await supabaseAdmin
-      .from("whatsapp_instances")
-      .update({
-        status: "disconnected",
-        qr_code: null,
-        phone_number: null,
-        last_connected_at: null,
-      })
-      .eq("id", instanceId);
+    // Se for forceLogout, só deslogar na Evolution API sem atualizar banco
+    if (!isForceLogout) {
+      // Atualizar status no banco
+      const { error: updateError } = await supabaseAdmin
+        .from("whatsapp_instances")
+        .update({
+          status: "disconnected",
+          qr_code: null,
+          phone_number: null,
+          last_connected_at: null,
+        })
+        .eq("id", instanceId);
 
-    if (updateError) {
-      throw new Error("Erro ao atualizar status da instância");
+      if (updateError) {
+        throw new Error("Erro ao atualizar status da instância");
+      }
     }
 
     console.log(`Instância ${instance.instance_name} desconectada com sucesso`);

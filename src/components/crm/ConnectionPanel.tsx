@@ -15,9 +15,10 @@ import {
 
 interface ConnectionPanelProps {
   onOpenConversations?: () => void;
+  hideOpenConversationsButton?: boolean;
 }
 
-export function ConnectionPanel({ onOpenConversations }: ConnectionPanelProps) {
+export function ConnectionPanel({ onOpenConversations, hideOpenConversationsButton }: ConnectionPanelProps) {
   const {
     instance,
     qrCode,
@@ -104,13 +105,15 @@ export function ConnectionPanel({ onOpenConversations }: ConnectionPanelProps) {
             </div>
 
             <div className="flex items-center gap-2">
-              <Button 
-                onClick={onOpenConversations}
-                className="bg-gradient-to-r from-primary to-primary-light hover:from-primary/90 hover:to-primary-light/90"
-              >
-                <MessageSquare className="w-4 h-4 mr-2" />
-                Abrir Conversas
-              </Button>
+              {!hideOpenConversationsButton && onOpenConversations && (
+                <Button 
+                  onClick={onOpenConversations}
+                  className="bg-gradient-to-r from-primary to-primary-light hover:from-primary/90 hover:to-primary-light/90"
+                >
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  Abrir Conversas
+                </Button>
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">

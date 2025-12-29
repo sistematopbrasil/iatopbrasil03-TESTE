@@ -202,6 +202,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
 
   const connectInstance = useCallback(async () => {
     setIsConnecting(true);
+    setQrCode(null); // Limpar QR anterior
     clearConnectTimeout();
 
     // Timeout de segurança
@@ -214,6 +215,23 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
     }, CONNECT_TIMEOUT_MS);
 
     try {
+      // Forçar logout na Evolution API antes de pedir novo QR
+      // Isso evita cache de "connected" quando na verdade desconectou
+      if (instance?.id) {
+        console.log('🔄 Forçando logout antes de reconectar...');
+        try {
+          await supabase.functions.invoke('crm-disconnect-instance', {
+            body: { instanceId: instance.id, forceLogout: true }
+          });
+        } catch (e) {
+          // Ignorar erro - pode já estar deslogado
+          console.log('⚠️ Logout prévio falhou (pode já estar deslogado):', e);
+        }
+        
+        // Pequeno delay para garantir que o logout foi processado
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
       const result = await crmService.getQRCode();
 
       if (!result.success) {
@@ -248,7 +266,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
       setIsConnecting(false);
       clearConnectTimeout();
     }
-  }, [loadInstance, isConnecting, qrCode]);
+  }, [loadInstance, isConnecting, qrCode, instance?.id]);
 
   const refreshQRCode = useCallback(async () => {
     try {
