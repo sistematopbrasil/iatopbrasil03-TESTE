@@ -8,9 +8,10 @@ import { WhatsAppConnectionSettings } from './WhatsAppConnectionSettings';
 
 interface CRMSettingsProps {
   onClose: () => void;
+  onOpenConversations?: () => void;
 }
 
-export function CRMSettings({ onClose }: CRMSettingsProps) {
+export function CRMSettings({ onClose, onOpenConversations }: CRMSettingsProps) {
   return (
     <Card className="glass-card h-full flex flex-col overflow-hidden">
       <div className="p-4 border-b border-border bg-gradient-to-r from-primary/10 to-transparent flex items-center justify-between flex-shrink-0">
@@ -49,7 +50,7 @@ export function CRMSettings({ onClose }: CRMSettingsProps) {
           </TabsContent>
 
           <TabsContent value="whatsapp" className="overflow-x-hidden">
-            <WhatsAppConnectionSettings />
+            <WhatsAppConnectionSettings onOpenConversations={onOpenConversations} />
           </TabsContent>
         </Tabs>
       </div>
