@@ -1,5 +1,3 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -17,76 +15,24 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { toast } from 'sonner';
-import { useWhatsAppConnection } from '@/hooks/useWhatsAppConnection';
+import { useWhatsAppConnectionContext } from '@/contexts/WhatsAppConnectionContext';
 
 interface WhatsAppConnectionSettingsProps {
   onOpenConversations?: () => void;
 }
 
-interface WhatsAppInstance {
-  id: string;
-  instance_name: string;
-  status: string | null;
-  phone_number: string | null;
-  last_connected_at: string | null;
-  created_at: string;
-}
-
 export function WhatsAppConnectionSettings({ onOpenConversations }: WhatsAppConnectionSettingsProps) {
-  const [instance, setInstance] = useState<WhatsAppInstance | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isDisconnecting, setIsDisconnecting] = useState(false);
-  const [isReconnecting, setIsReconnecting] = useState(false);
-  const { createInstance, isConnecting: hookIsConnecting } = useWhatsAppConnection();
-
-  useEffect(() => {
-    loadInstance();
-  }, []);
-
-  const loadInstance = async () => {
-    try {
-      setIsLoading(true);
-      const { data, error } = await supabase
-        .from('whatsapp_instances')
-        .select('*')
-        .limit(1)
-        .maybeSingle();
-
-      if (error) throw error;
-      setInstance(data);
-    } catch (error) {
-      console.error('Erro ao carregar instância:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleDisconnect = async () => {
-    if (!instance) return;
-    
-    if (!confirm('Tem certeza que deseja desconectar o WhatsApp? Você precisará escanear o QR Code novamente.')) {
-      return;
-    }
-
-    try {
-      setIsDisconnecting(true);
-
-      const { error } = await supabase.functions.invoke('crm-disconnect-instance', {
-        body: { instanceId: instance.id }
-      });
-
-      if (error) throw error;
-
-      toast.success('WhatsApp desconectado com sucesso!');
-      await loadInstance();
-    } catch (error) {
-      console.error('Erro ao desconectar:', error);
-      toast.error('Erro ao desconectar WhatsApp');
-    } finally {
-      setIsDisconnecting(false);
-    }
-  };
+  const {
+    instance,
+    qrCode,
+    isLoading,
+    isConnecting,
+    isConnected,
+    connectInstance,
+    disconnectInstance,
+    refreshInstance,
+    refreshQRCode,
+  } = useWhatsAppConnectionContext();
 
   if (isLoading) {
     return (
@@ -96,7 +42,40 @@ export function WhatsAppConnectionSettings({ onOpenConversations }: WhatsAppConn
     );
   }
 
-  const isConnected = instance?.status === 'connected';
+  // Mostrar QR Code se estiver conectando
+  if ((isConnecting || instance?.status === 'connecting') && qrCode) {
+    return (
+      <div className="space-y-6 overflow-x-hidden max-w-full">
+        <Card className="p-4 sm:p-6 border-2 border-primary/20 bg-primary/5">
+          <div className="flex flex-col items-center gap-6">
+            <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
+              <QrCode className="w-8 h-8 text-primary" />
+            </div>
+            <div className="text-center">
+              <h3 className="text-xl font-bold text-foreground mb-2">Escaneie o QR Code</h3>
+              <p className="text-muted-foreground text-sm">
+                Abra o WhatsApp no seu celular → Menu (⋮) → Dispositivos conectados
+              </p>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl shadow-lg">
+              <img src={qrCode} alt="QR Code" className="w-64 h-64" />
+            </div>
+
+            <div className="flex flex-col items-center gap-2">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                Atualizando automaticamente...
+              </div>
+              <Button size="sm" variant="ghost" onClick={refreshQRCode} className="text-xs">
+                <RefreshCw className="w-3 h-3 mr-1" /> Atualizar QR Code
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 overflow-x-hidden max-w-full">
@@ -152,7 +131,7 @@ export function WhatsAppConnectionSettings({ onOpenConversations }: WhatsAppConn
               ) : (
                 <p className="text-muted-foreground">
                   {instance 
-                    ? 'Sua conexão foi perdida. Reconecte na aba de conversas.'
+                    ? 'Sua conexão foi perdida. Reconecte escaneando o QR Code.'
                     : 'Você precisa conectar seu WhatsApp para usar o CRM.'
                   }
                 </p>
@@ -178,7 +157,7 @@ export function WhatsAppConnectionSettings({ onOpenConversations }: WhatsAppConn
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={loadInstance}
+                  onClick={refreshInstance}
                   className="glass h-8 w-8 p-0"
                 >
                   <RefreshCw className="w-4 h-4" />
@@ -186,11 +165,11 @@ export function WhatsAppConnectionSettings({ onOpenConversations }: WhatsAppConn
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={handleDisconnect}
-                  disabled={isDisconnecting}
+                  onClick={disconnectInstance}
+                  disabled={isLoading}
                   className="text-destructive hover:bg-destructive/20 hover:text-destructive h-8 text-xs"
                 >
-                  {isDisconnecting ? (
+                  {isLoading ? (
                     <>
                       <Loader2 className="w-3 h-3 mr-1 animate-spin" />
                       <span className="hidden sm:inline">Desconectando...</span>
@@ -210,19 +189,11 @@ export function WhatsAppConnectionSettings({ onOpenConversations }: WhatsAppConn
               <Button
                 variant="default"
                 size="sm"
-                onClick={async () => {
-                  setIsReconnecting(true);
-                  try {
-                    await createInstance();
-                    await loadInstance();
-                  } finally {
-                    setIsReconnecting(false);
-                  }
-                }}
-                disabled={isReconnecting || hookIsConnecting}
+                onClick={connectInstance}
+                disabled={isConnecting}
                 className="h-8 text-xs"
               >
-                {(isReconnecting || hookIsConnecting) ? (
+                {isConnecting ? (
                   <>
                     <Loader2 className="w-3 h-3 mr-1 animate-spin" />
                     <span>Conectando...</span>
