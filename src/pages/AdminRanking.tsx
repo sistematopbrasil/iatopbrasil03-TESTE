@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -13,32 +13,33 @@ import { useRankingData } from '@/hooks/useRankingData';
 export default function AdminRanking() {
   const [period, setPeriod] = useState('all');
 
-  // Get period dates
-  const getPeriodDates = () => {
+  // Memoizar periodStart e periodEnd para evitar re-renders que invalidam o queryKey
+  const { periodStart, periodEnd } = useMemo(() => {
     const now = new Date();
-    let periodStart: string | null = null;
+    let start: string | null = null;
 
     if (period === 'today') {
-      const start = new Date(now);
-      start.setHours(0, 0, 0, 0);
-      periodStart = start.toISOString();
+      const s = new Date(now);
+      s.setHours(0, 0, 0, 0);
+      start = s.toISOString();
     } else if (period === 'week') {
-      const start = new Date(now);
-      start.setDate(start.getDate() - 7);
-      periodStart = start.toISOString();
+      const s = new Date(now);
+      s.setDate(s.getDate() - 7);
+      start = s.toISOString();
     } else if (period === 'month') {
-      const start = new Date(now);
-      start.setMonth(start.getMonth() - 1);
-      periodStart = start.toISOString();
+      const s = new Date(now);
+      s.setMonth(s.getMonth() - 1);
+      start = s.toISOString();
     }
 
-    return { periodStart, periodEnd: now.toISOString() };
-  };
+    // Usar fim do dia atual como periodEnd estável
+    const end = new Date(now);
+    end.setHours(23, 59, 59, 999);
+    return { periodStart: start, periodEnd: end.toISOString() };
+  }, [period]);
 
-  const { periodStart, periodEnd } = getPeriodDates();
-
-  // Usar hook centralizado
-  const { ranking, isLoading, error, currentUser, totals, myData } = useRankingData({
+  // Usar hook centralizado com queryKey estável
+  const { ranking, isLoading, error, currentUser, totals, myData, refetch } = useRankingData({
     periodStart,
     periodEnd,
   });
@@ -75,8 +76,8 @@ export default function AdminRanking() {
         <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
           <p className="text-muted-foreground">Erro ao carregar ranking</p>
           <button 
-            onClick={() => window.location.reload()} 
-            className="text-primary underline"
+            onClick={() => refetch()} 
+            className="text-primary underline hover:text-primary/80"
           >
             Tentar novamente
           </button>

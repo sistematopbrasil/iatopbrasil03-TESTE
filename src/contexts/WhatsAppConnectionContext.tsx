@@ -60,49 +60,6 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
     };
   }, []);
 
-  // Polling do banco enquanto houver QR visível ou status connecting
-  useEffect(() => {
-    const shouldPoll = qrCode !== null || isConnecting || instance?.status === 'connecting';
-    if (shouldPoll) {
-      startPolling();
-    } else {
-      stopPolling();
-    }
-    return () => stopPolling();
-  }, [qrCode, isConnecting, instance?.status]);
-
-  // Health check periódico quando conectado
-  useEffect(() => {
-    if (instance?.status === 'connected') {
-      startHealthCheck();
-    } else {
-      stopHealthCheck();
-    }
-    return () => stopHealthCheck();
-  }, [instance?.status]);
-
-  // Verificação ativa durante connecting (a cada 2s)
-  useEffect(() => {
-    if (isConnecting) {
-      startActiveCheck();
-    } else {
-      stopActiveCheck();
-    }
-    return () => stopActiveCheck();
-  }, [isConnecting]);
-
-  // Verificar conexão quando a janela receber foco
-  useEffect(() => {
-    const handleFocus = () => {
-      if (instance?.status === 'connected') {
-        checkConnectionHealth();
-      }
-    };
-
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, [instance?.status]);
-
   function startPolling() {
     if (pollRef.current) return;
     pollRef.current = setInterval(async () => {
@@ -168,6 +125,111 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
       });
     }
   }, []);
+
+  // Realtime subscription para updates instantâneos da instância
+  useEffect(() => {
+    if (!instance?.id) return;
+
+    console.log('📡 Subscribing to realtime updates for instance:', instance.id);
+    
+    const channel = supabase
+      .channel(`instance-updates-${instance.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'whatsapp_instances',
+          filter: `id=eq.${instance.id}`,
+        },
+        (payload) => {
+          console.log('📡 Realtime update received:', payload);
+          const newData = payload.new as any;
+          
+          if (!mountedRef.current) return;
+          
+          // Atualizar QR code instantaneamente
+          if (newData.qr_code && newData.qr_code !== qrCode) {
+            console.log('✅ QR Code recebido via realtime!');
+            setQrCode(newData.qr_code);
+          }
+          
+          // Atualizar status
+          if (newData.status === 'connected') {
+            console.log('✅ Conectado via realtime!');
+            if (isConnecting) {
+              toast.success('WhatsApp conectado com sucesso!');
+            }
+            setInstance((prev) => prev ? { ...prev, ...newData } : prev);
+            setQrCode(null);
+            setIsConnecting(false);
+            isConnectingRef.current = false;
+            setConnectionVerified(true);
+            stopPolling();
+            stopActiveCheck();
+            clearConnectTimeout();
+          } else if (newData.status === 'disconnected' && instance?.status === 'connected') {
+            console.log('⚠️ Desconectado via realtime');
+            setInstance((prev) => prev ? { ...prev, ...newData } : prev);
+            setConnectionVerified(false);
+            showDisconnectToast();
+          } else {
+            setInstance((prev) => prev ? { ...prev, ...newData } : prev);
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Realtime subscription status:', status);
+      });
+
+    return () => {
+      console.log('📡 Unsubscribing from realtime');
+      supabase.removeChannel(channel);
+    };
+  }, [instance?.id, qrCode, isConnecting, showDisconnectToast]);
+
+  // Polling do banco como fallback (menos frequente com realtime)
+  useEffect(() => {
+    const shouldPoll = qrCode !== null || isConnecting || instance?.status === 'connecting';
+    if (shouldPoll) {
+      startPolling();
+    } else {
+      stopPolling();
+    }
+    return () => stopPolling();
+  }, [qrCode, isConnecting, instance?.status]);
+
+  // Health check periódico quando conectado
+  useEffect(() => {
+    if (instance?.status === 'connected') {
+      startHealthCheck();
+    } else {
+      stopHealthCheck();
+    }
+    return () => stopHealthCheck();
+  }, [instance?.status]);
+
+  // Verificação ativa durante connecting (a cada 500ms)
+  useEffect(() => {
+    if (isConnecting) {
+      startActiveCheck();
+    } else {
+      stopActiveCheck();
+    }
+    return () => stopActiveCheck();
+  }, [isConnecting]);
+
+  // Verificar conexão quando a janela receber foco
+  useEffect(() => {
+    const handleFocus = () => {
+      if (instance?.status === 'connected') {
+        checkConnectionHealth();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [instance?.status]);
 
   const loadInstance = useCallback(async () => {
     if (!mountedRef.current) return;
@@ -283,9 +345,10 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
   }, [instance?.status, isConnecting, showDisconnectToast]);
 
   const createInstance = useCallback(async () => {
-    setIsLoading(true);
+    // Não bloquear UI com isLoading - apenas entrar em isConnecting
     setIsConnecting(true);
     isConnectingRef.current = true;
+    
     try {
       const result = await crmService.createInstance();
 
@@ -296,15 +359,17 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
         return;
       }
 
+      // Setar instância imediatamente para que UI mostre o painel de conexão
       setInstance(result.data!);
+      setIsLoading(false); // Garantir que loading está desligado
       toast.success('Conexão iniciada! Escaneie o QR Code.');
-      await connectInstance();
+      
+      // Conectar sem bloquear - não aguardar
+      connectInstance();
     } catch (error: any) {
       toast.error(error.message || 'Erro ao criar instância');
       setIsConnecting(false);
       isConnectingRef.current = false;
-    } finally {
-      setIsLoading(false);
     }
   }, []);
 
