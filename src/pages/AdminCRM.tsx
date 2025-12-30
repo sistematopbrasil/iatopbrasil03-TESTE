@@ -125,8 +125,8 @@ function AdminCRMContent() {
     return null;
   };
 
-  // Skeleton para loading inicial
-  if (isLoading) {
+  // Skeleton para loading inicial - mas não se estiver conectando (para mostrar QR)
+  if (isLoading && !isConnecting) {
     return (
       <AdminLayout>
         <div className="h-[calc(100vh-64px)] flex flex-col overflow-hidden">

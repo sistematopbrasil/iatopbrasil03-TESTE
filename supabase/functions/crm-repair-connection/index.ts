@@ -176,6 +176,14 @@ serve(async (req) => {
     } else {
       // SOFT REPAIR: connect e tentar obter QR rapidamente
       console.log('🟡 Iniciando SOFT repair...');
+      
+      // Marcar como connecting IMEDIATAMENTE no banco
+      // Isso permite que o frontend saiba que estamos processando
+      await supabaseAdmin
+        .from('whatsapp_instances')
+        .update({ status: 'connecting' })
+        .eq('id', instance.id);
+      steps.push('status_set_connecting: ok');
 
       try {
         const connectResult = await evolutionRequest(`/instance/connect/${instance.instance_name}`);
@@ -195,14 +203,24 @@ serve(async (req) => {
         } else {
           qrCode = connectResult.data?.qrcode?.base64 || connectResult.data?.base64 || null;
           
-          // Se não veio QR na primeira tentativa, fazer retry rápido
+          // Se não veio QR na primeira tentativa, fazer 2 retries rápidos
           if (!qrCode) {
-            console.log('⏳ QR não veio, tentando novamente em 500ms...');
-            await new Promise(resolve => setTimeout(resolve, 500));
+            console.log('⏳ QR não veio, tentando retry 1 em 300ms...');
+            await new Promise(resolve => setTimeout(resolve, 300));
             
             const retryResult = await evolutionRequest(`/instance/connect/${instance.instance_name}`);
             qrCode = retryResult.data?.qrcode?.base64 || retryResult.data?.base64 || null;
-            steps.push(`qr_retry: ${qrCode ? 'found' : 'not_found'}`);
+            steps.push(`qr_retry_1: ${qrCode ? 'found' : 'not_found'}`);
+            
+            // Segundo retry se ainda não veio
+            if (!qrCode) {
+              console.log('⏳ Tentando retry 2 em 300ms...');
+              await new Promise(resolve => setTimeout(resolve, 300));
+              
+              const retry2Result = await evolutionRequest(`/instance/connect/${instance.instance_name}`);
+              qrCode = retry2Result.data?.qrcode?.base64 || retry2Result.data?.base64 || null;
+              steps.push(`qr_retry_2: ${qrCode ? 'found' : 'not_found'}`);
+            }
           }
           
           if (qrCode) {
@@ -215,11 +233,7 @@ serve(async (req) => {
               .eq('id', instance.id);
             steps.push('qr_saved: ok');
           } else {
-            // Marcar como connecting e aguardar webhook
-            await supabaseAdmin
-              .from('whatsapp_instances')
-              .update({ status: 'connecting' })
-              .eq('id', instance.id);
+            // Manter connecting e aguardar webhook - já foi setado acima
             steps.push('waiting_webhook: true');
           }
         }
