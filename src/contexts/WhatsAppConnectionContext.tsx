@@ -24,10 +24,10 @@ const WhatsAppConnectionContext = createContext<WhatsAppConnectionContextType | 
 
 const CONNECTION_TIMEOUT_MS = 90000; // 90 segundos
 const HEALTH_CHECK_INTERVAL_MS = 15000;
-const ACTIVE_CHECK_INTERVAL_MS = 1000; // Reduzido de 2s para 1s durante connecting
+const ACTIVE_CHECK_INTERVAL_MS = 500; // 500ms durante connecting - bem rápido
 const MAX_FAILED_CHECKS = 2;
-const QR_FAST_POLL_ATTEMPTS = 20; // Tentativas rápidas para buscar QR
-const QR_FAST_POLL_DELAY = 200; // 200ms entre tentativas
+const QR_FAST_POLL_ATTEMPTS = 40; // Mais tentativas rápidas para buscar QR
+const QR_FAST_POLL_DELAY = 150; // 150ms entre tentativas - mais rápido
 
 export function WhatsAppConnectionProvider({ children }: { children: ReactNode }) {
   const [instance, setInstance] = useState<WhatsAppInstance | null>(null);
