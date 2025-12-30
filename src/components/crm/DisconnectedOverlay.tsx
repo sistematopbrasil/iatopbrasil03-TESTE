@@ -26,7 +26,8 @@ export function DisconnectedOverlay() {
       const interval = setInterval(() => {
         setConnectingTime(prev => {
           const newTime = prev + 1;
-          if (newTime >= 15 && !qrCode) {
+          // Aumentar o limiar para 30 segundos para não parecer "falha"
+          if (newTime >= 30 && !qrCode) {
             setWaitingTooLong(true);
           }
           return newTime;
@@ -95,11 +96,11 @@ export function DisconnectedOverlay() {
             <Loader2 className="w-12 h-12 animate-spin text-primary" />
             <div>
               <h3 className="text-xl font-bold text-foreground mb-2">
-                {waitingTooLong ? 'Conexão travada?' : 'Gerando QR Code...'}
+                {waitingTooLong ? 'Aguardando resposta...' : 'Gerando QR Code...'}
               </h3>
               <p className="text-muted-foreground text-sm">
                 {waitingTooLong 
-                  ? 'A conexão parece estar demorando mais que o normal'
+                  ? 'Isso pode levar alguns segundos a mais'
                   : `Aguarde enquanto preparamos a conexão (${connectingTime}s)`
                 }
               </p>
