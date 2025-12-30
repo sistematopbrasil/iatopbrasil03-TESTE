@@ -1,18 +1,39 @@
 import { useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { getCurrentConsultant, isSuperAdmin } from "@/lib/consultant-context";
 import { ConsultantDashboard } from '@/components/consultant/ConsultantDashboard';
 import { Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   
   const { data: currentUser, isLoading } = useQuery({
     queryKey: ['current-user-dashboard'],
     queryFn: getCurrentConsultant,
   });
+
+  // ✅ Realtime subscription para atualizações automáticas de leads
+  useEffect(() => {
+    const channel = supabase
+      .channel('dashboard-leads-realtime')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'quiz_submissions_new',
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ['all-leads-consultant'] });
+        queryClient.invalidateQueries({ queryKey: ['ranking'] });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   // Se for Super Admin, redirecionar para /admin/super
   useEffect(() => {
