@@ -4,7 +4,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { 
   Send, Paperclip, Mic, Image, Video, FileText, 
@@ -12,6 +11,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { AudioRecorder } from './AudioRecorder';
 
 interface MessageInputProps {
   conversationId: string;
@@ -59,6 +59,7 @@ export function MessageInput({ conversationId, onSend, isSending, onOpenSettings
   const [pendingMediaSend, setPendingMediaSend] = useState<PendingMediaSend | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredSuggestions, setFilteredSuggestions] = useState<QuickReply[]>([]);
+  const [showAudioRecorder, setShowAudioRecorder] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -266,7 +267,21 @@ export function MessageInput({ conversationId, onSend, isSending, onOpenSettings
     setPendingMediaSend(null);
   }
 
+  // Se o gravador de áudio está ativo
+  if (showAudioRecorder) {
     return (
+      <div className="p-4 border-t border-border bg-card/50">
+        <AudioRecorder
+          conversationId={conversationId}
+          onSend={onSend}
+          onCancel={() => setShowAudioRecorder(false)}
+          isSending={isSending}
+        />
+      </div>
+    );
+  }
+
+  return (
     <div className="p-4 border-t border-border bg-card/50 relative">
       {/* File Preview */}
       {filePreview && (
@@ -429,10 +444,10 @@ export function MessageInput({ conversationId, onSend, isSending, onOpenSettings
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => handleFileSelect('audio')}
+            onClick={() => setShowAudioRecorder(true)}
             disabled={isSending || !!filePreview}
             className="hover:bg-primary/20 hover:text-primary"
-            title="Enviar áudio"
+            title="Gravar áudio"
           >
             <Mic className="w-5 h-5" />
           </Button>

@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useMemo, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrentConsultant, getQuizUrl } from '@/lib/consultant-context';
 import { StatCard } from '@/components/ui/stat-card';
@@ -42,6 +42,7 @@ const TEMP_COLORS = {
 
 export function ConsultantDashboard() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
   const { data: currentUser } = useQuery({
@@ -77,6 +78,32 @@ export function ConsultantDashboard() {
     },
     enabled: !!currentUser,
   });
+
+  // Realtime subscription para novos leads
+  useEffect(() => {
+    if (!currentUser?.id) return;
+
+    const channel = supabase
+      .channel('consultant-leads-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'quiz_submissions_new',
+          filter: `consultant_id=eq.${currentUser.id}`,
+        },
+        () => {
+          // Invalidar cache quando houver mudanças
+          queryClient.invalidateQueries({ queryKey: ['all-leads-consultant', currentUser.id] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUser?.id, queryClient]);
 
   const metrics = useMemo(() => {
     if (!leads) return null;

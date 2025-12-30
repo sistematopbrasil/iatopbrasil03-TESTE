@@ -1,48 +1,19 @@
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { getOrganizationBySlug, getOrganizationById, getQuizConfig, getConsultantBySlug } from '@/lib/organization-service';
+import { getQuizDataBySlug } from '@/lib/organization-service';
 import { QuizContainer } from '@/components/quiz/QuizContainer';
 import { Loader2 } from 'lucide-react';
 
 export default function QuizPage() {
   const { slug } = useParams<{ slug: string }>();
 
-  // Primeiro, tentar buscar como consultor (novo sistema)
-  const { data: consultant, isLoading: loadingConsultant } = useQuery({
-    queryKey: ['consultant', slug],
-    queryFn: () => getConsultantBySlug(slug!),
+  // Query unificada que busca tudo em paralelo
+  const { data: quizData, isLoading } = useQuery({
+    queryKey: ['quiz-data', slug],
+    queryFn: () => getQuizDataBySlug(slug!),
     enabled: !!slug,
-    retry: false,
+    staleTime: 1000 * 60 * 5, // 5 minutos de cache
   });
-
-  // Se não encontrou consultor, buscar como organização (sistema legado)
-  const { data: organizationBySlug, isLoading: loadingOrgBySlug } = useQuery({
-    queryKey: ['organization-slug', slug],
-    queryFn: () => getOrganizationBySlug(slug!),
-    enabled: !!slug && !consultant,
-    retry: false,
-  });
-
-  // Se encontrou consultor, buscar a organização dele
-  const { data: organizationById, isLoading: loadingOrgById } = useQuery({
-    queryKey: ['organization-id', consultant?.organization_id],
-    queryFn: () => getOrganizationById(consultant!.organization_id),
-    enabled: !!consultant?.organization_id,
-    retry: false,
-  });
-
-  // Determinar qual organização usar
-  const organization = consultant ? organizationById : organizationBySlug;
-
-  const { data: config, isLoading: loadingConfig } = useQuery({
-    queryKey: ['quiz-config', organization?.id],
-    queryFn: () => getQuizConfig(organization!.id),
-    enabled: !!organization?.id,
-    retry: false,
-  });
-
-  // Loading state
-  const isLoading = loadingConsultant || loadingOrgBySlug || loadingOrgById || (organization && loadingConfig);
   
   if (isLoading) {
     return (
@@ -56,7 +27,7 @@ export default function QuizPage() {
   }
 
   // Organização não encontrada ou inativa
-  if (!organization) {
+  if (!quizData?.organization) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-background">
         <div className="text-center max-w-md mx-auto p-8">
@@ -83,9 +54,9 @@ export default function QuizPage() {
   // Renderizar quiz personalizado
   return (
     <QuizContainer
-      organization={organization}
-      config={config}
-      consultantId={consultant?.id}
+      organization={quizData.organization}
+      config={quizData.config}
+      consultantId={quizData.consultant?.id}
     />
   );
 }

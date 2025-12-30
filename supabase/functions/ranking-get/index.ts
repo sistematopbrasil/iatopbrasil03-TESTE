@@ -105,11 +105,11 @@ serve(async (req) => {
     });
 
     // 3. Fetch ALL leads in the organization (with period filter)
+    // IMPORTANTE: Não filtrar por completion_percentage para incluir leads frios
     let leadsQuery = supabaseAdmin
       .from('quiz_submissions_new')
       .select('id, consultant_id, temperature, pipeline_stage_id, created_at')
-      .eq('organization_id', organizationId)
-      .eq('completion_percentage', 100);
+      .eq('organization_id', organizationId);
 
     if (periodStart) {
       leadsQuery = leadsQuery.gte('created_at', periodStart);
