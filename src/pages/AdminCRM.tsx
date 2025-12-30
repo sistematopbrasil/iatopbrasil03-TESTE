@@ -1,10 +1,12 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { WhatsAppConnectionProvider, useWhatsAppConnectionContext } from '@/contexts/WhatsAppConnectionContext';
 import { ConnectionPanel } from '@/components/crm/ConnectionPanel';
 import { ConversationList } from '@/components/crm/ConversationList';
 import { ChatWindow } from '@/components/crm/ChatWindow';
 import { DisconnectedOverlay } from '@/components/crm/DisconnectedOverlay';
+import { QuizLeadsList } from '@/components/crm/QuizLeadsList';
+import { CRMSettings } from '@/components/crm/CRMSettings';
 import { Conversation } from '@/lib/crm-service';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -13,10 +15,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { normalizePhone } from '@/lib/phone-utils';
 import { Skeleton } from '@/components/ui/skeleton';
-
-// Lazy load abas secundárias
-const QuizLeadsList = lazy(() => import('@/components/crm/QuizLeadsList').then(m => ({ default: m.QuizLeadsList })));
-const CRMSettings = lazy(() => import('@/components/crm/CRMSettings').then(m => ({ default: m.CRMSettings })));
 
 function AdminCRMContent() {
   const location = useLocation();
@@ -182,64 +180,61 @@ function AdminCRMContent() {
           </Tabs>
         </div>
 
-        {/* Content */}
+        {/* Content - All tabs rendered but only active one visible */}
         <div className="flex-1 min-h-0 overflow-hidden p-3 relative">
-          {activeTab === 'conversations' && (
-            <>
-              {!instance ? (
-                <div className="h-full overflow-auto">
-                  <ConnectionPanel />
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-full relative">
-                  {/* Overlay de desconexão */}
-                  {(showDisconnectedOverlay || showReconnectingOverlay) && (
-                    <DisconnectedOverlay />
-                  )}
+          {/* Tab: Conversas */}
+          <div className={activeTab === 'conversations' ? 'h-full' : 'hidden'}>
+            {!instance ? (
+              <div className="h-full overflow-auto">
+                <ConnectionPanel />
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-full relative">
+                {/* Overlay de desconexão */}
+                {(showDisconnectedOverlay || showReconnectingOverlay) && (
+                  <DisconnectedOverlay />
+                )}
 
-                  {/* Lista de conversas */}
-                  <div className={`
-                    ${selectedConversation ? 'hidden lg:block' : 'block'}
-                    lg:col-span-4 h-full overflow-hidden
-                  `}>
-                    <ConversationList
-                      selectedConversationId={selectedConversation?.id || null}
-                      onSelectConversation={setSelectedConversation}
-                      instanceId={instance?.id}
-                      userId={instance?.user_id}
-                      organizationId={instance?.organization_id}
-                    />
-                  </div>
-
-                  {/* Chat */}
-                  <div className={`
-                    ${!selectedConversation ? 'hidden lg:flex' : 'flex'}
-                    lg:col-span-8 h-full overflow-hidden
-                  `}>
-                    <ChatWindow
-                      conversation={selectedConversation}
-                      onClose={() => setSelectedConversation(null)}
-                    />
-                  </div>
+                {/* Lista de conversas */}
+                <div className={`
+                  ${selectedConversation ? 'hidden lg:block' : 'block'}
+                  lg:col-span-4 h-full overflow-hidden
+                `}>
+                  <ConversationList
+                    selectedConversationId={selectedConversation?.id || null}
+                    onSelectConversation={setSelectedConversation}
+                    instanceId={instance?.id}
+                    userId={instance?.user_id}
+                    organizationId={instance?.organization_id}
+                  />
                 </div>
-              )}
-            </>
-          )}
+
+                {/* Chat */}
+                <div className={`
+                  ${!selectedConversation ? 'hidden lg:flex' : 'flex'}
+                  lg:col-span-8 h-full overflow-hidden
+                `}>
+                  <ChatWindow
+                    conversation={selectedConversation}
+                    onClose={() => setSelectedConversation(null)}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
           
-          {activeTab === 'quiz-leads' && (
-            <Suspense fallback={<div className="flex items-center justify-center h-full"><Skeleton className="h-96 w-full" /></div>}>
-              <QuizLeadsList onStartConversation={handleStartConversationFromLead} />
-            </Suspense>
-          )}
+          {/* Tab: Quiz Leads - sempre renderizado */}
+          <div className={activeTab === 'quiz-leads' ? 'h-full' : 'hidden'}>
+            <QuizLeadsList onStartConversation={handleStartConversationFromLead} />
+          </div>
           
-          {activeTab === 'settings' && (
-            <Suspense fallback={<div className="flex items-center justify-center h-full"><Skeleton className="h-96 w-full" /></div>}>
-              <CRMSettings 
-                onClose={() => setActiveTab('conversations')} 
-                onOpenConversations={() => setActiveTab('conversations')} 
-              />
-            </Suspense>
-          )}
+          {/* Tab: Settings - sempre renderizado */}
+          <div className={activeTab === 'settings' ? 'h-full' : 'hidden'}>
+            <CRMSettings 
+              onClose={() => setActiveTab('conversations')} 
+              onOpenConversations={() => setActiveTab('conversations')} 
+            />
+          </div>
         </div>
       </div>
     </AdminLayout>
