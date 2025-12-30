@@ -33,8 +33,8 @@ async function evolutionRequest(endpoint: string, options: RequestInit = {}) {
   return data;
 }
 
-// Helper para aguardar QR Code no banco com retry
-async function waitForQRCodeInDB(supabaseAdmin: any, instanceId: string, maxAttempts = 5, delayMs = 800): Promise<string | null> {
+// Helper para aguardar QR Code no banco com retry mais rápido
+async function waitForQRCodeInDB(supabaseAdmin: any, instanceId: string, maxAttempts = 10, delayMs = 300): Promise<string | null> {
   for (let i = 0; i < maxAttempts; i++) {
     await new Promise(resolve => setTimeout(resolve, delayMs));
     
@@ -237,8 +237,8 @@ serve(async (req) => {
         .update({ status: 'connecting' })
         .eq('id', instance.id);
       
-      // Aguardar QR Code aparecer no banco (webhook pode ter atualizado)
-      qrCode = await waitForQRCodeInDB(supabaseAdmin, instance.id, 5, 800);
+      // Aguardar QR Code aparecer no banco (webhook pode ter atualizado) - mais tentativas e mais rápido
+      qrCode = await waitForQRCodeInDB(supabaseAdmin, instance.id, 10, 300);
     }
 
     // Se ainda não tem QR, retornar status "connecting" (frontend vai fazer polling)

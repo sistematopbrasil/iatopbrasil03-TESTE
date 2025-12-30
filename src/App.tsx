@@ -22,7 +22,7 @@ import AdminCRM from "./pages/AdminCRM";
 import { ProtectedRoute } from "./components/admin/ProtectedRoute";
 
 // QueryClient com cache otimizado para evitar recarregamentos desnecessários
-const queryClient = new QueryClient({
+export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 2 * 60 * 1000, // 2 minutos - dados considerados frescos

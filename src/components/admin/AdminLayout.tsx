@@ -11,6 +11,7 @@ import { RoleBasedRedirect } from "@/components/RoleBasedRedirect";
 import { useTheme } from "next-themes";
 import logoLight from "@/assets/logo-top-brasil-dark.png";
 import logoDark from "@/assets/logo-top-brasil.png";
+import { queryClient } from "@/App";
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -35,6 +36,7 @@ export const AdminLayout = ({ children, disableVerticalScroll = false }: AdminLa
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    queryClient.clear(); // Limpa TODO o cache para evitar dados de outra conta
     toast({
       title: "Logout realizado",
       description: "Você saiu do painel administrativo.",

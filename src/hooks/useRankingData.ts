@@ -44,11 +44,11 @@ export function useRankingData(options: UseRankingDataOptions = {}) {
 
   const organizationId = currentUser?.organization_id;
 
-  // Query principal de ranking
-  const { data: rankingData, isLoading, error } = useQuery({
+  // Query principal de ranking - só executa se tiver organizationId
+  const { data: rankingData, isLoading: isLoadingRanking, error } = useQuery({
     queryKey: ['unified-ranking', organizationId, periodStart, periodEnd],
     queryFn: async () => {
-      if (!organizationId) return [];
+      if (!organizationId) throw new Error('Organization ID required');
 
       // 1. Buscar todos consultores ativos da organização
       const { data: consultants, error: consultantsError } = await supabase
@@ -159,9 +159,13 @@ export function useRankingData(options: UseRankingDataOptions = {}) {
       return rankingList;
     },
     enabled: enabled && !!organizationId,
-    staleTime: 30 * 1000, // 30 segundos - mantém dados frescos
-    gcTime: 5 * 60 * 1000, // 5 minutos no cache
+    staleTime: 30 * 1000,
+    gcTime: 5 * 60 * 1000,
+    retry: 2,
   });
+
+  // Loading real: considera loading do usuário + loading do ranking
+  const isLoading = !currentUser || (!!organizationId && isLoadingRanking);
 
   // Real-time updates
   useEffect(() => {
