@@ -172,14 +172,14 @@ export function ConnectionPanel({ onOpenConversations, hideOpenConversationsButt
             </div>
             <Button
               onClick={createInstance}
-              disabled={isLoading}
+              disabled={isLoading || isConnecting}
               size="lg"
-              className="bg-gradient-to-r from-primary to-primary-light hover:from-primary/90 hover:to-primary-light/90 shadow-glow hover-lift"
+              className="bg-gradient-to-r from-primary to-primary-light hover:from-primary/90 hover:to-primary-light/90 shadow-glow hover-lift disabled:opacity-70"
             >
-              {isLoading ? (
+              {(isLoading || isConnecting) ? (
                 <>
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Preparando conexão...
+                  Conectando...
                 </>
               ) : (
                 <>
