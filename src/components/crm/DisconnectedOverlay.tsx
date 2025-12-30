@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { AlertTriangle, QrCode, Loader2, WifiOff, RefreshCw, RotateCcw } from 'lucide-react';
 import { useWhatsAppConnectionContext } from '@/contexts/WhatsAppConnectionContext';
-
+import { QrCodeRenderer } from './QrCodeRenderer';
 export function DisconnectedOverlay() {
   const { 
     connectInstance, 
@@ -63,7 +63,7 @@ export function DisconnectedOverlay() {
             </div>
 
             <div className="bg-white p-4 rounded-xl shadow-lg">
-              <img src={qrCode} alt="QR Code" className="w-56 h-56" />
+              <QrCodeRenderer value={qrCode} size={224} />
             </div>
 
             <div className="flex flex-col items-center gap-3 w-full">

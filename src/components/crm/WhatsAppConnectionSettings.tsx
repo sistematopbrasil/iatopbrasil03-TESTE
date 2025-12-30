@@ -16,6 +16,7 @@ import {
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useWhatsAppConnectionContext } from '@/contexts/WhatsAppConnectionContext';
+import { QrCodeRenderer } from './QrCodeRenderer';
 
 interface WhatsAppConnectionSettingsProps {
   onOpenConversations?: () => void;
@@ -59,7 +60,7 @@ export function WhatsAppConnectionSettings({ onOpenConversations }: WhatsAppConn
             </div>
 
             <div className="bg-white p-4 rounded-xl shadow-lg">
-              <img src={qrCode} alt="QR Code" className="w-64 h-64" />
+              <QrCodeRenderer value={qrCode} size={256} />
             </div>
 
             <div className="flex flex-col items-center gap-2">
