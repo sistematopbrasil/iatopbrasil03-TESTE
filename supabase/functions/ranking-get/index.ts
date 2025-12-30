@@ -1,0 +1,233 @@
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+// Points configuration (must match frontend ranking-service.ts)
+const LEAD_TEMPERATURE_POINTS = {
+  hot: 30,
+  warm: 15,
+  cold: 5,
+};
+const NOVOS_CONSULTORES_BONUS = 50;
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    console.log('🏆 Ranking Get - Starting...');
+
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('Não autorizado');
+    }
+
+    // Parse request body for period filters
+    let periodStart: string | null = null;
+    let periodEnd: string | null = null;
+    try {
+      const body = await req.json();
+      periodStart = body.periodStart || null;
+      periodEnd = body.periodEnd || new Date().toISOString();
+    } catch {
+      periodEnd = new Date().toISOString();
+    }
+
+    // Create user-scoped client to get their organization
+    const supabaseUser = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        global: {
+          headers: { Authorization: authHeader },
+        },
+      }
+    );
+
+    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
+    if (userError || !user) {
+      console.error('❌ Auth error:', userError);
+      throw new Error('Usuário não autenticado');
+    }
+
+    // Get user's organization and role
+    const { data: userData, error: userDataError } = await supabaseUser
+      .from('users')
+      .select('id, organization_id, role')
+      .eq('auth_user_id', user.id)
+      .single();
+
+    if (userDataError || !userData) {
+      console.error('❌ User data error:', userDataError);
+      throw new Error('Dados do usuário não encontrados');
+    }
+
+    const organizationId = userData.organization_id;
+    const currentUserId = userData.id;
+    const currentUserRole = userData.role;
+    console.log('🔵 User:', currentUserId, 'Org:', organizationId, 'Role:', currentUserRole);
+
+    // Use service role for elevated access to read all leads
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // 1. Fetch all active consultants in the organization (including email for display)
+    const { data: consultants, error: consultantsError } = await supabaseAdmin
+      .from('users')
+      .select('id, full_name, email, quiz_slug, profile_photo, is_active')
+      .eq('organization_id', organizationId)
+      .in('role', ['admin', 'consultor'])
+      .eq('is_active', true);
+
+    if (consultantsError) {
+      console.error('❌ Consultants error:', consultantsError);
+      throw consultantsError;
+    }
+
+    if (!consultants?.length) {
+      console.log('📭 No consultants found');
+      return new Response(
+        JSON.stringify({ success: true, data: [], totals: { leads: 0, hot: 0, warm: 0, cold: 0, points: 0, novosConsultores: 0 } }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // 2. Get "Novos Consultores" stage ID
+    const { data: novosStageId } = await supabaseAdmin.rpc('get_novos_consultores_stage_id', {
+      org_id: organizationId
+    });
+
+    // 3. Fetch ALL leads in the organization (with period filter)
+    let leadsQuery = supabaseAdmin
+      .from('quiz_submissions_new')
+      .select('id, consultant_id, temperature, pipeline_stage_id, created_at')
+      .eq('organization_id', organizationId)
+      .eq('completion_percentage', 100);
+
+    if (periodStart) {
+      leadsQuery = leadsQuery.gte('created_at', periodStart);
+    }
+    if (periodEnd) {
+      leadsQuery = leadsQuery.lte('created_at', periodEnd);
+    }
+
+    const { data: leads, error: leadsError } = await leadsQuery;
+    if (leadsError) {
+      console.error('❌ Leads error:', leadsError);
+      throw leadsError;
+    }
+
+    console.log('📊 Found', consultants.length, 'consultants and', leads?.length || 0, 'leads');
+
+    // 4. Aggregate metrics per consultant
+    const metricsMap = new Map<string, {
+      total: number;
+      hot: number;
+      warm: number;
+      cold: number;
+      novosConsultores: number;
+    }>();
+
+    // Initialize all consultants
+    consultants.forEach(c => {
+      metricsMap.set(c.id, { total: 0, hot: 0, warm: 0, cold: 0, novosConsultores: 0 });
+    });
+
+    // Process leads
+    leads?.forEach(lead => {
+      if (!lead.consultant_id) return;
+      
+      const metrics = metricsMap.get(lead.consultant_id);
+      if (!metrics) return;
+
+      metrics.total++;
+
+      const isNovosConsultores = novosStageId && lead.pipeline_stage_id === novosStageId;
+
+      if (isNovosConsultores) {
+        metrics.novosConsultores++;
+      } else {
+        if (lead.temperature === 'hot') metrics.hot++;
+        else if (lead.temperature === 'warm') metrics.warm++;
+        else metrics.cold++;
+      }
+    });
+
+    // 5. Calculate scores and create ranking
+    const rankingList = consultants.map(consultant => {
+      const m = metricsMap.get(consultant.id) || { total: 0, hot: 0, warm: 0, cold: 0, novosConsultores: 0 };
+
+      const temperaturePoints = 
+        (m.hot * LEAD_TEMPERATURE_POINTS.hot) +
+        (m.warm * LEAD_TEMPERATURE_POINTS.warm) +
+        (m.cold * LEAD_TEMPERATURE_POINTS.cold);
+
+      const novosConsultoresPoints = m.novosConsultores * NOVOS_CONSULTORES_BONUS;
+      const totalPoints = temperaturePoints + novosConsultoresPoints;
+
+      return {
+        consultant_id: consultant.id,
+        full_name: consultant.full_name,
+        email: consultant.email,
+        quiz_slug: consultant.quiz_slug,
+        profile_photo: consultant.profile_photo,
+        is_active: consultant.is_active,
+        total_leads: m.total,
+        hot_leads: m.hot,
+        warm_leads: m.warm,
+        cold_leads: m.cold,
+        novos_consultores_count: m.novosConsultores,
+        total_points: totalPoints,
+        ranking_position: 0,
+      };
+    });
+
+    // 6. Sort by points and assign positions
+    rankingList.sort((a, b) => b.total_points - a.total_points);
+    rankingList.forEach((entry, index) => {
+      entry.ranking_position = index + 1;
+    });
+
+    // 7. Calculate totals
+    const totals = rankingList.reduce((acc, c) => ({
+      leads: acc.leads + c.total_leads,
+      hot: acc.hot + c.hot_leads,
+      warm: acc.warm + c.warm_leads,
+      cold: acc.cold + c.cold_leads,
+      points: acc.points + c.total_points,
+      novosConsultores: acc.novosConsultores + c.novos_consultores_count,
+    }), { leads: 0, hot: 0, warm: 0, cold: 0, points: 0, novosConsultores: 0 });
+
+    console.log('✅ Ranking calculated:', rankingList.length, 'entries');
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: rankingList,
+        totals,
+        currentUserId,
+        currentUserRole,
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error: any) {
+    console.error('❌ Ranking error:', error);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: error?.message || 'Erro ao buscar ranking',
+      }),
+      {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    );
+  }
+});
