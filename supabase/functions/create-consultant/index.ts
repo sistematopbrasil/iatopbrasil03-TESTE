@@ -71,6 +71,7 @@ serve(async (req) => {
     }
 
     let authUserId: string;
+    let createdNewAuthUser = false;
 
     // Try to create user in Supabase Auth
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
@@ -82,7 +83,7 @@ serve(async (req) => {
     if (authError) {
       // Check if the error is because email already exists in Auth
       if (authError.message.includes('already been registered') || authError.code === 'email_exists') {
-        console.log('User already exists in Auth, looking up auth_user_id...');
+        console.log('User already exists in Auth, checking if orphaned...');
         
         // Get the existing auth user by email
         const { data: authUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
@@ -104,8 +105,54 @@ serve(async (req) => {
           );
         }
 
-        authUserId = existingAuthUser.id;
-        console.log('Found existing auth user:', authUserId);
+        // Check if this auth user has a corresponding record in users table
+        const { data: linkedUser } = await supabaseAdmin
+          .from('users')
+          .select('id')
+          .eq('auth_user_id', existingAuthUser.id)
+          .single();
+
+        if (linkedUser) {
+          // Auth user is linked to a users record - this is a true duplicate
+          return new Response(
+            JSON.stringify({ error: 'Este email já está associado a um consultor existente' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Auth user exists but is ORPHANED (no users table record) - delete and recreate
+        console.log('Found orphaned auth user, deleting...', existingAuthUser.id);
+        
+        const { error: deleteOrphanError } = await supabaseAdmin.auth.admin.deleteUser(existingAuthUser.id);
+        
+        if (deleteOrphanError) {
+          console.error('Error deleting orphaned auth user:', deleteOrphanError);
+          return new Response(
+            JSON.stringify({ error: 'Erro ao limpar usuário órfão. Tente novamente.' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        console.log('Orphaned auth user deleted, creating new one...');
+        
+        // Now create the new auth user
+        const { data: newAuthData, error: newAuthError } = await supabaseAdmin.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+        });
+
+        if (newAuthError || !newAuthData.user) {
+          console.error('Error creating new auth user after cleanup:', newAuthError);
+          return new Response(
+            JSON.stringify({ error: `Erro ao criar usuário: ${newAuthError?.message}` }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        authUserId = newAuthData.user.id;
+        createdNewAuthUser = true;
+        console.log('New auth user created after cleanup:', authUserId);
       } else {
         console.error('Auth error:', authError);
         return new Response(
@@ -120,6 +167,7 @@ serve(async (req) => {
       );
     } else {
       authUserId = authData.user.id;
+      createdNewAuthUser = true;
       console.log('Auth user created:', authUserId);
     }
 
@@ -138,8 +186,8 @@ serve(async (req) => {
 
     if (userError) {
       console.error('Users table error:', userError);
-      // Only delete auth user if we created it (not if it existed before)
-      if (authData?.user) {
+      // Only delete auth user if we created it in this request
+      if (createdNewAuthUser) {
         await supabaseAdmin.auth.admin.deleteUser(authUserId);
       }
       return new Response(

@@ -12,7 +12,7 @@ const LEAD_TEMPERATURE_POINTS = {
   warm: 15,
   cold: 5,
 };
-const NOVOS_CONSULTORES_BONUS = 50;
+const NOVOS_CONSULTORES_BONUS = 100; // Lead em "Novos Consultores" = 100 pts fixo
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -141,6 +141,8 @@ serve(async (req) => {
     });
 
     // Process leads
+    // Lógica: Leads em "Novos Consultores" = 100 pts fixo (não soma temperatura)
+    // Outros leads = pontos por temperatura (5/15/30)
     leads?.forEach(lead => {
       if (!lead.consultant_id) return;
       
@@ -152,8 +154,10 @@ serve(async (req) => {
       const isNovosConsultores = novosStageId && lead.pipeline_stage_id === novosStageId;
 
       if (isNovosConsultores) {
+        // Lead em Novos Consultores: apenas conta aqui, não na temperatura
         metrics.novosConsultores++;
       } else {
+        // Lead normal: conta por temperatura
         if (lead.temperature === 'hot') metrics.hot++;
         else if (lead.temperature === 'warm') metrics.warm++;
         else metrics.cold++;
