@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -42,6 +42,24 @@ export function PipelineBoard() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [selectedLead, setSelectedLead] = useState<any>(null);
+
+  // ✅ Realtime subscription para atualizações automáticas
+  useEffect(() => {
+    const channel = supabase
+      .channel('pipeline-realtime')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'quiz_submissions_new',
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ['pipeline-leads'] });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   // Buscar stages customizados do banco
   const { data: customStages } = useQuery({
