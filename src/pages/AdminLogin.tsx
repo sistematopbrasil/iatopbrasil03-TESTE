@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import logoTopBrasil from "@/assets/logo-top-brasil.png";
+import { queryClient } from "@/App";
 export default function AdminLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -39,6 +40,10 @@ export default function AdminLogin() {
     e.preventDefault();
     setLoading(true);
     try {
+      // CRÍTICO: Fazer logout completo e limpar cache ANTES de novo login
+      await supabase.auth.signOut();
+      queryClient.clear(); // Limpa TODO o cache do React Query
+      
       const {
         data,
         error
@@ -57,6 +62,7 @@ export default function AdminLogin() {
       const hasAccess = user?.role && allowedRoles.includes(user.role);
       if (userError || !hasAccess) {
         await supabase.auth.signOut();
+        queryClient.clear();
         toast({
           variant: "destructive",
           title: "Acesso negado",
