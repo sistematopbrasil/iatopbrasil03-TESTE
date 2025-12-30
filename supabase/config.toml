@@ -29,3 +29,6 @@ verify_jwt = true
 
 [functions.crm-repair-connection]
 verify_jwt = true
+
+[functions.ranking-get]
+verify_jwt = true

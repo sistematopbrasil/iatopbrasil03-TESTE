@@ -64,7 +64,29 @@ class CRMService {
         method: 'POST',
       });
 
-      if (error) throw error;
+      // Extrair mensagem de erro do backend se houver FunctionsHttpError
+      if (error) {
+        const ctx = (error as any).context;
+        let backendError = '';
+        if (ctx && typeof ctx.json === 'function') {
+          try {
+            const jsonBody = await ctx.json();
+            backendError = jsonBody?.error || '';
+          } catch { /* ignore parse fail */ }
+        }
+        return {
+          success: false,
+          error: backendError || error.message || 'Erro ao criar instância',
+        };
+      }
+
+      // Backend pode retornar success: false com status 200
+      if (data && !data.success) {
+        return {
+          success: false,
+          error: data.error || 'Erro ao criar instância',
+        };
+      }
 
       return data;
     } catch (error: any) {

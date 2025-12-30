@@ -207,9 +207,14 @@ serve(async (req) => {
     if (!evolutionResponse.success) {
       console.error('❌ Falha ao criar instância:', evolutionResponse);
       
-      // Se o nome já existe, tentar com outro sufixo
-      if (evolutionResponse.error?.message?.includes('already in use') || 
-          evolutionResponse.error?.response?.message?.includes('already in use')) {
+      // Verificar se o nome já existe (pode vir como string ou array)
+      const errorMessage = evolutionResponse.error?.message;
+      const isNameInUse = 
+        (typeof errorMessage === 'string' && errorMessage.includes('already in use')) ||
+        (Array.isArray(errorMessage) && errorMessage.some((m: string) => m.includes('already in use'))) ||
+        evolutionResponse.error?.response?.message?.includes?.('already in use');
+
+      if (isNameInUse) {
         console.log('⚠️ Nome em uso, tentando com sufixo alternativo...');
         const altInstanceName = `${instanceName}_${Math.random().toString(36).substring(2, 6)}`;
         
@@ -234,7 +239,18 @@ serve(async (req) => {
 
         if (!retryResponse.success) {
           console.error('❌ Retry também falhou:', retryResponse);
-          throw new Error(`Erro ao criar instância na Evolution API: ${JSON.stringify(retryResponse.error)}`);
+          // Retornar erro amigável em vez de estouro 500
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Não foi possível criar a instância. Por favor, tente novamente.',
+              details: 'Nome da instância em uso e fallback também falhou.',
+            }),
+            {
+              status: 200, // Não retornar 4xx/5xx para evitar "non-2xx" genérico
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
         }
 
         // Salvar instância no banco com nome alternativo
@@ -253,7 +269,16 @@ serve(async (req) => {
 
         if (insertError) {
           console.error('❌ Erro ao salvar instância:', insertError);
-          throw new Error('Erro ao salvar instância no banco');
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Erro ao salvar instância no banco',
+            }),
+            {
+              status: 200,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+          );
         }
 
         console.log('✅ Instância criada com sucesso (nome alternativo):', newInstance);
@@ -268,7 +293,18 @@ serve(async (req) => {
         );
       }
       
-      throw new Error(`Erro ao criar instância na Evolution API: ${JSON.stringify(evolutionResponse.error)}`);
+      // Outro erro - retornar mensagem amigável
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Erro ao criar instância na Evolution API. Por favor, tente novamente.',
+          details: JSON.stringify(evolutionResponse.error),
+        }),
+        {
+          status: 200, // Evitar "non-2xx" genérico
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     // Salvar instância no banco
