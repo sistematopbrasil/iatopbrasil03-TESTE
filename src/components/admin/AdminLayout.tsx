@@ -27,9 +27,10 @@ export const AdminLayout = ({ children, disableVerticalScroll = false }: AdminLa
   // Determina se está no modo claro
   const isLightMode = resolvedTheme === 'light' || theme === 'light';
 
-  const { data: currentUser } = useQuery({
+  const { data: currentUser, isLoading: isLoadingUser } = useQuery({
     queryKey: ['current-user-layout'],
     queryFn: getCurrentConsultant,
+    staleTime: 5 * 60 * 1000, // 5 minutes - avoid refetch and flash
   });
 
   const handleLogout = async () => {
@@ -61,12 +62,19 @@ export const AdminLayout = ({ children, disableVerticalScroll = false }: AdminLa
     { path: '/admin/settings', icon: Settings, label: 'Configurações' },
   ];
 
-  const navItems = currentUser && isSuperAdmin(currentUser.role)
+  // While loading, show nothing to avoid flash
+  const userRole = currentUser?.role;
+  const isUserSuperAdmin = userRole ? isSuperAdmin(userRole) : null;
+  
+  // Only determine nav items after we know the role
+  const navItems = isUserSuperAdmin === true
     ? superAdminNavItems
-    : consultantNavItems;
+    : isUserSuperAdmin === false
+    ? consultantNavItems
+    : []; // Empty while loading
 
-  const roleLabel = currentUser && isSuperAdmin(currentUser.role) ? 'Super Admin' : 'Consultor';
-  const roleColorClass = currentUser && isSuperAdmin(currentUser.role) 
+  const roleLabel = isUserSuperAdmin ? 'Super Admin' : 'Consultor';
+  const roleColorClass = isUserSuperAdmin 
     ? 'bg-primary/10 text-primary' 
     : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300';
 
@@ -210,6 +218,15 @@ export const AdminLayout = ({ children, disableVerticalScroll = false }: AdminLa
       </div>
     </div>
   );
+
+  // Show minimal loading state to avoid flash between panels
+  if (isLoadingUser) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <>

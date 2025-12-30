@@ -77,52 +77,58 @@ export default function AdminRanking() {
         throw error;
       }
 
-      // Fetch profile photos and ranking_scores for all consultants
+      // Fetch profile photos for all consultants
       const consultantIds = (rankingData || []).map((r: any) => r.consultant_id);
       
       if (consultantIds.length === 0) {
         return [] as RankingEntry[];
       }
 
-      // Fetch photos
+      // Fetch photos and organization_id
       const { data: usersData } = await supabase
         .from('users')
-        .select('id, profile_photo')
+        .select('id, profile_photo, organization_id')
         .in('id', consultantIds);
 
       const photoMap = new Map(usersData?.map(u => [u.id, u.profile_photo]) || []);
+      const orgId = usersData?.[0]?.organization_id;
 
-      // Fetch ranking_scores for current month (for Novos Consultores bonus)
-      const now = new Date();
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+      // Get Novos Consultores stage ID
+      let novosConsultoresStageId: string | null = null;
+      if (orgId) {
+        const { data: stageId } = await supabase.rpc('get_novos_consultores_stage_id', {
+          org_id: orgId
+        });
+        novosConsultoresStageId = stageId;
+      }
 
-      const { data: rankingScores } = await supabase
-        .from('ranking_scores')
-        .select('consultant_id, consultants_recruited, total_points')
-        .in('consultant_id', consultantIds)
-        .eq('period_start', monthStart)
-        .eq('period_end', monthEnd);
+      // Count actual leads in Novos Consultores stage per consultant (source of truth)
+      const recruitsMap = new Map<string, number>();
+      if (novosConsultoresStageId) {
+        const { data: recruits } = await supabase
+          .from('quiz_submissions_new')
+          .select('consultant_id')
+          .eq('pipeline_stage_id', novosConsultoresStageId)
+          .in('consultant_id', consultantIds);
 
-      const scoresMap = new Map(
-        rankingScores?.map(r => [r.consultant_id, { 
-          consultants_recruited: r.consultants_recruited || 0,
-          total_points: r.total_points || 0
-        }]) || []
-      );
+        recruits?.forEach(r => {
+          if (r.consultant_id) {
+            recruitsMap.set(r.consultant_id, (recruitsMap.get(r.consultant_id) || 0) + 1);
+          }
+        });
+      }
 
-      // Calculate final points - leads in "Novos Consultores" only count as recruited bonus (100 pts)
-      // NOT as lead temperature points (to avoid double counting)
+      // Calculate final points using actual pipeline data
       const enrichedRanking = (rankingData || []).map((r: any) => {
-        const scores = scoresMap.get(r.consultant_id) || { consultants_recruited: 0, total_points: 0 };
+        const recruited = recruitsMap.get(r.consultant_id) || 0;
         
-        // Leads that are in "Novos Consultores" are counted via consultants_recruited, not via temperature
-        // So we subtract recruited from the temperature counts to avoid double counting
-        const recruited = scores.consultants_recruited;
+        // Leads in "Novos Consultores" should NOT count toward temperature points
+        // Subtract recruited from hot leads to avoid double counting
+        const adjustedHot = Math.max(0, Number(r.hot_leads || 0) - recruited);
         
         // Lead temperature points (excluding those in Novos Consultores)
         const leadPoints = calculateLeadPoints(
-          Math.max(0, Number(r.hot_leads || 0) - recruited),
+          adjustedHot,
           Number(r.warm_leads || 0),
           Number(r.cold_leads || 0)
         );

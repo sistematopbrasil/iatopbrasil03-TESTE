@@ -86,15 +86,14 @@ export function CreateConsultantDialog({ open: controlledOpen, onOpenChange: con
       if (error) throw new Error(error.message);
       if (responseData?.error) throw new Error(responseData.error);
 
-      return { email: data.email, password: data.password };
+      return true;
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['all-consultants'] });
       queryClient.invalidateQueries({ queryKey: ['super-admin-metrics'] });
-      toast.success(
-        'Consultor criado com sucesso!',
-        { description: `Email: ${data.email} | Senha: ${data.password}` }
-      );
+      toast.success('Consultor criado com sucesso!', {
+        description: 'As credenciais foram definidas conforme informado no formulário.',
+      });
       onOpenChange(false);
       setFormData({ full_name: '', email: '', password: '', role: 'consultor' });
       setErrors({});

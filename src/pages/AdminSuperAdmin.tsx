@@ -105,7 +105,7 @@ export default function AdminSuperAdmin() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6 overflow-x-hidden max-w-full">
+      <div className="p-4 md:p-6 space-y-6 overflow-x-hidden max-w-full">
         {/* Header */}
         <div className="min-w-0">
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
