@@ -54,15 +54,15 @@ export function ConsultantsTable() {
     },
   });
 
-  // Mutation para excluir consultor
+  // Mutation para excluir consultor - usando edge function para deletar auth user também
   const deleteMutation = useMutation({
     mutationFn: async (consultantId: string) => {
-      const { error } = await supabase
-        .from('users')
-        .delete()
-        .eq('id', consultantId);
-      
+      const { data, error } = await supabase.functions.invoke('delete-consultant', {
+        body: { consultant_id: consultantId },
+      });
       if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Erro ao excluir consultor');
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['unified-ranking'] });

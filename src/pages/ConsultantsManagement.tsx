@@ -153,23 +153,25 @@ export default function ConsultantsManagement() {
     },
   });
 
-  // Delete mutation
+  // Delete mutation - using edge function to properly delete auth user
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('users')
-        .delete()
-        .eq('id', id);
+      const { data, error } = await supabase.functions.invoke('delete-consultant', {
+        body: { consultant_id: id },
+      });
       if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Erro ao excluir consultor');
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['all-consultants-management'] });
-      toast.success('Consultor excluído');
+      queryClient.invalidateQueries({ queryKey: ['unified-ranking'] });
+      toast.success('Consultor excluído completamente');
       setDeleteDialogOpen(false);
       setConsultantToDelete(null);
     },
-    onError: () => {
-      toast.error('Erro ao excluir consultor');
+    onError: (error: any) => {
+      toast.error(error.message || 'Erro ao excluir consultor');
     },
   });
 

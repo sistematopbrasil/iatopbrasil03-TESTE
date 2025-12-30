@@ -32,3 +32,6 @@ verify_jwt = true
 
 [functions.ranking-get]
 verify_jwt = true
+
+[functions.delete-consultant]
+verify_jwt = true
