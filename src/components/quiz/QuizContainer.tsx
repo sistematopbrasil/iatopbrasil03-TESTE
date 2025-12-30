@@ -526,7 +526,7 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
   const handleWhatsAppClick = () => {
     const raw = (consultant?.whatsapp_button_url || "").trim();
 
-    // Se for URL (mesmo sem https://), abrir diretamente
+    // Se o consultor configurou um link, usar ele
     if (raw) {
       const hasScheme = /^https?:\/\//i.test(raw);
       const looksLikeUrl = /[a-zA-Z]/.test(raw) && (raw.includes(".") || raw.includes("/"));
@@ -540,21 +540,23 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
         window.open(`https://${raw.replace(/^\/+/, "")}`, "_blank");
         return;
       }
+
+      // Se parece ser um telefone, montar link do WhatsApp
+      const digits = raw.replace(/\D/g, "");
+      if (digits.length >= 10) {
+        const phone = digits.startsWith("55")
+          ? digits
+          : `55${digits}`;
+        const message = encodeURIComponent(
+          "Olá! Acabei de completar o quiz de perfil. Gostaria de saber mais sobre ser consultor TOP Brasil."
+        );
+        window.open(`https://wa.me/${phone}?text=${message}`, "_blank");
+        return;
+      }
     }
 
-    // Caso contrário, tratar como telefone e abrir WhatsApp
-    const fallbackPhone = "5531996308591";
-    const digits = (raw || fallbackPhone).replace(/\D/g, "");
-    const phone = digits.startsWith("55")
-      ? digits
-      : digits.length === 10 || digits.length === 11
-        ? `55${digits}`
-        : fallbackPhone;
-
-    const message = encodeURIComponent(
-      "Olá! Acabei de completar o quiz de perfil. Gostaria de saber mais sobre ser consultor TOP Brasil."
-    );
-    window.open(`https://wa.me/${phone}?text=${message}`, "_blank");
+    // Fallback: Instagram da Top Brasil (quando não há configuração)
+    window.open("https://www.instagram.com/topbrasilprotecao/", "_blank");
   };
 
   const isLoading = loadingConsultant || loadingQuestions;

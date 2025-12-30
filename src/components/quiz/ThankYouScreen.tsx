@@ -38,18 +38,21 @@ export const ThankYouScreen = ({ organization, config }: ThankYouScreenProps) =>
 
         if (error) {
           console.error('Error fetching WhatsApp link:', error);
-          setWhatsappLink('https://wa.me/5531996308591?text=Quero%20participar!');
+          // Fallback: Instagram da Top Brasil
+          setWhatsappLink('https://www.instagram.com/topbrasilprotecao/');
           return;
         }
         
         if (data?.setting_value && data.setting_value.trim() !== '') {
           setWhatsappLink(data.setting_value);
         } else {
-          setWhatsappLink('https://wa.me/5531996308591?text=Quero%20participar!');
+          // Fallback: Instagram da Top Brasil
+          setWhatsappLink('https://www.instagram.com/topbrasilprotecao/');
         }
       } catch (error) {
         console.error('Error fetching WhatsApp link:', error);
-        setWhatsappLink('https://wa.me/5531996308591?text=Quero%20participar!');
+        // Fallback: Instagram da Top Brasil
+        setWhatsappLink('https://www.instagram.com/topbrasilprotecao/');
       } finally {
         setIsLoading(false);
       }

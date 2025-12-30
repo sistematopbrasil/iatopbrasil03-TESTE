@@ -358,9 +358,42 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
         setInstance((prev) => prev ? { ...prev, status: 'connecting' } : prev);
         // Manter isConnecting = true para polling ativo
       } else {
-        // QR ainda não disponível, aguardar webhook
-        console.log('⏳ Aguardando QR via webhook...');
+        // QR ainda não disponível - polling rápido para buscar do banco
+        console.log('⏳ Aguardando QR via webhook - iniciando polling rápido...');
         setInstance((prev) => prev ? { ...prev, status: 'connecting' } : prev);
+        
+        // Polling rápido: 6 tentativas de 500ms para capturar QR assim que webhook gravar
+        let attempts = 0;
+        const maxAttempts = 6;
+        const fastPoll = setInterval(async () => {
+          attempts++;
+          if (!mountedRef.current || attempts > maxAttempts) {
+            clearInterval(fastPoll);
+            return;
+          }
+          
+          try {
+            const instanceData = await crmService.getInstance();
+            if (instanceData?.qr_code) {
+              console.log('✅ QR capturado via polling rápido!');
+              setQrCode(instanceData.qr_code);
+              setInstance(instanceData);
+              clearInterval(fastPoll);
+            } else if (instanceData?.status === 'connected') {
+              console.log('✅ Conectado durante polling rápido!');
+              toast.success('WhatsApp conectado com sucesso!');
+              setInstance(instanceData);
+              setQrCode(null);
+              setIsConnecting(false);
+              isConnectingRef.current = false;
+              setConnectionVerified(true);
+              clearConnectTimeout();
+              clearInterval(fastPoll);
+            }
+          } catch (e) {
+            console.error('Erro no polling rápido:', e);
+          }
+        }, 500);
       }
     } catch (error: any) {
       console.error('Erro ao conectar:', error);
@@ -410,7 +443,36 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
         toast.success('QR Code gerado! Escaneie para conectar.');
         setQrCode(data.data.qr_code);
       } else {
-        toast.info('Aguardando QR Code...');
+        toast.info('Gerando QR Code...');
+        // Polling rápido para capturar QR
+        let attempts = 0;
+        const maxAttempts = 6;
+        const fastPoll = setInterval(async () => {
+          attempts++;
+          if (!mountedRef.current || attempts > maxAttempts) {
+            clearInterval(fastPoll);
+            return;
+          }
+          
+          try {
+            const instanceData = await crmService.getInstance();
+            if (instanceData?.qr_code) {
+              console.log('✅ QR capturado via polling rápido!');
+              setQrCode(instanceData.qr_code);
+              setInstance(instanceData);
+              clearInterval(fastPoll);
+            } else if (instanceData?.status === 'connected') {
+              toast.success('WhatsApp conectado!');
+              setInstance(instanceData);
+              setQrCode(null);
+              setIsConnecting(false);
+              isConnectingRef.current = false;
+              clearInterval(fastPoll);
+            }
+          } catch (e) {
+            console.error('Erro no polling rápido:', e);
+          }
+        }, 500);
       }
     } catch (error: any) {
       toast.dismiss(loadingToast);
