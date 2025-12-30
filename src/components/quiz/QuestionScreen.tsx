@@ -125,9 +125,15 @@ export const QuestionScreen = ({
 
           {question.type === "number" && (
             <Input
-              type="number"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
+              onChange={(e) => {
+                // Aceitar apenas dígitos
+                const value = e.target.value.replace(/\D/g, '');
+                setInputValue(value);
+              }}
               placeholder={question.placeholder}
               className="text-lg p-6 bg-background border-border focus:border-primary focus:ring-primary"
               onKeyPress={handleKeyPress}

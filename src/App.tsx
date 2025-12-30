@@ -21,7 +21,18 @@ import QuizPage from "./pages/Quiz";
 import AdminCRM from "./pages/AdminCRM";
 import { ProtectedRoute } from "./components/admin/ProtectedRoute";
 
-const queryClient = new QueryClient();
+// QueryClient com cache otimizado para evitar recarregamentos desnecessários
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 2 * 60 * 1000, // 2 minutos - dados considerados frescos
+      gcTime: 10 * 60 * 1000, // 10 minutos - mantém no cache
+      refetchOnWindowFocus: false, // Não recarrega ao focar na janela
+      refetchOnMount: false, // Não recarrega ao montar se dados estão no cache
+      retry: 1,
+    },
+  },
+});
 
 const App = () => {
   // Initialize Meta Pixel with dynamic ID from database

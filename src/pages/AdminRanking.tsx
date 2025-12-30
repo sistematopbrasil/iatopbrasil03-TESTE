@@ -1,6 +1,4 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -9,35 +7,11 @@ import { Trophy, TrendingUp, Users, Calendar, Loader2, Star } from 'lucide-react
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { getCurrentConsultant, isSuperAdmin } from '@/lib/consultant-context';
-import { calculateLeadPoints, NOVOS_CONSULTORES_BONUS } from '@/lib/ranking-service';
-
-interface RankingEntry {
-  consultant_id: string;
-  full_name: string;
-  quiz_slug: string;
-  total_leads: number;
-  hot_leads: number;
-  warm_leads: number;
-  cold_leads: number;
-  conversion_rate: number;
-  last_lead_date: string | null;
-  ranking_position: number;
-  profile_photo?: string | null;
-  consultants_recruited?: number;
-  total_points?: number;
-}
+import { isSuperAdmin } from '@/lib/consultant-context';
+import { useRankingData } from '@/hooks/useRankingData';
 
 export default function AdminRanking() {
   const [period, setPeriod] = useState('all');
-
-  // Get current user to check if super admin
-  const { data: currentUser } = useQuery({
-    queryKey: ['current-user-ranking'],
-    queryFn: getCurrentConsultant,
-  });
-
-  const isAdmin = currentUser && isSuperAdmin(currentUser.role);
 
   // Get period dates
   const getPeriodDates = () => {
@@ -61,99 +35,15 @@ export default function AdminRanking() {
     return { periodStart, periodEnd: now.toISOString() };
   };
 
-  const { data: ranking, isLoading } = useQuery({
-    queryKey: ['consultant-ranking-dynamic', period],
-    queryFn: async () => {
-      const { periodStart, periodEnd } = getPeriodDates();
-      
-      // Get ranking data from leads
-      const { data: rankingData, error } = await supabase.rpc('get_consultant_ranking_dynamic', {
-        period_start: periodStart,
-        period_end: periodEnd,
-      });
+  const { periodStart, periodEnd } = getPeriodDates();
 
-      if (error) {
-        console.error('Error fetching ranking:', error);
-        throw error;
-      }
-
-      // Fetch profile photos for all consultants
-      const consultantIds = (rankingData || []).map((r: any) => r.consultant_id);
-      
-      if (consultantIds.length === 0) {
-        return [] as RankingEntry[];
-      }
-
-      // Fetch photos and organization_id
-      const { data: usersData } = await supabase
-        .from('users')
-        .select('id, profile_photo, organization_id')
-        .in('id', consultantIds);
-
-      const photoMap = new Map(usersData?.map(u => [u.id, u.profile_photo]) || []);
-      const orgId = usersData?.[0]?.organization_id;
-
-      // Get Novos Consultores stage ID
-      let novosConsultoresStageId: string | null = null;
-      if (orgId) {
-        const { data: stageId } = await supabase.rpc('get_novos_consultores_stage_id', {
-          org_id: orgId
-        });
-        novosConsultoresStageId = stageId;
-      }
-
-      // Count actual leads in Novos Consultores stage per consultant (source of truth)
-      const recruitsMap = new Map<string, number>();
-      if (novosConsultoresStageId) {
-        const { data: recruits } = await supabase
-          .from('quiz_submissions_new')
-          .select('consultant_id')
-          .eq('pipeline_stage_id', novosConsultoresStageId)
-          .in('consultant_id', consultantIds);
-
-        recruits?.forEach(r => {
-          if (r.consultant_id) {
-            recruitsMap.set(r.consultant_id, (recruitsMap.get(r.consultant_id) || 0) + 1);
-          }
-        });
-      }
-
-      // Calculate final points using actual pipeline data
-      const enrichedRanking = (rankingData || []).map((r: any) => {
-        const recruited = recruitsMap.get(r.consultant_id) || 0;
-        
-        // Leads in "Novos Consultores" should NOT count toward temperature points
-        // Subtract recruited from hot leads to avoid double counting
-        const adjustedHot = Math.max(0, Number(r.hot_leads || 0) - recruited);
-        
-        // Lead temperature points (excluding those in Novos Consultores)
-        const leadPoints = calculateLeadPoints(
-          adjustedHot,
-          Number(r.warm_leads || 0),
-          Number(r.cold_leads || 0)
-        );
-        
-        // Recruited consultants bonus (100 pts each)
-        const novosConsultoresPoints = recruited * NOVOS_CONSULTORES_BONUS;
-        const totalPoints = leadPoints + novosConsultoresPoints;
-
-        return {
-          ...r,
-          profile_photo: photoMap.get(r.consultant_id) || null,
-          consultants_recruited: recruited,
-          total_points: totalPoints,
-        };
-      }) as RankingEntry[];
-
-      // Sort by total_points descending and update ranking_position
-      enrichedRanking.sort((a, b) => (b.total_points || 0) - (a.total_points || 0));
-      enrichedRanking.forEach((entry, index) => {
-        entry.ranking_position = index + 1;
-      });
-
-      return enrichedRanking;
-    },
+  // Usar hook centralizado
+  const { ranking, isLoading, currentUser, totals, myData } = useRankingData({
+    periodStart,
+    periodEnd,
   });
+
+  const isAdmin = currentUser && isSuperAdmin(currentUser.role);
 
   const getMedalIcon = (position: number) => {
     if (position === 1) return '🥇';
@@ -168,21 +58,6 @@ export default function AdminRanking() {
     if (position === 3) return 'bg-gradient-to-r from-orange-600 to-orange-700';
     return 'bg-muted';
   };
-
-  // Calculate totals
-  const totals = ranking?.reduce(
-    (acc, c) => ({
-      leads: acc.leads + Number(c.total_leads || 0),
-      hot: acc.hot + Number(c.hot_leads || 0),
-      warm: acc.warm + Number(c.warm_leads || 0),
-      cold: acc.cold + Number(c.cold_leads || 0),
-      points: acc.points + (c.total_points || 0),
-    }),
-    { leads: 0, hot: 0, warm: 0, cold: 0, points: 0 }
-  ) || { leads: 0, hot: 0, warm: 0, cold: 0, points: 0 };
-
-  // Get current consultant's points
-  const myPoints = ranking?.find(r => r.consultant_id === currentUser?.id)?.total_points || 0;
 
   if (isLoading) {
     return (
@@ -244,7 +119,7 @@ export default function AdminRanking() {
                   {isAdmin ? 'Pontuação Total' : 'Sua Pontuação'}
                 </p>
                 <p className="text-2xl font-bold text-foreground">
-                  {isAdmin ? totals.points.toLocaleString() : myPoints.toLocaleString()} pts
+                  {isAdmin ? totals.points.toLocaleString() : (myData?.total_points || 0).toLocaleString()} pts
                 </p>
               </div>
             </div>
@@ -305,9 +180,9 @@ export default function AdminRanking() {
                         <span className="text-primary font-bold">
                           {(consultant.total_points || 0).toLocaleString()} pts
                         </span>
-                        {(consultant.consultants_recruited || 0) > 0 && (
+                        {(consultant.novos_consultores_count || 0) > 0 && (
                           <span className="text-muted-foreground text-xs">
-                            (+{consultant.consultants_recruited} consultores)
+                            (+{consultant.novos_consultores_count} consultores)
                           </span>
                         )}
                       </div>
@@ -335,7 +210,6 @@ export default function AdminRanking() {
                       ) : (
                         <th className="text-center py-4 px-4 text-muted-foreground font-medium">Pontuação</th>
                       )}
-                      <th className="text-center py-4 px-4 text-muted-foreground font-medium">Último Lead</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -378,7 +252,7 @@ export default function AdminRanking() {
 
                         {isAdmin ? (
                           <>
-                            {/* Points - Added for super admin */}
+                            {/* Points */}
                             <td className="text-center py-4 px-4">
                               <div className="flex items-center justify-center gap-1">
                                 <Star className="w-5 h-5 text-primary" />
@@ -408,10 +282,10 @@ export default function AdminRanking() {
                               <span className="text-lg font-semibold text-blue-500">{consultant.cold_leads}</span>
                             </td>
 
-                            {/* Consultores Recrutados */}
+                            {/* Novos Consultores */}
                             <td className="text-center py-4 px-4">
                               <span className="text-lg font-semibold text-purple-500">
-                                {consultant.consultants_recruited || 0}
+                                {consultant.novos_consultores_count || 0}
                               </span>
                             </td>
                           </>
@@ -422,17 +296,9 @@ export default function AdminRanking() {
                               <span className="text-xl font-bold text-foreground">
                                 {(consultant.total_points || 0).toLocaleString()}
                               </span>
-                              <span className="text-sm text-muted-foreground">pts</span>
                             </div>
                           </td>
                         )}
-
-                        {/* Last Lead */}
-                        <td className="text-center py-4 px-4 text-sm text-muted-foreground">
-                          {consultant.last_lead_date 
-                            ? format(new Date(consultant.last_lead_date), 'dd/MM/yyyy', { locale: ptBR })
-                            : '-'}
-                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -440,35 +306,38 @@ export default function AdminRanking() {
               </div>
             </>
           ) : (
-            <div className="text-center py-12 text-muted-foreground">
-              <Trophy className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>Nenhum dado de ranking disponível ainda.</p>
-              <p className="text-sm">Os consultores aparecerão aqui quando tiverem leads.</p>
+            <div className="text-center py-12">
+              <Trophy className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+              <p className="text-lg text-muted-foreground">
+                Nenhum dado de ranking disponível
+              </p>
             </div>
           )}
         </Card>
 
-        {/* Points Legend - Only for consultants (minimal version) - Ascending order */}
+        {/* Points Legend - Only for consultants */}
         {!isAdmin && (
-          <div className="flex flex-wrap items-center justify-center gap-3 md:gap-6 py-3 px-4 bg-muted/30 rounded-lg text-sm w-full overflow-hidden">
-            <span className="text-muted-foreground text-center">Pontuação:</span>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-blue-500 flex-shrink-0" />
-              <span className="text-foreground font-medium text-xs sm:text-sm">❄️ 5pts</span>
+          <Card className="p-6">
+            <h3 className="font-semibold text-foreground mb-4">📊 Como os Pontos são Calculados</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-red-500/10 p-4 rounded-lg text-center">
+                <p className="text-2xl font-bold text-red-500">+30</p>
+                <p className="text-sm text-muted-foreground">Lead Quente 🔥</p>
+              </div>
+              <div className="bg-yellow-500/10 p-4 rounded-lg text-center">
+                <p className="text-2xl font-bold text-yellow-500">+15</p>
+                <p className="text-sm text-muted-foreground">Lead Morno 🌡️</p>
+              </div>
+              <div className="bg-blue-500/10 p-4 rounded-lg text-center">
+                <p className="text-2xl font-bold text-blue-500">+5</p>
+                <p className="text-sm text-muted-foreground">Lead Frio ❄️</p>
+              </div>
+              <div className="bg-purple-500/10 p-4 rounded-lg text-center">
+                <p className="text-2xl font-bold text-purple-500">+100</p>
+                <p className="text-sm text-muted-foreground">Novo Consultor 👥</p>
+              </div>
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-yellow-500 flex-shrink-0" />
-              <span className="text-foreground font-medium text-xs sm:text-sm">🌡️ 15pts</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-red-500 flex-shrink-0" />
-              <span className="text-foreground font-medium text-xs sm:text-sm">🔥 30pts</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-purple-500 flex-shrink-0" />
-              <span className="text-foreground font-medium text-xs sm:text-sm">👥 100pts</span>
-            </div>
-          </div>
+          </Card>
         )}
       </div>
     </AdminLayout>

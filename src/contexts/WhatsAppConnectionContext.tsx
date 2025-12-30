@@ -22,10 +22,12 @@ interface WhatsAppConnectionContextType {
 
 const WhatsAppConnectionContext = createContext<WhatsAppConnectionContextType | null>(null);
 
-const CONNECTION_TIMEOUT_MS = 90000; // 90 segundos - aumentado
+const CONNECTION_TIMEOUT_MS = 90000; // 90 segundos
 const HEALTH_CHECK_INTERVAL_MS = 15000;
-const ACTIVE_CHECK_INTERVAL_MS = 2000; // 2 segundos durante connecting
+const ACTIVE_CHECK_INTERVAL_MS = 1000; // Reduzido de 2s para 1s durante connecting
 const MAX_FAILED_CHECKS = 2;
+const QR_FAST_POLL_ATTEMPTS = 20; // Tentativas rápidas para buscar QR
+const QR_FAST_POLL_DELAY = 200; // 200ms entre tentativas
 
 export function WhatsAppConnectionProvider({ children }: { children: ReactNode }) {
   const [instance, setInstance] = useState<WhatsAppInstance | null>(null);
@@ -362,12 +364,11 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
         console.log('⏳ Aguardando QR via webhook - iniciando polling rápido...');
         setInstance((prev) => prev ? { ...prev, status: 'connecting' } : prev);
         
-        // Polling rápido: 6 tentativas de 500ms para capturar QR assim que webhook gravar
+        // Polling agressivo: 20 tentativas de 200ms para capturar QR rapidamente
         let attempts = 0;
-        const maxAttempts = 6;
         const fastPoll = setInterval(async () => {
           attempts++;
-          if (!mountedRef.current || attempts > maxAttempts) {
+          if (!mountedRef.current || attempts > QR_FAST_POLL_ATTEMPTS) {
             clearInterval(fastPoll);
             return;
           }
@@ -375,7 +376,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
           try {
             const instanceData = await crmService.getInstance();
             if (instanceData?.qr_code) {
-              console.log('✅ QR capturado via polling rápido!');
+              console.log(`✅ QR capturado na tentativa ${attempts}!`);
               setQrCode(instanceData.qr_code);
               setInstance(instanceData);
               clearInterval(fastPoll);
@@ -393,7 +394,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
           } catch (e) {
             console.error('Erro no polling rápido:', e);
           }
-        }, 500);
+        }, QR_FAST_POLL_DELAY);
       }
     } catch (error: any) {
       console.error('Erro ao conectar:', error);
@@ -444,12 +445,11 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
         setQrCode(data.data.qr_code);
       } else {
         toast.info('Gerando QR Code...');
-        // Polling rápido para capturar QR
+        // Polling agressivo para capturar QR rapidamente
         let attempts = 0;
-        const maxAttempts = 6;
         const fastPoll = setInterval(async () => {
           attempts++;
-          if (!mountedRef.current || attempts > maxAttempts) {
+          if (!mountedRef.current || attempts > QR_FAST_POLL_ATTEMPTS) {
             clearInterval(fastPoll);
             return;
           }
@@ -457,7 +457,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
           try {
             const instanceData = await crmService.getInstance();
             if (instanceData?.qr_code) {
-              console.log('✅ QR capturado via polling rápido!');
+              console.log(`✅ QR capturado na tentativa ${attempts}!`);
               setQrCode(instanceData.qr_code);
               setInstance(instanceData);
               clearInterval(fastPoll);
@@ -472,7 +472,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
           } catch (e) {
             console.error('Erro no polling rápido:', e);
           }
-        }, 500);
+        }, QR_FAST_POLL_DELAY);
       }
     } catch (error: any) {
       toast.dismiss(loadingToast);
