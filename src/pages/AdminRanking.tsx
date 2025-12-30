@@ -38,7 +38,7 @@ export default function AdminRanking() {
   const { periodStart, periodEnd } = getPeriodDates();
 
   // Usar hook centralizado
-  const { ranking, isLoading, currentUser, totals, myData } = useRankingData({
+  const { ranking, isLoading, error, currentUser, totals, myData } = useRankingData({
     periodStart,
     periodEnd,
   });
@@ -64,6 +64,22 @@ export default function AdminRanking() {
       <AdminLayout>
         <div className="flex items-center justify-center min-h-[400px]">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <AdminLayout>
+        <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+          <p className="text-muted-foreground">Erro ao carregar ranking</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="text-primary underline"
+          >
+            Tentar novamente
+          </button>
         </div>
       </AdminLayout>
     );

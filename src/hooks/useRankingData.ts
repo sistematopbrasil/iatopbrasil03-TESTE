@@ -34,12 +34,13 @@ export function useRankingData(options: UseRankingDataOptions = {}) {
   const { periodStart = null, periodEnd = new Date().toISOString(), enabled = true } = options;
   const queryClient = useQueryClient();
 
-  // Buscar usuário atual
-  const { data: currentUser } = useQuery({
+  // Buscar usuário atual com tratamento de erro
+  const { data: currentUser, isLoading: isLoadingUser, error: userError } = useQuery({
     queryKey: ['current-user-ranking'],
     queryFn: getCurrentConsultant,
     staleTime: 5 * 60 * 1000, // 5 minutos
     gcTime: 10 * 60 * 1000,
+    retry: 1,
   });
 
   const organizationId = currentUser?.organization_id;
@@ -48,7 +49,7 @@ export function useRankingData(options: UseRankingDataOptions = {}) {
   const { data: rankingData, isLoading: isLoadingRanking, error } = useQuery({
     queryKey: ['unified-ranking', organizationId, periodStart, periodEnd],
     queryFn: async () => {
-      if (!organizationId) throw new Error('Organization ID required');
+      if (!organizationId) return [];
 
       // 1. Buscar todos consultores ativos da organização
       const { data: consultants, error: consultantsError } = await supabase
@@ -164,8 +165,9 @@ export function useRankingData(options: UseRankingDataOptions = {}) {
     retry: 2,
   });
 
-  // Loading real: considera loading do usuário + loading do ranking
-  const isLoading = !currentUser || (!!organizationId && isLoadingRanking);
+  // Loading real: apenas quando está carregando ativamente
+  // Se houve erro no usuário, não ficar em loading infinito
+  const isLoading = isLoadingUser || (!!organizationId && isLoadingRanking);
 
   // Real-time updates
   useEffect(() => {
@@ -215,7 +217,7 @@ export function useRankingData(options: UseRankingDataOptions = {}) {
   return {
     ranking: rankingData || [],
     isLoading,
-    error,
+    error: error || userError,
     currentUser,
     totals,
     myData,

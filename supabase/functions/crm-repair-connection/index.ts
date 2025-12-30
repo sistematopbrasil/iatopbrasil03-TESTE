@@ -174,7 +174,7 @@ serve(async (req) => {
       }
 
     } else {
-      // SOFT REPAIR: apenas connect
+      // SOFT REPAIR: connect e tentar obter QR rapidamente
       console.log('🟡 Iniciando SOFT repair...');
 
       try {
@@ -194,6 +194,16 @@ serve(async (req) => {
           steps.push('already_connected: true');
         } else {
           qrCode = connectResult.data?.qrcode?.base64 || connectResult.data?.base64 || null;
+          
+          // Se não veio QR na primeira tentativa, fazer retry rápido
+          if (!qrCode) {
+            console.log('⏳ QR não veio, tentando novamente em 500ms...');
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            const retryResult = await evolutionRequest(`/instance/connect/${instance.instance_name}`);
+            qrCode = retryResult.data?.qrcode?.base64 || retryResult.data?.base64 || null;
+            steps.push(`qr_retry: ${qrCode ? 'found' : 'not_found'}`);
+          }
           
           if (qrCode) {
             await supabaseAdmin
