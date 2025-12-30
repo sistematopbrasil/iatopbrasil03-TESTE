@@ -311,28 +311,39 @@ serve(async (req) => {
         break;
       }
 
-      case 'messages_update': {
-        const updates = data || [];
+      case 'messages_update':
+      case 'message_ack':
+      case 'messages_ack': {
+        // Handle ACK events for message delivery/read status
+        const updates = Array.isArray(data) ? data : [data];
         
         for (const update of updates) {
-          const messageId = update.key?.id;
-          const status = update.update?.status;
+          // Different event formats from Evolution API
+          const messageId = update.key?.id || update.id?.id || update.messageId;
+          const ack = update.update?.status || update.ack || update.status;
           
-          if (!messageId || !status) continue;
+          if (!messageId) continue;
           
           let newStatus = 'sent';
-          if (status === 'DELIVERY_ACK' || status === 2) {
+          // Evolution API ACK codes: 1=sent, 2=delivered, 3=read, 4=played
+          if (ack === 'DELIVERY_ACK' || ack === 2 || ack === 'delivered') {
             newStatus = 'delivered';
-          } else if (status === 'READ' || status === 3) {
+          } else if (ack === 'READ' || ack === 3 || ack === 'read') {
             newStatus = 'read';
-          } else if (status === 'PLAYED' || status === 4) {
+          } else if (ack === 'PLAYED' || ack === 4 || ack === 'played') {
             newStatus = 'read';
+          } else if (ack === 'SERVER_ACK' || ack === 1 || ack === 'sent') {
+            newStatus = 'sent';
           }
           
-          await supabaseAdmin
+          const { error: updateError } = await supabaseAdmin
             .from('crm_messages')
             .update({ status: newStatus })
             .eq('message_id', messageId);
+            
+          if (!updateError) {
+            console.log(`📬 Status atualizado: ${messageId} -> ${newStatus}`);
+          }
         }
         break;
       }

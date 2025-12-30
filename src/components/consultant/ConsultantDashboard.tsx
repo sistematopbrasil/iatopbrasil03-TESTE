@@ -319,7 +319,7 @@ export function ConsultantDashboard() {
                     }}
                     itemStyle={{ color: 'hsl(var(--foreground))' }}
                     labelStyle={{ color: 'hsl(var(--foreground))' }}
-                    formatter={(value: number) => [`${value} leads`, '']}
+                    formatter={(value: number, name: string) => [`${value} leads`, name]}
                   />
                   <Legend
                     formatter={(value, entry: any) => (
@@ -370,7 +370,7 @@ export function ConsultantDashboard() {
                     }}
                     itemStyle={{ color: 'hsl(var(--foreground))' }}
                     labelStyle={{ color: 'hsl(var(--foreground))' }}
-                    formatter={(value: number) => [`${value} leads`, '']}
+                    formatter={(value: number, name: string) => [`${value} leads`, name]}
                   />
                   <Legend
                     formatter={(value, entry: any) => (
@@ -408,7 +408,7 @@ export function ConsultantDashboard() {
                 }}
                 itemStyle={{ color: 'hsl(var(--foreground))' }}
                 labelStyle={{ color: 'hsl(var(--foreground))' }}
-                formatter={(value: number) => [`${value} leads`, '']}
+                formatter={(value: number) => [`${value} leads`]}
               />
               <Line type="monotone" dataKey="leads" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: 'hsl(var(--primary))' }} />
             </LineChart>
