@@ -29,11 +29,34 @@ async function evolutionRequest(endpoint: string, options: RequestInit = {}) {
     throw new Error(data.message || 'Erro na Evolution API');
   }
   
-  console.log('✅ Evolution API Success:', data);
+  console.log('✅ Evolution API Success:', JSON.stringify(data).substring(0, 300));
   return data;
 }
 
-// Helper para aguardar QR Code no banco com retry mais rápido
+// Extrai QR code de várias formas possíveis do response
+function extractQrCode(data: any): string | null {
+  const qr = 
+    data?.qrcode?.base64 ||
+    data?.base64 ||
+    data?.code ||
+    data?.qrcode?.code ||
+    data?.pairingCode ||
+    null;
+  
+  if (qr) {
+    console.log('✅ QR extraído, tipo:', 
+      data?.qrcode?.base64 ? 'qrcode.base64' :
+      data?.base64 ? 'base64' :
+      data?.code ? 'code' :
+      data?.qrcode?.code ? 'qrcode.code' :
+      data?.pairingCode ? 'pairingCode' : 'unknown'
+    );
+  }
+  
+  return qr;
+}
+
+// Helper para aguardar QR Code no banco
 async function waitForQRCodeInDB(supabaseAdmin: any, instanceId: string, maxAttempts = 10, delayMs = 300): Promise<string | null> {
   for (let i = 0; i < maxAttempts; i++) {
     await new Promise(resolve => setTimeout(resolve, delayMs));
@@ -64,7 +87,6 @@ serve(async (req) => {
   }
 
   try {
-    // Ler parâmetros do body
     let forceNewQR = false;
     try {
       const body = await req.json();
@@ -101,7 +123,6 @@ serve(async (req) => {
       );
     }
 
-    // Buscar dados do usuário
     const { data: userData, error: userDataError } = await supabase
       .from('users')
       .select('id')
@@ -115,7 +136,6 @@ serve(async (req) => {
       );
     }
 
-    // Buscar instância do usuário
     const { data: instance, error: instanceError } = await supabase
       .from('whatsapp_instances')
       .select('*')
@@ -149,18 +169,16 @@ serve(async (req) => {
 
     console.log('🔵 Status da conexão:', connectionState);
 
-    // Se forceNewQR, desconectar primeiro para gerar novo QR
+    // Se forceNewQR, desconectar primeiro
     if (forceNewQR && connectionState === 'open') {
       console.log('🔄 forceNewQR: desconectando antes de gerar novo QR');
       try {
         await evolutionRequest(`/instance/logout/${instance.instance_name}`, {
           method: 'DELETE',
         });
-        // Aguardar um pouco para o logout processar
         await new Promise(resolve => setTimeout(resolve, 1500));
         connectionState = 'close';
         
-        // Atualizar status no banco
         await supabaseAdmin
           .from('whatsapp_instances')
           .update({ status: 'disconnected', qr_code: null })
@@ -170,7 +188,7 @@ serve(async (req) => {
       }
     }
 
-    // Se já está conectado (e não forçamos novo QR)
+    // Se já está conectado
     if (connectionState === 'open') {
       await supabaseAdmin
         .from('whatsapp_instances')
@@ -193,57 +211,66 @@ serve(async (req) => {
       );
     }
 
-    // Tentar gerar QR Code
+    // Tentar gerar QR Code com até 3 tentativas
     let qrCode: string | null = null;
     
-    try {
-      const qrResponse = await evolutionRequest(`/instance/connect/${instance.instance_name}`);
-      qrCode = qrResponse?.qrcode?.base64 || qrResponse?.qrcode?.code || qrResponse?.base64 || null;
-      
-      // Verificar se agora está conectado (sem precisar de QR)
-      if (qrResponse?.instance?.state === 'open') {
-        console.log('✅ Instância conectou sem QR Code');
-        await supabaseAdmin
-          .from('whatsapp_instances')
-          .update({
-            status: 'connected',
-            last_connected_at: new Date().toISOString(),
-            qr_code: null,
-          })
-          .eq('id', instance.id);
-
-        return new Response(
-          JSON.stringify({
-            success: true,
-            data: {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        console.log(`🔗 Connect tentativa ${attempt}...`);
+        const qrResponse = await evolutionRequest(`/instance/connect/${instance.instance_name}`);
+        
+        // Verificar se conectou
+        if (qrResponse?.instance?.state === 'open') {
+          console.log('✅ Instância conectou sem QR Code');
+          await supabaseAdmin
+            .from('whatsapp_instances')
+            .update({
               status: 'connected',
+              last_connected_at: new Date().toISOString(),
               qr_code: null,
-            },
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+            })
+            .eq('id', instance.id);
+
+          return new Response(
+            JSON.stringify({
+              success: true,
+              data: {
+                status: 'connected',
+                qr_code: null,
+              },
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        qrCode = extractQrCode(qrResponse);
+        
+        if (qrCode) break;
+        
+        // Aguardar antes de próxima tentativa
+        if (attempt < 3) {
+          await new Promise(r => setTimeout(r, 400));
+        }
+      } catch (e: any) {
+        console.log(`⚠️ Erro ao chamar connect (tentativa ${attempt}):`, e?.message);
       }
-    } catch (e: any) {
-      console.log('⚠️ Erro ao chamar connect:', e?.message);
     }
 
-    // Se não veio QR no response, aguardar um pouco e verificar no banco (webhook pode ter atualizado)
+    // Se não veio QR, verificar no banco
     if (!qrCode) {
-      console.log('⏳ QR Code não veio no response, aguardando webhook...');
+      console.log('⏳ QR Code não veio no response, verificando banco...');
       
-      // Marcar como connecting
       await supabaseAdmin
         .from('whatsapp_instances')
         .update({ status: 'connecting' })
         .eq('id', instance.id);
       
-      // Aguardar QR Code aparecer no banco (webhook pode ter atualizado) - mais tentativas e mais rápido
       qrCode = await waitForQRCodeInDB(supabaseAdmin, instance.id, 10, 300);
     }
 
-    // Se ainda não tem QR, retornar status "connecting" (frontend vai fazer polling)
+    // Se ainda não tem QR
     if (!qrCode) {
-      console.log('⏳ QR Code ainda não disponível, retornando status connecting');
+      console.log('⏳ QR Code ainda não disponível');
       return new Response(
         JSON.stringify({
           success: true,

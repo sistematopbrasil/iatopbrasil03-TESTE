@@ -26,14 +26,43 @@ async function evolutionRequest(endpoint: string, options: RequestInit = {}) {
   return { ok: response.ok, data };
 }
 
+// Extrai QR code de várias formas possíveis do response
+function extractQrCode(data: any): string | null {
+  // Ordem de prioridade:
+  // 1. qrcode.base64 (formato antigo)
+  // 2. base64 (direto)
+  // 3. code (string para gerar QR no frontend)
+  // 4. qrcode.code
+  // 5. pairingCode
+  
+  const qr = 
+    data?.qrcode?.base64 ||
+    data?.base64 ||
+    data?.code ||
+    data?.qrcode?.code ||
+    data?.pairingCode ||
+    null;
+  
+  if (qr) {
+    console.log('✅ QR extraído, tipo:', 
+      data?.qrcode?.base64 ? 'qrcode.base64' :
+      data?.base64 ? 'base64' :
+      data?.code ? 'code' :
+      data?.qrcode?.code ? 'qrcode.code' :
+      data?.pairingCode ? 'pairingCode' : 'unknown'
+    );
+  }
+  
+  return qr;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    // Ler modo de reparo
-    let mode = 'soft'; // soft ou hard
+    let mode = 'soft';
     try {
       const body = await req.json();
       mode = body?.mode || 'soft';
@@ -69,7 +98,6 @@ serve(async (req) => {
       );
     }
 
-    // Buscar dados do usuário
     const { data: userData } = await supabase
       .from('users')
       .select('id')
@@ -83,7 +111,6 @@ serve(async (req) => {
       );
     }
 
-    // Buscar instância
     const { data: instance } = await supabase
       .from('whatsapp_instances')
       .select('*')
@@ -106,37 +133,30 @@ serve(async (req) => {
     let qrCode: string | null = null;
 
     if (mode === 'hard') {
-      // HARD REPAIR: restart + logout + connect
       console.log('🔴 Iniciando HARD repair...');
 
-      // 1. Restart da instância
+      // 1. Restart
       try {
         const restartResult = await evolutionRequest(`/instance/restart/${instance.instance_name}`, {
           method: 'PUT',
         });
         steps.push(`restart: ${restartResult.ok ? 'ok' : 'failed'}`);
-        console.log('🔄 Restart:', restartResult.ok);
       } catch (e) {
         steps.push('restart: error');
-        console.error('❌ Restart error:', e);
       }
 
-      // Aguardar restart processar
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // 2. Logout forçado
+      // 2. Logout
       try {
         const logoutResult = await evolutionRequest(`/instance/logout/${instance.instance_name}`, {
           method: 'DELETE',
         });
         steps.push(`logout: ${logoutResult.ok ? 'ok' : 'failed'}`);
-        console.log('🔓 Logout:', logoutResult.ok);
       } catch (e) {
         steps.push('logout: error');
-        console.error('❌ Logout error:', e);
       }
 
-      // Aguardar logout processar
       await new Promise(resolve => setTimeout(resolve, 1500));
 
       // 3. Limpar banco
@@ -150,78 +170,14 @@ serve(async (req) => {
         .eq('id', instance.id);
       steps.push('db_cleanup: ok');
 
-      // 4. Conectar novamente para gerar QR
-      try {
-        const connectResult = await evolutionRequest(`/instance/connect/${instance.instance_name}`);
-        steps.push(`connect: ${connectResult.ok ? 'ok' : 'failed'}`);
-        console.log('🔗 Connect:', connectResult.ok);
-        
-        qrCode = connectResult.data?.qrcode?.base64 || connectResult.data?.base64 || null;
-        
-        if (qrCode) {
-          await supabaseAdmin
-            .from('whatsapp_instances')
-            .update({
-              qr_code: qrCode,
-              status: 'connecting',
-            })
-            .eq('id', instance.id);
-          steps.push('qr_saved: ok');
-        }
-      } catch (e) {
-        steps.push('connect: error');
-        console.error('❌ Connect error:', e);
-      }
-
-    } else {
-      // SOFT REPAIR: connect e tentar obter QR rapidamente
-      console.log('🟡 Iniciando SOFT repair...');
-      
-      // Marcar como connecting IMEDIATAMENTE no banco
-      // Isso permite que o frontend saiba que estamos processando
-      await supabaseAdmin
-        .from('whatsapp_instances')
-        .update({ status: 'connecting' })
-        .eq('id', instance.id);
-      steps.push('status_set_connecting: ok');
-
-      try {
-        const connectResult = await evolutionRequest(`/instance/connect/${instance.instance_name}`);
-        steps.push(`connect: ${connectResult.ok ? 'ok' : 'failed'}`);
-        
-        if (connectResult.data?.instance?.state === 'open') {
-          // Já está conectado!
-          await supabaseAdmin
-            .from('whatsapp_instances')
-            .update({
-              status: 'connected',
-              qr_code: null,
-              last_connected_at: new Date().toISOString(),
-            })
-            .eq('id', instance.id);
-          steps.push('already_connected: true');
-        } else {
-          qrCode = connectResult.data?.qrcode?.base64 || connectResult.data?.base64 || null;
+      // 4. Conectar com retry
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          console.log(`🔗 Connect tentativa ${attempt}...`);
+          const connectResult = await evolutionRequest(`/instance/connect/${instance.instance_name}`);
+          steps.push(`connect_${attempt}: ${connectResult.ok ? 'ok' : 'failed'}`);
           
-          // Se não veio QR na primeira tentativa, fazer 2 retries rápidos
-          if (!qrCode) {
-            console.log('⏳ QR não veio, tentando retry 1 em 300ms...');
-            await new Promise(resolve => setTimeout(resolve, 300));
-            
-            const retryResult = await evolutionRequest(`/instance/connect/${instance.instance_name}`);
-            qrCode = retryResult.data?.qrcode?.base64 || retryResult.data?.base64 || null;
-            steps.push(`qr_retry_1: ${qrCode ? 'found' : 'not_found'}`);
-            
-            // Segundo retry se ainda não veio
-            if (!qrCode) {
-              console.log('⏳ Tentando retry 2 em 300ms...');
-              await new Promise(resolve => setTimeout(resolve, 300));
-              
-              const retry2Result = await evolutionRequest(`/instance/connect/${instance.instance_name}`);
-              qrCode = retry2Result.data?.qrcode?.base64 || retry2Result.data?.base64 || null;
-              steps.push(`qr_retry_2: ${qrCode ? 'found' : 'not_found'}`);
-            }
-          }
+          qrCode = extractQrCode(connectResult.data);
           
           if (qrCode) {
             await supabaseAdmin
@@ -232,14 +188,86 @@ serve(async (req) => {
               })
               .eq('id', instance.id);
             steps.push('qr_saved: ok');
-          } else {
-            // Manter connecting e aguardar webhook - já foi setado acima
-            steps.push('waiting_webhook: true');
+            break;
           }
+          
+          if (attempt < 3) {
+            await new Promise(r => setTimeout(r, 500));
+          }
+        } catch (e) {
+          steps.push(`connect_${attempt}: error`);
         }
-      } catch (e: any) {
-        steps.push('connect: error - ' + e?.message);
-        console.error('❌ Connect error:', e);
+      }
+
+    } else {
+      // SOFT REPAIR
+      console.log('🟡 Iniciando SOFT repair...');
+      
+      await supabaseAdmin
+        .from('whatsapp_instances')
+        .update({ status: 'connecting' })
+        .eq('id', instance.id);
+      steps.push('status_set_connecting: ok');
+
+      // Tentar connect com até 3 tentativas
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          console.log(`🔗 Connect tentativa ${attempt}...`);
+          const connectResult = await evolutionRequest(`/instance/connect/${instance.instance_name}`);
+          steps.push(`connect_${attempt}: ${connectResult.ok ? 'ok' : 'failed'}`);
+          
+          // Verificar se já conectou
+          if (connectResult.data?.instance?.state === 'open') {
+            await supabaseAdmin
+              .from('whatsapp_instances')
+              .update({
+                status: 'connected',
+                qr_code: null,
+                last_connected_at: new Date().toISOString(),
+              })
+              .eq('id', instance.id);
+            steps.push('already_connected: true');
+            
+            return new Response(
+              JSON.stringify({
+                success: true,
+                data: {
+                  mode,
+                  steps,
+                  status: 'connected',
+                  qr_code: null,
+                },
+              }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          
+          qrCode = extractQrCode(connectResult.data);
+          
+          if (qrCode) {
+            await supabaseAdmin
+              .from('whatsapp_instances')
+              .update({
+                qr_code: qrCode,
+                status: 'connecting',
+              })
+              .eq('id', instance.id);
+            steps.push('qr_saved: ok');
+            break;
+          }
+          
+          // Se não veio QR, esperar e tentar novamente
+          if (attempt < 3) {
+            console.log('⏳ QR não veio, aguardando 400ms...');
+            await new Promise(r => setTimeout(r, 400));
+          }
+        } catch (e: any) {
+          steps.push(`connect_${attempt}: error - ${e?.message}`);
+        }
+      }
+      
+      if (!qrCode) {
+        steps.push('waiting_webhook: true');
       }
     }
 

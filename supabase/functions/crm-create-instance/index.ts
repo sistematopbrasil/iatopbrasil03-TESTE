@@ -10,17 +10,12 @@ const EVOLUTION_API_URL = Deno.env.get('EVOLUTION_API_URL') || '';
 const EVOLUTION_API_KEY = Deno.env.get('EVOLUTION_API_KEY') || '';
 
 async function evolutionRequest(endpoint: string, options: RequestInit = {}) {
-  // Remover barra final da URL base se existir
   const baseUrl = EVOLUTION_API_URL.replace(/\/$/, '');
   const url = `${baseUrl}${endpoint}`;
   
   console.log('🔵 Evolution API Request:', { 
     url, 
     method: options.method || 'GET',
-    baseUrl,
-    endpoint,
-    hasApiKey: !!EVOLUTION_API_KEY,
-    apiKeyPrefix: EVOLUTION_API_KEY ? EVOLUTION_API_KEY.substring(0, 8) + '...' : 'N/A'
   });
   
   try {
@@ -33,38 +28,42 @@ async function evolutionRequest(endpoint: string, options: RequestInit = {}) {
       },
     });
     
-    console.log('🔵 Evolution API Response Status:', response.status, response.statusText);
+    console.log('🔵 Evolution API Response Status:', response.status);
     
     const responseText = await response.text();
-    console.log('🔵 Evolution API Response Body (raw):', responseText.substring(0, 500));
+    console.log('🔵 Evolution API Response:', responseText.substring(0, 500));
     
     let data;
     try {
       data = JSON.parse(responseText);
     } catch (parseError) {
-      console.error('❌ Failed to parse Evolution API response as JSON:', parseError);
-      return { success: false, status: response.status, error: { message: 'Invalid JSON response', raw: responseText.substring(0, 200) } };
+      console.error('❌ Failed to parse response as JSON');
+      return { success: false, status: response.status, error: { message: 'Invalid JSON response' } };
     }
     
     if (!response.ok) {
-      console.error('❌ Evolution API Error:', { 
-        status: response.status, 
-        statusText: response.statusText, 
-        response: data 
-      });
+      console.error('❌ Evolution API Error:', data);
       return { success: false, status: response.status, error: data };
     }
     
-    console.log('✅ Evolution API Success:', JSON.stringify(data).substring(0, 500));
+    console.log('✅ Evolution API Success');
     return { success: true, data };
   } catch (fetchError: any) {
-    console.error('❌ Evolution API Fetch Error:', {
-      message: fetchError.message,
-      name: fetchError.name,
-      stack: fetchError.stack?.substring(0, 300)
-    });
+    console.error('❌ Evolution API Fetch Error:', fetchError.message);
     return { success: false, status: 0, error: { message: fetchError.message, type: 'fetch_error' } };
   }
+}
+
+// Extrai QR code de várias formas possíveis
+function extractQrCode(data: any): string | null {
+  return (
+    data?.qrcode?.base64 ||
+    data?.base64 ||
+    data?.code ||
+    data?.qrcode?.code ||
+    data?.pairingCode ||
+    null
+  );
 }
 
 serve(async (req) => {
@@ -74,14 +73,6 @@ serve(async (req) => {
 
   try {
     console.log('🚀 CRM Create Instance - Iniciando...');
-    console.log('🔵 Environment check:', {
-      hasEvolutionUrl: !!EVOLUTION_API_URL,
-      evolutionUrl: EVOLUTION_API_URL ? EVOLUTION_API_URL.substring(0, 50) + '...' : 'NOT SET',
-      hasEvolutionKey: !!EVOLUTION_API_KEY,
-      hasSupabaseUrl: !!Deno.env.get('SUPABASE_URL'),
-      hasSupabaseKey: !!Deno.env.get('SUPABASE_ANON_KEY'),
-      hasServiceRole: !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
-    });
 
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
@@ -107,7 +98,6 @@ serve(async (req) => {
 
     console.log('🔵 Usuário autenticado:', user.id);
 
-    // Buscar dados do usuário na tabela users
     const { data: userData, error: userDataError } = await supabase
       .from('users')
       .select('id, full_name, organization_id, username')
@@ -119,15 +109,14 @@ serve(async (req) => {
       throw new Error('Dados do usuário não encontrados');
     }
 
-    console.log('🔵 Dados do usuário:', { id: userData.id, name: userData.full_name, username: userData.username });
+    console.log('🔵 Dados do usuário:', { id: userData.id, name: userData.full_name });
 
-    // Usar service role para operações administrativas
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Verificar se já existe instância para este usuário
+    // Verificar se já existe instância
     const { data: existingInstance, error: existingError } = await supabaseAdmin
       .from('whatsapp_instances')
       .select('*')
@@ -138,37 +127,85 @@ serve(async (req) => {
       console.error('❌ Erro ao verificar instância existente:', existingError);
     }
 
-    // Se já existe instância, retornar ela (mesmo se username mudou)
+    // Se já existe instância, tentar conectar e retornar QR
     if (existingInstance) {
-      console.log('✅ Instância já existe, reconectando:', existingInstance.instance_name);
+      console.log('✅ Instância já existe:', existingInstance.instance_name);
       
-      // Se status é disconnected, tentar reconectar na Evolution API
-      if (existingInstance.status === 'disconnected') {
-        console.log('🔄 Tentando reconectar instância existente...');
-        
-        // Tentar conectar na instância existente
-        const connectResponse = await evolutionRequest(`/instance/connect/${existingInstance.instance_name}`, {
-          method: 'GET',
-        });
-        
-        if (connectResponse.success) {
-          console.log('✅ Reconexão iniciada, QR Code será gerado');
-        } else {
-          console.warn('⚠️ Não foi possível reconectar, pode ser necessário recriar a instância');
+      // Tentar conectar e obter QR
+      let qrCode: string | null = null;
+      
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          console.log(`🔗 Connect tentativa ${attempt}...`);
+          const connectResponse = await evolutionRequest(`/instance/connect/${existingInstance.instance_name}`);
+          
+          if (connectResponse.success) {
+            qrCode = extractQrCode(connectResponse.data);
+            
+            if (connectResponse.data?.instance?.state === 'open') {
+              // Já conectado
+              await supabaseAdmin
+                .from('whatsapp_instances')
+                .update({
+                  status: 'connected',
+                  qr_code: null,
+                  last_connected_at: new Date().toISOString(),
+                })
+                .eq('id', existingInstance.id);
+              
+              return new Response(
+                JSON.stringify({
+                  success: true,
+                  data: { ...existingInstance, status: 'connected', qr_code: null },
+                  message: 'Já conectado',
+                }),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              );
+            }
+            
+            if (qrCode) {
+              await supabaseAdmin
+                .from('whatsapp_instances')
+                .update({
+                  status: 'connecting',
+                  qr_code: qrCode,
+                })
+                .eq('id', existingInstance.id);
+              
+              return new Response(
+                JSON.stringify({
+                  success: true,
+                  data: { ...existingInstance, status: 'connecting', qr_code: qrCode },
+                  message: 'QR Code gerado',
+                }),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              );
+            }
+          }
+          
+          if (attempt < 3) await new Promise(r => setTimeout(r, 400));
+        } catch (e: any) {
+          console.error(`❌ Erro connect tentativa ${attempt}:`, e.message);
         }
       }
+      
+      // Retornar instância mesmo sem QR (frontend vai fazer polling)
+      await supabaseAdmin
+        .from('whatsapp_instances')
+        .update({ status: 'connecting' })
+        .eq('id', existingInstance.id);
       
       return new Response(
         JSON.stringify({
           success: true,
-          data: existingInstance,
-          message: 'Instância já existe - reconectando',
+          data: { ...existingInstance, status: 'connecting' },
+          message: 'Instância reconectando',
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Usar username como nome da instância, ou gerar baseado no nome
+    // Criar nova instância
     const instanceName = userData.username || (
       userData.full_name
         .toLowerCase()
@@ -179,12 +216,11 @@ serve(async (req) => {
     );
     console.log('🔵 Nome da instância:', instanceName);
 
-    // Criar webhook URL
     const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/crm-webhook`;
     console.log('🔵 Webhook URL:', webhookUrl);
 
     // Criar instância na Evolution
-    console.log('🔵 Tentando criar instância na Evolution API...');
+    console.log('🔵 Criando instância na Evolution API...');
     const evolutionResponse = await evolutionRequest('/instance/create', {
       method: 'POST',
       body: JSON.stringify({
@@ -207,15 +243,14 @@ serve(async (req) => {
     if (!evolutionResponse.success) {
       console.error('❌ Falha ao criar instância:', evolutionResponse);
       
-      // Verificar se o nome já existe (pode vir como string ou array)
+      // Verificar se nome já existe
       const errorMessage = evolutionResponse.error?.message;
       const isNameInUse = 
         (typeof errorMessage === 'string' && errorMessage.includes('already in use')) ||
-        (Array.isArray(errorMessage) && errorMessage.some((m: string) => m.includes('already in use'))) ||
-        evolutionResponse.error?.response?.message?.includes?.('already in use');
+        (Array.isArray(errorMessage) && errorMessage.some((m: string) => m.includes('already in use')));
 
       if (isNameInUse) {
-        console.log('⚠️ Nome em uso, tentando com sufixo alternativo...');
+        console.log('⚠️ Nome em uso, tentando com sufixo...');
         const altInstanceName = `${instanceName}_${Math.random().toString(36).substring(2, 6)}`;
         
         const retryResponse = await evolutionRequest('/instance/create', {
@@ -226,34 +261,22 @@ serve(async (req) => {
             integration: 'WHATSAPP-BAILEYS',
             webhook: {
               url: webhookUrl,
-              events: [
-                'QRCODE_UPDATED',
-                'CONNECTION_UPDATE',
-                'MESSAGES_UPSERT',
-                'MESSAGES_UPDATE',
-                'SEND_MESSAGE',
-              ],
+              events: ['QRCODE_UPDATED', 'CONNECTION_UPDATE', 'MESSAGES_UPSERT', 'MESSAGES_UPDATE', 'SEND_MESSAGE'],
             },
           }),
         });
 
         if (!retryResponse.success) {
-          console.error('❌ Retry também falhou:', retryResponse);
-          // Retornar erro amigável em vez de estouro 500
           return new Response(
             JSON.stringify({
               success: false,
-              error: 'Não foi possível criar a instância. Por favor, tente novamente.',
-              details: 'Nome da instância em uso e fallback também falhou.',
+              error: 'Não foi possível criar a instância. Tente novamente.',
             }),
-            {
-              status: 200, // Não retornar 4xx/5xx para evitar "non-2xx" genérico
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            }
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
-        // Salvar instância no banco com nome alternativo
+        // Salvar com nome alternativo
         const { data: newInstance, error: insertError } = await supabaseAdmin
           .from('whatsapp_instances')
           .insert({
@@ -268,46 +291,49 @@ serve(async (req) => {
           .single();
 
         if (insertError) {
-          console.error('❌ Erro ao salvar instância:', insertError);
           return new Response(
-            JSON.stringify({
-              success: false,
-              error: 'Erro ao salvar instância no banco',
-            }),
-            {
-              status: 200,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            }
+            JSON.stringify({ success: false, error: 'Erro ao salvar instância' }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
-        console.log('✅ Instância criada com sucesso (nome alternativo):', newInstance);
+        // Tentar obter QR imediatamente
+        let qrCode: string | null = null;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          const connectResponse = await evolutionRequest(`/instance/connect/${altInstanceName}`);
+          if (connectResponse.success) {
+            qrCode = extractQrCode(connectResponse.data);
+            if (qrCode) {
+              await supabaseAdmin
+                .from('whatsapp_instances')
+                .update({ qr_code: qrCode, status: 'connecting' })
+                .eq('id', newInstance.id);
+              break;
+            }
+          }
+          if (attempt < 3) await new Promise(r => setTimeout(r, 400));
+        }
 
         return new Response(
           JSON.stringify({
             success: true,
-            data: newInstance,
-            message: 'Instância criada com sucesso',
+            data: { ...newInstance, qr_code: qrCode, status: qrCode ? 'connecting' : 'disconnected' },
+            message: 'Instância criada',
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
-      // Outro erro - retornar mensagem amigável
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Erro ao criar instância na Evolution API. Por favor, tente novamente.',
-          details: JSON.stringify(evolutionResponse.error),
+          error: 'Erro ao criar instância. Tente novamente.',
         }),
-        {
-          status: 200, // Evitar "non-2xx" genérico
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Salvar instância no banco
+    // Salvar instância
     const { data: newInstance, error: insertError } = await supabaseAdmin
       .from('whatsapp_instances')
       .insert({
@@ -323,7 +349,31 @@ serve(async (req) => {
 
     if (insertError) {
       console.error('❌ Erro ao salvar instância:', insertError);
-      throw new Error('Erro ao salvar instância no banco');
+      throw new Error('Erro ao salvar instância');
+    }
+
+    // Tentar obter QR imediatamente após criar
+    console.log('🔗 Tentando obter QR após criar...');
+    let qrCode: string | null = null;
+    
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const connectResponse = await evolutionRequest(`/instance/connect/${instanceName}`);
+        if (connectResponse.success) {
+          qrCode = extractQrCode(connectResponse.data);
+          if (qrCode) {
+            console.log('✅ QR obtido na tentativa', attempt);
+            await supabaseAdmin
+              .from('whatsapp_instances')
+              .update({ qr_code: qrCode, status: 'connecting' })
+              .eq('id', newInstance.id);
+            break;
+          }
+        }
+        if (attempt < 3) await new Promise(r => setTimeout(r, 400));
+      } catch (e: any) {
+        console.error(`❌ Erro connect tentativa ${attempt}:`, e.message);
+      }
     }
 
     // Criar log de auditoria
@@ -337,35 +387,27 @@ serve(async (req) => {
         p_metadata: { instance_name: instanceName },
       });
     } catch (auditError) {
-      console.warn('⚠️ Erro ao criar log de auditoria (não crítico):', auditError);
+      console.warn('⚠️ Erro ao criar log de auditoria:', auditError);
     }
 
-    console.log('✅ Instância criada com sucesso:', newInstance);
+    console.log('✅ Instância criada:', newInstance.id, 'QR:', !!qrCode);
 
     return new Response(
       JSON.stringify({
         success: true,
-        data: newInstance,
+        data: { ...newInstance, qr_code: qrCode, status: qrCode ? 'connecting' : 'disconnected' },
         message: 'Instância criada com sucesso',
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error: any) {
-    console.error('❌ Erro geral:', {
-      message: error?.message,
-      name: error?.name,
-      stack: error?.stack?.substring(0, 500)
-    });
+    console.error('❌ Erro geral:', error?.message);
     return new Response(
       JSON.stringify({
         success: false,
         error: error?.message || 'Erro desconhecido',
-        details: error?.stack?.substring(0, 200)
       }),
-      {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

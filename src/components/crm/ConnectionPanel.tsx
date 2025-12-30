@@ -12,6 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { QrCodeRenderer } from './QrCodeRenderer';
 
 interface ConnectionPanelProps {
   onOpenConversations?: () => void;
@@ -211,7 +212,7 @@ export function ConnectionPanel({ onOpenConversations, hideOpenConversationsButt
 
             {qrCode ? (
               <div className="bg-white p-4 rounded-xl shadow-lg">
-                <img src={qrCode} alt="QR Code" className="w-64 h-64" />
+                <QrCodeRenderer value={qrCode} size={256} />
               </div>
             ) : (
               <div className="w-64 h-64 bg-muted rounded-xl flex items-center justify-center">

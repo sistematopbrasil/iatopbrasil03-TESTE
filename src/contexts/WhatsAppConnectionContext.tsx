@@ -22,12 +22,12 @@ interface WhatsAppConnectionContextType {
 
 const WhatsAppConnectionContext = createContext<WhatsAppConnectionContextType | null>(null);
 
-const CONNECTION_TIMEOUT_MS = 90000; // 90 segundos
+const CONNECTION_TIMEOUT_MS = 90000;
 const HEALTH_CHECK_INTERVAL_MS = 15000;
-const ACTIVE_CHECK_INTERVAL_MS = 500; // 500ms durante connecting - bem rápido
+const ACTIVE_CHECK_INTERVAL_MS = 500;
 const MAX_FAILED_CHECKS = 2;
-const QR_FAST_POLL_ATTEMPTS = 40; // Mais tentativas rápidas para buscar QR
-const QR_FAST_POLL_DELAY = 150; // 150ms entre tentativas - mais rápido
+const QR_FAST_POLL_ATTEMPTS = 40;
+const QR_FAST_POLL_DELAY = 150;
 
 export function WhatsAppConnectionProvider({ children }: { children: ReactNode }) {
   const [instance, setInstance] = useState<WhatsAppInstance | null>(null);
@@ -44,9 +44,11 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
   const mountedRef = useRef(true);
   const failedChecksRef = useRef(0);
   const lastToastRef = useRef<number>(0);
-  const isConnectingRef = useRef(false); // Evitar múltiplas chamadas
+  
+  // Locks separados para create e connect
+  const isCreatingRef = useRef(false);
+  const isConnectingRef = useRef(false);
 
-  // Carrega instância inicial
   useEffect(() => {
     mountedRef.current = true;
     loadInstance();
@@ -126,7 +128,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
     }
   }, []);
 
-  // Realtime subscription para updates instantâneos da instância
+  // Realtime subscription
   useEffect(() => {
     if (!instance?.id) return;
 
@@ -154,7 +156,6 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
             setQrCode(newData.qr_code);
           }
           
-          // Atualizar status
           if (newData.status === 'connected') {
             console.log('✅ Conectado via realtime!');
             if (isConnecting) {
@@ -164,6 +165,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
             setQrCode(null);
             setIsConnecting(false);
             isConnectingRef.current = false;
+            isCreatingRef.current = false;
             setConnectionVerified(true);
             stopPolling();
             stopActiveCheck();
@@ -188,7 +190,6 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
     };
   }, [instance?.id, qrCode, isConnecting, showDisconnectToast]);
 
-  // Polling do banco como fallback (menos frequente com realtime)
   useEffect(() => {
     const shouldPoll = qrCode !== null || isConnecting || instance?.status === 'connecting';
     if (shouldPoll) {
@@ -199,7 +200,6 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
     return () => stopPolling();
   }, [qrCode, isConnecting, instance?.status]);
 
-  // Health check periódico quando conectado
   useEffect(() => {
     if (instance?.status === 'connected') {
       startHealthCheck();
@@ -209,7 +209,6 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
     return () => stopHealthCheck();
   }, [instance?.status]);
 
-  // Verificação ativa durante connecting (a cada 500ms)
   useEffect(() => {
     if (isConnecting) {
       startActiveCheck();
@@ -219,7 +218,6 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
     return () => stopActiveCheck();
   }, [isConnecting]);
 
-  // Verificar conexão quando a janela receber foco
   useEffect(() => {
     const handleFocus = () => {
       if (instance?.status === 'connected') {
@@ -257,7 +255,6 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
     }
   }, []);
 
-  // Ler do banco sem chamar Evolution API
   const refreshFromDatabase = useCallback(async () => {
     try {
       const instanceData = await crmService.getInstance();
@@ -272,6 +269,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
         setQrCode(null);
         setIsConnecting(false);
         isConnectingRef.current = false;
+        isCreatingRef.current = false;
         setConnectionVerified(true);
         stopPolling();
         stopActiveCheck();
@@ -315,6 +313,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
           setQrCode(null);
           setIsConnecting(false);
           isConnectingRef.current = false;
+          isCreatingRef.current = false;
           stopActiveCheck();
           clearConnectTimeout();
         } else if (instance?.status !== 'connected') {
@@ -331,6 +330,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
             setQrCode(null);
             setIsConnecting(false);
             isConnectingRef.current = false;
+            isCreatingRef.current = false;
             setConnectionVerified(false);
             showDisconnectToast();
             return false;
@@ -345,9 +345,16 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
   }, [instance?.status, isConnecting, showDisconnectToast]);
 
   const createInstance = useCallback(async () => {
-    // Não bloquear UI com isLoading - apenas entrar em isConnecting
+    // Evitar múltiplas chamadas simultâneas de create
+    if (isCreatingRef.current) {
+      console.log('⏳ Já está criando instância, ignorando');
+      return;
+    }
+
+    console.log('🚀 [createInstance] Iniciando...');
+    isCreatingRef.current = true;
     setIsConnecting(true);
-    isConnectingRef.current = true;
+    // NÃO setar isConnectingRef aqui - deixar para connectInstance
     
     try {
       const result = await crmService.createInstance();
@@ -355,31 +362,34 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
       if (!result.success) {
         toast.error(result.error || 'Erro ao criar instância');
         setIsConnecting(false);
-        isConnectingRef.current = false;
+        isCreatingRef.current = false;
         return;
       }
 
-      // Setar instância imediatamente para que UI mostre o painel de conexão
+      console.log('✅ [createInstance] Instância criada:', result.data);
       setInstance(result.data!);
-      setIsLoading(false); // Garantir que loading está desligado
-      toast.success('Conexão iniciada! Escaneie o QR Code.');
+      setIsLoading(false);
+      toast.success('Conexão iniciada! Aguarde o QR Code.');
       
-      // Conectar sem bloquear - não aguardar
-      connectInstance();
+      // Chamar connect IMEDIATAMENTE - isConnectingRef está false então vai funcionar
+      console.log('🔗 [createInstance] Chamando connectInstance...');
+      await connectInstance();
     } catch (error: any) {
+      console.error('❌ [createInstance] Erro:', error);
       toast.error(error.message || 'Erro ao criar instância');
       setIsConnecting(false);
-      isConnectingRef.current = false;
+      isCreatingRef.current = false;
     }
   }, []);
 
   const connectInstance = useCallback(async () => {
-    // Evitar múltiplas chamadas simultâneas
+    // Evitar múltiplas chamadas simultâneas de CONNECT
     if (isConnectingRef.current) {
-      console.log('⏳ Já está conectando, ignorando chamada duplicada');
+      console.log('⏳ [connectInstance] Já está conectando, ignorando chamada duplicada');
       return;
     }
 
+    console.log('🔗 [connectInstance] Iniciando...');
     isConnectingRef.current = true;
     setIsConnecting(true);
     setQrCode(null);
@@ -387,30 +397,47 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
     failedChecksRef.current = 0;
     clearConnectTimeout();
 
-    // Timeout de segurança (90 segundos)
+    // Timeout de segurança
     connectTimeoutRef.current = setTimeout(() => {
       if (mountedRef.current && isConnectingRef.current) {
-        console.log('⏰ Timeout de conexão');
-        // Não resetar isConnecting aqui, apenas mostrar aviso
+        console.log('⏰ Timeout de conexão - mostrando opções de retry');
       }
     }, CONNECTION_TIMEOUT_MS);
 
     try {
-      // Usar soft repair para conectar (não faz logout agressivo)
       const { data, error } = await supabase.functions.invoke('crm-repair-connection', {
         body: { mode: 'soft' }
       });
 
       if (error) {
-        console.error('Erro ao conectar:', error);
-        toast.error('Erro ao conectar. Tente novamente.');
-        setIsConnecting(false);
-        isConnectingRef.current = false;
-        clearConnectTimeout();
-        return;
+        console.error('❌ [connectInstance] Erro:', error);
+        toast.error('Erro ao conectar. Tentando novamente...');
+        
+        // Auto-retry uma vez
+        await new Promise(r => setTimeout(r, 1000));
+        const retryResult = await supabase.functions.invoke('crm-repair-connection', {
+          body: { mode: 'soft' }
+        });
+        
+        if (retryResult.error) {
+          toast.error('Erro persistente. Tente "Resetar sessão".');
+          setIsConnecting(false);
+          isConnectingRef.current = false;
+          isCreatingRef.current = false;
+          clearConnectTimeout();
+          return;
+        }
+        
+        // Usar resultado do retry
+        if (retryResult.data?.data?.qr_code) {
+          console.log('✅ [connectInstance] QR obtido no retry!');
+          setQrCode(retryResult.data.data.qr_code);
+          setInstance((prev) => prev ? { ...prev, status: 'connecting' } : prev);
+          return;
+        }
       }
 
-      console.log('🔗 Repair result:', data);
+      console.log('🔗 [connectInstance] Repair result:', data);
 
       if (data?.data?.status === 'connected') {
         toast.success('WhatsApp conectado com sucesso!');
@@ -418,23 +445,26 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
         setQrCode(null);
         setIsConnecting(false);
         isConnectingRef.current = false;
+        isCreatingRef.current = false;
         setConnectionVerified(true);
         clearConnectTimeout();
       } else if (data?.data?.qr_code) {
+        console.log('✅ [connectInstance] QR Code recebido!');
         setQrCode(data.data.qr_code);
         setInstance((prev) => prev ? { ...prev, status: 'connecting' } : prev);
-        // Manter isConnecting = true para polling ativo
       } else {
-        // QR ainda não disponível - polling rápido para buscar do banco
-        console.log('⏳ Aguardando QR via webhook - iniciando polling rápido...');
+        // QR ainda não disponível - polling rápido
+        console.log('⏳ [connectInstance] Aguardando QR via polling...');
         setInstance((prev) => prev ? { ...prev, status: 'connecting' } : prev);
         
-        // Polling agressivo: 20 tentativas de 200ms para capturar QR rapidamente
         let attempts = 0;
         const fastPoll = setInterval(async () => {
           attempts++;
           if (!mountedRef.current || attempts > QR_FAST_POLL_ATTEMPTS) {
             clearInterval(fastPoll);
+            if (attempts > QR_FAST_POLL_ATTEMPTS && !qrCode) {
+              console.log('⚠️ Timeout no polling de QR');
+            }
             return;
           }
           
@@ -446,12 +476,13 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
               setInstance(instanceData);
               clearInterval(fastPoll);
             } else if (instanceData?.status === 'connected') {
-              console.log('✅ Conectado durante polling rápido!');
+              console.log('✅ Conectado durante polling!');
               toast.success('WhatsApp conectado com sucesso!');
               setInstance(instanceData);
               setQrCode(null);
               setIsConnecting(false);
               isConnectingRef.current = false;
+              isCreatingRef.current = false;
               setConnectionVerified(true);
               clearConnectTimeout();
               clearInterval(fastPoll);
@@ -462,10 +493,11 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
         }, QR_FAST_POLL_DELAY);
       }
     } catch (error: any) {
-      console.error('Erro ao conectar:', error);
+      console.error('❌ [connectInstance] Erro:', error);
       toast.error(error.message || 'Erro ao conectar');
       setIsConnecting(false);
       isConnectingRef.current = false;
+      isCreatingRef.current = false;
       clearConnectTimeout();
     }
   }, [loadInstance]);
@@ -504,13 +536,13 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
         toast.success('WhatsApp conectado!');
         setIsConnecting(false);
         isConnectingRef.current = false;
+        isCreatingRef.current = false;
         await loadInstance();
       } else if (data?.data?.qr_code) {
         toast.success('QR Code gerado! Escaneie para conectar.');
         setQrCode(data.data.qr_code);
       } else {
         toast.info('Gerando QR Code...');
-        // Polling agressivo para capturar QR rapidamente
         let attempts = 0;
         const fastPoll = setInterval(async () => {
           attempts++;
@@ -532,6 +564,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
               setQrCode(null);
               setIsConnecting(false);
               isConnectingRef.current = false;
+              isCreatingRef.current = false;
               clearInterval(fastPoll);
             }
           } catch (e) {
@@ -575,6 +608,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
       setQrCode(null);
       setIsConnecting(false);
       isConnectingRef.current = false;
+      isCreatingRef.current = false;
       setConnectionVerified(false);
       toast.success('WhatsApp desconectado!');
     } catch (error: any) {
