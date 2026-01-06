@@ -23,7 +23,7 @@ const temperatureConfig: Record<
   }
 > = {
   hot: {
-    label: "🔥 Quente",
+    label: "Quente",
     icon: Flame,
     bgClass: "bg-temperature-hot/10",
     textClass: "text-temperature-hot",
@@ -31,7 +31,7 @@ const temperatureConfig: Record<
     glowClass: "shadow-[0_0_10px_hsl(var(--temp-hot)/0.3)]",
   },
   warm: {
-    label: "🌡️ Morno",
+    label: "Morno",
     icon: Thermometer,
     bgClass: "bg-temperature-warm/10",
     textClass: "text-temperature-warm",
@@ -39,7 +39,7 @@ const temperatureConfig: Record<
     glowClass: "shadow-[0_0_10px_hsl(var(--temp-warm)/0.3)]",
   },
   cold: {
-    label: "❄️ Frio",
+    label: "Frio",
     icon: Snowflake,
     bgClass: "bg-temperature-cold/10",
     textClass: "text-temperature-cold",

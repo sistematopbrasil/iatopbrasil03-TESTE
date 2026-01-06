@@ -1,7 +1,8 @@
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Users, TrendingUp, Award, Shield, Sparkles } from 'lucide-react';
+import { ArrowRight, Users, TrendingUp, Award, Shield } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import logoTopBrasil from '@/assets/logo-top-brasil.png';
 export default function LandingPage() {
   const navigate = useNavigate();
   const [mousePosition, setMousePosition] = useState({
@@ -48,13 +49,12 @@ export default function LandingPage() {
 
       {/* Header */}
       <header className="relative z-10 container mx-auto px-4 py-6 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-primary to-orange-600 rounded-lg flex items-center justify-center">
-            <Sparkles className="w-6 h-6 text-white" />
-          </div>
-          <span className="text-2xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-            TOP Brasil
-          </span>
+        <div className="flex items-center">
+          <img 
+            src={logoTopBrasil} 
+            alt="TOP Brasil" 
+            className="h-10 w-auto"
+          />
         </div>
         
         <Button onClick={() => navigate('/login')} variant="outline" className="border-primary/30 text-white hover:bg-primary/10 hover:border-primary transition-all">

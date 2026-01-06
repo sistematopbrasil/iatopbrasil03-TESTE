@@ -18,6 +18,31 @@ function normalizePhone(phone: string): string {
   return cleaned;
 }
 
+// ✅ Função para gerar variantes do telefone (com/sem 9 adicional)
+function getPhoneVariants(phone: string): string[] {
+  const normalized = normalizePhone(phone);
+  const variants: string[] = [normalized];
+  
+  // Formato esperado: 55 + DDD(2) + número(8 ou 9)
+  if (normalized.startsWith('55') && normalized.length >= 12) {
+    const ddd = normalized.slice(2, 4);
+    const rest = normalized.slice(4);
+    
+    // Se tem 9 dígitos no número (total 13), criar variante sem o 9
+    if (rest.length === 9 && rest.startsWith('9')) {
+      const withoutNine = `55${ddd}${rest.slice(1)}`;
+      variants.push(withoutNine);
+    }
+    // Se tem 8 dígitos no número (total 12), criar variante com o 9
+    else if (rest.length === 8) {
+      const withNine = `55${ddd}9${rest}`;
+      variants.push(withNine);
+    }
+  }
+  
+  return variants;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -137,8 +162,11 @@ serve(async (req) => {
           
           if (!rawPhone) continue;
 
-          // ✅ NORMALIZAR TELEFONE
+          // ✅ NORMALIZAR TELEFONE E GERAR VARIANTES
           const normalizedPhone = normalizePhone(rawPhone);
+          const phoneVariants = getPhoneVariants(rawPhone);
+          
+          console.log('📱 Telefone:', normalizedPhone, 'Variantes:', phoneVariants);
           
           // Determinar tipo e conteúdo da mensagem
           let type = 'text';
@@ -179,26 +207,44 @@ serve(async (req) => {
             content = messageContent.contactMessage.displayName;
           }
 
-          // ✅ BUSCAR LEAD POR TELEFONE NORMALIZADO
-          const { data: lead, error: leadError } = await supabaseAdmin
-            .from('quiz_submissions_new')
-            .select('id, name, organization_id, pipeline_stage_id')
-            .eq('phone', normalizedPhone)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
+          // ✅ BUSCAR LEAD POR TELEFONE COM VARIANTES
+          let lead = null;
+          for (const variant of phoneVariants) {
+            const { data: foundLead } = await supabaseAdmin
+              .from('quiz_submissions_new')
+              .select('id, name, organization_id, pipeline_stage_id')
+              .eq('phone', variant)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            
+            if (foundLead) {
+              lead = foundLead;
+              console.log('✅ Lead encontrado com variante:', variant);
+              break;
+            }
+          }
 
-          if (leadError) {
-            console.error('❌ Erro ao buscar lead:', leadError);
+          if (!lead) {
+            console.log('⚠️ Lead não encontrado para:', phoneVariants);
           }
           
-          // Buscar ou criar conversa COM TELEFONE NORMALIZADO
-          let { data: conversation } = await supabaseAdmin
-            .from('crm_conversations')
-            .select('*')
-            .eq('instance_id', instance.id)
-            .eq('contact_phone', normalizedPhone)
-            .single();
+          // ✅ BUSCAR CONVERSA EXISTENTE COM VARIANTES
+          let conversation = null;
+          for (const variant of phoneVariants) {
+            const { data: foundConv } = await supabaseAdmin
+              .from('crm_conversations')
+              .select('*')
+              .eq('instance_id', instance.id)
+              .eq('contact_phone', variant)
+              .single();
+            
+            if (foundConv) {
+              conversation = foundConv;
+              console.log('✅ Conversa encontrada com variante:', variant);
+              break;
+            }
+          }
           
           if (!conversation) {
             // ✅ CRIAR CONVERSA COM LEAD VINCULADO AUTOMATICAMENTE
@@ -223,6 +269,7 @@ serve(async (req) => {
             }
             
             conversation = newConv;
+            console.log('✅ Nova conversa criada:', conversation.id);
           } else {
             // ✅ VINCULAR LEAD À CONVERSA EXISTENTE SE NÃO TIVER
             if (lead && !conversation.lead_id) {
@@ -271,6 +318,8 @@ serve(async (req) => {
             });
           
           if (!msgError) {
+            console.log('✅ Mensagem inserida na conversa:', conversation.id);
+            
             // Mover lead para "Primeiro Contato" se estiver no primeiro quadro
             if (conversation.lead_id) {
               try {
