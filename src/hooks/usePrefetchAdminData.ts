@@ -17,73 +17,64 @@ export function usePrefetchAdminData() {
         if (!currentUser) return;
 
         const isSuperAdminUser = isSuperAdmin(currentUser.role);
+        const userId = currentUser.id;
+        const orgId = currentUser.organization_id;
 
         // Prefetch dados do ranking
-        queryClient.prefetchQuery({
-          queryKey: ['ranking'],
-          queryFn: async (): Promise<unknown> => {
-            const { data } = await supabase.functions.invoke('ranking-get');
-            return data;
-          },
-          staleTime: 5 * 60 * 1000,
+        supabase.functions.invoke('ranking-get').then(({ data }) => {
+          if (data) {
+            queryClient.setQueryData(['ranking'], data);
+          }
         });
 
         // Prefetch quiz questions (usado em Settings)
-        queryClient.prefetchQuery({
-          queryKey: ['quiz-questions', currentUser.id],
-          queryFn: async (): Promise<unknown[]> => {
-            const { data } = await supabase
-              .from('quiz_questions')
-              .select('*')
-              .eq('user_id', currentUser.id)
-              .order('order_index', { ascending: true });
-            return data || [];
-          },
-          staleTime: 5 * 60 * 1000,
-        });
+        // Usamos tipagem explícita para evitar erro de tipo profundo
+        (supabase.from('quiz_questions') as any)
+          .select('*')
+          .eq('user_id', userId)
+          .order('order_index')
+          .then(({ data }: { data: unknown }) => {
+            if (data) {
+              queryClient.setQueryData(['quiz-questions', userId], data);
+            }
+          });
 
         // Prefetch pipeline stages
-        queryClient.prefetchQuery({
-          queryKey: ['pipeline-stages'],
-          queryFn: async (): Promise<unknown[]> => {
-            const { data } = await supabase
-              .from('pipeline_stages')
-              .select('*')
-              .order('order_index', { ascending: true });
-            return data || [];
-          },
-          staleTime: 5 * 60 * 1000,
-        });
+        supabase
+          .from('pipeline_stages')
+          .select('*')
+          .order('order_index')
+          .then(({ data }) => {
+            if (data) {
+              queryClient.setQueryData(['pipeline-stages'], data);
+            }
+          });
 
         // Prefetch app settings
-        queryClient.prefetchQuery({
-          queryKey: ['app-settings', currentUser.id],
-          queryFn: async (): Promise<unknown> => {
-            const { data } = await supabase
-              .from('app_settings')
-              .select('*')
-              .eq('user_id', currentUser.id)
-              .maybeSingle();
-            return data;
-          },
-          staleTime: 5 * 60 * 1000,
-        });
+        // Usamos tipagem explícita para evitar erro de tipo profundo
+        (supabase.from('app_settings') as any)
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle()
+          .then(({ data }: { data: unknown }) => {
+            if (data) {
+              queryClient.setQueryData(['app-settings', userId], data);
+            }
+          });
 
         // Prefetch para super admin
-        if (isSuperAdminUser && currentUser.organization_id) {
-          queryClient.prefetchQuery({
-            queryKey: ['consultants', currentUser.organization_id],
-            queryFn: async (): Promise<unknown[]> => {
-              const { data } = await supabase
-                .from('users')
-                .select('*')
-                .eq('organization_id', currentUser.organization_id)
-                .in('role', ['admin', 'consultor'])
-                .order('created_at', { ascending: false });
-              return data || [];
-            },
-            staleTime: 5 * 60 * 1000,
-          });
+        if (isSuperAdminUser && orgId) {
+          supabase
+            .from('users')
+            .select('*')
+            .eq('organization_id', orgId)
+            .in('role', ['admin', 'consultor'])
+            .order('created_at', { ascending: false })
+            .then(({ data }) => {
+              if (data) {
+                queryClient.setQueryData(['consultants', orgId], data);
+              }
+            });
         }
 
       } catch (error) {
