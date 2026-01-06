@@ -43,6 +43,41 @@ function getPhoneVariants(phone: string): string[] {
   return variants;
 }
 
+// ✅ Função para converter base64 para Blob
+function base64ToUint8Array(base64: string): Uint8Array {
+  // Remove prefix like "data:image/jpeg;base64," if present
+  const cleanBase64 = base64.includes(',') ? base64.split(',')[1] : base64;
+  const binaryString = atob(cleanBase64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+// ✅ Função para obter extensão do mimetype
+function getExtensionFromMimetype(mimetype: string | null): string {
+  if (!mimetype) return 'bin';
+  const map: Record<string, string> = {
+    'image/jpeg': 'jpg',
+    'image/png': 'png',
+    'image/gif': 'gif',
+    'image/webp': 'webp',
+    'video/mp4': 'mp4',
+    'video/3gpp': '3gp',
+    'video/quicktime': 'mov',
+    'audio/ogg': 'ogg',
+    'audio/mpeg': 'mp3',
+    'audio/mp4': 'm4a',
+    'audio/opus': 'opus',
+    'application/pdf': 'pdf',
+    'application/msword': 'doc',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+  };
+  return map[mimetype] || mimetype.split('/')[1] || 'bin';
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -171,9 +206,10 @@ serve(async (req) => {
           // Determinar tipo e conteúdo da mensagem
           let type = 'text';
           let content = '';
-          let mediaUrl = null;
-          let mediaMimetype = null;
-          let mediaFilename = null;
+          let mediaUrl: string | null = null;
+          let mediaMimetype: string | null = null;
+          let mediaFilename: string | null = null;
+          let mediaSize: number | null = null;
           
           if (messageContent.conversation) {
             content = messageContent.conversation;
@@ -183,19 +219,24 @@ serve(async (req) => {
             type = 'image';
             content = messageContent.imageMessage.caption || '';
             mediaMimetype = messageContent.imageMessage.mimetype;
+            mediaSize = messageContent.imageMessage.fileLength;
           } else if (messageContent.videoMessage) {
             type = 'video';
             content = messageContent.videoMessage.caption || '';
             mediaMimetype = messageContent.videoMessage.mimetype;
+            mediaSize = messageContent.videoMessage.fileLength;
           } else if (messageContent.audioMessage) {
             type = 'audio';
             mediaMimetype = messageContent.audioMessage.mimetype;
+            mediaSize = messageContent.audioMessage.fileLength;
           } else if (messageContent.documentMessage) {
             type = 'document';
             mediaFilename = messageContent.documentMessage.fileName;
             mediaMimetype = messageContent.documentMessage.mimetype;
+            mediaSize = messageContent.documentMessage.fileLength;
           } else if (messageContent.stickerMessage) {
             type = 'sticker';
+            mediaMimetype = messageContent.stickerMessage.mimetype;
           } else if (messageContent.locationMessage) {
             type = 'location';
             content = JSON.stringify({
@@ -205,6 +246,77 @@ serve(async (req) => {
           } else if (messageContent.contactMessage) {
             type = 'contact';
             content = messageContent.contactMessage.displayName;
+          }
+
+          // ✅ BUSCAR MÍDIA SE FOR MENSAGEM DE MÍDIA
+          if (['image', 'video', 'audio', 'document', 'sticker'].includes(type)) {
+            try {
+              const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL');
+              const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY');
+              
+              if (evolutionApiUrl && evolutionApiKey) {
+                console.log('📥 Baixando mídia do tipo:', type);
+                
+                // Chamar API para obter mídia em base64
+                const mediaResponse = await fetch(`${evolutionApiUrl}/chat/getBase64FromMediaMessage/${instanceName}`, {
+                  method: 'POST',
+                  headers: {
+                    'apikey': evolutionApiKey,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({ 
+                    message: {
+                      key: key,
+                      message: messageContent,
+                    },
+                    convertToMp4: type === 'audio' ? false : true, // Não converter áudio
+                  }),
+                });
+                
+                if (mediaResponse.ok) {
+                  const mediaData = await mediaResponse.json();
+                  const base64Data = mediaData.base64;
+                  
+                  if (base64Data) {
+                    console.log('✅ Mídia recebida, fazendo upload...');
+                    
+                    // Converter base64 para Uint8Array
+                    const fileBytes = base64ToUint8Array(base64Data);
+                    const extension = getExtensionFromMimetype(mediaMimetype);
+                    const fileName = `messages/${instanceName}/${Date.now()}_${key.id}.${extension}`;
+                    
+                    // Upload para Supabase Storage
+                    const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
+                      .from('crm-media')
+                      .upload(fileName, fileBytes, {
+                        contentType: mediaMimetype || 'application/octet-stream',
+                        upsert: false,
+                      });
+                    
+                    if (uploadError) {
+                      console.error('⚠️ Erro no upload:', uploadError);
+                    } else {
+                      // Obter URL pública
+                      const { data: { publicUrl } } = supabaseAdmin.storage
+                        .from('crm-media')
+                        .getPublicUrl(fileName);
+                      
+                      mediaUrl = publicUrl;
+                      console.log('✅ Mídia salva:', mediaUrl);
+                    }
+                  } else {
+                    console.log('⚠️ Mídia vazia na resposta');
+                  }
+                } else {
+                  const errorText = await mediaResponse.text();
+                  console.error('⚠️ Erro ao baixar mídia:', mediaResponse.status, errorText);
+                }
+              } else {
+                console.log('⚠️ Evolution API credentials not configured');
+              }
+            } catch (mediaError) {
+              console.error('⚠️ Erro ao processar mídia:', mediaError);
+            }
           }
 
           // ✅ BUSCAR LEAD POR TELEFONE COM VARIANTES
@@ -312,13 +424,14 @@ serve(async (req) => {
               media_url: mediaUrl,
               media_mimetype: mediaMimetype,
               media_filename: mediaFilename,
+              media_size: mediaSize,
               status: 'delivered',
               timestamp: new Date(message.messageTimestamp * 1000).toISOString(),
               metadata: message,
             });
           
           if (!msgError) {
-            console.log('✅ Mensagem inserida na conversa:', conversation.id);
+            console.log('✅ Mensagem inserida na conversa:', conversation.id, 'Tipo:', type, 'URL:', mediaUrl);
             
             // Mover lead para "Primeiro Contato" se estiver no primeiro quadro
             if (conversation.lead_id) {
@@ -355,6 +468,8 @@ serve(async (req) => {
                 console.warn('⚠️ Erro ao mover lead:', moveError);
               }
             }
+          } else {
+            console.error('❌ Erro ao inserir mensagem:', msgError);
           }
         }
         break;

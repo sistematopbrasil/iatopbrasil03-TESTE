@@ -394,8 +394,10 @@ export type Database = {
           created_at: string | null
           description: string | null
           id: string
+          is_enabled: boolean | null
           media_filename: string | null
           media_url: string | null
+          order_index: number | null
           organization_id: string
           shortcut: string
           type: string
@@ -407,8 +409,10 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
+          is_enabled?: boolean | null
           media_filename?: string | null
           media_url?: string | null
+          order_index?: number | null
           organization_id: string
           shortcut: string
           type: string
@@ -420,8 +424,10 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
+          is_enabled?: boolean | null
           media_filename?: string | null
           media_url?: string | null
+          order_index?: number | null
           organization_id?: string
           shortcut?: string
           type?: string
