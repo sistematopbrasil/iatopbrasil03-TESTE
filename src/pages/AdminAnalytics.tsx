@@ -80,6 +80,7 @@ const AdminAnalytics = () => {
   });
 
   // Buscar submissões da tabela correta (quiz_submissions_new)
+  // ✅ Usa dados pré-carregados do usePrefetchAdminData
   const { data: allSubmissions, isLoading } = useQuery({
     queryKey: ["quiz-submissions-analytics", period, currentUser?.id],
     queryFn: async () => {
@@ -106,6 +107,8 @@ const AdminAnalytics = () => {
       return data;
     },
     enabled: !!currentUser,
+    staleTime: 2 * 60 * 1000, // 2 minutos
+    placeholderData: (previousData) => previousData, // ✅ Evita flash de loading
   });
 
   const stats = useMemo(() => {

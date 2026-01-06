@@ -38,11 +38,14 @@ export default function AdminRanking() {
     return { periodStart: start, periodEnd: end.toISOString() };
   }, [period]);
 
-  // Usar hook centralizado com queryKey estável
+  // Usar hook centralizado com queryKey estável (dados pré-carregados em usePrefetchAdminData)
   const { ranking, isLoading, error, currentUser, totals, myData, refetch } = useRankingData({
     periodStart,
     periodEnd,
   });
+
+  // ✅ Se já tem dados no cache, não mostrar loading
+  const showLoading = isLoading && !ranking;
 
   const isAdmin = currentUser && isSuperAdmin(currentUser.role);
 
@@ -60,7 +63,8 @@ export default function AdminRanking() {
     return 'bg-muted';
   };
 
-  if (isLoading) {
+  // ✅ Só mostrar loading se realmente não tem dados (evita flash)
+  if (showLoading) {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center min-h-[400px]">

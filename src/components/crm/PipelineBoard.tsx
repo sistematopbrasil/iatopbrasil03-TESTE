@@ -90,7 +90,7 @@ export function PipelineBoard() {
     queryFn: getCurrentConsultant,
   });
 
-  // ✅ REMOVIDO filtro completion_percentage=100 para mostrar leads incompletos também
+  // ✅ Busca TODOS os leads - incluindo os sem pipeline_stage_id
   const { data: leads, isLoading, error } = useQuery({
     queryKey: ['pipeline-leads', currentUser?.id],
     queryFn: async () => {
@@ -99,7 +99,7 @@ export function PipelineBoard() {
       let query = supabase
         .from('quiz_submissions_new')
         .select('*')
-        .not('pipeline_stage_id', 'is', null) // Apenas leads com stage definido
+        // ✅ REMOVIDO .not('pipeline_stage_id', 'is', null) - agora mostra TODOS
         .order('created_at', { ascending: false });
 
       if (!isSuperAdmin(currentUser.role)) {
@@ -113,6 +113,7 @@ export function PipelineBoard() {
       return data;
     },
     enabled: !!currentUser,
+    staleTime: 30 * 1000, // 30 segundos - dados mais frescos
   });
 
   // Helper para verificar se é stage "Novos Consultores"
@@ -223,9 +224,15 @@ export function PipelineBoard() {
     updateStageMutation.mutate({ leadId, newStageId, newStageName });
   };
 
-  // ✅ SIMPLIFICADO - Filtra direto por pipeline_stage_id (UUID)
-  const getLeadsByStage = (stageId: string) => {
-    return leads?.filter((lead) => lead.pipeline_stage_id === stageId) || [];
+  // ✅ Leads sem stage aparecem na primeira coluna
+  const getLeadsByStage = (stageId: string, isFirstStage: boolean = false) => {
+    return leads?.filter((lead) => {
+      if (isFirstStage) {
+        // Primeira coluna: leads desta stage OU leads sem stage definido
+        return lead.pipeline_stage_id === stageId || !lead.pipeline_stage_id;
+      }
+      return lead.pipeline_stage_id === stageId;
+    }) || [];
   };
 
   // Navegar para CRM com os dados do lead
@@ -273,8 +280,9 @@ export function PipelineBoard() {
     return (
       <>
         <DragDropContext onDragEnd={handleDragEnd}>
-          {stages.map((stage) => {
-            const stageLeads = getLeadsByStage(stage.id);
+          {stages.map((stage, index) => {
+            const isFirstStage = index === 0;
+            const stageLeads = getLeadsByStage(stage.id, isFirstStage);
 
             return (
               <Droppable key={stage.id} droppableId={stage.id}>
