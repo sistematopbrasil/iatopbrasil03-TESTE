@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { crmService, Conversation } from '@/lib/crm-service';
+import { supabase } from '@/integrations/supabase/client';
 
 export function useConversations() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -12,13 +13,28 @@ export function useConversations() {
   }, [filter, searchQuery]);
 
   useEffect(() => {
-    const channel = crmService.subscribeToConversations((payload) => {
+    // Subscription para conversas
+    const conversationChannel = crmService.subscribeToConversations((payload) => {
       console.log('🔔 Conversa atualizada:', payload);
       loadConversations();
     });
 
+    // Subscription para mensagens novas (para atualizar lista de conversas)
+    const messageChannel = supabase
+      .channel('messages-for-conversations')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'crm_messages' },
+        () => {
+          console.log('🔔 Nova mensagem - atualizando conversas');
+          loadConversations();
+        }
+      )
+      .subscribe();
+
     return () => {
-      channel.unsubscribe();
+      conversationChannel.unsubscribe();
+      supabase.removeChannel(messageChannel);
     };
   }, []);
 
