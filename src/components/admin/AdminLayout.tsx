@@ -12,6 +12,7 @@ import { useTheme } from "next-themes";
 import logoLight from "@/assets/logo-top-brasil-dark.png";
 import logoDark from "@/assets/logo-top-brasil.png";
 import { queryClient } from "@/App";
+import { usePrefetchAdminData } from "@/hooks/usePrefetchAdminData";
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -24,6 +25,9 @@ export const AdminLayout = ({ children, disableVerticalScroll = false }: AdminLa
   const location = useLocation();
   const { toast } = useToast();
   const { theme, resolvedTheme } = useTheme();
+
+  // Pré-carregar dados das páginas em background para abertura instantânea
+  usePrefetchAdminData();
 
   // Determina se está no modo claro
   const isLightMode = resolvedTheme === 'light' || theme === 'light';
