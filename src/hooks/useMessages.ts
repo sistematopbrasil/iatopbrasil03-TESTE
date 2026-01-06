@@ -14,15 +14,46 @@ export function useMessages(conversationId: string | null) {
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const channelRef = useRef<any>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const realtimeActiveRef = useRef(false);
 
-  // Audio element not needed - using inline data URI in playNotificationSound
+  // Cleanup polling
+  const stopPolling = useCallback(() => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  }, []);
+
+  // Start polling as fallback
+  const startPolling = useCallback(() => {
+    if (pollingRef.current || !conversationId) return;
+    console.log('📡 Iniciando polling como fallback (5s)');
+    pollingRef.current = setInterval(() => {
+      if (conversationId) {
+        crmService.getMessages(conversationId).then(data => {
+          setMessages(prev => {
+            // Merge: keep temp messages, update with new data
+            const tempMessages = prev.filter(m => m.id.startsWith('temp-'));
+            const merged = [...data];
+            tempMessages.forEach(temp => {
+              if (!merged.some(m => m.message_id === temp.message_id)) {
+                merged.push(temp);
+              }
+            });
+            return merged.sort((a, b) => 
+              new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+            );
+          });
+        }).catch(console.error);
+      }
+    }, 5000);
+  }, [conversationId]);
 
   useEffect(() => {
     if (conversationId) {
       loadMessages();
       subscribeToMessages();
-      // Mark as read when opening conversation
       crmService.markConversationAsRead(conversationId);
     } else {
       setMessages([]);
@@ -32,8 +63,9 @@ export function useMessages(conversationId: string | null) {
       if (channelRef.current) {
         channelRef.current.unsubscribe();
       }
+      stopPolling();
     };
-  }, [conversationId]);
+  }, [conversationId, stopPolling]);
 
   const loadMessages = useCallback(async () => {
     if (!conversationId) return;
@@ -52,9 +84,10 @@ export function useMessages(conversationId: string | null) {
   function subscribeToMessages() {
     if (!conversationId) return;
 
-    // Use direct Supabase subscription for better reliability
+    console.log('🔔 Configurando subscription realtime para:', conversationId);
+
     channelRef.current = supabase
-      .channel(`messages-${conversationId}`)
+      .channel(`messages-${conversationId}-${Date.now()}`)
       .on(
         'postgres_changes',
         { 
@@ -64,30 +97,31 @@ export function useMessages(conversationId: string | null) {
           filter: `conversation_id=eq.${conversationId}`
         },
         (payload) => {
-          console.log('🔔 Mensagem realtime:', payload);
+          console.log('🔔 Mensagem realtime recebida:', payload.eventType, payload);
+          realtimeActiveRef.current = true;
+          stopPolling(); // Realtime funcionando, parar polling
           
           if (payload.eventType === 'INSERT') {
             const newMessage = payload.new as Message;
             setMessages((prev) => {
-              // Avoid duplicates - check by id and also by temp id pattern
+              // Avoid duplicates
               if (prev.some(m => m.id === newMessage.id || m.message_id === newMessage.message_id)) {
-                // Replace temp message with real one
                 return prev.map(m => 
                   m.message_id === newMessage.message_id ? newMessage : m
                 );
               }
-              // Remove any temp messages that match this new message
+              // Remove temp messages
               const withoutTemp = prev.filter(m => !m.id.startsWith('temp-'));
-              return [...withoutTemp, newMessage];
+              return [...withoutTemp, newMessage].sort((a, b) => 
+                new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+              );
             });
 
-            // Play sound and show notification for incoming messages
             if (newMessage.direction === 'incoming') {
               playNotificationSound();
               showBrowserNotification(newMessage);
             }
           } else if (payload.eventType === 'UPDATE') {
-            // Update message status
             const updatedMessage = payload.new as Message;
             setMessages((prev) => 
               prev.map(m => m.id === updatedMessage.id ? updatedMessage : m)
@@ -97,7 +131,24 @@ export function useMessages(conversationId: string | null) {
       )
       .subscribe((status) => {
         console.log('📡 Subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Realtime conectado com sucesso');
+          realtimeActiveRef.current = true;
+          stopPolling();
+        } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+          console.warn('⚠️ Realtime desconectado, iniciando polling fallback');
+          realtimeActiveRef.current = false;
+          startPolling();
+        }
       });
+
+    // Iniciar polling como fallback após 3s se realtime não conectar
+    setTimeout(() => {
+      if (!realtimeActiveRef.current) {
+        console.log('⏰ Realtime não conectou em 3s, iniciando polling');
+        startPolling();
+      }
+    }, 3000);
   }
 
   function playNotificationSound() {
