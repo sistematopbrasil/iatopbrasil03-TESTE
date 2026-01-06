@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { crmService, Message } from '@/lib/crm-service';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -51,30 +52,52 @@ export function useMessages(conversationId: string | null) {
   function subscribeToMessages() {
     if (!conversationId) return;
 
-    channelRef.current = crmService.subscribeToMessages(conversationId, (payload) => {
-      console.log('🔔 Nova mensagem:', payload);
-      if (payload.eventType === 'INSERT') {
-        const newMessage = payload.new as Message;
-        setMessages((prev) => {
-          // Avoid duplicates - check by id and also by temp id pattern
-          if (prev.some(m => m.id === newMessage.id || m.message_id === newMessage.message_id)) {
-            // Replace temp message with real one
-            return prev.map(m => 
-              m.message_id === newMessage.message_id ? newMessage : m
+    // Use direct Supabase subscription for better reliability
+    channelRef.current = supabase
+      .channel(`messages-${conversationId}`)
+      .on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'crm_messages',
+          filter: `conversation_id=eq.${conversationId}`
+        },
+        (payload) => {
+          console.log('🔔 Mensagem realtime:', payload);
+          
+          if (payload.eventType === 'INSERT') {
+            const newMessage = payload.new as Message;
+            setMessages((prev) => {
+              // Avoid duplicates - check by id and also by temp id pattern
+              if (prev.some(m => m.id === newMessage.id || m.message_id === newMessage.message_id)) {
+                // Replace temp message with real one
+                return prev.map(m => 
+                  m.message_id === newMessage.message_id ? newMessage : m
+                );
+              }
+              // Remove any temp messages that match this new message
+              const withoutTemp = prev.filter(m => !m.id.startsWith('temp-'));
+              return [...withoutTemp, newMessage];
+            });
+
+            // Play sound and show notification for incoming messages
+            if (newMessage.direction === 'incoming') {
+              playNotificationSound();
+              showBrowserNotification(newMessage);
+            }
+          } else if (payload.eventType === 'UPDATE') {
+            // Update message status
+            const updatedMessage = payload.new as Message;
+            setMessages((prev) => 
+              prev.map(m => m.id === updatedMessage.id ? updatedMessage : m)
             );
           }
-          // Remove any temp messages that match this new message
-          const withoutTemp = prev.filter(m => !m.id.startsWith('temp-'));
-          return [...withoutTemp, newMessage];
-        });
-
-        // Play sound and show notification for incoming messages
-        if (newMessage.direction === 'incoming') {
-          playNotificationSound();
-          showBrowserNotification(newMessage);
         }
-      }
-    });
+      )
+      .subscribe((status) => {
+        console.log('📡 Subscription status:', status);
+      });
   }
 
   function playNotificationSound() {
