@@ -20,17 +20,29 @@ export function usePrefetchAdminData() {
         const userId = currentUser.id;
         const orgId = currentUser.organization_id;
 
-        // Prefetch dados do ranking
-        supabase.functions.invoke('ranking-get').then(({ data }) => {
-          if (data) {
-            queryClient.setQueryData(['ranking'], data);
+        // =============================================
+        // PREFETCH RANKING - com query key correta
+        // =============================================
+        const now = new Date();
+        const periodEnd = new Date(now);
+        periodEnd.setHours(23, 59, 59, 999);
+        const periodEndStr = periodEnd.toISOString();
+
+        supabase.functions.invoke('ranking-get', {
+          body: { periodStart: null, periodEnd: periodEndStr }
+        }).then(({ data }) => {
+          if (data?.success) {
+            // Query key do useRankingData: ['unified-ranking', periodStart, periodEnd]
+            queryClient.setQueryData(['unified-ranking', null, periodEndStr], data);
           }
         });
 
-        // Prefetch quiz questions (usado em Settings)
+        // =============================================
+        // PREFETCH QUIZ QUESTIONS (Settings)
+        // =============================================
         (supabase.from('quiz_questions') as any)
           .select('*')
-          .eq('user_id', userId)
+          .eq('consultant_id', userId)
           .order('order_index')
           .then(({ data }: { data: unknown }) => {
             if (data) {
@@ -38,7 +50,9 @@ export function usePrefetchAdminData() {
             }
           });
 
-        // Prefetch pipeline stages
+        // =============================================
+        // PREFETCH PIPELINE STAGES
+        // =============================================
         supabase
           .from('pipeline_stages')
           .select('*')
@@ -49,7 +63,51 @@ export function usePrefetchAdminData() {
             }
           });
 
-        // Prefetch app settings
+        // =============================================
+        // PREFETCH PIPELINE LEADS
+        // =============================================
+        let leadsQuery = supabase
+          .from('quiz_submissions_new')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (!isSuperAdminUser) {
+          leadsQuery = leadsQuery.eq('consultant_id', userId);
+        } else {
+          leadsQuery = leadsQuery.eq('organization_id', orgId);
+        }
+
+        leadsQuery.then(({ data }) => {
+          if (data) {
+            queryClient.setQueryData(['pipeline-leads', userId], data);
+          }
+        });
+
+        // =============================================
+        // PREFETCH ANALYTICS - Query key: ['quiz-submissions-analytics', period, userId]
+        // =============================================
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        let analyticsQuery = supabase
+          .from('quiz_submissions_new')
+          .select('*')
+          .eq('organization_id', orgId)
+          .gte('created_at', thirtyDaysAgo.toISOString());
+
+        if (!isSuperAdminUser) {
+          analyticsQuery = analyticsQuery.eq('consultant_id', userId);
+        }
+
+        analyticsQuery.then(({ data }) => {
+          if (data) {
+            queryClient.setQueryData(['quiz-submissions-analytics', '30', userId], data);
+          }
+        });
+
+        // =============================================
+        // PREFETCH APP SETTINGS
+        // =============================================
         (supabase.from('app_settings') as any)
           .select('*')
           .eq('user_id', userId)
@@ -64,7 +122,7 @@ export function usePrefetchAdminData() {
         // PREFETCH CRM DATA
         // =============================================
         
-        // Prefetch conversas do CRM
+        // Prefetch conversas do CRM - Query key: ['conversations', filter, searchQuery]
         supabase
           .from('crm_conversations')
           .select('*, lead:quiz_submissions_new(*)')
@@ -109,7 +167,9 @@ export function usePrefetchAdminData() {
             }
           });
 
-        // Prefetch para super admin
+        // =============================================
+        // PREFETCH SUPER ADMIN DATA
+        // =============================================
         if (isSuperAdminUser && orgId) {
           supabase
             .from('users')

@@ -18,12 +18,15 @@ export function useConversations() {
     return filters;
   }, [filter, searchQuery]);
 
-  // Use React Query with caching
+  // Use React Query with caching - usando initialData do prefetch
   const { data: conversations = [], isLoading, refetch } = useQuery({
     queryKey: ['conversations', filter, searchQuery],
     queryFn: () => crmService.getConversations(getFilters()),
     staleTime: 5 * 60 * 1000, // 5 minutes cache
+    gcTime: 10 * 60 * 1000, // 10 minutes garbage collection
     refetchOnWindowFocus: false,
+    // ✅ Usar dados do prefetch como placeholder para abertura instantânea
+    placeholderData: (previousData) => previousData,
   });
 
   // Real-time subscriptions
