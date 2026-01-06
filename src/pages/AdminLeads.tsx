@@ -459,7 +459,7 @@ export default function AdminLeads() {
               className={temperatureFilter === 'hot' ? 'bg-orange-500 hover:bg-orange-600' : ''}
             >
               <Flame className="w-4 h-4 mr-1" />
-              🔥 Quentes ({tempCounts.hot})
+              Quentes ({tempCounts.hot})
             </Button>
             <Button
               variant={temperatureFilter === 'warm' ? 'default' : 'outline'}
@@ -468,7 +468,7 @@ export default function AdminLeads() {
               className={temperatureFilter === 'warm' ? 'bg-yellow-500 hover:bg-yellow-600' : ''}
             >
               <Thermometer className="w-4 h-4 mr-1" />
-              🌡️ Mornos ({tempCounts.warm})
+              Mornos ({tempCounts.warm})
             </Button>
             <Button
               variant={temperatureFilter === 'cold' ? 'default' : 'outline'}
@@ -477,7 +477,7 @@ export default function AdminLeads() {
               className={temperatureFilter === 'cold' ? 'bg-blue-500 hover:bg-blue-600' : ''}
             >
               <Snowflake className="w-4 h-4 mr-1" />
-            ❄️ Frios ({tempCounts.cold})
+              Frios ({tempCounts.cold})
           </Button>
           </div>
 

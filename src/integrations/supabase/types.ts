@@ -394,7 +394,6 @@ export type Database = {
           created_at: string | null
           description: string | null
           id: string
-          is_enabled: boolean | null
           media_filename: string | null
           media_url: string | null
           order_index: number | null
@@ -409,7 +408,6 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
-          is_enabled?: boolean | null
           media_filename?: string | null
           media_url?: string | null
           order_index?: number | null
@@ -424,7 +422,6 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
-          is_enabled?: boolean | null
           media_filename?: string | null
           media_url?: string | null
           order_index?: number | null
@@ -450,6 +447,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      crm_settings: {
+        Row: {
+          created_at: string | null
+          id: string
+          organization_id: string | null
+          quick_replies_enabled: boolean | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          organization_id?: string | null
+          quick_replies_enabled?: boolean | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          organization_id?: string | null
+          quick_replies_enabled?: boolean | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       crm_tags: {
         Row: {

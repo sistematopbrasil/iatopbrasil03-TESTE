@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -40,7 +40,6 @@ interface QuickReply {
   type: string;
   media_url: string | null;
   media_filename: string | null;
-  is_enabled: boolean;
   order_index: number;
 }
 
@@ -58,6 +57,7 @@ export function MessageInput({ conversationId, onSend, isSending, onOpenSettings
   const [filePreview, setFilePreview] = useState<FilePreview | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
+  const [quickRepliesEnabled, setQuickRepliesEnabled] = useState(true);
   const [pendingMediaSend, setPendingMediaSend] = useState<PendingMediaSend | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredSuggestions, setFilteredSuggestions] = useState<QuickReply[]>([]);
@@ -65,25 +65,40 @@ export function MessageInput({ conversationId, onSend, isSending, onOpenSettings
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Load quick replies from database
-  useEffect(() => {
-    loadQuickReplies();
-  }, []);
-
-  async function loadQuickReplies() {
+  // Carregar respostas rápidas e configuração global
+  const loadQuickReplies = useCallback(async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: userData } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (!userData) return;
+
+      // Verificar se está ativado globalmente
+      const { data: settings } = await supabase
+        .from('crm_settings')
+        .select('quick_replies_enabled')
+        .eq('user_id', userData.id)
+        .maybeSingle();
+
+      setQuickRepliesEnabled(settings?.quick_replies_enabled ?? true);
+
+      // Carregar respostas
       const { data, error } = await supabase
         .from('crm_quick_replies')
-        .select('id, shortcut, content, description, type, media_url, media_filename, is_enabled, order_index')
-        .eq('is_enabled', true)
+        .select('id, shortcut, content, description, type, media_url, media_filename, order_index')
+        .eq('user_id', userData.id)
         .order('order_index');
 
       if (error) throw error;
-      
-      // Map to ensure proper types
+
       const mapped = (data || []).map((r, i) => ({
         ...r,
-        is_enabled: r.is_enabled ?? true,
         order_index: r.order_index ?? i,
       }));
       
@@ -91,7 +106,57 @@ export function MessageInput({ conversationId, onSend, isSending, onOpenSettings
     } catch (error) {
       console.error('Error loading quick replies:', error);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    loadQuickReplies();
+  }, [loadQuickReplies]);
+
+  // Subscription para atualização em tempo real das respostas rápidas
+  useEffect(() => {
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    const setupRealtimeSubscription = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: userData } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (!userData) return;
+
+      channel = supabase
+        .channel('quick-replies-realtime')
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'crm_quick_replies',
+          filter: `user_id=eq.${userData.id}`,
+        }, () => {
+          loadQuickReplies();
+        })
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'crm_settings',
+          filter: `user_id=eq.${userData.id}`,
+        }, () => {
+          loadQuickReplies();
+        })
+        .subscribe();
+    };
+
+    setupRealtimeSubscription();
+
+    return () => {
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
+  }, [loadQuickReplies]);
 
   async function handleSend() {
     if (!message.trim() || isSending) return;
@@ -107,19 +172,17 @@ export function MessageInput({ conversationId, onSend, isSending, onOpenSettings
       e.preventDefault();
       handleSend();
     }
-    // ESC para fechar sugestões
     if (e.key === 'Escape') {
       setShowSuggestions(false);
     }
   }
 
-  // Detectar digitação de / para sugestões
   function handleMessageChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     const value = e.target.value;
     setMessage(value);
 
-    // Verificar se está digitando um atalho (começa com /)
-    if (value.startsWith('/') && value.length >= 2) {
+    // Verificar se está digitando um atalho (apenas se respostas rápidas estiverem ativadas)
+    if (quickRepliesEnabled && value.startsWith('/') && value.length >= 2) {
       const searchTerm = value.toLowerCase();
       const matches = quickReplies.filter(qr => 
         qr.shortcut.toLowerCase().includes(searchTerm)
@@ -251,16 +314,6 @@ export function MessageInput({ conversationId, onSend, isSending, onOpenSettings
     }
   }
 
-  function getMediaTypeLabel(type: string) {
-    switch (type) {
-      case 'image': return 'imagem';
-      case 'video': return 'vídeo';
-      case 'audio': return 'áudio';
-      case 'document': return 'documento';
-      default: return 'arquivo';
-    }
-  }
-
   async function handleConfirmMediaSend() {
     if (!pendingMediaSend) return;
     
@@ -278,7 +331,6 @@ export function MessageInput({ conversationId, onSend, isSending, onOpenSettings
     setPendingMediaSend(null);
   }
 
-  // Se o gravador de áudio está ativo
   if (showAudioRecorder) {
     return (
       <div className="p-4 border-t border-border bg-card/50">
@@ -323,7 +375,6 @@ export function MessageInput({ conversationId, onSend, isSending, onOpenSettings
                 {formatFileSize(filePreview.file.size)}
               </p>
 
-              {/* Mostrar campo de legenda apenas para imagem e vídeo */}
               {(filePreview.type === 'image' || filePreview.type === 'video') && (
                 <Input
                   placeholder="Adicionar legenda (opcional)"
@@ -389,45 +440,47 @@ export function MessageInput({ conversationId, onSend, isSending, onOpenSettings
         </Card>
       )}
 
-      {/* Quick Replies - Horizontal scroll */}
-      <div className="mb-3 overflow-hidden">
-        <div className="flex gap-2 pb-1 overflow-x-auto scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
-          {quickReplies.map((qr) => (
-            <Badge
-              key={qr.id}
-              variant="outline"
-              className="cursor-pointer hover:bg-primary/20 hover:border-primary transition-all text-xs whitespace-nowrap flex-shrink-0"
-              onClick={async () => {
-                if (qr.type !== 'text' && qr.media_url) {
-                  setPendingMediaSend({
-                    type: qr.type as any,
-                    content: qr.content || '',
-                    mediaUrl: qr.media_url,
-                    fileName: qr.media_filename,
-                    shortcut: qr.shortcut,
-                  });
-                } else {
-                  setMessage(qr.content || '');
-                }
-              }}
-              title={qr.description || qr.shortcut}
-            >
-              <Zap className="w-3 h-3 mr-1 text-primary" />
-              {qr.shortcut}
-            </Badge>
-          ))}
-          {onOpenSettings && (
-            <Badge
-              variant="outline"
-              className="cursor-pointer hover:bg-muted/50 transition-all text-xs whitespace-nowrap flex-shrink-0"
-              onClick={onOpenSettings}
-            >
-              <Settings className="w-3 h-3 mr-1" />
-              Configurar
-            </Badge>
-          )}
+      {/* Quick Replies - Horizontal scroll (apenas se ativadas) */}
+      {quickRepliesEnabled && quickReplies.length > 0 && (
+        <div className="mb-3 overflow-hidden">
+          <div className="flex gap-2 pb-1 overflow-x-auto scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
+            {quickReplies.map((qr) => (
+              <Badge
+                key={qr.id}
+                variant="outline"
+                className="cursor-pointer hover:bg-primary/20 hover:border-primary transition-all text-xs whitespace-nowrap flex-shrink-0"
+                onClick={async () => {
+                  if (qr.type !== 'text' && qr.media_url) {
+                    setPendingMediaSend({
+                      type: qr.type as any,
+                      content: qr.content || '',
+                      mediaUrl: qr.media_url,
+                      fileName: qr.media_filename,
+                      shortcut: qr.shortcut,
+                    });
+                  } else {
+                    setMessage(qr.content || '');
+                  }
+                }}
+                title={qr.description || qr.shortcut}
+              >
+                <Zap className="w-3 h-3 mr-1 text-primary" />
+                {qr.shortcut}
+              </Badge>
+            ))}
+            {onOpenSettings && (
+              <Badge
+                variant="outline"
+                className="cursor-pointer hover:bg-muted/50 transition-all text-xs whitespace-nowrap flex-shrink-0"
+                onClick={onOpenSettings}
+              >
+                <Settings className="w-3 h-3 mr-1" />
+                Configurar
+              </Badge>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="flex items-end gap-2">
         {/* Quick Actions */}
@@ -481,7 +534,7 @@ export function MessageInput({ conversationId, onSend, isSending, onOpenSettings
           onChange={handleMessageChange}
           onKeyDown={handleKeyPress}
           onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-          placeholder="Digite sua mensagem... (Enter para enviar, / para atalhos)"
+          placeholder={quickRepliesEnabled ? "Digite sua mensagem... (/ para atalhos)" : "Digite sua mensagem..."}
           className="flex-1 min-h-[44px] max-h-[120px] resize-none glass border-border focus:border-primary transition-all"
           disabled={isSending || !!filePreview}
         />
@@ -500,18 +553,24 @@ export function MessageInput({ conversationId, onSend, isSending, onOpenSettings
         </Button>
       </div>
 
-      {/* Media Confirmation Dialog */}
+      {/* Media Send Confirmation Dialog */}
       <AlertDialog open={!!pendingMediaSend} onOpenChange={(open) => !open && setPendingMediaSend(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar envio</AlertDialogTitle>
+            <AlertDialogTitle>Enviar Mídia</AlertDialogTitle>
             <AlertDialogDescription>
-              Deseja enviar a {getMediaTypeLabel(pendingMediaSend?.type || '')} "{pendingMediaSend?.shortcut}"?
+              Deseja enviar a mídia da resposta rápida <strong>{pendingMediaSend?.shortcut}</strong>?
+              {pendingMediaSend?.content && (
+                <span className="block mt-2 text-foreground">
+                  Legenda: {pendingMediaSend.content}
+                </span>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmMediaSend}>
+            <AlertDialogAction onClick={handleConfirmMediaSend} disabled={isSending}>
+              {isSending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Enviar
             </AlertDialogAction>
           </AlertDialogFooter>
