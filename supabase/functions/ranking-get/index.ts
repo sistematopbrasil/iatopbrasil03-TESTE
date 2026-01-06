@@ -78,13 +78,13 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // 1. Fetch all active consultants in the organization (including email for display)
+    // 1. Fetch all consultants in the organization (including email for display)
+    // Não filtrar por is_active para mostrar todos os consultores
     const { data: consultants, error: consultantsError } = await supabaseAdmin
       .from('users')
       .select('id, full_name, email, quiz_slug, profile_photo, is_active')
       .eq('organization_id', organizationId)
-      .in('role', ['admin', 'consultor'])
-      .eq('is_active', true);
+      .in('role', ['admin', 'consultor']);
 
     if (consultantsError) {
       console.error('❌ Consultants error:', consultantsError);

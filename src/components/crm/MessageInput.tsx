@@ -40,6 +40,8 @@ interface QuickReply {
   type: string;
   media_url: string | null;
   media_filename: string | null;
+  is_enabled: boolean;
+  order_index: number;
 }
 
 interface PendingMediaSend {
@@ -72,11 +74,20 @@ export function MessageInput({ conversationId, onSend, isSending, onOpenSettings
     try {
       const { data, error } = await supabase
         .from('crm_quick_replies')
-        .select('id, shortcut, content, description, type, media_url, media_filename')
-        .order('shortcut');
+        .select('id, shortcut, content, description, type, media_url, media_filename, is_enabled, order_index')
+        .eq('is_enabled', true)
+        .order('order_index');
 
       if (error) throw error;
-      setQuickReplies(data || []);
+      
+      // Map to ensure proper types
+      const mapped = (data || []).map((r, i) => ({
+        ...r,
+        is_enabled: r.is_enabled ?? true,
+        order_index: r.order_index ?? i,
+      }));
+      
+      setQuickReplies(mapped);
     } catch (error) {
       console.error('Error loading quick replies:', error);
     }

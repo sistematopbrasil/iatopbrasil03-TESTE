@@ -3,7 +3,7 @@ import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Trophy, TrendingUp, Users, Calendar, Loader2, Star } from 'lucide-react';
+import { Trophy, TrendingUp, Users, Calendar, Loader2, Star, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -130,15 +130,27 @@ export default function AdminRanking() {
 
           <Card className="p-6">
             <div className="flex items-center gap-3">
-              <Star className="w-8 h-8 text-primary" />
-              <div>
-                <p className="text-sm text-muted-foreground">
-                  {isAdmin ? 'Pontuação Total' : 'Sua Pontuação'}
-                </p>
-                <p className="text-2xl font-bold text-foreground">
-                  {isAdmin ? totals.points.toLocaleString() : (myData?.total_points || 0).toLocaleString()} pts
-                </p>
-              </div>
+              {isAdmin ? (
+                <>
+                  <UserPlus className="w-8 h-8 text-green-500" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Novos Consultores</p>
+                    <p className="text-2xl font-bold text-foreground">
+                      {totals.novosConsultores}
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Star className="w-8 h-8 text-primary" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Sua Pontuação</p>
+                    <p className="text-2xl font-bold text-foreground">
+                      {(myData?.total_points || 0).toLocaleString()} pts
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
           </Card>
 

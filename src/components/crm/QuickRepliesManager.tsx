@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import {
   Dialog,
   DialogContent,
@@ -20,9 +21,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Trash2, Edit, Zap, Loader2, Save, Image, Video, Music, FileText } from 'lucide-react';
+import { Plus, Trash2, Edit, Zap, Loader2, Save, Image, Video, Music, FileText, GripVertical } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 
 interface QuickReply {
   id: string;
@@ -32,13 +34,15 @@ interface QuickReply {
   type: string;
   media_url: string | null;
   media_filename: string | null;
+  is_enabled: boolean;
+  order_index: number;
 }
 
 const DEFAULT_QUICK_REPLIES = [
-  { shortcut: '/ola', content: 'Olá! Como posso ajudar você hoje?', description: 'Saudação', type: 'text' },
-  { shortcut: '/info', content: 'Obrigado pelo interesse! Posso enviar mais informações sobre nossos planos de proteção veicular?', description: 'Informação', type: 'text' },
-  { shortcut: '/agendar', content: 'Perfeito! Vou agendar uma apresentação para você. Qual o melhor horário?', description: 'Agendar', type: 'text' },
-  { shortcut: '/preco', content: 'Nossos valores variam de acordo com o veículo. Posso fazer uma cotação personalizada para você?', description: 'Preço', type: 'text' },
+  { shortcut: '/ola', content: 'Olá! Como posso ajudar você hoje?', description: 'Saudação', type: 'text', is_enabled: true, order_index: 0 },
+  { shortcut: '/info', content: 'Obrigado pelo interesse! Posso enviar mais informações sobre nossos planos de proteção veicular?', description: 'Informação', type: 'text', is_enabled: true, order_index: 1 },
+  { shortcut: '/agendar', content: 'Perfeito! Vou agendar uma apresentação para você. Qual o melhor horário?', description: 'Agendar', type: 'text', is_enabled: true, order_index: 2 },
+  { shortcut: '/preco', content: 'Nossos valores variam de acordo com o veículo. Posso fazer uma cotação personalizada para você?', description: 'Preço', type: 'text', is_enabled: true, order_index: 3 },
 ];
 
 export function QuickRepliesManager() {
@@ -64,7 +68,7 @@ export function QuickRepliesManager() {
       const { data, error } = await supabase
         .from('crm_quick_replies')
         .select('*')
-        .order('shortcut');
+        .order('order_index');
 
       if (error) throw error;
       
@@ -74,7 +78,14 @@ export function QuickRepliesManager() {
         return;
       }
       
-      setQuickReplies(data);
+      // Map para garantir que is_enabled e order_index existem
+      const mappedData = data.map((reply, index) => ({
+        ...reply,
+        is_enabled: reply.is_enabled ?? true,
+        order_index: reply.order_index ?? index,
+      }));
+      
+      setQuickReplies(mappedData);
     } catch (error) {
       console.error('Error loading quick replies:', error);
       toast.error('Erro ao carregar respostas rápidas');
@@ -127,7 +138,13 @@ export function QuickRepliesManager() {
         throw error;
       }
       
-      setQuickReplies(data || []);
+      const mappedData = (data || []).map((reply, index) => ({
+        ...reply,
+        is_enabled: reply.is_enabled ?? true,
+        order_index: reply.order_index ?? index,
+      }));
+      
+      setQuickReplies(mappedData);
       toast.success('Respostas rápidas padrão criadas!');
     } catch (error) {
       console.error('Error creating default replies:', error);
@@ -228,7 +245,11 @@ export function QuickRepliesManager() {
         if (error) throw error;
         toast.success('Resposta atualizada!');
       } else {
-        // Create
+        // Create - add at the end
+        const maxOrder = quickReplies.length > 0 
+          ? Math.max(...quickReplies.map(r => r.order_index)) 
+          : -1;
+        
         const { error } = await supabase
           .from('crm_quick_replies')
           .insert({
@@ -240,6 +261,8 @@ export function QuickRepliesManager() {
             media_filename: mediaType !== 'text' ? mediaFilename : null,
             user_id: userData.id,
             organization_id: userData.organization_id,
+            is_enabled: true,
+            order_index: maxOrder + 1,
           });
 
         if (error) throw error;
@@ -274,6 +297,65 @@ export function QuickRepliesManager() {
     }
   }
 
+  async function handleToggleEnabled(id: string, enabled: boolean) {
+    try {
+      const { error } = await supabase
+        .from('crm_quick_replies')
+        .update({ is_enabled: enabled })
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      setQuickReplies(prev => 
+        prev.map(r => r.id === id ? { ...r, is_enabled: enabled } : r)
+      );
+      
+      toast.success(enabled ? 'Resposta ativada!' : 'Resposta desativada!');
+    } catch (error) {
+      console.error('Error toggling:', error);
+      toast.error('Erro ao alterar status');
+    }
+  }
+
+  async function handleDragEnd(result: DropResult) {
+    if (!result.destination) return;
+    
+    const sourceIndex = result.source.index;
+    const destIndex = result.destination.index;
+    
+    if (sourceIndex === destIndex) return;
+
+    // Reorder locally first for immediate feedback
+    const reordered = Array.from(quickReplies);
+    const [removed] = reordered.splice(sourceIndex, 1);
+    reordered.splice(destIndex, 0, removed);
+    
+    // Update order_index for each item
+    const updated = reordered.map((item, index) => ({
+      ...item,
+      order_index: index,
+    }));
+    
+    setQuickReplies(updated);
+
+    // Update in database
+    try {
+      const updates = updated.map(item => 
+        supabase
+          .from('crm_quick_replies')
+          .update({ order_index: item.order_index })
+          .eq('id', item.id)
+      );
+      
+      await Promise.all(updates);
+      toast.success('Ordem atualizada!');
+    } catch (error) {
+      console.error('Error updating order:', error);
+      toast.error('Erro ao atualizar ordem');
+      loadQuickReplies(); // Revert on error
+    }
+  }
+
   function getTypeIcon(type: string) {
     switch (type) {
       case 'image': return <Image className="w-4 h-4" />;
@@ -298,7 +380,7 @@ export function QuickRepliesManager() {
         <div>
           <h3 className="font-semibold text-foreground">Respostas Rápidas</h3>
           <p className="text-sm text-muted-foreground">
-            Configure atalhos para enviar mensagens frequentes
+            Configure atalhos para enviar mensagens frequentes. Arraste para reordenar.
           </p>
         </div>
         <Button onClick={openNewDialog} className="bg-primary">
@@ -317,53 +399,90 @@ export function QuickRepliesManager() {
           </Button>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {quickReplies.map((reply) => (
-            <Card key={reply.id} className="glass p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Badge variant="outline" className="text-primary border-primary/30">
-                      {getTypeIcon(reply.type)}
-                      <span className="ml-1">{reply.shortcut}</span>
-                    </Badge>
-                    {reply.description && (
-                      <span className="text-xs text-muted-foreground">{reply.description}</span>
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <Droppable droppableId="quick-replies">
+            {(provided) => (
+              <div 
+                {...provided.droppableProps} 
+                ref={provided.innerRef}
+                className="space-y-3"
+              >
+                {quickReplies.map((reply, index) => (
+                  <Draggable key={reply.id} draggableId={reply.id} index={index}>
+                    {(provided, snapshot) => (
+                      <Card 
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        className={`glass p-4 transition-all ${
+                          snapshot.isDragging ? 'shadow-lg ring-2 ring-primary' : ''
+                        } ${!reply.is_enabled ? 'opacity-50' : ''}`}
+                      >
+                        <div className="flex items-start gap-3">
+                          {/* Drag Handle */}
+                          <div 
+                            {...provided.dragHandleProps}
+                            className="cursor-grab active:cursor-grabbing mt-1"
+                          >
+                            <GripVertical className="w-5 h-5 text-muted-foreground" />
+                          </div>
+
+                          {/* Content */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                              <Badge variant="outline" className="text-primary border-primary/30">
+                                {getTypeIcon(reply.type)}
+                                <span className="ml-1">{reply.shortcut}</span>
+                              </Badge>
+                              {reply.description && (
+                                <span className="text-xs text-muted-foreground">{reply.description}</span>
+                              )}
+                              {reply.type !== 'text' && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {reply.type === 'image' ? '🖼️ Imagem' :
+                                   reply.type === 'video' ? '🎥 Vídeo' :
+                                   reply.type === 'audio' ? '🎵 Áudio' : '📄 Documento'}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-foreground line-clamp-2">
+                              {reply.content || reply.media_filename || 'Arquivo de mídia'}
+                            </p>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={reply.is_enabled}
+                              onCheckedChange={(checked) => handleToggleEnabled(reply.id, checked)}
+                              aria-label="Ativar/desativar resposta"
+                            />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEditDialog(reply)}
+                              className="hover:bg-primary/20 h-8 w-8 p-0"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDelete(reply.id)}
+                              className="hover:bg-destructive/20 hover:text-destructive h-8 w-8 p-0"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </Card>
                     )}
-                    {reply.type !== 'text' && (
-                      <Badge variant="secondary" className="text-xs">
-                        {reply.type === 'image' ? '🖼️ Imagem' :
-                         reply.type === 'video' ? '🎥 Vídeo' :
-                         reply.type === 'audio' ? '🎵 Áudio' : '📄 Documento'}
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-sm text-foreground line-clamp-2">
-                    {reply.content || reply.media_filename || 'Arquivo de mídia'}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => openEditDialog(reply)}
-                    className="hover:bg-primary/20"
-                  >
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDelete(reply.id)}
-                    className="hover:bg-destructive/20 hover:text-destructive"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
+                  </Draggable>
+                ))}
+                {provided.placeholder}
               </div>
-            </Card>
-          ))}
-        </div>
+            )}
+          </Droppable>
+        </DragDropContext>
       )}
 
       {/* Create/Edit Dialog */}
