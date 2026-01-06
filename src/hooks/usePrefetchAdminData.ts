@@ -5,7 +5,7 @@ import { getCurrentConsultant, isSuperAdmin } from '@/lib/consultant-context';
 
 /**
  * Hook para pré-carregar dados das páginas de admin em background
- * Isso garante que Settings, Ranking e Analytics abram instantaneamente
+ * Isso garante que Settings, Ranking, Analytics e CRM abram instantaneamente
  */
 export function usePrefetchAdminData() {
   const queryClient = useQueryClient();
@@ -28,7 +28,6 @@ export function usePrefetchAdminData() {
         });
 
         // Prefetch quiz questions (usado em Settings)
-        // Usamos tipagem explícita para evitar erro de tipo profundo
         (supabase.from('quiz_questions') as any)
           .select('*')
           .eq('user_id', userId)
@@ -51,7 +50,6 @@ export function usePrefetchAdminData() {
           });
 
         // Prefetch app settings
-        // Usamos tipagem explícita para evitar erro de tipo profundo
         (supabase.from('app_settings') as any)
           .select('*')
           .eq('user_id', userId)
@@ -59,6 +57,55 @@ export function usePrefetchAdminData() {
           .then(({ data }: { data: unknown }) => {
             if (data) {
               queryClient.setQueryData(['app-settings', userId], data);
+            }
+          });
+
+        // =============================================
+        // PREFETCH CRM DATA
+        // =============================================
+        
+        // Prefetch conversas do CRM
+        supabase
+          .from('crm_conversations')
+          .select('*, lead:quiz_submissions_new(*)')
+          .order('last_message_at', { ascending: false })
+          .limit(50)
+          .then(({ data }) => {
+            if (data) {
+              queryClient.setQueryData(['conversations', 'all', ''], data);
+            }
+          });
+
+        // Prefetch instância WhatsApp
+        supabase
+          .from('whatsapp_instances')
+          .select('*')
+          .limit(1)
+          .maybeSingle()
+          .then(({ data }) => {
+            if (data) {
+              queryClient.setQueryData(['whatsapp-instance'], data);
+            }
+          });
+
+        // Prefetch respostas rápidas
+        supabase
+          .from('crm_quick_replies')
+          .select('*')
+          .order('order_index')
+          .then(({ data }) => {
+            if (data) {
+              queryClient.setQueryData(['quick-replies'], data);
+            }
+          });
+
+        // Prefetch configurações do CRM
+        (supabase.from('crm_settings') as any)
+          .select('*')
+          .maybeSingle()
+          .then(({ data }: { data: unknown }) => {
+            if (data) {
+              queryClient.setQueryData(['crm-settings'], data);
             }
           });
 

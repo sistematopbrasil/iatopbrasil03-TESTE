@@ -10,6 +10,7 @@ import { useWhatsAppConnectionContext } from '@/contexts/WhatsAppConnectionConte
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
 import { LeadProfile } from './LeadProfile';
+import { CreateLeadFromConversation } from './CreateLeadFromConversation';
 import { TemperatureBadge } from '@/components/ui/temperature-badge';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPhoneDisplay } from '@/lib/phone-utils';
@@ -224,6 +225,17 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
 
             {/* Actions */}
             <div className="flex items-center gap-1 flex-shrink-0">
+              {/* Botão Criar Lead - só aparece se não tiver lead vinculado */}
+              {!conversation.lead_id && (
+                <CreateLeadFromConversation 
+                  conversation={conversation} 
+                  onLeadCreated={() => {
+                    queryClient.invalidateQueries({ queryKey: ['conversations'] });
+                    queryClient.invalidateQueries({ queryKey: ['lead-stage', conversation?.lead_id] });
+                  }}
+                />
+              )}
+
               {conversation.lead_id && pipelineStages.length > 0 && (
                 <div className="hidden sm:flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">Quadro:</span>
