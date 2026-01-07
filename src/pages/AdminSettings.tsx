@@ -9,9 +9,12 @@ export default function AdminSettings() {
   const { data: currentUser, isLoading } = useQuery({
     queryKey: ['current-user-settings'],
     queryFn: getCurrentConsultant,
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (prev) => prev,
   });
 
-  if (isLoading) {
+  // Só mostrar loading se não temos dados ainda
+  if (isLoading && !currentUser) {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center py-12">

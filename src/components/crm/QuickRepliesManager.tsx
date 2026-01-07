@@ -26,6 +26,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { createPortal } from 'react-dom';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface QuickReply {
   id: string;
@@ -46,6 +47,7 @@ const DEFAULT_QUICK_REPLIES = [
 ];
 
 export function QuickRepliesManager() {
+  const queryClient = useQueryClient();
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
@@ -325,6 +327,8 @@ export function QuickRepliesManager() {
 
       setShowDialog(false);
       loadQuickReplies();
+      // ✅ Invalidar cache para atualizar em tempo real
+      queryClient.invalidateQueries({ queryKey: ['quick-replies'] });
     } catch (error: any) {
       console.error('Error saving quick reply:', error);
       toast.error(error.message || 'Erro ao salvar');
@@ -345,6 +349,8 @@ export function QuickRepliesManager() {
       if (error) throw error;
       toast.success('Resposta excluída!');
       loadQuickReplies();
+      // ✅ Invalidar cache para atualizar em tempo real
+      queryClient.invalidateQueries({ queryKey: ['quick-replies'] });
     } catch (error) {
       console.error('Error deleting:', error);
       toast.error('Erro ao excluir');
@@ -380,6 +386,8 @@ export function QuickRepliesManager() {
       
       await Promise.all(updates);
       toast.success('Ordem atualizada!');
+      // ✅ Invalidar cache para atualizar em tempo real
+      queryClient.invalidateQueries({ queryKey: ['quick-replies'] });
     } catch (error) {
       console.error('Error updating order:', error);
       toast.error('Erro ao atualizar ordem');
@@ -569,7 +577,7 @@ export function QuickRepliesManager() {
                 <p className="text-xs text-muted-foreground">Começa com /</p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="description">Descrição (opcional)</Label>
+                <Label htmlFor="description">Título (opcional)</Label>
                 <Input
                   id="description"
                   value={description}

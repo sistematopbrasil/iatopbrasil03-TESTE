@@ -77,6 +77,8 @@ const AdminAnalytics = () => {
   const { data: currentUser } = useQuery({
     queryKey: ['current-user-analytics'],
     queryFn: getCurrentConsultant,
+    staleTime: 5 * 60 * 1000,
+    placeholderData: (prev) => prev,
   });
 
   // Buscar submissões da tabela correta (quiz_submissions_new)
