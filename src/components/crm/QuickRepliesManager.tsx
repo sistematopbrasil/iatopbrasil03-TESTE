@@ -207,7 +207,7 @@ export function QuickRepliesManager() {
       }));
       
       setQuickReplies(mappedData);
-      toast.success('Respostas rápidas padrão criadas!');
+      // Silencioso - não exibir toast para criação automática
     } catch (error) {
       console.error('Error creating default replies:', error);
     } finally {

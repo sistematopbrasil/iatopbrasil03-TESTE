@@ -179,74 +179,140 @@ serve(async (req) => {
       }
 
       case 'messages_upsert': {
-        console.log('💬 Nova mensagem');
+        console.log('💬 Nova mensagem recebida');
         
         const messages = data?.messages || [data];
+        console.log(`📨 Total de mensagens no payload: ${messages.length}`);
         
         for (const message of messages) {
-          const key = message.key;
-          const messageContent = message.message;
-          
-          if (!key || !messageContent) continue;
-          
-          // Ignorar mensagens enviadas por nós
-          if (key.fromMe) continue;
-          
-          const remoteJid = key.remoteJid;
-          const rawPhone = remoteJid?.replace('@s.whatsapp.net', '').replace('@g.us', '');
-          
-          if (!rawPhone) continue;
-
-          // ✅ NORMALIZAR TELEFONE E GERAR VARIANTES
-          const normalizedPhone = normalizePhone(rawPhone);
-          const phoneVariants = getPhoneVariants(rawPhone);
-          
-          console.log('📱 Telefone:', normalizedPhone, 'Variantes:', phoneVariants);
-          
-          // Determinar tipo e conteúdo da mensagem
-          let type = 'text';
-          let content = '';
-          let mediaUrl: string | null = null;
-          let mediaMimetype: string | null = null;
-          let mediaFilename: string | null = null;
-          let mediaSize: number | null = null;
-          
-          if (messageContent.conversation) {
-            content = messageContent.conversation;
-          } else if (messageContent.extendedTextMessage?.text) {
-            content = messageContent.extendedTextMessage.text;
-          } else if (messageContent.imageMessage) {
-            type = 'image';
-            content = messageContent.imageMessage.caption || '';
-            mediaMimetype = messageContent.imageMessage.mimetype;
-            mediaSize = messageContent.imageMessage.fileLength;
-          } else if (messageContent.videoMessage) {
-            type = 'video';
-            content = messageContent.videoMessage.caption || '';
-            mediaMimetype = messageContent.videoMessage.mimetype;
-            mediaSize = messageContent.videoMessage.fileLength;
-          } else if (messageContent.audioMessage) {
-            type = 'audio';
-            mediaMimetype = messageContent.audioMessage.mimetype;
-            mediaSize = messageContent.audioMessage.fileLength;
-          } else if (messageContent.documentMessage) {
-            type = 'document';
-            mediaFilename = messageContent.documentMessage.fileName;
-            mediaMimetype = messageContent.documentMessage.mimetype;
-            mediaSize = messageContent.documentMessage.fileLength;
-          } else if (messageContent.stickerMessage) {
-            type = 'sticker';
-            mediaMimetype = messageContent.stickerMessage.mimetype;
-          } else if (messageContent.locationMessage) {
-            type = 'location';
-            content = JSON.stringify({
-              latitude: messageContent.locationMessage.degreesLatitude,
-              longitude: messageContent.locationMessage.degreesLongitude,
+          try {
+            const key = message.key;
+            let messageContent = message.message;
+            
+            // ✅ Log detalhado para debug
+            console.log('🔍 Processando mensagem:', { 
+              hasKey: !!key, 
+              hasMessage: !!messageContent,
+              messageId: key?.id,
+              fromMe: key?.fromMe,
+              remoteJid: key?.remoteJid,
             });
-          } else if (messageContent.contactMessage) {
-            type = 'contact';
-            content = messageContent.contactMessage.displayName;
-          }
+            
+            if (!key) {
+              console.log('⏭️ Pulando: sem key');
+              continue;
+            }
+            
+            // ✅ Unwrap de formatos encapsulados do WhatsApp
+            if (!messageContent && message.message) {
+              messageContent = message.message;
+            }
+            
+            // Desembrulhar mensagens efêmeras e ViewOnce
+            if (messageContent?.ephemeralMessage?.message) {
+              console.log('📦 Desembrulhando ephemeralMessage');
+              messageContent = messageContent.ephemeralMessage.message;
+            }
+            if (messageContent?.viewOnceMessage?.message) {
+              console.log('📦 Desembrulhando viewOnceMessage');
+              messageContent = messageContent.viewOnceMessage.message;
+            }
+            if (messageContent?.viewOnceMessageV2?.message) {
+              console.log('📦 Desembrulhando viewOnceMessageV2');
+              messageContent = messageContent.viewOnceMessageV2.message;
+            }
+            if (messageContent?.viewOnceMessageV2Extension?.message) {
+              console.log('📦 Desembrulhando viewOnceMessageV2Extension');
+              messageContent = messageContent.viewOnceMessageV2Extension.message;
+            }
+            if (messageContent?.documentWithCaptionMessage?.message) {
+              console.log('📦 Desembrulhando documentWithCaptionMessage');
+              messageContent = messageContent.documentWithCaptionMessage.message;
+            }
+            
+            if (!messageContent) {
+              console.log('⏭️ Pulando: sem messageContent após unwrap');
+              continue;
+            }
+            
+            // Ignorar mensagens enviadas por nós
+            if (key.fromMe) {
+              console.log('⏭️ Pulando: fromMe=true');
+              continue;
+            }
+            
+            const remoteJid = key.remoteJid;
+            
+            // ✅ Ignorar grupos explicitamente
+            if (remoteJid?.endsWith('@g.us')) {
+              console.log('⏭️ Pulando: mensagem de grupo');
+              continue;
+            }
+            
+            const rawPhone = remoteJid?.replace('@s.whatsapp.net', '').replace('@g.us', '');
+            
+            if (!rawPhone) {
+              console.log('⏭️ Pulando: telefone vazio');
+              continue;
+            }
+
+            // ✅ NORMALIZAR TELEFONE E GERAR VARIANTES
+            const normalizedPhone = normalizePhone(rawPhone);
+            const phoneVariants = getPhoneVariants(rawPhone);
+            
+            console.log('📱 Telefone:', normalizedPhone, 'Variantes:', phoneVariants);
+            
+            // Determinar tipo e conteúdo da mensagem
+            let type = 'text';
+            let content = '';
+            let mediaUrl: string | null = null;
+            let mediaMimetype: string | null = null;
+            let mediaFilename: string | null = null;
+            let mediaSize: number | null = null;
+            
+            if (messageContent.conversation) {
+              content = messageContent.conversation;
+            } else if (messageContent.extendedTextMessage?.text) {
+              content = messageContent.extendedTextMessage.text;
+            } else if (messageContent.imageMessage) {
+              type = 'image';
+              content = messageContent.imageMessage.caption || '';
+              mediaMimetype = messageContent.imageMessage.mimetype;
+              mediaSize = messageContent.imageMessage.fileLength;
+            } else if (messageContent.videoMessage) {
+              type = 'video';
+              content = messageContent.videoMessage.caption || '';
+              mediaMimetype = messageContent.videoMessage.mimetype;
+              mediaSize = messageContent.videoMessage.fileLength;
+            } else if (messageContent.audioMessage) {
+              type = 'audio';
+              mediaMimetype = messageContent.audioMessage.mimetype;
+              mediaSize = messageContent.audioMessage.fileLength;
+            } else if (messageContent.documentMessage) {
+              type = 'document';
+              mediaFilename = messageContent.documentMessage.fileName;
+              mediaMimetype = messageContent.documentMessage.mimetype;
+              mediaSize = messageContent.documentMessage.fileLength;
+            } else if (messageContent.stickerMessage) {
+              type = 'sticker';
+              mediaMimetype = messageContent.stickerMessage.mimetype;
+            } else if (messageContent.locationMessage) {
+              type = 'location';
+              content = JSON.stringify({
+                latitude: messageContent.locationMessage.degreesLatitude,
+                longitude: messageContent.locationMessage.degreesLongitude,
+              });
+            } else if (messageContent.contactMessage) {
+              type = 'contact';
+              content = messageContent.contactMessage.displayName;
+            } else {
+              // ✅ Tipo não reconhecido - logar e continuar mesmo assim
+              console.log('⚠️ Tipo de mensagem não reconhecido:', Object.keys(messageContent));
+              type = 'text';
+              content = '[Mensagem não suportada]';
+            }
+            
+            console.log('📝 Tipo detectado:', type, '| Conteúdo:', content?.substring(0, 50) || '(vazio)');
 
           // ✅ BUSCAR MÍDIA SE FOR MENSAGEM DE MÍDIA
           if (['image', 'video', 'audio', 'document', 'sticker'].includes(type)) {
@@ -490,6 +556,11 @@ serve(async (req) => {
                 console.warn('⚠️ Erro ao mover lead:', moveError);
               }
             }
+          }
+          } catch (messageError) {
+            // ✅ Capturar erro de uma mensagem sem interromper as demais
+            console.error('❌ Erro ao processar mensagem individual:', messageError);
+            console.error('📌 Message key:', message?.key);
           }
         }
         break;
