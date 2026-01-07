@@ -469,21 +469,10 @@ serve(async (req) => {
             }
           }
           
-          // Verificar se mensagem já existe (usando maybeSingle para não dar erro)
-          const { data: existingMsg } = await supabaseAdmin
-            .from('crm_messages')
-            .select('id')
-            .eq('message_id', key.id)
-            .maybeSingle();
-          
-          if (existingMsg) {
-            console.log('⚠️ Mensagem duplicada ignorada:', key.id);
-            continue;
-          }
-          
-          // Inserir mensagem com tratamento de erro detalhado
+          // ✅ Inserir mensagem com instance_id para unicidade por instância
           const messageData = {
             conversation_id: conversation.id,
+            instance_id: instance.id,
             message_id: key.id,
             direction: 'incoming',
             type,
@@ -498,28 +487,28 @@ serve(async (req) => {
           };
           
           console.log('📝 Inserindo mensagem:', { 
+            instance_id: instance.id,
             conversation_id: conversation.id, 
             message_id: key.id, 
             type, 
             content_preview: content?.substring(0, 50) 
           });
           
+          // ✅ Usar upsert para evitar erros de duplicata - unique é (instance_id, message_id)
           const { error: msgError, data: insertedMsg } = await supabaseAdmin
             .from('crm_messages')
-            .insert(messageData)
+            .upsert(messageData, { 
+              onConflict: 'instance_id,message_id',
+              ignoreDuplicates: false 
+            })
             .select('id')
             .single();
           
           if (msgError) {
-            // Se for erro de duplicata (race condition), apenas logar
-            if (msgError.code === '23505') {
-              console.log('⚠️ Mensagem duplicada (race condition):', key.id);
-            } else {
-              console.error('❌ Erro ao inserir mensagem:', msgError);
-              console.error('📌 Dados da mensagem:', messageData);
-            }
+            console.error('❌ Erro ao inserir/atualizar mensagem:', msgError);
+            console.error('📌 Dados da mensagem:', messageData);
           } else {
-            console.log('✅ Mensagem inserida:', insertedMsg?.id, 'Tipo:', type, 'URL:', mediaUrl);
+            console.log('✅ Mensagem inserida/atualizada:', insertedMsg?.id, 'Tipo:', type, 'URL:', mediaUrl);
             
             // Mover lead para "Primeiro Contato" se estiver no primeiro quadro
             if (conversation.lead_id) {
