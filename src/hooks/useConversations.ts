@@ -80,7 +80,8 @@ export function useConversations() {
     queryClient.invalidateQueries({ queryKey: ['conversations'] });
   }
 
-  const totalUnread = conversations.reduce((sum, conv) => sum + conv.unread_count, 0);
+  // Conta quantas CONVERSAS têm mensagens não lidas (não o total de mensagens)
+  const totalUnread = conversations.filter(conv => conv.unread_count > 0).length;
 
   return {
     conversations,
