@@ -108,9 +108,14 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
         .from('crm_conversations')
         .update({ unread_count: 0 })
         .eq('id', conversation.id)
-        .then(() => {});
+        .then(({ error }) => {
+          if (!error) {
+            // Invalidar cache para atualizar a lista de conversas
+            queryClient.invalidateQueries({ queryKey: ['conversations'] });
+          }
+        });
     }
-  }, [conversation?.id]);
+  }, [conversation?.id, conversation?.unread_count, queryClient]);
 
   // Handler para envio que verifica reconexão
   const handleSendMessage = async (type: string, content: string, mediaUrl?: string, fileName?: string) => {

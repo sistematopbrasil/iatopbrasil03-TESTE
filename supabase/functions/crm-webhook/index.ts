@@ -403,35 +403,57 @@ serve(async (req) => {
             }
           }
           
-          // Verificar se mensagem já existe
+          // Verificar se mensagem já existe (usando maybeSingle para não dar erro)
           const { data: existingMsg } = await supabaseAdmin
             .from('crm_messages')
             .select('id')
             .eq('message_id', key.id)
+            .maybeSingle();
+          
+          if (existingMsg) {
+            console.log('⚠️ Mensagem duplicada ignorada:', key.id);
+            continue;
+          }
+          
+          // Inserir mensagem com tratamento de erro detalhado
+          const messageData = {
+            conversation_id: conversation.id,
+            message_id: key.id,
+            direction: 'incoming',
+            type,
+            content,
+            media_url: mediaUrl,
+            media_mimetype: mediaMimetype,
+            media_filename: mediaFilename,
+            media_size: mediaSize,
+            status: 'delivered',
+            timestamp: new Date(message.messageTimestamp * 1000).toISOString(),
+            metadata: message,
+          };
+          
+          console.log('📝 Inserindo mensagem:', { 
+            conversation_id: conversation.id, 
+            message_id: key.id, 
+            type, 
+            content_preview: content?.substring(0, 50) 
+          });
+          
+          const { error: msgError, data: insertedMsg } = await supabaseAdmin
+            .from('crm_messages')
+            .insert(messageData)
+            .select('id')
             .single();
           
-          if (existingMsg) continue;
-          
-          // Inserir mensagem
-          const { error: msgError } = await supabaseAdmin
-            .from('crm_messages')
-            .insert({
-              conversation_id: conversation.id,
-              message_id: key.id,
-              direction: 'incoming',
-              type,
-              content,
-              media_url: mediaUrl,
-              media_mimetype: mediaMimetype,
-              media_filename: mediaFilename,
-              media_size: mediaSize,
-              status: 'delivered',
-              timestamp: new Date(message.messageTimestamp * 1000).toISOString(),
-              metadata: message,
-            });
-          
-          if (!msgError) {
-            console.log('✅ Mensagem inserida na conversa:', conversation.id, 'Tipo:', type, 'URL:', mediaUrl);
+          if (msgError) {
+            // Se for erro de duplicata (race condition), apenas logar
+            if (msgError.code === '23505') {
+              console.log('⚠️ Mensagem duplicada (race condition):', key.id);
+            } else {
+              console.error('❌ Erro ao inserir mensagem:', msgError);
+              console.error('📌 Dados da mensagem:', messageData);
+            }
+          } else {
+            console.log('✅ Mensagem inserida:', insertedMsg?.id, 'Tipo:', type, 'URL:', mediaUrl);
             
             // Mover lead para "Primeiro Contato" se estiver no primeiro quadro
             if (conversation.lead_id) {
@@ -468,8 +490,6 @@ serve(async (req) => {
                 console.warn('⚠️ Erro ao mover lead:', moveError);
               }
             }
-          } else {
-            console.error('❌ Erro ao inserir mensagem:', msgError);
           }
         }
         break;

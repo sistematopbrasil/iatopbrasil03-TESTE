@@ -224,9 +224,16 @@ serve(async (req) => {
     const EVOLUTION_API_KEY = Deno.env.get('EVOLUTION_API_KEY');
     
     if (EVOLUTION_API_URL && EVOLUTION_API_KEY) {
-      try {
+    try {
         const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/crm-webhook`;
-        const instanceName = userData.id.replace(/-/g, '').substring(0, 15) + Date.now().toString(36);
+        // Gerar nome legível baseado no nome do consultor
+        const sanitizedName = full_name
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+          .replace(/[^a-z0-9]/g, '') // Remove caracteres especiais
+          .substring(0, 20);
+        const instanceName = sanitizedName + Date.now().toString(36).substring(0, 5);
 
         console.log('Creating WhatsApp instance for consultant:', instanceName);
 
