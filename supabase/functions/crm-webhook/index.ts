@@ -235,11 +235,10 @@ serve(async (req) => {
               continue;
             }
             
-            // Ignorar mensagens enviadas por nós
-            if (key.fromMe) {
-              console.log('⏭️ Pulando: fromMe=true');
-              continue;
-            }
+            // ✅ Processar mensagens enviadas pelo app do WhatsApp (fromMe = true)
+            // Isso permite que mensagens enviadas fora do CRM apareçam no histórico
+            const direction = key.fromMe ? 'outgoing' : 'incoming';
+            console.log(`📤 Direção: ${direction} (fromMe: ${key.fromMe})`);
             
             const remoteJid = key.remoteJid;
             
@@ -474,14 +473,14 @@ serve(async (req) => {
             conversation_id: conversation.id,
             instance_id: instance.id,
             message_id: key.id,
-            direction: 'incoming',
+            direction, // ✅ Usar direction dinâmico (incoming/outgoing)
             type,
             content,
             media_url: mediaUrl,
             media_mimetype: mediaMimetype,
             media_filename: mediaFilename,
             media_size: mediaSize,
-            status: 'delivered',
+            status: direction === 'outgoing' ? 'sent' : 'delivered', // ✅ Status apropriado
             timestamp: new Date(message.messageTimestamp * 1000).toISOString(),
             metadata: message,
           };
@@ -510,8 +509,8 @@ serve(async (req) => {
           } else {
             console.log('✅ Mensagem inserida/atualizada:', insertedMsg?.id, 'Tipo:', type, 'URL:', mediaUrl);
             
-            // Mover lead para "Primeiro Contato" se estiver no primeiro quadro
-            if (conversation.lead_id) {
+            // Mover lead para "Primeiro Contato" se estiver no primeiro quadro (apenas para mensagens recebidas)
+            if (conversation.lead_id && direction === 'incoming') {
               try {
                 const { data: stages } = await supabaseAdmin
                   .from('pipeline_stages')
