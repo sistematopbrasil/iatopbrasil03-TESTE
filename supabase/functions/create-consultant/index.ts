@@ -217,6 +217,66 @@ serve(async (req) => {
       console.log('Default questions created successfully');
     }
 
+    // =========================================
+    // Criar instância WhatsApp automaticamente
+    // =========================================
+    const EVOLUTION_API_URL = Deno.env.get('EVOLUTION_API_URL');
+    const EVOLUTION_API_KEY = Deno.env.get('EVOLUTION_API_KEY');
+    
+    if (EVOLUTION_API_URL && EVOLUTION_API_KEY) {
+      try {
+        const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/crm-webhook`;
+        const instanceName = userData.id.replace(/-/g, '').substring(0, 15) + Date.now().toString(36);
+
+        console.log('Creating WhatsApp instance for consultant:', instanceName);
+
+        const evolutionResponse = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': EVOLUTION_API_KEY,
+          },
+          body: JSON.stringify({
+            instanceName,
+            qrcode: true,
+            integration: 'WHATSAPP-BAILEYS',
+            webhook: {
+              url: webhookUrl,
+              events: ['QRCODE_UPDATED', 'CONNECTION_UPDATE', 'MESSAGES_UPSERT', 'MESSAGES_UPDATE', 'SEND_MESSAGE'],
+            },
+          }),
+        });
+
+        if (evolutionResponse.ok) {
+          // Salvar instância no banco
+          const { error: instanceError } = await supabaseAdmin
+            .from('whatsapp_instances')
+            .insert({
+              user_id: userData.id,
+              organization_id: organization_id,
+              instance_name: instanceName,
+              instance_key: instanceName,
+              status: 'disconnected',
+              webhook_url: webhookUrl,
+            });
+
+          if (instanceError) {
+            console.warn('⚠️ Erro ao salvar instância WhatsApp:', instanceError);
+          } else {
+            console.log('✅ Instância WhatsApp criada automaticamente:', instanceName);
+          }
+        } else {
+          const errText = await evolutionResponse.text();
+          console.warn('⚠️ Erro na Evolution API:', errText);
+        }
+      } catch (instanceError) {
+        console.warn('⚠️ Erro ao criar instância WhatsApp (não crítico):', instanceError);
+        // Não falhar a criação do consultor por causa disso
+      }
+    } else {
+      console.log('⚠️ Evolution API não configurada, pulando criação de instância WhatsApp');
+    }
+
     return new Response(
       JSON.stringify({ success: true, email, consultant_id: userData.id }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
