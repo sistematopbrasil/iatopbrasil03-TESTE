@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useRef, useCallback, Re
 import { supabase } from '@/integrations/supabase/client';
 import { crmService, WhatsAppInstance } from '@/lib/crm-service';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface WhatsAppConnectionContextType {
   instance: WhatsAppInstance | null;
@@ -30,6 +31,7 @@ const QR_FAST_POLL_ATTEMPTS = 40;
 const QR_FAST_POLL_DELAY = 150;
 
 export function WhatsAppConnectionProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [instance, setInstance] = useState<WhatsAppInstance | null>(null);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -231,11 +233,39 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
 
   const loadInstance = useCallback(async () => {
     if (!mountedRef.current) return;
-    setIsLoading(true);
+    
+    // Primeiro, tentar usar dados do cache para carregar instantaneamente
+    const cachedInstance = queryClient.getQueryData<WhatsAppInstance>(['whatsapp-instance']);
+    if (cachedInstance) {
+      console.log('📦 Usando instância do cache:', cachedInstance.status);
+      setInstance(cachedInstance);
+      if (cachedInstance.status === 'connected') {
+        setConnectionVerified(true);
+        setIsLoading(false);
+        // Verificar saúde em background, sem bloquear UI
+        checkConnectionHealth();
+        return;
+      } else if (cachedInstance.status === 'connecting' && cachedInstance.qr_code) {
+        setQrCode(cachedInstance.qr_code);
+        setIsConnecting(true);
+        setIsLoading(false);
+        return;
+      }
+      // Se não está conectado, continuamos para buscar dados atualizados
+      setIsLoading(false);
+    } else {
+      setIsLoading(true);
+    }
+    
     try {
       const data = await crmService.getInstance();
       if (!mountedRef.current) return;
       setInstance(data);
+      
+      // Atualizar cache
+      if (data) {
+        queryClient.setQueryData(['whatsapp-instance'], data);
+      }
 
       if (data?.status === 'connecting') {
         setIsConnecting(true);
@@ -243,8 +273,10 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
           setQrCode(data.qr_code);
         }
       } else if (data?.status === 'connected') {
-        const isReallyConnected = await checkConnectionHealth();
-        setConnectionVerified(isReallyConnected);
+        // Verificar saúde sem bloquear
+        checkConnectionHealth().then(isReallyConnected => {
+          setConnectionVerified(isReallyConnected);
+        });
       }
     } catch (error) {
       console.error('Erro ao carregar instância:', error);
@@ -253,7 +285,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
         setIsLoading(false);
       }
     }
-  }, []);
+  }, [queryClient]);
 
   const refreshFromDatabase = useCallback(async () => {
     try {

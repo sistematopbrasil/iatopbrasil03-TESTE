@@ -153,7 +153,7 @@ export function ConnectionPanel({ onOpenConversations, hideOpenConversationsButt
     );
   }
 
-  // Sem conexão - tela inicial
+  // Sem conexão - tela inicial (instância ainda não foi criada - raro agora)
   if (!instance) {
     return (
       <div className="flex items-center justify-center min-h-[500px]">
@@ -179,12 +179,12 @@ export function ConnectionPanel({ onOpenConversations, hideOpenConversationsButt
               {(isLoading || isConnecting) ? (
                 <>
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Conectando...
+                  Preparando...
                 </>
               ) : (
                 <>
                   <QrCode className="w-5 h-5 mr-2" />
-                  Conectar WhatsApp
+                  Iniciar Conexão
                 </>
               )}
             </Button>
