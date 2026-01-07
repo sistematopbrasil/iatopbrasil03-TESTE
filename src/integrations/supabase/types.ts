@@ -292,6 +292,7 @@ export type Database = {
           direction: string
           error_message: string | null
           id: string
+          instance_id: string | null
           media_filename: string | null
           media_mimetype: string | null
           media_size: number | null
@@ -309,6 +310,7 @@ export type Database = {
           direction: string
           error_message?: string | null
           id?: string
+          instance_id?: string | null
           media_filename?: string | null
           media_mimetype?: string | null
           media_size?: number | null
@@ -326,6 +328,7 @@ export type Database = {
           direction?: string
           error_message?: string | null
           id?: string
+          instance_id?: string | null
           media_filename?: string | null
           media_mimetype?: string | null
           media_size?: number | null

@@ -335,13 +335,14 @@ serve(async (req) => {
         .eq('id', conversation.id);
     }
 
-    // Salvar mensagem no banco
+    // Salvar mensagem no banco com instance_id
     const messageId = sendResult.response?.key?.id || `sent-${Date.now()}`;
     
     const { error: msgError } = await supabaseAdmin
       .from('crm_messages')
-      .insert({
+      .upsert({
         conversation_id: conversation.id,
+        instance_id: instance.id,
         message_id: messageId,
         direction: 'outgoing',
         type,
@@ -351,7 +352,7 @@ serve(async (req) => {
         status: 'sent',
         timestamp: new Date().toISOString(),
         metadata: sendResult.response,
-      });
+      }, { onConflict: 'instance_id,message_id' });
 
     if (msgError) {
       console.error('❌ Erro ao salvar mensagem:', msgError);
