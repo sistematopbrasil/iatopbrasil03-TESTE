@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getQuizUrl } from '@/lib/consultant-context';
 import { Button } from '@/components/ui/button';
-import { Copy, ExternalLink, UserPlus, Trophy, Power, Trash2, MoreVertical } from 'lucide-react';
+import { Copy, ExternalLink, UserPlus, Trophy, Power, Trash2, MoreVertical, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import { CreateConsultantDialog } from './CreateConsultantDialog';
@@ -84,10 +84,12 @@ export function ConsultantsTable() {
     window.open(getQuizUrl(slug), '_blank');
   };
 
-  if (isLoading) {
+  // Só mostrar loading se não temos dados
+  if (isLoading && (!ranking || ranking.length === 0)) {
     return (
       <Card>
         <CardContent className="py-8 text-center">
+          <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-primary" />
           <p className="text-muted-foreground">Carregando consultores...</p>
         </CardContent>
       </Card>

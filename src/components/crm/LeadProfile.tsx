@@ -142,11 +142,52 @@ export function LeadProfile({ conversation, onClose }: LeadProfileProps) {
     }
   }
 
-  // ✅ ATUALIZADO - Usa pipeline_stage_id (UUID)
+  // ✅ ATUALIZADO - Cria lead automaticamente se não existir
   async function handleStageChange(newStageId: string) {
-    if (!leadData) return;
-    
     try {
+      // Se não temos lead mas queremos adicionar ao pipeline, criar lead básico
+      if (!leadData) {
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data: userData } = await supabase.from('users')
+          .select('id, organization_id')
+          .eq('auth_user_id', user?.id)
+          .single();
+        
+        if (!userData) throw new Error('Usuário não encontrado');
+        
+        const normalizedPhone = normalizePhone(conversation.contact_phone);
+        
+        const { data: newLead, error: createError } = await supabase
+          .from('quiz_submissions_new')
+          .insert({
+            name: conversation.contact_name,
+            phone: normalizedPhone,
+            organization_id: userData.organization_id,
+            consultant_id: userData.id,
+            pipeline_stage_id: newStageId,
+            temperature: 'warm',
+            completion_percentage: 0,
+          })
+          .select()
+          .single();
+        
+        if (createError) throw createError;
+        
+        // Vincular lead à conversa
+        await supabase
+          .from('crm_conversations')
+          .update({ lead_id: newLead.id })
+          .eq('id', conversation.id);
+        
+        setLeadData(newLead as LeadData);
+        const stageName = pipelineStages.find(s => s.id === newStageId)?.name || 'Novo quadro';
+        toast.success(`Lead criado e movido para ${stageName}!`);
+        queryClient.invalidateQueries({ queryKey: ['pipeline-leads'] });
+        queryClient.invalidateQueries({ queryKey: ['conversations'] });
+        return;
+      }
+      
+      // Se já tem lead, apenas atualizar
       const { error } = await supabase
         .from('quiz_submissions_new')
         .update({ pipeline_stage_id: newStageId })
@@ -160,6 +201,7 @@ export function LeadProfile({ conversation, onClose }: LeadProfileProps) {
       queryClient.invalidateQueries({ queryKey: ['pipeline-leads'] });
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
     } catch (error) {
+      console.error('Erro ao atualizar quadro:', error);
       toast.error('Erro ao atualizar quadro');
     }
   }

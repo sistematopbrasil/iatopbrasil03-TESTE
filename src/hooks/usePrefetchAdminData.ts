@@ -38,6 +38,11 @@ export function usePrefetchAdminData() {
         });
 
         // =============================================
+        // PREFETCH CURRENT USER SETTINGS (AdminSettings)
+        // =============================================
+        queryClient.setQueryData(['current-user-settings'], currentUser);
+
+        // =============================================
         // PREFETCH QUIZ QUESTIONS (Settings)
         // =============================================
         (supabase.from('quiz_questions') as any)
