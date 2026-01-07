@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,7 @@ import {
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { AudioRecorder } from './AudioRecorder';
+import { useQuickReplies } from '@/hooks/useQuickReplies';
 
 interface MessageInputProps {
   conversationId: string;
@@ -32,17 +33,6 @@ interface FilePreview {
   name: string;
 }
 
-interface QuickReply {
-  id: string;
-  shortcut: string;
-  content: string | null;
-  description: string | null;
-  type: string;
-  media_url: string | null;
-  media_filename: string | null;
-  order_index: number;
-}
-
 interface PendingMediaSend {
   type: 'image' | 'video' | 'audio' | 'document';
   content: string;
@@ -56,107 +46,17 @@ export function MessageInput({ conversationId, onSend, isSending, onOpenSettings
   const [caption, setCaption] = useState('');
   const [filePreview, setFilePreview] = useState<FilePreview | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
-  const [quickRepliesEnabled, setQuickRepliesEnabled] = useState(true);
   const [pendingMediaSend, setPendingMediaSend] = useState<PendingMediaSend | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [filteredSuggestions, setFilteredSuggestions] = useState<QuickReply[]>([]);
   const [showAudioRecorder, setShowAudioRecorder] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Carregar respostas rápidas e configuração global
-  const loadQuickReplies = useCallback(async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+  // ✅ Usar hook unificado com realtime automático
+  const { quickReplies, quickRepliesEnabled } = useQuickReplies();
 
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData) return;
-
-      // Verificar se está ativado globalmente
-      const { data: settings } = await supabase
-        .from('crm_settings')
-        .select('quick_replies_enabled')
-        .eq('user_id', userData.id)
-        .maybeSingle();
-
-      setQuickRepliesEnabled(settings?.quick_replies_enabled ?? true);
-
-      // Carregar respostas
-      const { data, error } = await supabase
-        .from('crm_quick_replies')
-        .select('id, shortcut, content, description, type, media_url, media_filename, order_index')
-        .eq('user_id', userData.id)
-        .order('order_index');
-
-      if (error) throw error;
-
-      const mapped = (data || []).map((r, i) => ({
-        ...r,
-        order_index: r.order_index ?? i,
-      }));
-      
-      setQuickReplies(mapped);
-    } catch (error) {
-      console.error('Error loading quick replies:', error);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadQuickReplies();
-  }, [loadQuickReplies]);
-
-  // Subscription para atualização em tempo real das respostas rápidas
-  useEffect(() => {
-    let channel: ReturnType<typeof supabase.channel> | null = null;
-
-    const setupRealtimeSubscription = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .single();
-
-      if (!userData) return;
-
-      channel = supabase
-        .channel('quick-replies-realtime')
-        .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'crm_quick_replies',
-          filter: `user_id=eq.${userData.id}`,
-        }, () => {
-          loadQuickReplies();
-        })
-        .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'crm_settings',
-          filter: `user_id=eq.${userData.id}`,
-        }, () => {
-          loadQuickReplies();
-        })
-        .subscribe();
-    };
-
-    setupRealtimeSubscription();
-
-    return () => {
-      if (channel) {
-        supabase.removeChannel(channel);
-      }
-    };
-  }, [loadQuickReplies]);
+  // ✅ Estado derivado para sugestões filtradas
+  const [filteredSuggestions, setFilteredSuggestions] = useState<typeof quickReplies>([]);
 
   async function handleSend() {
     if (!message.trim() || isSending) return;
@@ -195,7 +95,7 @@ export function MessageInput({ conversationId, onSend, isSending, onOpenSettings
     }
   }
 
-  function handleSelectSuggestion(qr: QuickReply) {
+  function handleSelectSuggestion(qr: typeof quickReplies[number]) {
     if (qr.type !== 'text' && qr.media_url) {
       setPendingMediaSend({
         type: qr.type as any,
