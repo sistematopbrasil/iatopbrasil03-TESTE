@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,12 +14,15 @@ import {
   MessageSquare,
   QrCode,
   Activity,
-  Clock
+  Clock,
+  Download
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useWhatsAppConnectionContext } from '@/contexts/WhatsAppConnectionContext';
 import { QrCodeRenderer } from './QrCodeRenderer';
+import { crmService } from '@/lib/crm-service';
+import { toast } from 'sonner';
 
 interface WhatsAppConnectionSettingsProps {
   onOpenConversations?: () => void;
@@ -36,6 +40,24 @@ export function WhatsAppConnectionSettings({ onOpenConversations }: WhatsAppConn
     refreshInstance,
     refreshQRCode,
   } = useWhatsAppConnectionContext();
+
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleSync = async () => {
+    setIsSyncing(true);
+    try {
+      const result = await crmService.syncRecentMessages({ limit: 30, messagesPerChat: 30 });
+      if (result.success) {
+        toast.success(`Sincronizado: ${result.synced?.conversations || 0} conversas, ${result.synced?.messages || 0} mensagens`);
+      } else {
+        toast.error(result.error || 'Erro ao sincronizar');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao sincronizar');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -157,6 +179,23 @@ export function WhatsAppConnectionSettings({ onOpenConversations }: WhatsAppConn
                     <span className="hidden sm:inline">Abrir Conversas</span>
                   </Button>
                 )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSync}
+                  disabled={isSyncing}
+                  className="glass h-8 text-xs"
+                  title="Sincronizar conversas e mensagens do WhatsApp"
+                >
+                  {isSyncing ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Download className="w-3 h-3 sm:mr-1" />
+                      <span className="hidden sm:inline">Sincronizar</span>
+                    </>
+                  )}
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"
