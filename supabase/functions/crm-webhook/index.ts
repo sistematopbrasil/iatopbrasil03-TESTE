@@ -200,6 +200,25 @@ serve(async (req) => {
         break;
       }
 
+      // ✅ TRATAR EVENTOS DE ENVIO DO WHATSAPP (mensagens enviadas pelo app)
+      case 'send_message':
+      case 'messages_send':
+      case 'message_send': {
+        console.log('📤 Mensagem enviada detectada (evento do app WhatsApp)');
+        // Reutilizar lógica de messages_upsert - setar flag para processar como outgoing
+        // O evento já vem com a mensagem, podemos processar diretamente
+        const messages = data?.messages || [data];
+        for (const message of messages) {
+          if (message?.key) {
+            // Marcar como fromMe = true se não estiver definido
+            if (message.key.fromMe === undefined) {
+              message.key.fromMe = true;
+            }
+          }
+        }
+        // Continuar para o case messages_upsert (fall-through)
+      }
+
       case 'messages_upsert': {
         console.log('💬 Nova mensagem recebida');
         

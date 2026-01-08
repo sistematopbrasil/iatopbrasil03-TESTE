@@ -1,12 +1,18 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { crmService, Conversation } from '@/lib/crm-service';
 import { supabase } from '@/integrations/supabase/client';
 
-export function useConversations() {
+interface UseConversationsOptions {
+  orgWide?: boolean; // Admin vê todas conversas da organização
+  autoSync?: boolean; // Sincronizar automaticamente ao carregar
+}
+
+export function useConversations(options?: UseConversationsOptions) {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<'all' | 'open' | 'closed' | 'unread'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const hasSyncedRef = useRef(false);
 
   // Build filters object
   const getFilters = useCallback(() => {
@@ -15,25 +21,40 @@ export function useConversations() {
     if (filter === 'closed') filters.status = 'closed';
     if (filter === 'unread') filters.unread_only = true;
     if (searchQuery) filters.search = searchQuery;
+    if (options?.orgWide) filters.orgWide = true;
     return filters;
-  }, [filter, searchQuery]);
+  }, [filter, searchQuery, options?.orgWide]);
 
-  // Use React Query with caching - usando initialData do prefetch
+  // Use React Query with caching
   const { data: conversations = [], isLoading, refetch } = useQuery({
-    queryKey: ['conversations', filter, searchQuery],
+    queryKey: ['conversations', filter, searchQuery, options?.orgWide],
     queryFn: () => crmService.getConversations(getFilters()),
-    staleTime: 30 * 1000, // 30 segundos - atualizar mais frequentemente
-    gcTime: 10 * 60 * 1000, // 10 minutes garbage collection
-    refetchOnWindowFocus: true, // ✅ Atualizar quando voltar para a janela
-    refetchOnMount: true, // ✅ Atualizar ao montar o componente
-    refetchInterval: 15000, // ✅ Polling a cada 15 segundos como fallback
-    // ✅ Usar dados do prefetch como placeholder para abertura instantânea
+    staleTime: 30 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    refetchInterval: 15000,
     placeholderData: (previousData) => previousData,
   });
 
+  // ✅ Auto-sync ao carregar o CRM (apenas uma vez por sessão)
+  useEffect(() => {
+    if (options?.autoSync !== false && !hasSyncedRef.current) {
+      hasSyncedRef.current = true;
+      // Fazer sync em background sem bloquear
+      crmService.syncRecentMessages({ limit: 20, messagesPerChat: 15 })
+        .then((result) => {
+          if (result.success && (result.synced?.conversations || result.synced?.messages)) {
+            console.log('✅ Auto-sync concluído:', result.synced);
+            queryClient.invalidateQueries({ queryKey: ['conversations'] });
+          }
+        })
+        .catch((err) => console.warn('⚠️ Auto-sync falhou:', err));
+    }
+  }, [options?.autoSync, queryClient]);
+
   // Real-time subscriptions
   useEffect(() => {
-    // Subscription for conversations changes
     const conversationChannel = supabase
       .channel('crm-conversations-realtime')
       .on(
@@ -41,13 +62,11 @@ export function useConversations() {
         { event: '*', schema: 'public', table: 'crm_conversations' },
         (payload) => {
           console.log('🔔 Conversa atualizada (realtime):', payload);
-          // Invalidate cache to refetch
           queryClient.invalidateQueries({ queryKey: ['conversations'] });
         }
       )
       .subscribe();
 
-    // Subscription for new messages (to update conversation list)
     const messageChannel = supabase
       .channel('crm-messages-for-conversations')
       .on(
@@ -55,7 +74,6 @@ export function useConversations() {
         { event: 'INSERT', schema: 'public', table: 'crm_messages' },
         (payload) => {
           console.log('🔔 Nova mensagem - atualizando conversas:', payload);
-          // Invalidate cache to refetch conversations with new message preview
           queryClient.invalidateQueries({ queryKey: ['conversations'] });
         }
       )
@@ -82,7 +100,15 @@ export function useConversations() {
     queryClient.invalidateQueries({ queryKey: ['conversations'] });
   }
 
-  // Conta quantas CONVERSAS têm mensagens não lidas (não o total de mensagens)
+  // Sync manual
+  async function syncNow() {
+    const result = await crmService.syncRecentMessages({ limit: 30, messagesPerChat: 30 });
+    if (result.success) {
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    }
+    return result;
+  }
+
   const totalUnread = conversations.filter(conv => conv.unread_count > 0).length;
 
   return {
@@ -96,6 +122,7 @@ export function useConversations() {
     markAsRead,
     updateStatus,
     togglePin,
+    syncNow,
     refresh: refetch,
   };
 }

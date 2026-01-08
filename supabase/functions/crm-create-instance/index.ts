@@ -219,8 +219,19 @@ serve(async (req) => {
     const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/crm-webhook`;
     console.log('🔵 Webhook URL:', webhookUrl);
 
-    // Criar instância na Evolution
+    // Criar instância na Evolution - incluir TODOS os eventos relevantes
     console.log('🔵 Criando instância na Evolution API...');
+    const webhookEvents = [
+      'QRCODE_UPDATED',
+      'CONNECTION_UPDATE', 
+      'MESSAGES_UPSERT',
+      'MESSAGES_UPDATE',
+      'MESSAGES_SET',
+      'MESSAGES_DELETE',
+      'SEND_MESSAGE',
+      'MESSAGE_ACK',
+    ];
+    
     const evolutionResponse = await evolutionRequest('/instance/create', {
       method: 'POST',
       body: JSON.stringify({
@@ -229,13 +240,10 @@ serve(async (req) => {
         integration: 'WHATSAPP-BAILEYS',
         webhook: {
           url: webhookUrl,
-          events: [
-            'QRCODE_UPDATED',
-            'CONNECTION_UPDATE',
-            'MESSAGES_UPSERT',
-            'MESSAGES_UPDATE',
-            'SEND_MESSAGE',
-          ],
+          enabled: true,
+          webhookByEvents: true,
+          webhookBase64: true,
+          events: webhookEvents,
         },
       }),
     });
@@ -261,7 +269,10 @@ serve(async (req) => {
             integration: 'WHATSAPP-BAILEYS',
             webhook: {
               url: webhookUrl,
-              events: ['QRCODE_UPDATED', 'CONNECTION_UPDATE', 'MESSAGES_UPSERT', 'MESSAGES_UPDATE', 'SEND_MESSAGE'],
+              enabled: true,
+              webhookByEvents: true,
+              webhookBase64: true,
+              events: webhookEvents,
             },
           }),
         });

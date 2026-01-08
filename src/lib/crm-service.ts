@@ -158,8 +158,10 @@ class CRMService {
     status?: 'open' | 'closed' | 'archived';
     unread_only?: boolean;
     search?: string;
+    orgWide?: boolean; // ✅ Admin vê todas da organização
   }): Promise<Conversation[]> {
     try {
+      // Se orgWide, buscar sem filtro de instance_id (RLS já garante organização)
       let query = supabase
         .from('crm_conversations')
         .select(`
@@ -189,6 +191,36 @@ class CRMService {
     } catch (error: any) {
       console.error('❌ Erro ao buscar conversas:', error);
       return [];
+    }
+  }
+
+  // ✅ NOVA: Sincronizar mensagens recentes do provedor
+  async syncRecentMessages(options?: { limit?: number; messagesPerChat?: number }): Promise<{
+    success: boolean;
+    synced?: { conversations: number; messages: number };
+    error?: string;
+  }> {
+    try {
+      const { data, error } = await supabase.functions.invoke('crm-sync-recent', {
+        body: options || {},
+      });
+
+      if (error) {
+        const ctx = (error as any).context;
+        let backendError = '';
+        if (ctx && typeof ctx.json === 'function') {
+          try {
+            const jsonBody = await ctx.json();
+            backendError = jsonBody?.error || '';
+          } catch { /* ignore */ }
+        }
+        return { success: false, error: backendError || error.message };
+      }
+
+      return data;
+    } catch (error: any) {
+      console.error('❌ Erro ao sincronizar:', error);
+      return { success: false, error: error.message };
     }
   }
 

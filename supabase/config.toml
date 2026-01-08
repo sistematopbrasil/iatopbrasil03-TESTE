@@ -35,3 +35,6 @@ verify_jwt = true
 
 [functions.delete-consultant]
 verify_jwt = true
+
+[functions.crm-sync-recent]
+verify_jwt = true
