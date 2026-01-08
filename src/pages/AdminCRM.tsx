@@ -91,7 +91,9 @@ function AdminCRMContent() {
   };
 
   // Determinar se deve mostrar overlay de desconectado
-  const showDisconnectedOverlay = !isLoading && instance && !isConnected && !isConnecting && activeTab === 'conversations';
+  // NÃO mostrar durante a verificação inicial (quando status é 'connected' mas connectionVerified ainda é false)
+  const isVerificationPending = instance?.status === 'connected' && !connectionVerified && !isConnecting;
+  const showDisconnectedOverlay = !isLoading && instance && !isConnected && !isConnecting && !isVerificationPending && activeTab === 'conversations';
   
   // Mostrar overlay com QR Code quando reconectando
   const showReconnectingOverlay = !isLoading && instance && (isConnecting || qrCode) && activeTab === 'conversations';
@@ -106,6 +108,16 @@ function AdminCRMContent() {
           <Wifi className="w-3 h-3 text-success" />
           <span className="text-xs text-success font-medium hidden sm:inline">Conectado</span>
           <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
+        </div>
+      );
+    }
+    
+    // Se está verificando a conexão, mostrar indicador de verificação (não desconectado)
+    if (instance && !connectionVerified && instance.status === 'connected' && !isConnecting) {
+      return (
+        <div className="flex items-center gap-1.5 px-2 py-1 bg-muted/50 rounded-full">
+          <Wifi className="w-3 h-3 text-muted-foreground animate-pulse" />
+          <span className="text-xs text-muted-foreground font-medium hidden sm:inline">Verificando...</span>
         </div>
       );
     }
