@@ -500,8 +500,9 @@ serve(async (req) => {
                 .eq('id', conversation.id);
             }
 
-            // Atualizar nome do contato se disponível
-            if (message.pushName && message.pushName !== conversation.contact_name && !lead?.name) {
+            // Atualizar nome do contato se disponível - SOMENTE para mensagens RECEBIDAS
+            // Não atualizar com pushName de mensagens enviadas (que seria o nome do consultor)
+            if (direction === 'incoming' && message.pushName && message.pushName !== conversation.contact_name && !lead?.name) {
               await supabaseAdmin
                 .from('crm_conversations')
                 .update({ contact_name: message.pushName })

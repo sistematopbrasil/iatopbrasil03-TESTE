@@ -59,6 +59,30 @@ export function AudioRecorder({ conversationId, onSend, onCancel, isSending }: A
     }
   }, [isRecording]);
 
+  // Inicializar audioRef quando audioUrl estiver disponível (para permitir seek antes de play)
+  useEffect(() => {
+    if (audioUrl && !audioRef.current) {
+      const audio = new Audio(audioUrl);
+      audio.onended = () => {
+        setIsPlaying(false);
+        setPlaybackProgress(0);
+      };
+      audio.ontimeupdate = () => {
+        if (audio.duration && isFinite(audio.duration)) {
+          setPlaybackProgress((audio.currentTime / audio.duration) * 100);
+        }
+      };
+      audioRef.current = audio;
+    }
+    
+    return () => {
+      if (audioRef.current && !audioUrl) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, [audioUrl]);
+
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -149,18 +173,7 @@ export function AudioRecorder({ conversationId, onSend, onCancel, isSending }: A
   };
 
   const handlePlayPause = () => {
-    if (!audioRef.current) {
-      audioRef.current = new Audio(audioUrl!);
-      audioRef.current.onended = () => {
-        setIsPlaying(false);
-        setPlaybackProgress(0);
-      };
-      audioRef.current.ontimeupdate = () => {
-        if (audioRef.current) {
-          setPlaybackProgress((audioRef.current.currentTime / audioRef.current.duration) * 100);
-        }
-      };
-    }
+    if (!audioRef.current || !audioUrl) return;
 
     if (isPlaying) {
       audioRef.current.pause();
@@ -315,7 +328,7 @@ export function AudioRecorder({ conversationId, onSend, onCancel, isSending }: A
             variant="destructive"
             size="sm"
             onClick={stopRecording}
-            className="gap-2 animate-pulse"
+            className="gap-2"
           >
             <Square className="w-4 h-4" />
             Parar
