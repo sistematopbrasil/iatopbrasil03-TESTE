@@ -74,16 +74,17 @@ const abbreviateText = (text: string): string => {
 const AdminAnalytics = () => {
   const [period, setPeriod] = useState<PeriodFilter>("30");
 
-  const { data: currentUser } = useQuery({
+  const { data: currentUser, isLoading: isLoadingUser } = useQuery({
     queryKey: ['current-user-analytics'],
     queryFn: getCurrentConsultant,
     staleTime: 5 * 60 * 1000,
     placeholderData: (prev) => prev,
+    refetchOnMount: false, // Usar cache se disponível
   });
 
   // Buscar submissões da tabela correta (quiz_submissions_new)
   // ✅ Usa dados pré-carregados do usePrefetchAdminData
-  const { data: allSubmissions, isLoading } = useQuery({
+  const { data: allSubmissions, isLoading: isLoadingData } = useQuery({
     queryKey: ["quiz-submissions-analytics", period, currentUser?.id],
     queryFn: async () => {
       if (!currentUser) return [];
@@ -111,7 +112,11 @@ const AdminAnalytics = () => {
     enabled: !!currentUser,
     staleTime: 2 * 60 * 1000, // 2 minutos
     placeholderData: (previousData) => previousData, // ✅ Evita flash de loading
+    refetchOnMount: false, // ✅ Usar cache se disponível - evita piscada
   });
+
+  // Só mostrar loading se não tiver dados ainda (evita piscada)
+  const isLoading = (isLoadingUser || isLoadingData) && !allSubmissions;
 
   const stats = useMemo(() => {
     if (!allSubmissions) return { total: 0, completed: 0, rate: 0, abandoned: 0, abandonRate: 0 };
