@@ -1286,6 +1286,9 @@ export type Database = {
           instance_key: string
           instance_name: string
           last_connected_at: string | null
+          last_webhook_at: string | null
+          last_webhook_event: string | null
+          last_webhook_message_id: string | null
           organization_id: string
           phone_number: string | null
           qr_code: string | null
@@ -1301,6 +1304,9 @@ export type Database = {
           instance_key: string
           instance_name: string
           last_connected_at?: string | null
+          last_webhook_at?: string | null
+          last_webhook_event?: string | null
+          last_webhook_message_id?: string | null
           organization_id: string
           phone_number?: string | null
           qr_code?: string | null
@@ -1316,6 +1322,9 @@ export type Database = {
           instance_key?: string
           instance_name?: string
           last_connected_at?: string | null
+          last_webhook_at?: string | null
+          last_webhook_event?: string | null
+          last_webhook_message_id?: string | null
           organization_id?: string
           phone_number?: string | null
           qr_code?: string | null

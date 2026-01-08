@@ -22,9 +22,11 @@ export function useConversations() {
   const { data: conversations = [], isLoading, refetch } = useQuery({
     queryKey: ['conversations', filter, searchQuery],
     queryFn: () => crmService.getConversations(getFilters()),
-    staleTime: 5 * 60 * 1000, // 5 minutes cache
+    staleTime: 30 * 1000, // 30 segundos - atualizar mais frequentemente
     gcTime: 10 * 60 * 1000, // 10 minutes garbage collection
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true, // ✅ Atualizar quando voltar para a janela
+    refetchOnMount: true, // ✅ Atualizar ao montar o componente
+    refetchInterval: 15000, // ✅ Polling a cada 15 segundos como fallback
     // ✅ Usar dados do prefetch como placeholder para abertura instantânea
     placeholderData: (previousData) => previousData,
   });
