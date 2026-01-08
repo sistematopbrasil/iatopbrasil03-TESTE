@@ -169,15 +169,23 @@ serve(async (req) => {
 
       for (const chat of chats) {
         try {
-          // Ignorar grupos
+          // Ignorar grupos e IDs inválidos
           const remoteJid = chat.id || chat.remoteJid;
           if (!remoteJid || remoteJid.endsWith('@g.us')) continue;
 
           const rawPhone = remoteJid.replace('@s.whatsapp.net', '');
           const normalizedPhone = normalizePhone(rawPhone);
+          
+          // ✅ Validar telefone brasileiro (12-13 dígitos: 55 + DDD + número)
+          // Ignorar números muito curtos, muito longos ou IDs de grupo/broadcast
+          if (normalizedPhone.length < 12 || normalizedPhone.length > 13) {
+            console.log(`⏭️ Ignorando número inválido: ${normalizedPhone} (${normalizedPhone.length} dígitos)`);
+            continue;
+          }
+          
           const phoneVariants = getPhoneVariants(rawPhone);
 
-          // 2. Buscar/criar conversa
+          // 2. Buscar conversa existente
           let conversation = null;
           for (const variant of phoneVariants) {
             const { data: foundConv } = await supabaseAdmin
@@ -190,6 +198,29 @@ serve(async (req) => {
             if (foundConv) {
               conversation = foundConv;
               break;
+            }
+          }
+
+          // ✅ Se não tem conversa, verificar se tem mensagens ANTES de criar
+          if (!conversation) {
+            const checkMessages = await evolutionRequest(`/chat/findMessages/${instance.instance_name}`, {
+              method: 'POST',
+              body: JSON.stringify({
+                where: { key: { remoteJid } },
+                limit: 1,
+              }),
+            });
+            
+            let hasMessages = false;
+            if (checkMessages.success) {
+              const msgData = checkMessages.data;
+              if (Array.isArray(msgData) && msgData.length > 0) hasMessages = true;
+              else if (msgData?.messages?.length > 0) hasMessages = true;
+            }
+            
+            if (!hasMessages) {
+              console.log(`⏭️ Ignorando chat sem mensagens: ${normalizedPhone}`);
+              continue;
             }
           }
 
@@ -212,7 +243,7 @@ serve(async (req) => {
           }
 
           if (!conversation) {
-            // Criar conversa
+            // Criar conversa (já validamos que tem mensagens)
             const { data: newConv, error: convError } = await supabaseAdmin
               .from('crm_conversations')
               .insert({
