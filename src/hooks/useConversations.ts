@@ -37,20 +37,32 @@ export function useConversations(options?: UseConversationsOptions) {
     placeholderData: (previousData) => previousData,
   });
 
-  // ✅ Auto-sync ao carregar o CRM (apenas uma vez por sessão)
+  // ✅ Auto-sync ao carregar o CRM e a cada 60s em background
   useEffect(() => {
-    if (options?.autoSync !== false && !hasSyncedRef.current) {
+    if (options?.autoSync === false) return;
+
+    const doSync = async () => {
+      try {
+        const result = await crmService.syncRecentMessages({ limit: 20, messagesPerChat: 15 });
+        if (result.success && (result.synced?.conversations || result.synced?.messages)) {
+          console.log('✅ Auto-sync concluído:', result.synced);
+          queryClient.invalidateQueries({ queryKey: ['conversations'] });
+        }
+      } catch (err) {
+        console.warn('⚠️ Auto-sync falhou:', err);
+      }
+    };
+
+    // Sync inicial (uma vez por sessão)
+    if (!hasSyncedRef.current) {
       hasSyncedRef.current = true;
-      // Fazer sync em background sem bloquear
-      crmService.syncRecentMessages({ limit: 20, messagesPerChat: 15 })
-        .then((result) => {
-          if (result.success && (result.synced?.conversations || result.synced?.messages)) {
-            console.log('✅ Auto-sync concluído:', result.synced);
-            queryClient.invalidateQueries({ queryKey: ['conversations'] });
-          }
-        })
-        .catch((err) => console.warn('⚠️ Auto-sync falhou:', err));
+      doSync();
     }
+
+    // Sync periódico a cada 60s
+    const intervalId = setInterval(doSync, 60000);
+
+    return () => clearInterval(intervalId);
   }, [options?.autoSync, queryClient]);
 
   // Real-time subscriptions

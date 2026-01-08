@@ -613,8 +613,41 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
   }, [loadInstance]);
 
   const refreshQRCode = useCallback(async () => {
-    await refreshFromDatabase();
-  }, [refreshFromDatabase]);
+    // Forçar geração de novo QR via repair soft
+    try {
+      setIsConnecting(true);
+      toast.loading('Gerando novo QR Code...', { id: 'refresh-qr' });
+      
+      const { data, error } = await supabase.functions.invoke('crm-repair-connection', {
+        body: { mode: 'soft' }
+      });
+      
+      toast.dismiss('refresh-qr');
+      
+      if (error) {
+        toast.error('Erro ao atualizar QR Code');
+        setIsConnecting(false);
+        return;
+      }
+      
+      if (data?.data?.qr_code) {
+        setQrCode(data.data.qr_code);
+        toast.success('QR Code atualizado!');
+      } else if (data?.data?.status === 'connected') {
+        toast.success('WhatsApp já está conectado!');
+        await loadInstance();
+        setIsConnecting(false);
+      } else {
+        // Fallback para polling
+        await refreshFromDatabase();
+      }
+    } catch (error) {
+      toast.dismiss('refresh-qr');
+      console.error('Erro ao atualizar QR:', error);
+      toast.error('Erro ao atualizar QR Code');
+      setIsConnecting(false);
+    }
+  }, [refreshFromDatabase, loadInstance]);
 
   const disconnectInstance = useCallback(async () => {
     if (!instance) return;
