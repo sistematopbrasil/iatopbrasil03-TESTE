@@ -253,7 +253,23 @@ serve(async (req) => {
 
           if (!messagesResult.success) continue;
 
-          const messages = messagesResult.data?.messages || messagesResult.data || [];
+          // ✅ Tratar todos os formatos de resposta possíveis
+          let messages: any[] = [];
+          if (Array.isArray(messagesResult.data)) {
+            messages = messagesResult.data;
+          } else if (messagesResult.data?.messages && Array.isArray(messagesResult.data.messages)) {
+            messages = messagesResult.data.messages;
+          } else if (messagesResult.data && typeof messagesResult.data === 'object') {
+            // Tentar extrair de objeto
+            const possibleMessages = Object.values(messagesResult.data).filter(
+              (m: any) => m && typeof m === 'object' && m.key
+            );
+            if (possibleMessages.length > 0) {
+              messages = possibleMessages;
+            }
+          }
+          
+          console.log(`📨 ${messages.length} mensagens para processar`);
           
           for (const msg of messages) {
             try {

@@ -187,6 +187,9 @@ serve(async (req) => {
               'CONNECTION_UPDATE',
               'MESSAGES_UPSERT',
               'MESSAGES_UPDATE',
+              'MESSAGES_SET',
+              'MESSAGES_DELETE',
+              'MESSAGE_ACK',
               'SEND_MESSAGE',
             ],
           }),
@@ -251,15 +254,18 @@ serve(async (req) => {
               url: webhookUrl,
               webhook_by_events: false,
               webhook_base64: true,
-              events: [
-                'QRCODE_UPDATED',
-                'CONNECTION_UPDATE',
-                'MESSAGES_UPSERT',
-                'MESSAGES_UPDATE',
-                'SEND_MESSAGE',
-              ],
-            }),
-          });
+            events: [
+              'QRCODE_UPDATED',
+              'CONNECTION_UPDATE',
+              'MESSAGES_UPSERT',
+              'MESSAGES_UPDATE',
+              'MESSAGES_SET',
+              'MESSAGES_DELETE',
+              'MESSAGE_ACK',
+              'SEND_MESSAGE',
+            ],
+          }),
+        });
           steps.push(`webhook_reconfig: ${webhookResult.ok ? 'ok' : 'failed'}`);
         } else {
           steps.push('webhook_check: ok');

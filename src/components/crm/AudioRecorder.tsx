@@ -94,11 +94,23 @@ export function AudioRecorder({ conversationId, onSend, onCancel, isSending }: A
         const url = URL.createObjectURL(blob);
         setAudioUrl(url);
         
-        // Get duration
-        const audio = new Audio(url);
-        audio.onloadedmetadata = () => {
-          setAudioDuration(audio.duration);
+        // Forçar carregamento de metadados com múltiplos fallbacks
+        const audio = new Audio();
+        audio.preload = 'metadata';
+        
+        const handleDuration = () => {
+          if (audio.duration && isFinite(audio.duration) && audio.duration > 0) {
+            setAudioDuration(audio.duration);
+            setRecordingTime(Math.floor(audio.duration));
+          }
         };
+        
+        audio.onloadedmetadata = handleDuration;
+        audio.ondurationchange = handleDuration;
+        audio.oncanplaythrough = handleDuration;
+        
+        audio.src = url;
+        audio.load();
         
         // Parar todas as tracks
         stream.getTracks().forEach(track => track.stop());
@@ -329,16 +341,25 @@ export function AudioRecorder({ conversationId, onSend, onCancel, isSending }: A
               )}
             </Button>
 
-            {/* Progress bar */}
+            {/* Progress bar - interativo para seek */}
             <div className="flex-1 flex items-center gap-2">
-              <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+              <div 
+                className="flex-1 h-2 bg-muted rounded-full overflow-hidden cursor-pointer relative"
+                onClick={(e) => {
+                  if (!audioRef.current || !audioDuration) return;
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const percentage = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                  audioRef.current.currentTime = percentage * audioDuration;
+                  setPlaybackProgress(percentage * 100);
+                }}
+              >
                 <div 
                   className="h-full bg-gradient-to-r from-primary to-primary-light transition-all duration-100"
                   style={{ width: `${playbackProgress}%` }}
                 />
               </div>
-              <span className="text-xs text-muted-foreground min-w-[45px]">
-                {formatTime(audioDuration || recordingTime)}
+              <span className="text-xs text-muted-foreground min-w-[60px] text-right">
+                {formatTime(isPlaying && audioRef.current ? audioRef.current.currentTime : 0)} / {formatTime(audioDuration || recordingTime)}
               </span>
             </div>
           </div>
