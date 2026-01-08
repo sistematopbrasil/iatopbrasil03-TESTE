@@ -131,6 +131,9 @@ serve(async (req) => {
 
     const steps: string[] = [];
     let qrCode: string | null = null;
+    
+    // ✅ URL do webhook para garantir que está configurado corretamente
+    const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/crm-webhook`;
 
     if (mode === 'hard') {
       console.log('🔴 Iniciando HARD repair...');
@@ -170,7 +173,30 @@ serve(async (req) => {
         .eq('id', instance.id);
       steps.push('db_cleanup: ok');
 
-      // 4. Conectar com retry
+      // ✅ 4. Forçar configuração do webhook
+      try {
+        console.log('🔧 Reconfigurando webhook...');
+        const webhookResult = await evolutionRequest(`/webhook/set/${instance.instance_name}`, {
+          method: 'POST',
+          body: JSON.stringify({
+            url: webhookUrl,
+            webhook_by_events: false,
+            webhook_base64: true,
+            events: [
+              'QRCODE_UPDATED',
+              'CONNECTION_UPDATE',
+              'MESSAGES_UPSERT',
+              'MESSAGES_UPDATE',
+              'SEND_MESSAGE',
+            ],
+          }),
+        });
+        steps.push(`webhook_set: ${webhookResult.ok ? 'ok' : 'failed'}`);
+      } catch (e) {
+        steps.push('webhook_set: error');
+      }
+
+      // 5. Conectar com retry
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
           console.log(`🔗 Connect tentativa ${attempt}...`);
@@ -208,6 +234,39 @@ serve(async (req) => {
         .update({ status: 'connecting' })
         .eq('id', instance.id);
       steps.push('status_set_connecting: ok');
+
+      // ✅ Verificar e reconfigurar webhook se necessário
+      try {
+        console.log('🔍 Verificando webhook...');
+        const webhookCheck = await evolutionRequest(`/webhook/find/${instance.instance_name}`);
+        
+        const currentWebhook = webhookCheck.data?.url || webhookCheck.data?.webhook?.url;
+        const isEnabled = webhookCheck.data?.enabled !== false && webhookCheck.data?.webhook?.enabled !== false;
+        
+        if (!isEnabled || currentWebhook !== webhookUrl) {
+          console.log('⚠️ Webhook precisa ser reconfigurado:', { currentWebhook, expected: webhookUrl, isEnabled });
+          const webhookResult = await evolutionRequest(`/webhook/set/${instance.instance_name}`, {
+            method: 'POST',
+            body: JSON.stringify({
+              url: webhookUrl,
+              webhook_by_events: false,
+              webhook_base64: true,
+              events: [
+                'QRCODE_UPDATED',
+                'CONNECTION_UPDATE',
+                'MESSAGES_UPSERT',
+                'MESSAGES_UPDATE',
+                'SEND_MESSAGE',
+              ],
+            }),
+          });
+          steps.push(`webhook_reconfig: ${webhookResult.ok ? 'ok' : 'failed'}`);
+        } else {
+          steps.push('webhook_check: ok');
+        }
+      } catch (e) {
+        steps.push('webhook_check: error');
+      }
 
       // Tentar connect com até 3 tentativas
       for (let attempt = 1; attempt <= 3; attempt++) {

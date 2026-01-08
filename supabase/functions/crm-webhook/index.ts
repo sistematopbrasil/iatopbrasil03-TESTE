@@ -125,6 +125,28 @@ serve(async (req) => {
     const normalizedEvent = event?.toLowerCase()?.replace('.', '_');
     console.log('📌 Evento:', normalizedEvent);
 
+    // ✅ TELEMETRIA: Atualizar última atividade do webhook
+    const telemetryUpdate: any = {
+      last_webhook_at: new Date().toISOString(),
+      last_webhook_event: normalizedEvent,
+    };
+    
+    // Se for mensagem, salvar ID da última mensagem
+    if (normalizedEvent === 'messages_upsert') {
+      const messages = data?.messages || [data];
+      const firstMessage = messages[0];
+      if (firstMessage?.key?.id) {
+        telemetryUpdate.last_webhook_message_id = firstMessage.key.id;
+      }
+    }
+    
+    await supabaseAdmin
+      .from('whatsapp_instances')
+      .update(telemetryUpdate)
+      .eq('id', instance.id);
+    
+    console.log('📊 Telemetria atualizada:', telemetryUpdate.last_webhook_event);
+
     switch (normalizedEvent) {
       case 'qrcode_updated': {
         console.log('📱 QR Code atualizado');

@@ -11,9 +11,11 @@ import {
   LogOut,
   RefreshCw,
   MessageSquare,
-  QrCode
+  QrCode,
+  Activity,
+  Clock
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useWhatsAppConnectionContext } from '@/contexts/WhatsAppConnectionContext';
 import { QrCodeRenderer } from './QrCodeRenderer';
@@ -211,7 +213,7 @@ export function WhatsAppConnectionSettings({ onOpenConversations }: WhatsAppConn
         </div>
       </Card>
 
-      {/* Technical Info */}
+      {/* Technical Info + Webhook Telemetry */}
       {instance && (
         <Card className="glass p-4 sm:p-6 overflow-hidden">
           <h4 className="text-xs sm:text-sm font-semibold text-muted-foreground mb-3 sm:mb-4">
@@ -233,6 +235,49 @@ export function WhatsAppConnectionSettings({ onOpenConversations }: WhatsAppConn
               <span className="text-foreground truncate">
                 {format(new Date(instance.created_at), "dd/MM/yy HH:mm", { locale: ptBR })}
               </span>
+            </div>
+          </div>
+
+          {/* Webhook Telemetry */}
+          <div className="mt-4 pt-4 border-t border-border">
+            <h5 className="text-xs font-semibold text-muted-foreground mb-3 flex items-center gap-1.5">
+              <Activity className="w-3 h-3" />
+              Saúde do Webhook
+            </h5>
+            <div className="space-y-2 text-xs">
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-muted-foreground flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  Último evento:
+                </span>
+                <span className={`font-medium ${
+                  (instance as any).last_webhook_at 
+                    ? (Date.now() - new Date((instance as any).last_webhook_at).getTime() < 120000 
+                        ? 'text-green-500' 
+                        : 'text-amber-500')
+                    : 'text-muted-foreground'
+                }`}>
+                  {(instance as any).last_webhook_at 
+                    ? formatDistanceToNow(new Date((instance as any).last_webhook_at), { addSuffix: true, locale: ptBR })
+                    : 'Nenhum evento recebido'
+                  }
+                </span>
+              </div>
+              {(instance as any).last_webhook_event && (
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Tipo:</span>
+                  <Badge variant="outline" className="text-[10px] font-mono">
+                    {(instance as any).last_webhook_event}
+                  </Badge>
+                </div>
+              )}
+              {/* Warning if webhook is stale */}
+              {isConnected && (instance as any).last_webhook_at && 
+                (Date.now() - new Date((instance as any).last_webhook_at).getTime() > 300000) && (
+                <div className="mt-2 p-2 bg-amber-500/10 border border-amber-500/20 rounded text-amber-200 text-[10px]">
+                  ⚠️ Nenhum evento recebido há mais de 5 minutos. O webhook pode estar com problemas.
+                </div>
+              )}
             </div>
           </div>
         </Card>
