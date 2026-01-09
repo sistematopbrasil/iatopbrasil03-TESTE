@@ -93,7 +93,143 @@ serve(async (req) => {
 
     console.log('📋 Consultant to delete:', consultantData.full_name, 'auth_user_id:', consultantData.auth_user_id);
 
-    // 2. Delete from users table first (cascades will handle related records)
+    // ============================================
+    // DELETE RELATED DATA IN CORRECT ORDER
+    // ============================================
+
+    // 2. Desassociar leads (quiz_submissions_new) - SET consultant_id = NULL
+    console.log('📝 Desassociando leads...');
+    const { error: leadsError } = await supabaseAdmin
+      .from('quiz_submissions_new')
+      .update({ consultant_id: null })
+      .eq('consultant_id', consultant_id);
+    
+    if (leadsError) {
+      console.warn('⚠️ Erro ao desassociar leads:', leadsError.message);
+    }
+
+    // 3. Get conversation IDs to delete messages
+    const { data: conversations } = await supabaseAdmin
+      .from('crm_conversations')
+      .select('id')
+      .eq('consultant_id', consultant_id);
+    
+    const conversationIds = conversations?.map(c => c.id) || [];
+
+    // 4. Delete CRM messages (depends on conversations)
+    if (conversationIds.length > 0) {
+      console.log('💬 Deletando mensagens CRM...');
+      const { error: messagesError } = await supabaseAdmin
+        .from('crm_messages')
+        .delete()
+        .in('conversation_id', conversationIds);
+      
+      if (messagesError) {
+        console.warn('⚠️ Erro ao deletar mensagens:', messagesError.message);
+      }
+    }
+
+    // 5. Delete CRM conversations
+    console.log('📱 Deletando conversas CRM...');
+    const { error: conversationsError } = await supabaseAdmin
+      .from('crm_conversations')
+      .delete()
+      .eq('consultant_id', consultant_id);
+    
+    if (conversationsError) {
+      console.warn('⚠️ Erro ao deletar conversas:', conversationsError.message);
+    }
+
+    // 6. Delete CRM notes
+    console.log('📝 Deletando notas CRM...');
+    const { error: notesError } = await supabaseAdmin
+      .from('crm_notes')
+      .delete()
+      .eq('consultant_id', consultant_id);
+    
+    if (notesError) {
+      console.warn('⚠️ Erro ao deletar notas:', notesError.message);
+    }
+
+    // 7. Delete CRM quick replies
+    console.log('⚡ Deletando respostas rápidas...');
+    const { error: quickRepliesError } = await supabaseAdmin
+      .from('crm_quick_replies')
+      .delete()
+      .eq('consultant_id', consultant_id);
+    
+    if (quickRepliesError) {
+      console.warn('⚠️ Erro ao deletar respostas rápidas:', quickRepliesError.message);
+    }
+
+    // 8. Delete CRM tags
+    console.log('🏷️ Deletando tags...');
+    const { error: tagsError } = await supabaseAdmin
+      .from('crm_tags')
+      .delete()
+      .eq('consultant_id', consultant_id);
+    
+    if (tagsError) {
+      console.warn('⚠️ Erro ao deletar tags:', tagsError.message);
+    }
+
+    // 9. Delete CRM settings
+    console.log('⚙️ Deletando configurações CRM...');
+    const { error: settingsError } = await supabaseAdmin
+      .from('crm_settings')
+      .delete()
+      .eq('consultant_id', consultant_id);
+    
+    if (settingsError) {
+      console.warn('⚠️ Erro ao deletar configurações:', settingsError.message);
+    }
+
+    // 10. Delete WhatsApp instances
+    console.log('📲 Deletando instâncias WhatsApp...');
+    const { error: instancesError } = await supabaseAdmin
+      .from('whatsapp_instances')
+      .delete()
+      .eq('consultant_id', consultant_id);
+    
+    if (instancesError) {
+      console.warn('⚠️ Erro ao deletar instâncias:', instancesError.message);
+    }
+
+    // 11. Delete quiz questions
+    console.log('❓ Deletando perguntas do quiz...');
+    const { error: questionsError } = await supabaseAdmin
+      .from('quiz_questions')
+      .delete()
+      .eq('consultant_id', consultant_id);
+    
+    if (questionsError) {
+      console.warn('⚠️ Erro ao deletar perguntas:', questionsError.message);
+    }
+
+    // 12. Delete ranking scores
+    console.log('🏆 Deletando scores de ranking...');
+    const { error: rankingError } = await supabaseAdmin
+      .from('ranking_scores')
+      .delete()
+      .eq('consultant_id', consultant_id);
+    
+    if (rankingError) {
+      console.warn('⚠️ Erro ao deletar ranking:', rankingError.message);
+    }
+
+    // 13. Desassociar eventos (SET consultant_id = NULL)
+    console.log('📅 Desassociando eventos...');
+    const { error: eventsError } = await supabaseAdmin
+      .from('events')
+      .update({ consultant_id: null })
+      .eq('consultant_id', consultant_id);
+    
+    if (eventsError) {
+      console.warn('⚠️ Erro ao desassociar eventos:', eventsError.message);
+    }
+
+    // 14. Delete from users table
+    console.log('👤 Deletando usuário...');
     const { error: deleteUserError } = await supabaseAdmin
       .from('users')
       .delete()
@@ -106,7 +242,7 @@ serve(async (req) => {
 
     console.log('✅ Deleted from users table');
 
-    // 3. Delete from Supabase Auth
+    // 15. Delete from Supabase Auth
     if (consultantData.auth_user_id) {
       const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(
         consultantData.auth_user_id
@@ -114,8 +250,6 @@ serve(async (req) => {
 
       if (deleteAuthError) {
         console.error('⚠️ Error deleting auth user (non-fatal):', deleteAuthError);
-        // Don't throw - the user table record is already deleted
-        // This is non-fatal because the auth user won't have access without a users record
       } else {
         console.log('✅ Deleted from auth.users');
       }

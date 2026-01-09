@@ -5,6 +5,7 @@ import { getCurrentConsultant } from '@/lib/consultant-context';
 import { Navigate } from 'react-router-dom';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { CreateConsultantDialog } from '@/components/super-admin/CreateConsultantDialog';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
   Table,
   TableBody,
@@ -32,7 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Target, Flame, Loader2, MoreVertical, Copy, ExternalLink, UserX, UserCheck, Trash2, Users } from 'lucide-react';
+import { Target, Flame, Loader2, MoreVertical, Copy, ExternalLink, UserX, UserCheck, Trash2, Users, CheckSquare, XSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { calculateLeadPoints, NOVOS_CONSULTORES_BONUS } from '@/lib/ranking-service';
 
@@ -40,6 +41,8 @@ export default function ConsultantsManagement() {
   const queryClient = useQueryClient();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [consultantToDelete, setConsultantToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
 
   const { data: currentUser, isLoading: loadingUser } = useQuery({
     queryKey: ['current-user-consultants'],
@@ -153,7 +156,7 @@ export default function ConsultantsManagement() {
     },
   });
 
-  // Delete mutation - using edge function to properly delete auth user
+  // Delete single mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { data, error } = await supabase.functions.invoke('delete-consultant', {
@@ -166,12 +169,34 @@ export default function ConsultantsManagement() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['all-consultants-management'] });
       queryClient.invalidateQueries({ queryKey: ['unified-ranking'] });
-      toast.success('Consultor excluído completamente');
+      toast.success('Consultor excluído com sucesso');
       setDeleteDialogOpen(false);
       setConsultantToDelete(null);
     },
     onError: (error: any) => {
       toast.error(error.message || 'Erro ao excluir consultor');
+    },
+  });
+
+  // Bulk delete mutation
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { data, error } = await supabase.functions.invoke('delete-consultants-bulk', {
+        body: { consultant_ids: ids },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Erro ao excluir consultores');
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['all-consultants-management'] });
+      queryClient.invalidateQueries({ queryKey: ['unified-ranking'] });
+      toast.success(data.message);
+      setBulkDeleteDialogOpen(false);
+      setSelectedIds(new Set());
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Erro ao excluir consultores');
     },
   });
 
@@ -190,6 +215,32 @@ export default function ConsultantsManagement() {
     setConsultantToDelete({ id: consultant.id, name: consultant.full_name });
     setDeleteDialogOpen(true);
   };
+
+  // Filter out current user from selectable consultants
+  const selectableConsultants = consultants?.filter(c => c.id !== currentUser?.id) || [];
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === selectableConsultants.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(selectableConsultants.map(c => c.id)));
+    }
+  };
+
+  const isAllSelected = selectableConsultants.length > 0 && selectedIds.size === selectableConsultants.length;
+  const hasSelection = selectedIds.size > 0;
 
   if (loadingUser) {
     return (
@@ -219,6 +270,36 @@ export default function ConsultantsManagement() {
           <CreateConsultantDialog />
         </div>
 
+        {/* Bulk Action Bar */}
+        {hasSelection && (
+          <div className="flex items-center justify-between bg-muted/50 border border-border rounded-lg p-3 animate-in fade-in slide-in-from-top-2">
+            <div className="flex items-center gap-3">
+              <CheckSquare className="w-5 h-5 text-primary" />
+              <span className="font-medium">
+                {selectedIds.size} consultor{selectedIds.size > 1 ? 'es' : ''} selecionado{selectedIds.size > 1 ? 's' : ''}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedIds(new Set())}
+              >
+                <XSquare className="w-4 h-4 mr-2" />
+                Limpar
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setBulkDeleteDialogOpen(true)}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Excluir Selecionados
+              </Button>
+            </div>
+          </div>
+        )}
+
         {loadingConsultants ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -228,6 +309,13 @@ export default function ConsultantsManagement() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={isAllSelected}
+                      onCheckedChange={toggleSelectAll}
+                      aria-label="Selecionar todos"
+                    />
+                  </TableHead>
                   <TableHead>Consultor</TableHead>
                   <TableHead className="hidden sm:table-cell">Email</TableHead>
                   <TableHead className="hidden md:table-cell">Slug</TableHead>
@@ -254,93 +342,119 @@ export default function ConsultantsManagement() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {consultants?.map((consultant) => (
-                  <TableRow key={consultant.id}>
-                    <TableCell className="font-medium">
-                      <div>
-                        <p className="truncate max-w-[120px] sm:max-w-none">{consultant.full_name}</p>
-                        <p className="text-xs text-muted-foreground sm:hidden truncate">
-                          {consultant.email}
-                        </p>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground hidden sm:table-cell">
-                      {consultant.email}
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      <code className="text-xs bg-muted px-2 py-1 rounded">
-                        {consultant.quiz_slug || '-'}
-                      </code>
-                    </TableCell>
-                    <TableCell className="text-center font-semibold">
-                      {consultant.totalLeads}
-                    </TableCell>
-                    <TableCell className="text-center font-semibold text-purple-600">
-                      {consultant.novosConsultores}
-                    </TableCell>
-                    <TableCell className="text-center font-semibold text-orange-600">
-                      {consultant.hotLeads}
-                    </TableCell>
-                    <TableCell className="text-center hidden md:table-cell">
-                      <Badge variant={consultant.is_active ? "default" : "secondary"}>
-                        {consultant.is_active ? 'Ativo' : 'Inativo'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {consultant.quiz_slug && (
-                            <>
-                              <DropdownMenuItem onClick={() => copyQuizLink(consultant.quiz_slug!)}>
-                                <Copy className="mr-2 h-4 w-4" />
-                                Copiar link
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => openQuizLink(consultant.quiz_slug!)}>
-                                <ExternalLink className="mr-2 h-4 w-4" />
-                                Abrir quiz
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                            </>
-                          )}
-                          <DropdownMenuItem 
-                            onClick={() => toggleActiveMutation.mutate({ 
-                              id: consultant.id, 
-                              isActive: !consultant.is_active 
-                            })}
-                          >
-                            {consultant.is_active ? (
+                {consultants?.map((consultant) => {
+                  const isSelf = consultant.id === currentUser?.id;
+                  const isSelected = selectedIds.has(consultant.id);
+                  
+                  return (
+                    <TableRow 
+                      key={consultant.id}
+                      className={isSelected ? 'bg-muted/30' : ''}
+                    >
+                      <TableCell>
+                        {!isSelf && (
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => toggleSelect(consultant.id)}
+                            aria-label={`Selecionar ${consultant.full_name}`}
+                          />
+                        )}
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        <div>
+                          <p className="truncate max-w-[120px] sm:max-w-none">
+                            {consultant.full_name}
+                            {isSelf && (
+                              <Badge variant="outline" className="ml-2 text-xs">Você</Badge>
+                            )}
+                          </p>
+                          <p className="text-xs text-muted-foreground sm:hidden truncate">
+                            {consultant.email}
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground hidden sm:table-cell">
+                        {consultant.email}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        <code className="text-xs bg-muted px-2 py-1 rounded">
+                          {consultant.quiz_slug || '-'}
+                        </code>
+                      </TableCell>
+                      <TableCell className="text-center font-semibold">
+                        {consultant.totalLeads}
+                      </TableCell>
+                      <TableCell className="text-center font-semibold text-purple-600">
+                        {consultant.novosConsultores}
+                      </TableCell>
+                      <TableCell className="text-center font-semibold text-orange-600">
+                        {consultant.hotLeads}
+                      </TableCell>
+                      <TableCell className="text-center hidden md:table-cell">
+                        <Badge variant={consultant.is_active ? "default" : "secondary"}>
+                          {consultant.is_active ? 'Ativo' : 'Inativo'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {consultant.quiz_slug && (
                               <>
-                                <UserX className="mr-2 h-4 w-4" />
-                                Desativar
-                              </>
-                            ) : (
-                              <>
-                                <UserCheck className="mr-2 h-4 w-4" />
-                                Ativar
+                                <DropdownMenuItem onClick={() => copyQuizLink(consultant.quiz_slug!)}>
+                                  <Copy className="mr-2 h-4 w-4" />
+                                  Copiar link
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => openQuizLink(consultant.quiz_slug!)}>
+                                  <ExternalLink className="mr-2 h-4 w-4" />
+                                  Abrir quiz
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
                               </>
                             )}
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem 
-                            className="text-destructive focus:text-destructive"
-                            onClick={() => handleDelete(consultant)}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Excluir
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                            <DropdownMenuItem 
+                              onClick={() => toggleActiveMutation.mutate({ 
+                                id: consultant.id, 
+                                isActive: !consultant.is_active 
+                              })}
+                            >
+                              {consultant.is_active ? (
+                                <>
+                                  <UserX className="mr-2 h-4 w-4" />
+                                  Desativar
+                                </>
+                              ) : (
+                                <>
+                                  <UserCheck className="mr-2 h-4 w-4" />
+                                  Ativar
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                            {!isSelf && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={() => handleDelete(consultant)}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Excluir
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
                 {consultants?.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                       Nenhum consultor cadastrado
                     </TableCell>
                   </TableRow>
@@ -351,13 +465,14 @@ export default function ConsultantsManagement() {
         )}
       </div>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Single Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir consultor</AlertDialogTitle>
             <AlertDialogDescription>
               Tem certeza que deseja excluir <strong>{consultantToDelete?.name}</strong>? 
+              Os leads serão mantidos, mas desassociados deste consultor.
               Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -366,8 +481,47 @@ export default function ConsultantsManagement() {
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => consultantToDelete && deleteMutation.mutate(consultantToDelete.id)}
+              disabled={deleteMutation.isPending}
             >
-              Excluir
+              {deleteMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Excluindo...
+                </>
+              ) : (
+                'Excluir'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <AlertDialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir {selectedIds.size} consultor{selectedIds.size > 1 ? 'es' : ''}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir <strong>{selectedIds.size} consultor{selectedIds.size > 1 ? 'es' : ''}</strong>?
+              Os leads serão mantidos, mas desassociados destes consultores.
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => bulkDeleteMutation.mutate(Array.from(selectedIds))}
+              disabled={bulkDeleteMutation.isPending}
+            >
+              {bulkDeleteMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Excluindo...
+                </>
+              ) : (
+                `Excluir ${selectedIds.size}`
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
