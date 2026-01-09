@@ -135,6 +135,59 @@ serve(async (req) => {
         .eq('id', instance.id);
     }
 
+    // ✅ VERIFICAR E CORRIGIR WEBHOOK AUTOMATICAMENTE
+    if (reallyConnected) {
+      try {
+        const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/crm-webhook`;
+        
+        // Verificar webhook atual
+        const webhookCheckResponse = await fetch(`${EVOLUTION_API_URL}/webhook/find/${instance.instance_name}`, {
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': EVOLUTION_API_KEY,
+          },
+        });
+        const currentWebhook = await webhookCheckResponse.json();
+        
+        // Eventos obrigatórios para receber mensagens
+        const requiredEvents = ['MESSAGES_UPSERT', 'MESSAGES_UPDATE', 'CONNECTION_UPDATE', 'QRCODE_UPDATED'];
+        const configuredEvents = currentWebhook?.webhook?.events || currentWebhook?.events || [];
+        const missingEvents = requiredEvents.filter(e => !configuredEvents.includes(e));
+        
+        // Se faltam eventos críticos, reconfigurar webhook
+        if (missingEvents.length > 0) {
+          console.log('⚠️ Eventos faltando no webhook:', missingEvents);
+          console.log('🔧 Reconfigurando webhook automaticamente...');
+          
+          await fetch(`${EVOLUTION_API_URL}/webhook/set/${instance.instance_name}`, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'apikey': EVOLUTION_API_KEY 
+            },
+            body: JSON.stringify({
+              url: webhookUrl,
+              webhook_by_events: true,
+              webhook_base64: true,
+              events: [
+                'QRCODE_UPDATED',
+                'CONNECTION_UPDATE',
+                'MESSAGES_UPSERT',
+                'MESSAGES_UPDATE',
+                'MESSAGES_SET',
+                'MESSAGES_DELETE',
+                'SEND_MESSAGE',
+                'MESSAGE_ACK',
+              ],
+            }),
+          });
+          console.log('✅ Webhook reconfigurado com sucesso!');
+        }
+      } catch (e: any) {
+        console.warn('⚠️ Erro ao verificar/reconfigurar webhook:', e?.message);
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
