@@ -38,3 +38,6 @@ verify_jwt = true
 
 [functions.crm-sync-recent]
 verify_jwt = true
+
+[functions.delete-consultants-bulk]
+verify_jwt = true
