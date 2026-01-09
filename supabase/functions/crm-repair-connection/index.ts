@@ -180,7 +180,7 @@ serve(async (req) => {
           method: 'POST',
           body: JSON.stringify({
             url: webhookUrl,
-            webhook_by_events: false,
+            webhook_by_events: true,
             webhook_base64: true,
             events: [
               'QRCODE_UPDATED',
@@ -238,22 +238,15 @@ serve(async (req) => {
         .eq('id', instance.id);
       steps.push('status_set_connecting: ok');
 
-      // ✅ Verificar e reconfigurar webhook se necessário
+      // ✅ SEMPRE reconfigurar webhook para garantir eventos corretos
       try {
-        console.log('🔍 Verificando webhook...');
-        const webhookCheck = await evolutionRequest(`/webhook/find/${instance.instance_name}`);
-        
-        const currentWebhook = webhookCheck.data?.url || webhookCheck.data?.webhook?.url;
-        const isEnabled = webhookCheck.data?.enabled !== false && webhookCheck.data?.webhook?.enabled !== false;
-        
-        if (!isEnabled || currentWebhook !== webhookUrl) {
-          console.log('⚠️ Webhook precisa ser reconfigurado:', { currentWebhook, expected: webhookUrl, isEnabled });
-          const webhookResult = await evolutionRequest(`/webhook/set/${instance.instance_name}`, {
-            method: 'POST',
-            body: JSON.stringify({
-              url: webhookUrl,
-              webhook_by_events: false,
-              webhook_base64: true,
+        console.log('🔧 Reconfigurando webhook com todos os eventos...');
+        const webhookResult = await evolutionRequest(`/webhook/set/${instance.instance_name}`, {
+          method: 'POST',
+          body: JSON.stringify({
+            url: webhookUrl,
+            webhook_by_events: true,
+            webhook_base64: true,
             events: [
               'QRCODE_UPDATED',
               'CONNECTION_UPDATE',
@@ -266,12 +259,11 @@ serve(async (req) => {
             ],
           }),
         });
-          steps.push(`webhook_reconfig: ${webhookResult.ok ? 'ok' : 'failed'}`);
-        } else {
-          steps.push('webhook_check: ok');
-        }
+        steps.push(`webhook_reconfig: ${webhookResult.ok ? 'ok' : 'failed'}`);
+        console.log('✅ Webhook reconfigurado:', webhookResult.ok ? 'sucesso' : 'falha');
       } catch (e) {
-        steps.push('webhook_check: error');
+        console.error('❌ Erro ao reconfigurar webhook:', e);
+        steps.push('webhook_reconfig: error');
       }
 
       // Tentar connect com até 3 tentativas
