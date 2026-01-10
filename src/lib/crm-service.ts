@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { normalizePhone } from "@/lib/phone-utils";
+import { normalizePhone, getPhoneVariants } from "@/lib/phone-utils";
 
 export interface WhatsAppInstance {
   id: string;
@@ -254,36 +254,48 @@ class CRMService {
     lead_id?: string;
   }): Promise<{ success: boolean; data?: Conversation; error?: string }> {
     try {
-      // ✅ Normalizar telefone
+      // ✅ Normalizar telefone e gerar variantes
       const normalizedPhone = normalizePhone(data.contact_phone);
+      const phoneVariants = getPhoneVariants(data.contact_phone);
 
-      // ✅ Verificar se já existe conversa com esse telefone
-      const { data: existingConv } = await supabase
-        .from('crm_conversations')
-        .select('*')
-        .eq('contact_phone', normalizedPhone)
-        .eq('instance_id', data.instance_id)
-        .maybeSingle();
+      // ✅ Verificar se já existe conversa com QUALQUER variante do telefone
+      let existingConv = null;
+      for (const variant of phoneVariants) {
+        const { data: conv } = await supabase
+          .from('crm_conversations')
+          .select('*')
+          .eq('contact_phone', variant)
+          .eq('instance_id', data.instance_id)
+          .maybeSingle();
+        
+        if (conv) {
+          existingConv = conv;
+          break;
+        }
+      }
 
       if (existingConv) {
         console.log('📱 Conversa já existe para este telefone:', normalizedPhone);
         return { success: true, data: existingConv as Conversation };
       }
 
-      // ✅ Buscar lead pelo telefone normalizado para vincular automaticamente
+      // ✅ Buscar lead por QUALQUER variante do telefone para vincular automaticamente
       let leadId = data.lead_id;
       if (!leadId) {
-        const { data: lead } = await supabase
-          .from('quiz_submissions_new')
-          .select('id')
-          .eq('phone', normalizedPhone)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        for (const variant of phoneVariants) {
+          const { data: lead } = await supabase
+            .from('quiz_submissions_new')
+            .select('id')
+            .eq('phone', variant)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
 
-        if (lead) {
-          leadId = lead.id;
-          console.log('🔗 Lead encontrado e vinculado:', leadId);
+          if (lead) {
+            leadId = lead.id;
+            console.log('🔗 Lead encontrado com variante:', variant, '| ID:', leadId);
+            break;
+          }
         }
       }
 

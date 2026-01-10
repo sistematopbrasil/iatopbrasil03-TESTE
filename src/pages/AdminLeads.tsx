@@ -135,6 +135,31 @@ export default function AdminLeads() {
     placeholderData: (previousData) => previousData, // Mantém dados antigos enquanto carrega
   });
 
+  // ✅ REALTIME: Atualizar leads automaticamente quando novos chegarem
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const channel = supabase
+      .channel('leads-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'quiz_submissions_new',
+        },
+        (payload) => {
+          console.log('📢 Lead atualizado em tempo real:', payload.eventType);
+          queryClient.invalidateQueries({ queryKey: ['leads'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUser, queryClient]);
+
   // Filtrar leads usando useMemo para performance
   const filteredLeads = useMemo(() => {
     let filtered = [...leads];
