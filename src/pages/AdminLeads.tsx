@@ -151,7 +151,10 @@ export default function AdminLeads() {
         },
         (payload) => {
           console.log('📢 Lead atualizado em tempo real:', payload.eventType);
-          queryClient.invalidateQueries({ queryKey: ['leads'] });
+          // ✅ Invalidar todas as variantes da query de leads
+          queryClient.invalidateQueries({ queryKey: ['leads'], exact: false });
+          // ✅ Refetch explícito para garantir atualização imediata
+          fetchLeads();
         }
       )
       .subscribe();
@@ -159,7 +162,7 @@ export default function AdminLeads() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentUser, queryClient]);
+  }, [currentUser, queryClient, fetchLeads]);
 
   // Filtrar leads usando useMemo para performance
   const filteredLeads = useMemo(() => {
