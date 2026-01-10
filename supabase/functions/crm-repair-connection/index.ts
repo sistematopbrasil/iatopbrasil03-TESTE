@@ -9,32 +9,96 @@ const corsHeaders = {
 const EVOLUTION_API_URL = Deno.env.get('EVOLUTION_API_URL') || '';
 const EVOLUTION_API_KEY = Deno.env.get('EVOLUTION_API_KEY') || '';
 
-async function evolutionRequest(endpoint: string, options: RequestInit = {}) {
+async function evolutionRequest(endpoint: string, options: RequestInit = {}, timeoutMs = 15000) {
   const url = `${EVOLUTION_API_URL}${endpoint}`;
   console.log('🔵 Evolution:', options.method || 'GET', endpoint);
   
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': EVOLUTION_API_KEY,
-      ...options.headers,
-    },
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   
-  const data = await response.json();
-  return { ok: response.ok, data };
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': EVOLUTION_API_KEY,
+        ...options.headers,
+      },
+    });
+    
+    clearTimeout(timeoutId);
+    const data = await response.json();
+    return { ok: response.ok, data };
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      console.error('⏰ Timeout na Evolution API:', endpoint);
+      return { ok: false, data: null, timeout: true };
+    }
+    throw error;
+  }
+}
+
+// Verifica se a instância existe na Evolution API
+async function checkInstanceExists(instanceName: string): Promise<boolean> {
+  try {
+    const result = await evolutionRequest(`/instance/fetchInstances?instanceName=${instanceName}`);
+    if (result.ok && Array.isArray(result.data) && result.data.length > 0) {
+      console.log('✅ Instância existe na Evolution:', instanceName);
+      return true;
+    }
+    console.log('⚠️ Instância NÃO existe na Evolution:', instanceName);
+    return false;
+  } catch (e) {
+    console.error('Erro ao verificar instância:', e);
+    return false;
+  }
+}
+
+// Cria uma nova instância na Evolution API
+async function createInstanceInEvolution(instanceName: string, webhookUrl: string): Promise<boolean> {
+  try {
+    console.log('🆕 Criando instância na Evolution:', instanceName);
+    const result = await evolutionRequest('/instance/create', {
+      method: 'POST',
+      body: JSON.stringify({
+        instanceName: instanceName,
+        qrcode: true,
+        integration: 'WHATSAPP-BAILEYS',
+        webhook: {
+          url: webhookUrl,
+          webhook_by_events: true,
+          webhook_base64: true,
+          events: [
+            'QRCODE_UPDATED',
+            'CONNECTION_UPDATE',
+            'MESSAGES_UPSERT',
+            'MESSAGES_UPDATE',
+            'MESSAGES_SET',
+            'MESSAGES_DELETE',
+            'MESSAGE_ACK',
+            'SEND_MESSAGE',
+          ],
+        },
+      }),
+    });
+    
+    if (result.ok) {
+      console.log('✅ Instância criada na Evolution');
+      return true;
+    } else {
+      console.error('❌ Falha ao criar instância:', result.data);
+      return false;
+    }
+  } catch (e) {
+    console.error('❌ Erro ao criar instância:', e);
+    return false;
+  }
 }
 
 // Extrai QR code de várias formas possíveis do response
 function extractQrCode(data: any): string | null {
-  // Ordem de prioridade:
-  // 1. qrcode.base64 (formato antigo)
-  // 2. base64 (direto)
-  // 3. code (string para gerar QR no frontend)
-  // 4. qrcode.code
-  // 5. pairingCode
-  
   const qr = 
     data?.qrcode?.base64 ||
     data?.base64 ||
@@ -132,8 +196,32 @@ serve(async (req) => {
     const steps: string[] = [];
     let qrCode: string | null = null;
     
-    // ✅ URL do webhook para garantir que está configurado corretamente
+    // URL do webhook
     const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/crm-webhook`;
+
+    // ✅ VERIFICAR SE A INSTÂNCIA EXISTE NA EVOLUTION ANTES DE TUDO
+    const instanceExists = await checkInstanceExists(instance.instance_name);
+    steps.push(`instance_check: ${instanceExists ? 'exists' : 'not_found'}`);
+
+    if (!instanceExists) {
+      console.log('⚠️ Instância não existe na Evolution, recriando...');
+      const created = await createInstanceInEvolution(instance.instance_name, webhookUrl);
+      steps.push(`instance_recreate: ${created ? 'ok' : 'failed'}`);
+      
+      if (!created) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Falha ao recriar instância. Tente novamente ou entre em contato com o suporte.',
+            steps,
+          }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Aguardar a instância ser criada
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
 
     if (mode === 'hard') {
       console.log('🔴 Iniciando HARD repair...');
@@ -173,7 +261,7 @@ serve(async (req) => {
         .eq('id', instance.id);
       steps.push('db_cleanup: ok');
 
-      // ✅ 4. Forçar configuração do webhook
+      // 4. Forçar configuração do webhook
       try {
         console.log('🔧 Reconfigurando webhook...');
         const webhookResult = await evolutionRequest(`/webhook/set/${instance.instance_name}`, {
@@ -238,7 +326,7 @@ serve(async (req) => {
         .eq('id', instance.id);
       steps.push('status_set_connecting: ok');
 
-      // ✅ SEMPRE reconfigurar webhook para garantir eventos corretos
+      // SEMPRE reconfigurar webhook para garantir eventos corretos
       try {
         console.log('🔧 Reconfigurando webhook com todos os eventos...');
         const webhookResult = await evolutionRequest(`/webhook/set/${instance.instance_name}`, {
@@ -315,8 +403,8 @@ serve(async (req) => {
           
           // Se não veio QR, esperar e tentar novamente
           if (attempt < 3) {
-            console.log('⏳ QR não veio, aguardando 400ms...');
-            await new Promise(r => setTimeout(r, 400));
+            console.log('⏳ QR não veio, aguardando 500ms...');
+            await new Promise(r => setTimeout(r, 500));
           }
         } catch (e: any) {
           steps.push(`connect_${attempt}: error - ${e?.message}`);

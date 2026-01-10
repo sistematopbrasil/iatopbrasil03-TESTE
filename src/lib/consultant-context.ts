@@ -62,14 +62,7 @@ export function canViewAllData(role: string): boolean {
 }
 
 export function getQuizUrl(slug: string): string {
-  // Domínio principal do projeto
-  const publishedDomain = 'https://quiz-topbrasil.lovable.app';
-  
-  // Se estiver em localhost, usar localhost para testes
-  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    return `${window.location.origin}/quiz/${slug}`;
-  }
-  
-  // Em produção, sempre usar o domínio principal
-  return `${publishedDomain}/quiz/${slug}`;
+  // Usar sempre o domínio atual (funciona em qualquer deploy)
+  // Isso garante que o quiz use o mesmo domínio do painel (topbrasil.app, lovable.app, etc.)
+  return `${window.location.origin}/quiz/${slug}`;
 }

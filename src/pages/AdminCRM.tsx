@@ -13,7 +13,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MessageSquare, Users, Settings, WifiOff, Wifi } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { normalizePhone } from '@/lib/phone-utils';
+import { normalizePhone, getPhoneVariants } from '@/lib/phone-utils';
 import { Skeleton } from '@/components/ui/skeleton';
 
 function AdminCRMContent() {
@@ -50,12 +50,15 @@ function AdminCRMContent() {
     }
 
     try {
+      // Gerar todas as variantes do telefone (com e sem 9)
+      const phoneVariants = getPhoneVariants(phone);
       const normalizedPhone = normalizePhone(phone);
 
+      // Buscar por QUALQUER variante do telefone
       const { data: existingConv } = await supabase
         .from('crm_conversations')
         .select('*')
-        .eq('contact_phone', normalizedPhone)
+        .in('contact_phone', phoneVariants)
         .eq('instance_id', instance.id)
         .maybeSingle();
 
