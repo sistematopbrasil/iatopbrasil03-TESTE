@@ -425,13 +425,14 @@ serve(async (req) => {
             }
           }
 
-          // ✅ BUSCAR LEAD POR TELEFONE COM VARIANTES
+          // ✅ BUSCAR LEAD POR TELEFONE COM VARIANTES (filtrando por organização)
           let lead = null;
           for (const variant of phoneVariants) {
             const { data: foundLead } = await supabaseAdmin
               .from('quiz_submissions_new')
-              .select('id, name, organization_id, pipeline_stage_id')
+              .select('id, name, organization_id, pipeline_stage_id, phone')
               .eq('phone', variant)
+              .eq('organization_id', instance.organization_id) // ✅ Filtrar por organização
               .order('created_at', { ascending: false })
               .limit(1)
               .maybeSingle();
@@ -443,8 +444,45 @@ serve(async (req) => {
             }
           }
 
-          if (!lead) {
-            console.log('⚠️ Lead não encontrado para:', phoneVariants);
+          // ✅ CRIAR LEAD AUTOMATICAMENTE SE NÃO EXISTIR (apenas para mensagens recebidas)
+          if (!lead && direction === 'incoming') {
+            console.log('🆕 Criando lead automaticamente para:', normalizedPhone);
+            
+            // Buscar primeiro quadro do pipeline
+            const { data: stages } = await supabaseAdmin
+              .from('pipeline_stages')
+              .select('id')
+              .eq('organization_id', instance.organization_id)
+              .order('order_index', { ascending: true })
+              .limit(1);
+            
+            const firstStageId = stages?.[0]?.id || null;
+            
+            // Criar lead automaticamente
+            const { data: newLead, error: leadError } = await supabaseAdmin
+              .from('quiz_submissions_new')
+              .insert({
+                name: message.pushName || normalizedPhone,
+                phone: normalizedPhone,
+                organization_id: instance.organization_id,
+                consultant_id: instance.user_id,
+                pipeline_stage_id: firstStageId,
+                stage: 'novo',
+                temperature: 'warm',
+                completion_percentage: 0, // Lead veio do WhatsApp, não do quiz
+                lead_score: 50,
+              })
+              .select('id, name, organization_id, pipeline_stage_id, phone')
+              .single();
+            
+            if (!leadError && newLead) {
+              lead = newLead;
+              console.log('✅ Lead criado automaticamente:', lead.id, '| Nome:', lead.name);
+            } else {
+              console.warn('⚠️ Erro ao criar lead automaticamente:', leadError);
+            }
+          } else if (!lead) {
+            console.log('⚠️ Lead não encontrado para:', phoneVariants, '(mensagem outgoing, não criando)');
           }
           
           // ✅ BUSCAR CONVERSA EXISTENTE COM VARIANTES
