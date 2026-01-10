@@ -430,7 +430,7 @@ serve(async (req) => {
           for (const variant of phoneVariants) {
             const { data: foundLead } = await supabaseAdmin
               .from('quiz_submissions_new')
-              .select('id, name, organization_id, pipeline_stage_id, phone')
+              .select('id, name, organization_id, pipeline_stage_id, phone, consultant_id')
               .eq('phone', variant)
               .eq('organization_id', instance.organization_id) // ✅ Filtrar por organização
               .order('created_at', { ascending: false })
@@ -444,8 +444,8 @@ serve(async (req) => {
             }
           }
 
-      // ✅ CRIAR LEAD AUTOMATICAMENTE SE NÃO EXISTIR (para qualquer direção)
-      if (!lead) {
+          // ✅ CRIAR LEAD AUTOMATICAMENTE SE NÃO EXISTIR (para qualquer direção)
+          if (!lead) {
             console.log('🆕 Criando lead automaticamente para:', normalizedPhone);
             
             // Buscar primeiro quadro do pipeline
@@ -458,11 +458,17 @@ serve(async (req) => {
             
             const firstStageId = stages?.[0]?.id || null;
             
+            // ✅ Para mensagens outgoing, NÃO usar pushName (seria o nome do consultor)
+            // Para mensagens incoming, usar pushName como nome do contato
+            const leadName = direction === 'incoming' 
+              ? (message.pushName || normalizedPhone) 
+              : normalizedPhone;
+            
             // Criar lead automaticamente
             const { data: newLead, error: leadError } = await supabaseAdmin
               .from('quiz_submissions_new')
               .insert({
-                name: message.pushName || normalizedPhone,
+                name: leadName,
                 phone: normalizedPhone,
                 organization_id: instance.organization_id,
                 consultant_id: instance.user_id,
@@ -472,17 +478,49 @@ serve(async (req) => {
                 completion_percentage: 0, // Lead veio do WhatsApp, não do quiz
                 lead_score: 50,
               })
-              .select('id, name, organization_id, pipeline_stage_id, phone')
+              .select('id, name, organization_id, pipeline_stage_id, phone, consultant_id')
               .single();
             
             if (!leadError && newLead) {
               lead = newLead;
-              console.log('✅ Lead criado automaticamente:', lead.id, '| Nome:', lead.name);
+              console.log('✅ Lead criado automaticamente:', lead.id, '| Nome:', lead.name, '| Direção:', direction);
             } else {
               console.warn('⚠️ Erro ao criar lead automaticamente:', leadError);
             }
-          } else if (!lead) {
-            console.log('⚠️ Lead não encontrado para:', phoneVariants, '(mensagem outgoing, não criando)');
+          } else {
+            // ✅ REPARAR lead existente se não tiver pipeline_stage_id ou consultant_id
+            const needsRepair = !lead.pipeline_stage_id || !lead.consultant_id;
+            if (needsRepair) {
+              console.log('🔧 Reparando lead existente:', lead.id);
+              
+              // Buscar primeiro quadro se necessário
+              let repairStageId = lead.pipeline_stage_id;
+              if (!repairStageId) {
+                const { data: stages } = await supabaseAdmin
+                  .from('pipeline_stages')
+                  .select('id')
+                  .eq('organization_id', instance.organization_id)
+                  .order('order_index', { ascending: true })
+                  .limit(1);
+                repairStageId = stages?.[0]?.id || null;
+              }
+              
+              const updateData: any = {};
+              if (!lead.pipeline_stage_id && repairStageId) {
+                updateData.pipeline_stage_id = repairStageId;
+              }
+              if (!lead.consultant_id) {
+                updateData.consultant_id = instance.user_id;
+              }
+              
+              if (Object.keys(updateData).length > 0) {
+                await supabaseAdmin
+                  .from('quiz_submissions_new')
+                  .update(updateData)
+                  .eq('id', lead.id);
+                console.log('✅ Lead reparado:', updateData);
+              }
+            }
           }
           
           // ✅ BUSCAR CONVERSA EXISTENTE COM VARIANTES

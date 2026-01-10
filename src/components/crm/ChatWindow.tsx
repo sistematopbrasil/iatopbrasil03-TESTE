@@ -61,35 +61,55 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
     },
   });
 
-  // Buscar stage atual do lead
-  const { data: currentLead } = useQuery({
-    queryKey: ['lead-stage', conversation?.lead_id],
+  // Buscar conversa atualizada para ter o lead_id mais recente (evita stale state)
+  const { data: freshConversation } = useQuery({
+    queryKey: ['conversation-fresh', conversation?.id],
     queryFn: async () => {
-      if (!conversation?.lead_id) return null;
+      if (!conversation?.id) return null;
       const { data } = await supabase
-        .from('quiz_submissions_new')
-        .select('pipeline_stage_id')
-        .eq('id', conversation.lead_id)
+        .from('crm_conversations')
+        .select('lead_id')
+        .eq('id', conversation.id)
         .single();
       return data;
     },
-    enabled: !!conversation?.lead_id,
+    enabled: !!conversation?.id,
+    refetchInterval: 3000, // Atualiza a cada 3 segundos para pegar lead_id vinculado pelo webhook
+  });
+
+  // Usar lead_id mais recente (do freshConversation ou do conversation original)
+  const effectiveLeadId = freshConversation?.lead_id || conversation?.lead_id;
+
+  // Buscar stage atual do lead
+  const { data: currentLead } = useQuery({
+    queryKey: ['lead-stage', effectiveLeadId],
+    queryFn: async () => {
+      if (!effectiveLeadId) return null;
+      const { data } = await supabase
+        .from('quiz_submissions_new')
+        .select('pipeline_stage_id')
+        .eq('id', effectiveLeadId)
+        .single();
+      return data;
+    },
+    enabled: !!effectiveLeadId,
   });
 
   // Mutation para atualizar stage
   const updateStageMutation = useMutation({
     mutationFn: async (newStageId: string) => {
-      if (!conversation?.lead_id) throw new Error('Lead não vinculado');
+      if (!effectiveLeadId) throw new Error('Lead não vinculado');
       const { error } = await supabase
         .from('quiz_submissions_new')
         .update({ pipeline_stage_id: newStageId })
-        .eq('id', conversation.lead_id);
+        .eq('id', effectiveLeadId);
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success('Quadro atualizado!');
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
-      queryClient.invalidateQueries({ queryKey: ['lead-stage', conversation?.lead_id] });
+      queryClient.invalidateQueries({ queryKey: ['lead-stage', effectiveLeadId] });
+      queryClient.invalidateQueries({ queryKey: ['conversation-fresh', conversation?.id] });
       queryClient.invalidateQueries({ queryKey: ['pipeline-leads'] });
     },
     onError: () => toast.error('Erro ao atualizar quadro'),
@@ -230,18 +250,19 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
 
             {/* Actions */}
             <div className="flex items-center gap-1 flex-shrink-0">
-              {/* Botão Criar Lead - só aparece se não tiver lead vinculado */}
-              {!conversation.lead_id && (
+              {/* Botão Criar Lead - só aparece se não tiver lead vinculado (nem no estado local nem no banco) */}
+              {!effectiveLeadId && (
                 <CreateLeadFromConversation 
                   conversation={conversation} 
                   onLeadCreated={() => {
                     queryClient.invalidateQueries({ queryKey: ['conversations'] });
-                    queryClient.invalidateQueries({ queryKey: ['lead-stage', conversation?.lead_id] });
+                    queryClient.invalidateQueries({ queryKey: ['conversation-fresh', conversation?.id] });
+                    queryClient.invalidateQueries({ queryKey: ['lead-stage'] });
                   }}
                 />
               )}
 
-              {conversation.lead_id && pipelineStages.length > 0 && (
+              {effectiveLeadId && pipelineStages.length > 0 && (
                 <div className="hidden sm:flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">Quadro:</span>
                   <Select
@@ -285,7 +306,7 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="glass-card border-border">
-                  {conversation.lead_id && pipelineStages.length > 0 && (
+                  {effectiveLeadId && pipelineStages.length > 0 && (
                     <>
                       <div className="sm:hidden px-2 py-1.5 text-xs font-semibold text-muted-foreground">
                         Mover para:

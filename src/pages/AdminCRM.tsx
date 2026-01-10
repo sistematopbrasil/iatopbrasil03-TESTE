@@ -6,11 +6,12 @@ import { ConversationList } from '@/components/crm/ConversationList';
 import { ChatWindow } from '@/components/crm/ChatWindow';
 import { DisconnectedOverlay } from '@/components/crm/DisconnectedOverlay';
 import { QuizLeadsList } from '@/components/crm/QuizLeadsList';
+import { WhatsAppLeadsList } from '@/components/crm/WhatsAppLeadsList';
 import { CRMSettings } from '@/components/crm/CRMSettings';
 import { Conversation } from '@/lib/crm-service';
 import { AdminLayout } from '@/components/admin/AdminLayout';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MessageSquare, Users, Settings, WifiOff, Wifi } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { MessageSquare, Users, Settings, WifiOff, Wifi, MessageCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { normalizePhone, getPhoneVariants } from '@/lib/phone-utils';
@@ -20,7 +21,8 @@ function AdminCRMContent() {
   const location = useLocation();
   const { isConnected, isLoading, instance, isConnecting, qrCode, connectionVerified } = useWhatsAppConnectionContext();
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
-  const [activeTab, setActiveTab] = useState<'conversations' | 'quiz-leads' | 'settings'>('conversations');
+  const [activeTab, setActiveTab] = useState<'conversations' | 'leads' | 'settings'>('conversations');
+  const [leadsSubTab, setLeadsSubTab] = useState<'quiz' | 'whatsapp'>('quiz');
   const [wasConnected, setWasConnected] = useState(false);
 
   // Quando conectar com sucesso, ir automaticamente para aba de conversas
@@ -183,9 +185,9 @@ function AdminCRMContent() {
                 <MessageSquare className="w-4 h-4" />
                 <span className="hidden sm:inline">Conversas</span>
               </TabsTrigger>
-              <TabsTrigger value="quiz-leads" className="gap-2 text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <TabsTrigger value="leads" className="gap-2 text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                 <Users className="w-4 h-4" />
-                <span className="hidden sm:inline">Leads do Quiz</span>
+                <span className="hidden sm:inline">Leads</span>
               </TabsTrigger>
               <TabsTrigger value="settings" className="gap-2 text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                 <Settings className="w-4 h-4" />
@@ -238,9 +240,33 @@ function AdminCRMContent() {
             )}
           </div>
           
-          {/* Tab: Quiz Leads - sempre renderizado */}
-          <div className={activeTab === 'quiz-leads' ? 'h-full' : 'hidden'}>
-            <QuizLeadsList onStartConversation={handleStartConversationFromLead} />
+          {/* Tab: Leads - com sub-abas */}
+          <div className={activeTab === 'leads' ? 'h-full flex flex-col' : 'hidden'}>
+            {/* Sub-tabs */}
+            <div className="flex-shrink-0 border-b border-border px-2 pt-2">
+              <Tabs value={leadsSubTab} onValueChange={(v) => setLeadsSubTab(v as any)}>
+                <TabsList className="h-8">
+                  <TabsTrigger value="quiz" className="text-xs gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                    <Users className="w-3.5 h-3.5" />
+                    Leads do Quiz
+                  </TabsTrigger>
+                  <TabsTrigger value="whatsapp" className="text-xs gap-1.5 data-[state=active]:bg-green-600 data-[state=active]:text-white">
+                    <MessageCircle className="w-3.5 h-3.5" />
+                    Leads do WhatsApp
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+            
+            {/* Sub-tab content */}
+            <div className="flex-1 min-h-0 overflow-hidden">
+              {leadsSubTab === 'quiz' && (
+                <QuizLeadsList onStartConversation={handleStartConversationFromLead} />
+              )}
+              {leadsSubTab === 'whatsapp' && (
+                <WhatsAppLeadsList onStartConversation={handleStartConversationFromLead} />
+              )}
+            </div>
           </div>
           
           {/* Tab: Settings - sempre renderizado */}
