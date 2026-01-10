@@ -444,8 +444,8 @@ serve(async (req) => {
             }
           }
 
-          // ✅ CRIAR LEAD AUTOMATICAMENTE SE NÃO EXISTIR (apenas para mensagens recebidas)
-          if (!lead && direction === 'incoming') {
+      // ✅ CRIAR LEAD AUTOMATICAMENTE SE NÃO EXISTIR (para qualquer direção)
+      if (!lead) {
             console.log('🆕 Criando lead automaticamente para:', normalizedPhone);
             
             // Buscar primeiro quadro do pipeline

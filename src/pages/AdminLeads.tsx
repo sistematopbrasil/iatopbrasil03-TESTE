@@ -116,6 +116,7 @@ export default function AdminLeads() {
       let query = supabase
         .from('quiz_submissions_new')
         .select('*')
+        .gt('completion_percentage', 0) // Apenas leads que preencheram o quiz
         .order('created_at', { ascending: false });
 
       // Filtrar por consultant_id se não for super admin
