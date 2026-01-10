@@ -76,6 +76,7 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
       let query = supabase
         .from('quiz_submissions_new')
         .select('*')
+        .gt('completion_percentage', 0) // Apenas leads que preencheram o quiz
         .not('phone', 'is', null)
         .order('created_at', { ascending: false });
 
