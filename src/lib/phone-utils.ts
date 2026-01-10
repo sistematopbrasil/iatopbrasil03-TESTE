@@ -5,9 +5,16 @@ export function normalizePhone(phone: string): string {
   // Remove tudo que não é número
   const cleaned = phone.replace(/\D/g, '');
   
-  // Se já tem código do país (55) e tem 12+ dígitos, retorna como está
-  if (cleaned.startsWith('55') && cleaned.length >= 12) {
+  // Se já tem código do país (55) e 13 dígitos (formato completo com 9), retorna como está
+  if (cleaned.startsWith('55') && cleaned.length === 13) {
     return cleaned;
+  }
+  
+  // Se tem 55 + 12 dígitos (falta o 9 no celular), adicionar o 9
+  if (cleaned.startsWith('55') && cleaned.length === 12) {
+    const ddd = cleaned.slice(2, 4);
+    const number = cleaned.slice(4);
+    return `55${ddd}9${number}`;
   }
   
   // Se tem 11 dígitos (DDD + número com 9), adiciona 55
@@ -15,9 +22,11 @@ export function normalizePhone(phone: string): string {
     return `55${cleaned}`;
   }
   
-  // Se tem 10 dígitos (DDD + número sem 9), adiciona 55
+  // Se tem 10 dígitos (DDD + número sem 9), adiciona 55 e 9
   if (cleaned.length === 10) {
-    return `55${cleaned}`;
+    const ddd = cleaned.slice(0, 2);
+    const number = cleaned.slice(2);
+    return `55${ddd}9${number}`;
   }
   
   // Retorna como está se não se encaixa nos padrões

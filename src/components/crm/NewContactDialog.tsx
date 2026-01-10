@@ -14,7 +14,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Plus, MessageSquare, Loader2, CheckCircle, User, Flame, ThermometerSun, Snowflake } from 'lucide-react';
+import { MessageSquare, Loader2, CheckCircle, User, Flame, ThermometerSun, Snowflake } from 'lucide-react';
+import { normalizePhone, getPhoneVariants } from '@/lib/phone-utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
@@ -120,16 +121,17 @@ export function NewContactDialog({
 
     setIsCreating(true);
     try {
-      // Format phone with country code
-      const formattedPhone = digits.length === 11 ? `55${digits}` : 
-                             digits.length === 13 ? digits : 
-                             `55${digits}`;
+      // Normalizar telefone (sempre 13 dígitos com 55 + DDD + 9 + número)
+      const formattedPhone = normalizePhone(digits);
+      
+      // Gerar variantes para busca (com e sem 9)
+      const phoneVariants = getPhoneVariants(digits);
 
-      // Check if conversation already exists
+      // Check if conversation already exists (buscar por variantes)
       const { data: existingConv } = await supabase
         .from('crm_conversations')
         .select('id')
-        .eq('contact_phone', formattedPhone)
+        .in('contact_phone', phoneVariants)
         .eq('instance_id', instanceId)
         .maybeSingle();
 

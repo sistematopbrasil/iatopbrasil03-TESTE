@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -65,14 +66,12 @@ type TemperatureFilter = 'all' | 'hot' | 'warm' | 'cold';
 export default function AdminLeads() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
+  const queryClient = useQueryClient();
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [temperatureFilter, setTemperatureFilter] = useState<TemperatureFilter>("all");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const [loading, setLoading] = useState(true);
   const [deleteLeadId, setDeleteLeadId] = useState<string | null>(null);
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [deletingMultiple, setDeletingMultiple] = useState(false);
@@ -83,45 +82,37 @@ export default function AdminLeads() {
   const [salesExperience, setSalesExperience] = useState("all");
   const [incomeRange, setIncomeRange] = useState("all");
   const [pipelineStageFilter, setPipelineStageFilter] = useState("all");
-  const [currentUser, setCurrentUser] = useState<any>(null);
-  const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>([]);
   const { toast } = useToast();
 
-  useEffect(() => {
-    const init = async () => {
-      const user = await getCurrentConsultant();
-      setCurrentUser(user);
+  // Buscar usuário atual com cache
+  const { data: currentUser } = useQuery({
+    queryKey: ['current-user'],
+    queryFn: getCurrentConsultant,
+    staleTime: 5 * 60 * 1000, // 5 minutos
+  });
+
+  // Buscar pipeline stages com cache
+  const { data: pipelineStages = [] } = useQuery({
+    queryKey: ['pipeline-stages', currentUser?.organization_id],
+    queryFn: async () => {
+      if (!currentUser?.organization_id) return [];
+      const { data } = await supabase
+        .from('pipeline_stages')
+        .select('id, name, color')
+        .eq('organization_id', currentUser.organization_id)
+        .order('order_index', { ascending: true });
+      return data || [];
+    },
+    enabled: !!currentUser?.organization_id,
+    staleTime: 5 * 60 * 1000, // 5 minutos
+  });
+
+  // Buscar leads com useQuery e cache agressivo
+  const { data: leads = [], isLoading: loading, refetch: fetchLeads } = useQuery({
+    queryKey: ['leads', currentUser?.id, currentUser?.role, currentUser?.organization_id],
+    queryFn: async () => {
+      if (!currentUser) return [];
       
-      // Fetch pipeline stages
-      if (user?.organization_id) {
-        const { data: stages } = await supabase
-          .from('pipeline_stages')
-          .select('id, name, color')
-          .eq('organization_id', user.organization_id)
-          .order('order_index', { ascending: true });
-        
-        if (stages) setPipelineStages(stages);
-      }
-    };
-    init();
-  }, []);
-
-  useEffect(() => {
-    if (currentUser) {
-      fetchLeads();
-    }
-  }, [currentUser]);
-
-  useEffect(() => {
-    filterLeads();
-  }, [searchQuery, statusFilter, temperatureFilter, dateRange, leads, cnh, vehicle, employmentStatus, salesExperience, incomeRange, pipelineStageFilter]);
-
-  // ✅ REMOVIDO filtro completion_percentage=100 para mostrar leads incompletos também
-  const fetchLeads = async () => {
-    if (!currentUser) return;
-    
-    setLoading(true);
-    try {
       let query = supabase
         .from('quiz_submissions_new')
         .select('*')
@@ -135,17 +126,17 @@ export default function AdminLeads() {
       }
 
       const { data, error } = await query;
-
       if (error) throw error;
-      setLeads(data || []);
-    } catch (error) {
-      console.error('Error fetching leads:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+      return data || [];
+    },
+    enabled: !!currentUser,
+    staleTime: 30 * 1000, // 30 segundos - mantém dados frescos por 30s
+    gcTime: 5 * 60 * 1000, // 5 minutos no cache
+    placeholderData: (previousData) => previousData, // Mantém dados antigos enquanto carrega
+  });
 
-  const filterLeads = () => {
+  // Filtrar leads usando useMemo para performance
+  const filteredLeads = useMemo(() => {
     let filtered = [...leads];
 
     // Search filter
@@ -235,8 +226,8 @@ export default function AdminLeads() {
       filtered = filtered.filter(lead => lead.pipeline_stage_id === pipelineStageFilter);
     }
 
-    setFilteredLeads(filtered);
-  };
+    return filtered;
+  }, [leads, searchQuery, statusFilter, temperatureFilter, dateRange, cnh, vehicle, employmentStatus, salesExperience, incomeRange, pipelineStageFilter]);
 
   const setPreset = (days: number) => {
     if (days === 0) {
@@ -687,7 +678,7 @@ export default function AdminLeads() {
 
           {/* Action buttons row */}
           <div className="flex flex-col sm:flex-row gap-3">
-            <Button onClick={fetchLeads} variant="outline" disabled={loading} className="w-full sm:w-auto">
+            <Button onClick={() => fetchLeads()} variant="outline" disabled={loading} className="w-full sm:w-auto">
               <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               Atualizar
             </Button>
