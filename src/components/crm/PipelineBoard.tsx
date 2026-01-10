@@ -61,18 +61,27 @@ export function PipelineBoard() {
     };
   }, [queryClient]);
 
-  // Buscar stages customizados do banco
+  const { data: currentUser } = useQuery({
+    queryKey: ['current-user-pipeline'],
+    queryFn: getCurrentConsultant,
+  });
+
+  // Buscar stages customizados do banco - SOMENTE após ter usuário e organização
   const { data: customStages } = useQuery({
-    queryKey: ['pipeline-stages'],
+    queryKey: ['pipeline-stages', currentUser?.organization_id],
     queryFn: async () => {
+      if (!currentUser?.organization_id) return null;
+      
       const { data, error } = await supabase
         .from('pipeline_stages')
         .select('*')
+        .eq('organization_id', currentUser.organization_id)
         .order('order_index', { ascending: true });
       
       if (error) throw error;
       return data;
     },
+    enabled: !!currentUser?.organization_id,
   });
 
   // Usar stages customizados ou padrão - AGORA USA UUID DIRETAMENTE
@@ -84,11 +93,6 @@ export function PipelineBoard() {
         icon: s.icon 
       }))
     : DEFAULT_STAGES;
-
-  const { data: currentUser } = useQuery({
-    queryKey: ['current-user-pipeline'],
-    queryFn: getCurrentConsultant,
-  });
 
   // ✅ Busca TODOS os leads - incluindo os sem pipeline_stage_id
   const { data: leads, isLoading, error } = useQuery({

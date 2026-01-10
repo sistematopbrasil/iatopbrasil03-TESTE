@@ -42,6 +42,18 @@ export function RoleBasedRedirect() {
         navigate('/admin/dashboard', { replace: true });
       }
     }
+
+    // ✅ PWA STANDALONE: Redirecionar raiz para dashboard quando em modo standalone (PWA instalado)
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                         (window.navigator as any).standalone === true;
+    
+    if (isStandalone && location.pathname === '/') {
+      if (consultant.role === 'super_admin') {
+        navigate('/admin/super', { replace: true });
+      } else {
+        navigate('/admin/dashboard', { replace: true });
+      }
+    }
   }, [consultant, isLoading, location.pathname, navigate]);
 
   return null;
