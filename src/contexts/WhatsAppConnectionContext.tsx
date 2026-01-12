@@ -46,10 +46,19 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
   const mountedRef = useRef(true);
   const failedChecksRef = useRef(0);
   const lastToastRef = useRef<number>(0);
+  const connectionToastShownRef = useRef(false);
   
   // Locks separados para create e connect
   const isCreatingRef = useRef(false);
   const isConnectingRef = useRef(false);
+
+  // Função centralizada para mostrar toast de conexão (apenas uma vez por ciclo)
+  const showConnectedToast = useCallback(() => {
+    if (!connectionToastShownRef.current) {
+      connectionToastShownRef.current = true;
+      toast.success('WhatsApp conectado com sucesso!');
+    }
+  }, []);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -161,7 +170,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
           if (newData.status === 'connected') {
             console.log('✅ Conectado via realtime!');
             if (isConnecting) {
-              toast.success('WhatsApp conectado com sucesso!');
+              showConnectedToast();
             }
             setInstance((prev) => prev ? { ...prev, ...newData } : prev);
             setQrCode(null);
@@ -296,7 +305,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
       
       if (instanceData.status === 'connected') {
         if (isConnecting) {
-          toast.success('WhatsApp conectado com sucesso!');
+          showConnectedToast();
         }
         setQrCode(null);
         setIsConnecting(false);
@@ -340,7 +349,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
         
         if (isConnecting) {
           console.log('✅ Conexão detectada via check!');
-          toast.success('WhatsApp conectado com sucesso!');
+          showConnectedToast();
           setInstance((prev) => prev ? { ...prev, status: 'connected' } : prev);
           setQrCode(null);
           setIsConnecting(false);
@@ -423,6 +432,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
 
     console.log('🔗 [connectInstance] Iniciando...');
     isConnectingRef.current = true;
+    connectionToastShownRef.current = false; // Reset para permitir novo toast
     setIsConnecting(true);
     setQrCode(null);
     setConnectionVerified(false);
@@ -472,7 +482,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
       console.log('🔗 [connectInstance] Repair result:', data);
 
       if (data?.data?.status === 'connected') {
-        toast.success('WhatsApp conectado com sucesso!');
+        showConnectedToast();
         await loadInstance();
         setQrCode(null);
         setIsConnecting(false);
@@ -509,7 +519,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
               clearInterval(fastPoll);
             } else if (instanceData?.status === 'connected') {
               console.log('✅ Conectado durante polling!');
-              toast.success('WhatsApp conectado com sucesso!');
+              showConnectedToast();
               setInstance(instanceData);
               setQrCode(null);
               setIsConnecting(false);
@@ -541,6 +551,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
     }
 
     isConnectingRef.current = true;
+    connectionToastShownRef.current = false; // Reset para permitir novo toast
     setIsConnecting(true);
     setQrCode(null);
     
@@ -565,7 +576,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
       console.log('🔧 Repair result:', data);
 
       if (data?.data?.status === 'connected') {
-        toast.success('WhatsApp conectado!');
+        showConnectedToast();
         setIsConnecting(false);
         isConnectingRef.current = false;
         isCreatingRef.current = false;
@@ -591,7 +602,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
               setInstance(instanceData);
               clearInterval(fastPoll);
             } else if (instanceData?.status === 'connected') {
-              toast.success('WhatsApp conectado!');
+              showConnectedToast();
               setInstance(instanceData);
               setQrCode(null);
               setIsConnecting(false);
