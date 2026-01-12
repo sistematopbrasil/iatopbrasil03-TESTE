@@ -45,15 +45,21 @@ interface RankingResponse {
  * Usa backend function com permissão elevada para ver todos os dados
  */
 export function useRankingData(options: UseRankingDataOptions = {}) {
-  const { periodStart = null, periodEnd = new Date().toISOString(), enabled = true } = options;
+  // IMPORTANTE: NÃO usar new Date().toISOString() como default direto
+  // pois muda a cada render e invalida a queryKey constantemente
+  const { periodStart = null, periodEnd = null, enabled = true } = options;
   const queryClient = useQueryClient();
 
   // Query principal de ranking via backend
   const { data: response, isLoading, error, refetch } = useQuery({
-    queryKey: ['unified-ranking', periodStart, periodEnd],
+    // QueryKey estável: usar 'now' como string em vez de timestamp dinâmico
+    queryKey: ['unified-ranking', periodStart ?? 'all', periodEnd ?? 'now'],
     queryFn: async (): Promise<RankingResponse> => {
+      // Resolver periodEnd no momento da chamada, não no render
+      const effectivePeriodEnd = periodEnd ?? new Date().toISOString();
+      
       const { data, error } = await supabase.functions.invoke('ranking-get', {
-        body: { periodStart, periodEnd },
+        body: { periodStart, periodEnd: effectivePeriodEnd },
       });
 
       if (error) {
@@ -68,7 +74,7 @@ export function useRankingData(options: UseRankingDataOptions = {}) {
       return data;
     },
     enabled,
-    staleTime: 30 * 1000,
+    staleTime: 60 * 1000, // Cache por 1 minuto
     gcTime: 5 * 60 * 1000,
     retry: 2,
   });

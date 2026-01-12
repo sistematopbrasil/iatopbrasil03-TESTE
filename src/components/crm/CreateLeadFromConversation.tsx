@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,6 +23,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Conversation } from '@/lib/crm-service';
+import { normalizePhone } from '@/lib/phone-utils';
 
 interface CreateLeadFromConversationProps {
   conversation: Conversation;
@@ -36,16 +37,18 @@ export function CreateLeadFromConversation({ conversation, onLeadCreated }: Crea
   const [selectedStage, setSelectedStage] = useState<string>('');
   const queryClient = useQueryClient();
 
-  // Buscar stages do pipeline
+  // Buscar stages do pipeline FILTRADO POR ORGANIZAÇÃO
   const { data: pipelineStages = [] } = useQuery({
-    queryKey: ['pipeline-stages'],
+    queryKey: ['pipeline-stages', conversation.organization_id],
     queryFn: async () => {
       const { data } = await supabase
         .from('pipeline_stages')
         .select('*')
+        .eq('organization_id', conversation.organization_id)
         .order('order_index', { ascending: true });
       return data || [];
     },
+    enabled: !!conversation.organization_id,
   });
 
   // Definir stage padrão quando carregar
@@ -68,12 +71,15 @@ export function CreateLeadFromConversation({ conversation, onLeadCreated }: Crea
     setIsCreating(true);
 
     try {
+      // Normalizar telefone antes de salvar
+      const normalizedPhone = normalizePhone(conversation.contact_phone);
+      
       // Criar lead na tabela quiz_submissions_new
       const { data: lead, error: leadError } = await supabase
         .from('quiz_submissions_new')
         .insert({
           name: name.trim(),
-          phone: conversation.contact_phone,
+          phone: normalizedPhone, // Telefone normalizado
           organization_id: conversation.organization_id,
           consultant_id: conversation.user_id,
           pipeline_stage_id: selectedStage || pipelineStages[0]?.id,
