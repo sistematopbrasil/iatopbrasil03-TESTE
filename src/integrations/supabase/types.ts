@@ -917,6 +917,7 @@ export type Database = {
           session_id: string | null
           stage: Database["public"]["Enums"]["lead_stage"]
           temperature: Database["public"]["Enums"]["lead_temperature"] | null
+          temperature_override: boolean
           updated_at: string
           user_agent: string | null
           utm_campaign: string | null
@@ -961,6 +962,7 @@ export type Database = {
           session_id?: string | null
           stage?: Database["public"]["Enums"]["lead_stage"]
           temperature?: Database["public"]["Enums"]["lead_temperature"] | null
+          temperature_override?: boolean
           updated_at?: string
           user_agent?: string | null
           utm_campaign?: string | null
@@ -1005,6 +1007,7 @@ export type Database = {
           session_id?: string | null
           stage?: Database["public"]["Enums"]["lead_stage"]
           temperature?: Database["public"]["Enums"]["lead_temperature"] | null
+          temperature_override?: boolean
           updated_at?: string
           user_agent?: string | null
           utm_campaign?: string | null

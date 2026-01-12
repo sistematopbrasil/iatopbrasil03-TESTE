@@ -436,26 +436,35 @@ serve(async (req) => {
             }
           }
 
-          // ✅ BUSCAR LEAD POR TELEFONE COM VARIANTES (filtrando por organização)
+          // ✅ BUSCAR LEAD POR TELEFONE COM VARIANTES (filtrando por organização E consultor)
           let lead = null;
+          
+          // PRIORIDADE 1: Lead do mesmo consultor
           for (const variant of phoneVariants) {
             const { data: foundLead } = await supabaseAdmin
               .from('quiz_submissions_new')
               .select('id, name, organization_id, pipeline_stage_id, phone, consultant_id, completion_percentage')
               .eq('phone', variant)
-              .eq('organization_id', instance.organization_id) // ✅ Filtrar por organização
+              .eq('organization_id', instance.organization_id)
+              .eq('consultant_id', instance.user_id) // ✅ Priorizar lead do mesmo consultor
               .order('created_at', { ascending: false })
               .limit(1)
               .maybeSingle();
             
             if (foundLead) {
               lead = foundLead;
-              console.log('✅ Lead encontrado com variante:', variant, '| completion:', foundLead.completion_percentage);
+              console.log('✅ Lead encontrado do mesmo consultor:', variant, '| completion:', foundLead.completion_percentage);
               break;
             }
           }
           
-          // ✅ FALLBACK: busca por últimos 8 dígitos se não encontrou
+          // PRIORIDADE 2: Se não encontrou do mesmo consultor, buscar qualquer lead da organização
+          // MAS não vamos usar - vamos criar um novo para o consultor atual
+          if (!lead) {
+            console.log('📌 Nenhum lead do consultor atual encontrado, verificando se existe de outro consultor...');
+          }
+          
+          // ✅ FALLBACK: busca por últimos 8 dígitos se não encontrou (mas só do mesmo consultor)
           if (!lead) {
             const last8 = normalizedPhone.slice(-8);
             console.log('🔍 Tentando busca parcial com últimos 8 dígitos:', last8);
@@ -464,6 +473,7 @@ serve(async (req) => {
               .from('quiz_submissions_new')
               .select('id, name, organization_id, pipeline_stage_id, phone, consultant_id, completion_percentage')
               .eq('organization_id', instance.organization_id)
+              .eq('consultant_id', instance.user_id) // ✅ Só do mesmo consultor
               .like('phone', `%${last8}`)
               .order('created_at', { ascending: false })
               .limit(1)
@@ -505,9 +515,9 @@ serve(async (req) => {
                 consultant_id: instance.user_id,
                 pipeline_stage_id: firstStageId,
                 stage: 'novo',
-                temperature: 'warm',
+                temperature: 'cold', // ✅ Lead WhatsApp = Frio
                 completion_percentage: 0, // Lead veio do WhatsApp, não do quiz
-                lead_score: 50,
+                lead_score: 0,
               })
               .select('id, name, organization_id, pipeline_stage_id, phone, consultant_id')
               .single();

@@ -224,14 +224,15 @@ serve(async (req) => {
             }
           }
 
-          // Buscar lead
+          // Buscar lead - PRIORIDADE: mesmo consultor
           let lead = null;
           for (const variant of phoneVariants) {
             const { data: foundLead } = await supabaseAdmin
               .from('quiz_submissions_new')
-              .select('id, name')
+              .select('id, name, consultant_id')
               .eq('phone', variant)
               .eq('organization_id', instance.organization_id)
+              .eq('consultant_id', instance.user_id) // ✅ Priorizar lead do mesmo consultor
               .order('created_at', { ascending: false })
               .limit(1)
               .maybeSingle();
@@ -239,6 +240,44 @@ serve(async (req) => {
             if (foundLead) {
               lead = foundLead;
               break;
+            }
+          }
+          
+          // ✅ Se não encontrou lead do consultor, criar um novo
+          if (!lead) {
+            console.log(`🆕 Criando lead automaticamente para: ${normalizedPhone}`);
+            
+            // Buscar primeiro quadro do pipeline
+            const { data: stages } = await supabaseAdmin
+              .from('pipeline_stages')
+              .select('id')
+              .eq('organization_id', instance.organization_id)
+              .order('order_index', { ascending: true })
+              .limit(1);
+            
+            const firstStageId = stages?.[0]?.id || null;
+            
+            const { data: newLead, error: leadError } = await supabaseAdmin
+              .from('quiz_submissions_new')
+              .insert({
+                name: chat.name || chat.pushName || normalizedPhone,
+                phone: normalizedPhone,
+                organization_id: instance.organization_id,
+                consultant_id: instance.user_id,
+                pipeline_stage_id: firstStageId,
+                stage: 'novo',
+                temperature: 'cold', // ✅ Lead WhatsApp = Frio
+                completion_percentage: 0,
+                lead_score: 0,
+              })
+              .select('id, name, consultant_id')
+              .single();
+            
+            if (!leadError && newLead) {
+              lead = newLead;
+              console.log(`✅ Lead criado: ${lead.id}`);
+            } else {
+              console.warn(`⚠️ Erro ao criar lead:`, leadError);
             }
           }
 

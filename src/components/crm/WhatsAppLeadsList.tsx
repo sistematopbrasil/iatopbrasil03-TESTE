@@ -184,9 +184,9 @@ export function WhatsAppLeadsList({ onStartConversation }: WhatsAppLeadsListProp
           consultant_id: currentUser.id,
           pipeline_stage_id: firstStageId,
           stage: 'novo',
-          temperature: 'warm',
+          temperature: 'cold', // ✅ Lead WhatsApp = Frio
           completion_percentage: 0,
-          lead_score: 50,
+          lead_score: 0, // Score inicial
         })
         .select()
         .single();
