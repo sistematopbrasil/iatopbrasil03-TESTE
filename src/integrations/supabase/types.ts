@@ -1403,6 +1403,7 @@ export type Database = {
         Args: { org_id: string; stage_name: string }
         Returns: string
       }
+      normalize_br_phone: { Args: { phone: string }; Returns: string }
       unaccent: { Args: { "": string }; Returns: string }
     }
     Enums: {
