@@ -236,6 +236,10 @@ serve(async (req) => {
         const messages = data?.messages || [data];
         console.log(`📨 Total de mensagens no payload: ${messages.length}`);
         
+        // ✅ EXTRAIR pushName do nível correto do payload
+        // Evolution API envia pushName tanto em message.pushName quanto em data.pushName
+        const payloadPushName = data?.pushName;
+        
         for (const message of messages) {
           try {
             const key = message.key;
@@ -501,9 +505,13 @@ serve(async (req) => {
             
             // ✅ Para mensagens outgoing, NÃO usar pushName (seria o nome do consultor)
             // Para mensagens incoming, usar pushName como nome do contato
+            // pushName pode vir no message ou no data (nível do payload)
+            const contactPushName = message.pushName || payloadPushName || message.verifiedBizName;
             const leadName = direction === 'incoming' 
-              ? (message.pushName || normalizedPhone) 
+              ? (contactPushName || normalizedPhone) 
               : normalizedPhone;
+            
+            console.log('📛 Nome do contato:', { contactPushName, leadName, direction });
             
             // Criar lead automaticamente
             const { data: newLead, error: leadError } = await supabaseAdmin
@@ -531,8 +539,14 @@ serve(async (req) => {
           } else {
             // ✅ REPARAR lead existente se não tiver pipeline_stage_id ou consultant_id
             const needsRepair = !lead.pipeline_stage_id || !lead.consultant_id;
-            if (needsRepair) {
-              console.log('🔧 Reparando lead existente:', lead.id);
+            
+            // ✅ ATUALIZAR NOME: Se o nome atual for só número e temos pushName, atualizar
+            const contactPushName = message.pushName || payloadPushName || message.verifiedBizName;
+            const currentNameIsOnlyNumber = lead.name && /^\d+$/.test(lead.name);
+            const shouldUpdateName = direction === 'incoming' && contactPushName && currentNameIsOnlyNumber;
+            
+            if (needsRepair || shouldUpdateName) {
+              console.log('🔧 Reparando lead existente:', lead.id, { needsRepair, shouldUpdateName, contactPushName });
               
               // Buscar primeiro quadro se necessário
               let repairStageId = lead.pipeline_stage_id;
@@ -553,6 +567,11 @@ serve(async (req) => {
               if (!lead.consultant_id) {
                 updateData.consultant_id = instance.user_id;
               }
+              // ✅ Atualizar nome se antes era só número
+              if (shouldUpdateName) {
+                updateData.name = contactPushName;
+                console.log('📛 Atualizando nome do lead de', lead.name, 'para', contactPushName);
+              }
               
               if (Object.keys(updateData).length > 0) {
                 await supabaseAdmin
@@ -560,6 +579,11 @@ serve(async (req) => {
                   .update(updateData)
                   .eq('id', lead.id);
                 console.log('✅ Lead reparado:', updateData);
+                
+                // Atualizar objeto local
+                if (shouldUpdateName) {
+                  lead.name = contactPushName;
+                }
               }
             }
           }
@@ -590,7 +614,7 @@ serve(async (req) => {
                 user_id: instance.user_id,
                 organization_id: instance.organization_id,
                 contact_phone: normalizedPhone,
-                contact_name: lead?.name || message.pushName || normalizedPhone,
+                contact_name: lead?.name || message.pushName || payloadPushName || normalizedPhone,
                 contact_avatar: message.verifiedBizName ? null : undefined,
                 lead_id: lead?.id || null,
                 status: 'open',
@@ -607,22 +631,26 @@ serve(async (req) => {
             console.log('✅ Nova conversa criada:', conversation.id);
           } else {
             // ✅ VINCULAR LEAD À CONVERSA EXISTENTE SE NÃO TIVER
+            const contactPushName = message.pushName || payloadPushName || message.verifiedBizName;
+            const currentConvNameIsOnlyNumber = conversation.contact_name && /^\d+$/.test(conversation.contact_name);
+            
+            const updateConvData: any = {};
+            
             if (lead && !conversation.lead_id) {
-              await supabaseAdmin
-                .from('crm_conversations')
-                .update({ 
-                  lead_id: lead.id,
-                  contact_name: lead.name || conversation.contact_name,
-                })
-                .eq('id', conversation.id);
+              updateConvData.lead_id = lead.id;
+              updateConvData.contact_name = lead.name || conversation.contact_name;
             }
 
-            // Atualizar nome do contato se disponível - SOMENTE para mensagens RECEBIDAS
-            // Não atualizar com pushName de mensagens enviadas (que seria o nome do consultor)
-            if (direction === 'incoming' && message.pushName && message.pushName !== conversation.contact_name && !lead?.name) {
+            // ✅ Atualizar nome da conversa se atual for só número e temos pushName
+            if (direction === 'incoming' && contactPushName && currentConvNameIsOnlyNumber) {
+              updateConvData.contact_name = contactPushName;
+              console.log('📛 Atualizando nome da conversa de', conversation.contact_name, 'para', contactPushName);
+            }
+            
+            if (Object.keys(updateConvData).length > 0) {
               await supabaseAdmin
                 .from('crm_conversations')
-                .update({ contact_name: message.pushName })
+                .update(updateConvData)
                 .eq('id', conversation.id);
             }
           }
