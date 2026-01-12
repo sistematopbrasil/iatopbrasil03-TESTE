@@ -13,7 +13,7 @@ import { LeadProfile } from './LeadProfile';
 import { CreateLeadFromConversation } from './CreateLeadFromConversation';
 import { TemperatureBadge } from '@/components/ui/temperature-badge';
 import { supabase } from '@/integrations/supabase/client';
-import { formatPhoneDisplay } from '@/lib/phone-utils';
+import { formatPhoneDisplay, normalizePhone } from '@/lib/phone-utils';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -49,16 +49,19 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
   const [isTyping, setIsTyping] = useState(false);
   const queryClient = useQueryClient();
 
-  // Buscar stages do pipeline
+  // Buscar stages do pipeline FILTRADO POR ORGANIZAÇÃO
   const { data: pipelineStages = [] } = useQuery({
-    queryKey: ['pipeline-stages'],
+    queryKey: ['pipeline-stages', conversation?.organization_id],
     queryFn: async () => {
+      if (!conversation?.organization_id) return [];
       const { data } = await supabase
         .from('pipeline_stages')
         .select('*')
+        .eq('organization_id', conversation.organization_id)
         .order('order_index', { ascending: true });
       return data || [];
     },
+    enabled: !!conversation?.organization_id,
   });
 
   // Buscar conversa atualizada para ter o lead_id mais recente (evita stale state)
@@ -113,12 +116,15 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
         
         if (!userData) throw new Error('Usuário não encontrado');
         
+        // Normalizar telefone antes de criar lead
+        const normalizedPhone = normalizePhone(conversation?.contact_phone || '');
+        
         // Criar lead com dados da conversa
         const { data: newLead, error: createError } = await supabase
           .from('quiz_submissions_new')
           .insert({
-            name: conversation?.contact_name || conversation?.contact_phone || 'Sem nome',
-            phone: conversation?.contact_phone,
+            name: conversation?.contact_name || normalizedPhone || 'Sem nome',
+            phone: normalizedPhone, // Telefone normalizado
             organization_id: userData.organization_id,
             consultant_id: userData.id,
             pipeline_stage_id: newStageId,

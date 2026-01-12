@@ -69,16 +69,19 @@ export function LeadProfile({ conversation, onClose }: LeadProfileProps) {
   const { tags: allTags, isLoading: tagsLoading } = useTags();
   const queryClient = useQueryClient();
 
-  // ✅ Buscar stages do pipeline do BANCO (sem hardcoded)
+  // ✅ Buscar stages do pipeline FILTRADO POR ORGANIZAÇÃO
   const { data: pipelineStages = [] } = useQuery({
-    queryKey: ['pipeline-stages'],
+    queryKey: ['pipeline-stages', conversation.organization_id],
     queryFn: async () => {
+      if (!conversation.organization_id) return [];
       const { data } = await supabase
         .from('pipeline_stages')
         .select('*')
+        .eq('organization_id', conversation.organization_id)
         .order('order_index', { ascending: true });
       return data || [];
     },
+    enabled: !!conversation.organization_id,
   });
 
   useEffect(() => {
