@@ -39,7 +39,7 @@ export default function AdminRanking() {
   }, [period]);
 
   // Usar hook centralizado com queryKey estável (dados pré-carregados em usePrefetchAdminData)
-  const { ranking, isLoading, error, currentUser, totals, myData, refetch } = useRankingData({
+  const { ranking, isLoading, error, currentUser, currentUserRole, totals, myData, refetch } = useRankingData({
     periodStart,
     periodEnd,
   });
@@ -47,7 +47,8 @@ export default function AdminRanking() {
   // ✅ Se já tem dados no cache, não mostrar loading
   const showLoading = isLoading && !ranking;
 
-  const isAdmin = currentUser && isSuperAdmin(currentUser.role);
+  // Usar currentUserRole diretamente (funciona para super admin que não está no array)
+  const isAdmin = currentUserRole ? isSuperAdmin(currentUserRole) : false;
 
   const getMedalIcon = (position: number) => {
     if (position === 1) return '🥇';

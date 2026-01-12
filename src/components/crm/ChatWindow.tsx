@@ -95,24 +95,70 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
     enabled: !!effectiveLeadId,
   });
 
-  // Mutation para atualizar stage
+  // Mutation para atualizar stage - cria lead automaticamente se não existir
   const updateStageMutation = useMutation({
     mutationFn: async (newStageId: string) => {
-      if (!effectiveLeadId) throw new Error('Lead não vinculado');
-      const { error } = await supabase
-        .from('quiz_submissions_new')
-        .update({ pipeline_stage_id: newStageId })
-        .eq('id', effectiveLeadId);
-      if (error) throw error;
+      let leadId = effectiveLeadId;
+      
+      // Se não tem lead, criar um novo automaticamente
+      if (!leadId) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Usuário não autenticado');
+        
+        const { data: userData } = await supabase
+          .from('users')
+          .select('id, organization_id')
+          .eq('auth_user_id', user.id)
+          .single();
+        
+        if (!userData) throw new Error('Usuário não encontrado');
+        
+        // Criar lead com dados da conversa
+        const { data: newLead, error: createError } = await supabase
+          .from('quiz_submissions_new')
+          .insert({
+            name: conversation?.contact_name || conversation?.contact_phone || 'Sem nome',
+            phone: conversation?.contact_phone,
+            organization_id: userData.organization_id,
+            consultant_id: userData.id,
+            pipeline_stage_id: newStageId,
+            temperature: 'warm',
+            completion_percentage: 0,
+          })
+          .select()
+          .single();
+        
+        if (createError) throw createError;
+        
+        // Vincular lead à conversa
+        if (conversation?.id) {
+          await supabase
+            .from('crm_conversations')
+            .update({ lead_id: newLead.id })
+            .eq('id', conversation.id);
+        }
+        
+        leadId = newLead.id;
+      } else {
+        // Apenas atualizar o stage do lead existente
+        const { error } = await supabase
+          .from('quiz_submissions_new')
+          .update({ pipeline_stage_id: newStageId })
+          .eq('id', leadId);
+        if (error) throw error;
+      }
+      
+      return leadId;
     },
     onSuccess: () => {
       toast.success('Quadro atualizado!');
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
-      queryClient.invalidateQueries({ queryKey: ['lead-stage', effectiveLeadId] });
+      queryClient.invalidateQueries({ queryKey: ['lead-stage'] });
       queryClient.invalidateQueries({ queryKey: ['conversation-fresh', conversation?.id] });
       queryClient.invalidateQueries({ queryKey: ['pipeline-leads'] });
+      queryClient.invalidateQueries({ queryKey: ['whatsapp-leads'] });
     },
-    onError: () => toast.error('Erro ao atualizar quadro'),
+    onError: (e: Error) => toast.error('Erro ao atualizar quadro: ' + e.message),
   });
 
   useEffect(() => {
