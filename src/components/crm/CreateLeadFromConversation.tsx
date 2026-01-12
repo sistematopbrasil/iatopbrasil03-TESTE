@@ -84,9 +84,9 @@ export function CreateLeadFromConversation({ conversation, onLeadCreated }: Crea
           consultant_id: conversation.user_id,
           pipeline_stage_id: selectedStage || pipelineStages[0]?.id,
           stage: 'novo',
-          temperature: 'warm',
+          temperature: 'cold', // ✅ Lead manual = Frio
           completion_percentage: 0, // Lead manual (não veio do quiz)
-          lead_score: 50, // Score médio para leads manuais
+          lead_score: 0, // Score inicial
         })
         .select()
         .single();

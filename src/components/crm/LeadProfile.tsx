@@ -18,7 +18,7 @@ import {
 import { 
   X, Phone, Mail, Calendar, MapPin, Briefcase, Car, TrendingUp, 
   Star, User, Target, BarChart, AlertCircle, 
-  CheckCircle, Tag, Loader2, Send, Plus
+  CheckCircle, Tag, Loader2, Send, Plus, Thermometer
 } from 'lucide-react';
 import { Conversation } from '@/lib/crm-service';
 import { TemperatureBadge } from '@/components/ui/temperature-badge';
@@ -44,6 +44,7 @@ interface LeadData {
   age: number | null;
   location: string | null;
   temperature: 'hot' | 'warm' | 'cold' | null;
+  temperature_override: boolean;
   lead_score: number | null;
   pipeline_stage_id: string | null;
   employment_status: string | null;
@@ -60,6 +61,7 @@ interface LeadData {
   browser: string | null;
   created_at: string;
   notes: string | null;
+  completion_percentage: number | null;
 }
 
 export function LeadProfile({ conversation, onClose }: LeadProfileProps) {
@@ -160,7 +162,7 @@ export function LeadProfile({ conversation, onClose }: LeadProfileProps) {
         
         const normalizedPhone = normalizePhone(conversation.contact_phone);
         
-        const { data: newLead, error: createError } = await supabase
+            const { data: newLead, error: createError } = await supabase
           .from('quiz_submissions_new')
           .insert({
             name: conversation.contact_name,
@@ -168,7 +170,7 @@ export function LeadProfile({ conversation, onClose }: LeadProfileProps) {
             organization_id: userData.organization_id,
             consultant_id: userData.id,
             pipeline_stage_id: newStageId,
-            temperature: 'warm',
+            temperature: 'cold', // ✅ Lead manual = Frio
             completion_percentage: 0,
           })
           .select()
@@ -226,6 +228,52 @@ export function LeadProfile({ conversation, onClose }: LeadProfileProps) {
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
     } catch (error) {
       toast.error('Erro ao remover do pipeline');
+    }
+  }
+
+  // ✅ NOVA FUNÇÃO: Alterar temperatura manualmente
+  async function handleTemperatureChange(newTemperature: 'hot' | 'warm' | 'cold') {
+    if (!leadData) return;
+    
+    try {
+      const { error } = await supabase
+        .from('quiz_submissions_new')
+        .update({ 
+          temperature: newTemperature,
+          temperature_override: true 
+        })
+        .eq('id', leadData.id);
+
+      if (error) throw error;
+      
+      setLeadData({ ...leadData, temperature: newTemperature, temperature_override: true });
+      
+      const tempNames = { hot: 'Quente', warm: 'Morno', cold: 'Frio' };
+      toast.success(`Temperatura alterada para ${tempNames[newTemperature]}`);
+      queryClient.invalidateQueries({ queryKey: ['pipeline-leads'] });
+    } catch (error) {
+      toast.error('Erro ao alterar temperatura');
+    }
+  }
+
+  // ✅ NOVA FUNÇÃO: Voltar para temperatura automática
+  async function handleResetTemperature() {
+    if (!leadData) return;
+    
+    try {
+      const { error } = await supabase
+        .from('quiz_submissions_new')
+        .update({ temperature_override: false })
+        .eq('id', leadData.id);
+
+      if (error) throw error;
+      
+      // Recarregar lead para pegar a temperatura recalculada
+      await loadLeadData();
+      toast.success('Temperatura voltou para automático');
+      queryClient.invalidateQueries({ queryKey: ['pipeline-leads'] });
+    } catch (error) {
+      toast.error('Erro ao resetar temperatura');
     }
   }
 
@@ -399,8 +447,101 @@ export function LeadProfile({ conversation, onClose }: LeadProfileProps) {
             </div>
           </div>
 
-          {leadData ? (
+              {leadData ? (
             <>
+              {/* ✅ NOVO: Temperatura Selector */}
+              <div className="space-y-3">
+                <h5 className="font-semibold text-foreground text-sm border-b border-border pb-2 flex items-center gap-2">
+                  <Thermometer className="w-4 h-4 text-primary" />
+                  Temperatura
+                  {leadData.temperature_override && (
+                    <Badge variant="outline" className="text-xs ml-auto">Manual</Badge>
+                  )}
+                </h5>
+                <div className="space-y-2">
+                  <Select 
+                    value={leadData.temperature || 'cold'} 
+                    onValueChange={(value) => handleTemperatureChange(value as 'hot' | 'warm' | 'cold')}
+                  >
+                    <SelectTrigger className="glass">
+                      <SelectValue placeholder="Selecione a temperatura" />
+                    </SelectTrigger>
+                    <SelectContent className="glass-card">
+                      <SelectItem value="hot">
+                        <div className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full bg-red-500" />
+                          🔥 Quente
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="warm">
+                        <div className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full bg-yellow-500" />
+                          🌡️ Morno
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="cold">
+                        <div className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full bg-blue-500" />
+                          🧊 Frio
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  
+                  {/* Botões rápidos de temperatura */}
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={`h-7 px-2 text-xs border ${
+                        leadData.temperature === 'hot' 
+                          ? 'bg-red-500 text-white border-red-500' 
+                          : 'border-red-500/50 text-red-500 hover:bg-red-500/10'
+                      }`}
+                      onClick={() => handleTemperatureChange('hot')}
+                    >
+                      🔥 Quente
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={`h-7 px-2 text-xs border ${
+                        leadData.temperature === 'warm' 
+                          ? 'bg-yellow-500 text-white border-yellow-500' 
+                          : 'border-yellow-500/50 text-yellow-500 hover:bg-yellow-500/10'
+                      }`}
+                      onClick={() => handleTemperatureChange('warm')}
+                    >
+                      🌡️ Morno
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={`h-7 px-2 text-xs border ${
+                        leadData.temperature === 'cold' 
+                          ? 'bg-blue-500 text-white border-blue-500' 
+                          : 'border-blue-500/50 text-blue-500 hover:bg-blue-500/10'
+                      }`}
+                      onClick={() => handleTemperatureChange('cold')}
+                    >
+                      🧊 Frio
+                    </Button>
+                  </div>
+                  
+                  {/* Botão para voltar ao automático (só mostra se override está ativo E fez quiz) */}
+                  {leadData.temperature_override && (leadData.completion_percentage ?? 0) >= 100 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-xs"
+                      onClick={handleResetTemperature}
+                    >
+                      Voltar para automático (baseado no quiz)
+                    </Button>
+                  )}
+                </div>
+              </div>
+
               {/* ✅ Pipeline Stage Selector - USA STAGES DO BANCO */}
               <div className="space-y-3">
                 <h5 className="font-semibold text-foreground text-sm border-b border-border pb-2 flex items-center gap-2">

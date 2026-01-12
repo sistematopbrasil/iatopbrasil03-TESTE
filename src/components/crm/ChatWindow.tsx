@@ -128,7 +128,7 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
             organization_id: userData.organization_id,
             consultant_id: userData.id,
             pipeline_stage_id: newStageId,
-            temperature: 'warm',
+            temperature: 'cold', // ✅ Lead manual = Frio
             completion_percentage: 0,
           })
           .select()
