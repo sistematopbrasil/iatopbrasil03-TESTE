@@ -18,10 +18,14 @@ function normalizePhone(phone: string): string {
   return cleaned;
 }
 
-// ✅ Função para gerar variantes do telefone (com/sem 9 adicional)
+// ✅ Função para gerar variantes do telefone (com/sem 9 adicional + mais formatos)
 function getPhoneVariants(phone: string): string[] {
   const normalized = normalizePhone(phone);
-  const variants: string[] = [normalized];
+  const variants: Set<string> = new Set([normalized]);
+  
+  // Adicionar versão raw (limpa, sem transformação)
+  const raw = phone.replace(/\D/g, '');
+  variants.add(raw);
   
   // Formato esperado: 55 + DDD(2) + número(8 ou 9)
   if (normalized.startsWith('55') && normalized.length >= 12) {
@@ -31,16 +35,23 @@ function getPhoneVariants(phone: string): string[] {
     // Se tem 9 dígitos no número (total 13), criar variante sem o 9
     if (rest.length === 9 && rest.startsWith('9')) {
       const withoutNine = `55${ddd}${rest.slice(1)}`;
-      variants.push(withoutNine);
+      variants.add(withoutNine);
+      // Também sem 55
+      variants.add(`${ddd}${rest.slice(1)}`);
     }
     // Se tem 8 dígitos no número (total 12), criar variante com o 9
     else if (rest.length === 8) {
       const withNine = `55${ddd}9${rest}`;
-      variants.push(withNine);
+      variants.add(withNine);
+      // Também sem 55
+      variants.add(`${ddd}9${rest}`);
     }
+    
+    // Variantes sem código do país (55)
+    variants.add(`${ddd}${rest}`);
   }
   
-  return variants;
+  return Array.from(variants);
 }
 
 // ✅ Função para converter base64 para Blob
@@ -430,7 +441,7 @@ serve(async (req) => {
           for (const variant of phoneVariants) {
             const { data: foundLead } = await supabaseAdmin
               .from('quiz_submissions_new')
-              .select('id, name, organization_id, pipeline_stage_id, phone, consultant_id')
+              .select('id, name, organization_id, pipeline_stage_id, phone, consultant_id, completion_percentage')
               .eq('phone', variant)
               .eq('organization_id', instance.organization_id) // ✅ Filtrar por organização
               .order('created_at', { ascending: false })
@@ -439,8 +450,28 @@ serve(async (req) => {
             
             if (foundLead) {
               lead = foundLead;
-              console.log('✅ Lead encontrado com variante:', variant);
+              console.log('✅ Lead encontrado com variante:', variant, '| completion:', foundLead.completion_percentage);
               break;
+            }
+          }
+          
+          // ✅ FALLBACK: busca por últimos 8 dígitos se não encontrou
+          if (!lead) {
+            const last8 = normalizedPhone.slice(-8);
+            console.log('🔍 Tentando busca parcial com últimos 8 dígitos:', last8);
+            
+            const { data: foundLead } = await supabaseAdmin
+              .from('quiz_submissions_new')
+              .select('id, name, organization_id, pipeline_stage_id, phone, consultant_id, completion_percentage')
+              .eq('organization_id', instance.organization_id)
+              .like('phone', `%${last8}`)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            
+            if (foundLead) {
+              lead = foundLead;
+              console.log('✅ Lead encontrado via busca parcial! Phone:', foundLead.phone, '| completion:', foundLead.completion_percentage);
             }
           }
 

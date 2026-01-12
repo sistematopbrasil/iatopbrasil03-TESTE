@@ -95,16 +95,22 @@ export function useRankingData(options: UseRankingDataOptions = {}) {
     };
   }, [queryClient]);
 
-  // Dados do usuário atual
+  // Role do usuário atual (exposto separadamente para super admin)
+  const currentUserRole = response?.currentUserRole || null;
+
+  // Dados do usuário atual - funciona mesmo se não estiver no array (super admin)
   const currentUser = useMemo(() => {
-    if (!response?.currentUserId || !response?.data) return null;
-    const userData = response.data.find(r => r.consultant_id === response.currentUserId);
-    if (!userData) return null;
+    if (!response?.currentUserId) return null;
+    
+    // Tenta encontrar no array (funciona para consultores)
+    const userData = response.data?.find(r => r.consultant_id === response.currentUserId);
+    
+    // Retorna dados básicos mesmo se não encontrou (super admin não está no array)
     return {
-      id: userData.consultant_id,
-      full_name: userData.full_name,
+      id: response.currentUserId,
+      full_name: userData?.full_name || 'Super Admin',
       organization_id: '',
-      role: response.currentUserRole || 'consultor',
+      role: response.currentUserRole || 'super_admin',
     };
   }, [response]);
 
@@ -122,6 +128,7 @@ export function useRankingData(options: UseRankingDataOptions = {}) {
     isLoading,
     error,
     currentUser,
+    currentUserRole,
     totals,
     myData,
     refetch,
