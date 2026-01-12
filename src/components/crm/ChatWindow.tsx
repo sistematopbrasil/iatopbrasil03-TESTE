@@ -314,7 +314,7 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
                 />
               )}
 
-              {effectiveLeadId && pipelineStages.length > 0 && (
+              {pipelineStages.length > 0 && (
                 <div className="hidden sm:flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">Quadro:</span>
                   <Select
@@ -322,7 +322,7 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
                     onValueChange={(stageId) => updateStageMutation.mutate(stageId)}
                   >
                     <SelectTrigger className="w-[160px] h-8 text-xs">
-                      <SelectValue placeholder="Selecione" />
+                      <SelectValue placeholder={effectiveLeadId ? "Selecione" : "Adicionar ao quadro"} />
                     </SelectTrigger>
                     <SelectContent>
                       {pipelineStages.map((stage) => (
@@ -358,7 +358,7 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="glass-card border-border">
-                  {effectiveLeadId && pipelineStages.length > 0 && (
+                  {pipelineStages.length > 0 && (
                     <>
                       <div className="sm:hidden px-2 py-1.5 text-xs font-semibold text-muted-foreground">
                         Mover para:
