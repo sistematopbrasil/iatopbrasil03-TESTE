@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -43,6 +43,11 @@ export default function AdminRanking() {
     periodStart,
     periodEnd,
   });
+
+  // ✅ Refetch ao montar a página para garantir dados atualizados
+  useEffect(() => {
+    refetch();
+  }, [refetch]);
 
   // ✅ Se já tem dados no cache, não mostrar loading
   const showLoading = isLoading && !ranking;

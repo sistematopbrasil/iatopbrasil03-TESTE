@@ -164,6 +164,13 @@ export default function AdminLeads() {
     };
   }, [currentUser, queryClient, fetchLeads]);
 
+  // ✅ Refetch ao montar a página para garantir dados atualizados
+  useEffect(() => {
+    if (currentUser) {
+      fetchLeads();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Filtrar leads usando useMemo para performance
   const filteredLeads = useMemo(() => {
     let filtered = [...leads];
