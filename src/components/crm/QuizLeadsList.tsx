@@ -149,7 +149,7 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
   }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="h-full flex flex-col overflow-hidden w-full max-w-full">
       {/* Header */}
       <div className="p-4 border-b border-border bg-gradient-to-r from-primary/10 to-transparent flex-shrink-0">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
@@ -237,8 +237,8 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
       </div>
 
       {/* Lead List */}
-      <ScrollArea className="flex-1 overflow-x-hidden">
-        <div className="p-4 space-y-3 overflow-x-hidden">
+      <ScrollArea className="flex-1 overflow-x-hidden w-full max-w-full">
+        <div className="p-4 space-y-3 overflow-x-hidden w-full max-w-full">
           {filteredLeads.length === 0 ? (
             <div className="text-center py-12">
               <Users className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
@@ -246,7 +246,7 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
             </div>
           ) : (
             filteredLeads.map(lead => (
-              <Card key={lead.id} className="glass p-4 hover:border-primary/50 transition-all overflow-hidden">
+              <Card key={lead.id} className="glass p-4 hover:border-primary/50 transition-all overflow-hidden w-full max-w-full">
                 <div className="flex flex-col sm:flex-row sm:items-start gap-3">
                   {/* Avatar + Info */}
                   <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -315,11 +315,11 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
                 </div>
 
                 {/* Quiz Answers (Expandable) */}
-                <details className="mt-4 pt-4 border-t border-border overflow-hidden">
+                <details className="mt-4 pt-4 border-t border-border overflow-hidden w-full max-w-full">
                   <summary className="text-sm text-primary cursor-pointer hover:text-primary/80 font-medium">
                     Ver respostas do quiz
                   </summary>
-                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm w-full max-w-full overflow-hidden">
                     <QuizAnswer label="Idade" value={lead.age ? `${lead.age} anos` : null} />
                     <QuizAnswer label="Possui Veículo" value={lead.has_vehicle} />
                     <QuizAnswer label="Possui CNH" value={lead.has_driver_license} />
@@ -334,7 +334,7 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
                   {lead.extra_answers && Object.keys(lead.extra_answers).length > 0 && (
                     <div className="mt-3 pt-3 border-t border-border">
                       <p className="text-xs font-semibold text-muted-foreground mb-2">Respostas Adicionais</p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm w-full max-w-full overflow-hidden">
                         {Object.entries(lead.extra_answers as Record<string, { question: string; answer: string; order_index?: number }>)
                           .sort((a, b) => (a[1].order_index || 0) - (b[1].order_index || 0))
                           .map(([key, value]) => (
@@ -356,9 +356,9 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
 // Helper Component
 function QuizAnswer({ label, value }: { label: string; value: string | null | undefined }) {
   return (
-    <div className="flex justify-between items-center p-2 rounded bg-muted/50 min-w-0 overflow-hidden gap-2">
-      <span className="text-muted-foreground text-xs flex-shrink-0">{label}:</span>
-      <span className="text-foreground font-medium truncate text-xs text-right">{value || '-'}</span>
+    <div className="flex justify-between items-start p-2 rounded bg-muted/50 min-w-0 overflow-hidden gap-2 w-full max-w-full">
+      <span className="text-muted-foreground text-xs min-w-0 shrink-0 max-w-[40%]">{label}:</span>
+      <span className="text-foreground font-medium text-xs text-right min-w-0 break-words max-w-[55%]">{value || '-'}</span>
     </div>
   );
 }
