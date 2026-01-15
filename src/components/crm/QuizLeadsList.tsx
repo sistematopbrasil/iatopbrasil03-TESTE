@@ -149,7 +149,10 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
   }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden w-full max-w-full">
+    <div 
+      className="h-full flex flex-col overflow-hidden w-full max-w-full no-x-scroll"
+      style={{ overflowX: 'hidden', maxWidth: '100%' }}
+    >
       {/* Header */}
       <div className="p-4 border-b border-border bg-gradient-to-r from-primary/10 to-transparent flex-shrink-0 overflow-x-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
@@ -237,7 +240,7 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
       </div>
 
       {/* Lead List */}
-      <ScrollArea className="flex-1 overflow-x-hidden w-full max-w-full">
+      <ScrollArea className="flex-1 overflow-x-hidden w-full max-w-full no-x-scroll">
         <div className="p-4 space-y-3 overflow-x-hidden w-full max-w-full">
           {filteredLeads.length === 0 ? (
             <div className="text-center py-12">

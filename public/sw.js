@@ -1,4 +1,4 @@
-const CACHE_NAME = 'top-brasil-v2';
+const CACHE_NAME = 'top-brasil-v3';
 
 // Lista de URLs para cache - apenas assets estáticos do app shell
 const urlsToCache = [
