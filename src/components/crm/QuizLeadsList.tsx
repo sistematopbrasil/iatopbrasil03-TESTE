@@ -151,7 +151,7 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
   return (
     <div className="h-full flex flex-col overflow-hidden w-full max-w-full">
       {/* Header */}
-      <div className="p-4 border-b border-border bg-gradient-to-r from-primary/10 to-transparent flex-shrink-0">
+      <div className="p-4 border-b border-border bg-gradient-to-r from-primary/10 to-transparent flex-shrink-0 overflow-x-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
           <div className="flex items-center gap-2 min-w-0">
             <Users className="w-5 h-5 text-primary flex-shrink-0" />
@@ -175,12 +175,12 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
         </div>
 
         {/* Unified Filters - scrollable on mobile */}
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap">
+        <div className="flex gap-2 overflow-x-auto pb-1 sm:flex-wrap max-w-full">
           <Button
             variant={temperatureFilter === 'all' && statusFilter === 'all' ? 'default' : 'outline'}
             size="sm"
             onClick={() => { setTemperatureFilter('all'); setStatusFilter('all'); }}
-            className={`flex-shrink-0 ${temperatureFilter === 'all' && statusFilter === 'all' ? 'bg-primary' : 'glass'}`}
+            className={`text-xs sm:text-sm ${temperatureFilter === 'all' && statusFilter === 'all' ? 'bg-primary' : 'glass'}`}
           >
             Todos ({counts.all})
           </Button>
@@ -188,27 +188,27 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
             variant={temperatureFilter === 'hot' ? 'default' : 'outline'}
             size="sm"
             onClick={() => { setTemperatureFilter('hot'); setStatusFilter('all'); }}
-            className={`flex-shrink-0 ${temperatureFilter === 'hot' ? 'bg-red-600 hover:bg-red-700' : 'glass border-red-600/30 text-red-500 hover:bg-red-600/20'}`}
+            className={`text-xs sm:text-sm ${temperatureFilter === 'hot' ? 'bg-red-600 hover:bg-red-700' : 'glass border-red-600/30 text-red-500 hover:bg-red-600/20'}`}
           >
-            <Flame className="w-4 h-4 mr-1" />
+            <Flame className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
             ({counts.hot})
           </Button>
           <Button
             variant={temperatureFilter === 'warm' ? 'default' : 'outline'}
             size="sm"
             onClick={() => { setTemperatureFilter('warm'); setStatusFilter('all'); }}
-            className={`flex-shrink-0 ${temperatureFilter === 'warm' ? 'bg-yellow-600 hover:bg-yellow-700' : 'glass border-yellow-600/30 text-yellow-500 hover:bg-yellow-600/20'}`}
+            className={`text-xs sm:text-sm ${temperatureFilter === 'warm' ? 'bg-yellow-600 hover:bg-yellow-700' : 'glass border-yellow-600/30 text-yellow-500 hover:bg-yellow-600/20'}`}
           >
-            <Thermometer className="w-4 h-4 mr-1" />
+            <Thermometer className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
             ({counts.warm})
           </Button>
           <Button
             variant={temperatureFilter === 'cold' ? 'default' : 'outline'}
             size="sm"
             onClick={() => { setTemperatureFilter('cold'); setStatusFilter('all'); }}
-            className={`flex-shrink-0 ${temperatureFilter === 'cold' ? 'bg-blue-600 hover:bg-blue-700' : 'glass border-blue-600/30 text-blue-500 hover:bg-blue-600/20'}`}
+            className={`text-xs sm:text-sm ${temperatureFilter === 'cold' ? 'bg-blue-600 hover:bg-blue-700' : 'glass border-blue-600/30 text-blue-500 hover:bg-blue-600/20'}`}
           >
-            <Snowflake className="w-4 h-4 mr-1" />
+            <Snowflake className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
             ({counts.cold})
           </Button>
           
@@ -219,18 +219,18 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
             variant={statusFilter === 'completed' ? 'default' : 'outline'}
             size="sm"
             onClick={() => { setStatusFilter('completed'); setTemperatureFilter('all'); }}
-            className={`flex-shrink-0 ${statusFilter === 'completed' ? 'bg-green-600 hover:bg-green-700' : 'glass border-green-600/30 text-green-500 hover:bg-green-600/20'}`}
+            className={`text-xs sm:text-sm ${statusFilter === 'completed' ? 'bg-green-600 hover:bg-green-700' : 'glass border-green-600/30 text-green-500 hover:bg-green-600/20'}`}
           >
-            <CheckCircle className="w-4 h-4 mr-1" />
+            <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
             ({statusCounts.completed})
           </Button>
           <Button
             variant={statusFilter === 'incomplete' ? 'default' : 'outline'}
             size="sm"
             onClick={() => { setStatusFilter('incomplete'); setTemperatureFilter('all'); }}
-            className={`flex-shrink-0 ${statusFilter === 'incomplete' ? 'bg-orange-600 hover:bg-orange-700' : 'glass border-orange-600/30 text-orange-500 hover:bg-orange-600/20'}`}
+            className={`text-xs sm:text-sm ${statusFilter === 'incomplete' ? 'bg-orange-600 hover:bg-orange-700' : 'glass border-orange-600/30 text-orange-500 hover:bg-orange-600/20'}`}
           >
-            <XCircle className="w-4 h-4 mr-1" />
+            <XCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
             ({statusCounts.incomplete})
           </Button>
         </div>
