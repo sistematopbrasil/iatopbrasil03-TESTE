@@ -131,6 +131,33 @@ serve(async (req) => {
     if (existingInstance) {
       console.log('✅ Instância já existe:', existingInstance.instance_name);
       
+      // SEMPRE reconfigurar webhook para garantir eventos corretos
+      const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/crm-webhook`;
+      console.log('🔧 Reconfigurando webhook para instância existente...');
+      try {
+        await evolutionRequest(`/webhook/set/${existingInstance.instance_name}`, {
+          method: 'POST',
+          body: JSON.stringify({
+            url: webhookUrl,
+            webhook_by_events: true,
+            webhook_base64: true,
+            events: [
+              'QRCODE_UPDATED',
+              'CONNECTION_UPDATE',
+              'MESSAGES_UPSERT',
+              'MESSAGES_UPDATE',
+              'MESSAGES_SET',
+              'MESSAGES_DELETE',
+              'MESSAGE_ACK',
+              'SEND_MESSAGE',
+            ],
+          }),
+        });
+        console.log('✅ Webhook reconfigurado para:', existingInstance.instance_name);
+      } catch (webhookError) {
+        console.warn('⚠️ Erro ao reconfigurar webhook:', webhookError);
+      }
+      
       // Tentar conectar e obter QR
       let qrCode: string | null = null;
       

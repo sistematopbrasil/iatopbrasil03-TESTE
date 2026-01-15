@@ -13,6 +13,7 @@ import logoLight from "@/assets/logo-top-brasil-dark.png";
 import logoDark from "@/assets/logo-top-brasil.png";
 import { queryClient } from "@/App";
 import { usePrefetchAdminData } from "@/hooks/usePrefetchAdminData";
+import { InstallAdminPWA } from "./InstallAdminPWA";
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -270,6 +271,9 @@ export const AdminLayout = ({ children, disableVerticalScroll = false }: AdminLa
               <div className="w-10" />
             </div>
           </header>
+
+          {/* PWA Install Banner - Mobile Only */}
+          <InstallAdminPWA />
 
           {/* Page Content */}
           <div 
