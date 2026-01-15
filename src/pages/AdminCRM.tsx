@@ -198,7 +198,7 @@ function AdminCRMContent() {
         </div>
 
         {/* Content - All tabs rendered but only active one visible */}
-        <div className="flex-1 min-h-0 overflow-hidden p-3 relative">
+        <div className="flex-1 min-h-0 overflow-hidden overflow-x-hidden p-3 relative">
           {/* Tab: Conversas */}
           <div className={activeTab === 'conversations' ? 'h-full' : 'hidden'}>
             {!instance ? (
@@ -259,7 +259,7 @@ function AdminCRMContent() {
             </div>
             
             {/* Sub-tab content */}
-            <div className="flex-1 min-h-0 overflow-hidden">
+            <div className="flex-1 min-h-0 overflow-hidden overflow-x-hidden w-full max-w-full">
               {leadsSubTab === 'quiz' && (
                 <QuizLeadsList onStartConversation={handleStartConversationFromLead} />
               )}
