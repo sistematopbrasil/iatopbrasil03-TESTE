@@ -435,7 +435,8 @@ export function MessageInput({ conversationId, onSend, isSending, onOpenSettings
           onKeyDown={handleKeyPress}
           onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
           placeholder={quickRepliesEnabled ? "Digite sua mensagem... (/ para atalhos)" : "Digite sua mensagem..."}
-          className="flex-1 min-h-[44px] max-h-[120px] resize-none glass border-border focus:border-primary transition-all"
+          className="flex-1 min-h-[44px] max-h-[120px] resize-none glass border-border focus:border-primary transition-all text-base"
+          style={{ fontSize: '16px', touchAction: 'manipulation' }}
           disabled={isSending || !!filePreview}
         />
 

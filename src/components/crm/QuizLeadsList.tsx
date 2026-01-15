@@ -315,11 +315,11 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
                 </div>
 
                 {/* Quiz Answers (Expandable) */}
-                <details className="mt-4 pt-4 border-t border-border">
+                <details className="mt-4 pt-4 border-t border-border overflow-hidden">
                   <summary className="text-sm text-primary cursor-pointer hover:text-primary/80 font-medium">
                     Ver respostas do quiz
                   </summary>
-                  <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                     <QuizAnswer label="Idade" value={lead.age ? `${lead.age} anos` : null} />
                     <QuizAnswer label="Possui Veículo" value={lead.has_vehicle} />
                     <QuizAnswer label="Possui CNH" value={lead.has_driver_license} />
@@ -334,7 +334,7 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
                   {lead.extra_answers && Object.keys(lead.extra_answers).length > 0 && (
                     <div className="mt-3 pt-3 border-t border-border">
                       <p className="text-xs font-semibold text-muted-foreground mb-2">Respostas Adicionais</p>
-                      <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                         {Object.entries(lead.extra_answers as Record<string, { question: string; answer: string; order_index?: number }>)
                           .sort((a, b) => (a[1].order_index || 0) - (b[1].order_index || 0))
                           .map(([key, value]) => (
@@ -356,9 +356,9 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
 // Helper Component
 function QuizAnswer({ label, value }: { label: string; value: string | null | undefined }) {
   return (
-    <div className="flex justify-between items-center p-2 rounded bg-muted/50">
-      <span className="text-muted-foreground">{label}:</span>
-      <span className="text-foreground font-medium truncate ml-2">{value || '-'}</span>
+    <div className="flex justify-between items-center p-2 rounded bg-muted/50 min-w-0 overflow-hidden gap-2">
+      <span className="text-muted-foreground text-xs flex-shrink-0">{label}:</span>
+      <span className="text-foreground font-medium truncate text-xs text-right">{value || '-'}</span>
     </div>
   );
 }
