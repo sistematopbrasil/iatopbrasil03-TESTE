@@ -171,7 +171,7 @@ function AdminCRMContent() {
 
   return (
     <AdminLayout>
-      <div className="h-[calc(100vh-64px)] flex flex-col overflow-hidden">
+      <div className="h-[calc(100vh-64px)] flex flex-col overflow-hidden overflow-x-hidden overscroll-x-none">
         {/* Header com tabs */}
         <div className="flex-shrink-0 px-4 pt-3 pb-2 border-b border-border">
           <div className="flex items-center justify-between mb-2">
@@ -198,7 +198,7 @@ function AdminCRMContent() {
         </div>
 
         {/* Content - All tabs rendered but only active one visible */}
-        <div className="flex-1 min-h-0 overflow-hidden overflow-x-hidden p-3 relative">
+        <div className="flex-1 min-h-0 overflow-hidden overflow-x-hidden p-3 relative overscroll-x-none">
           {/* Tab: Conversas */}
           <div className={activeTab === 'conversations' ? 'h-full' : 'hidden'}>
             {!instance ? (

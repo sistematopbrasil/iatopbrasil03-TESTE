@@ -150,7 +150,7 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
 
   return (
     <div 
-      className="h-full flex flex-col overflow-hidden w-full max-w-full no-x-scroll"
+      className="h-full flex flex-col overflow-hidden w-full max-w-full no-x-scroll overscroll-x-none touch-pan-y"
       style={{ overflowX: 'hidden', maxWidth: '100%' }}
     >
       {/* Header */}
@@ -178,7 +178,7 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
         </div>
 
         {/* Unified Filters - scrollable on mobile */}
-        <div className="flex gap-2 overflow-x-auto pb-1 sm:flex-wrap max-w-full">
+        <div className="flex flex-wrap gap-2 pb-1 max-w-full overflow-x-hidden">
           <Button
             variant={temperatureFilter === 'all' && statusFilter === 'all' ? 'default' : 'outline'}
             size="sm"
@@ -240,7 +240,7 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
       </div>
 
       {/* Lead List */}
-      <ScrollArea className="flex-1 overflow-x-hidden w-full max-w-full no-x-scroll">
+      <ScrollArea className="flex-1 overflow-x-hidden w-full max-w-full no-x-scroll overscroll-x-none">
         <div className="p-4 space-y-3 overflow-x-hidden w-full max-w-full">
           {filteredLeads.length === 0 ? (
             <div className="text-center py-12">

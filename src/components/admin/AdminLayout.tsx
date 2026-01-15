@@ -238,7 +238,7 @@ export const AdminLayout = ({ children, disableVerticalScroll = false }: AdminLa
   return (
     <>
       <RoleBasedRedirect />
-      <div className="min-h-screen bg-background flex">
+      <div className="min-h-screen bg-background flex overflow-x-hidden">
         {/* Desktop Sidebar */}
         <aside className="hidden md:block w-64 fixed inset-y-0 left-0 z-50">
           <DesktopSidebar />
@@ -279,8 +279,8 @@ export const AdminLayout = ({ children, disableVerticalScroll = false }: AdminLa
           <div 
             className={`h-[calc(100vh-64px)] md:h-screen ${
               disableVerticalScroll 
-                ? 'overflow-hidden' 
-                : 'overflow-y-auto overflow-x-hidden'
+                ? 'overflow-hidden overflow-x-hidden' 
+                : 'overflow-y-auto overflow-x-hidden overscroll-x-none'
             }`}
           >
             {children}
