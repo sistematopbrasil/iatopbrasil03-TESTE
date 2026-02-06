@@ -550,6 +550,21 @@ export default function AdminAIConfig() {
                     </div>
                     <Switch checked={formData.auto_pipeline} onCheckedChange={v => update('auto_pipeline', v)} />
                   </div>
+                  {formData.auto_pipeline && (
+                    <div className="p-3 bg-primary/5 rounded-lg border border-primary/20 space-y-2">
+                      <p className="text-sm font-medium text-foreground flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-primary" />
+                        Como funciona o Pipeline Automático
+                      </p>
+                      <ul className="text-xs text-muted-foreground space-y-1 ml-6 list-disc">
+                        <li>A cada mensagem respondida, a IA analisa o contexto da conversa</li>
+                        <li>Com base no interesse e qualificação do lead, sugere o quadro mais adequado</li>
+                        <li>Se detectar alta intenção de compra, move para quadros avançados</li>
+                        <li>Se o lead perder interesse, pode mover para quadros iniciais</li>
+                        <li>As mudanças aparecem em tempo real no Pipeline de Vendas</li>
+                      </ul>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

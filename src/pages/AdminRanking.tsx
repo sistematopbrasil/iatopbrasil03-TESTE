@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -44,10 +45,12 @@ export default function AdminRanking() {
     periodEnd,
   });
 
-  // ✅ Refetch ao montar a página para garantir dados atualizados
+  const queryClient = useQueryClient();
+
+  // ✅ Forçar refetch ao montar a página invalidando o cache
   useEffect(() => {
-    refetch();
-  }, [refetch]);
+    queryClient.invalidateQueries({ queryKey: ['unified-ranking'] });
+  }, [queryClient]);
 
   // ✅ Se já tem dados no cache, não mostrar loading
   const showLoading = isLoading && !ranking;

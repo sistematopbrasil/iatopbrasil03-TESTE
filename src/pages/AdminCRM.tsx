@@ -144,7 +144,7 @@ function AdminCRMContent() {
   if (isLoading && !isConnecting) {
     return (
       <AdminLayout>
-        <div className="h-[calc(100vh-64px)] flex flex-col overflow-hidden">
+        <div className="h-full flex flex-col overflow-hidden">
           <div className="flex-shrink-0 px-4 pt-3 pb-2 border-b border-border">
             <div className="flex items-center justify-between mb-2">
               <Skeleton className="h-7 w-40" />
@@ -171,7 +171,7 @@ function AdminCRMContent() {
 
   return (
     <AdminLayout>
-      <div className="h-[calc(100vh-64px)] flex flex-col overflow-hidden overflow-x-hidden overscroll-x-none">
+      <div className="h-full flex flex-col overflow-hidden overflow-x-hidden overscroll-x-none">
         {/* Header com tabs */}
         <div className="flex-shrink-0 px-4 pt-3 pb-2 border-b border-border">
           <div className="flex items-center justify-between mb-2">
