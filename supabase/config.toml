@@ -6,5 +6,8 @@ verify_jwt = false
 [functions.ai-agent-test]
 verify_jwt = false
 
+[functions.ai-encrypt-key]
+verify_jwt = false
+
 [functions.crm-webhook]
 verify_jwt = false

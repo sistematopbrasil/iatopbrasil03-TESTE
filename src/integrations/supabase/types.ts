@@ -1531,6 +1531,8 @@ export type Database = {
         }
         Returns: string
       }
+      decrypt_api_key: { Args: { encrypted_key: string }; Returns: string }
+      encrypt_api_key: { Args: { plain_key: string }; Returns: string }
       generate_quiz_slug: { Args: { full_name: string }; Returns: string }
       generate_unique_instance_name: {
         Args: { base_name: string }
