@@ -30,7 +30,8 @@ import {
   Bell,
   CheckCircle,
   CheckCheck,
-  Kanban
+  Kanban,
+  Bot
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -115,6 +116,27 @@ export function ConversationList({
       return leadsMap;
     },
     enabled: conversations.length > 0
+  });
+
+  // Buscar estados da IA para todas as conversas
+  const conversationIds = conversations.map(c => c.id);
+  const { data: aiStatesData } = useQuery({
+    queryKey: ['ai-states-list', conversationIds],
+    queryFn: async () => {
+      if (conversationIds.length === 0) return {};
+      const { data } = await supabase
+        .from('ai_conversation_state')
+        .select('conversation_id, is_active, permanently_disabled, paused_until')
+        .in('conversation_id', conversationIds);
+      const map: Record<string, boolean> = {};
+      data?.forEach(s => {
+        const isPaused = s.paused_until ? new Date(s.paused_until) > new Date() : false;
+        map[s.conversation_id] = s.is_active && !s.permanently_disabled && !isPaused;
+      });
+      return map;
+    },
+    enabled: conversationIds.length > 0,
+    staleTime: 30_000,
   });
 
   const openCount = conversations.filter(c => c.status === 'open').length;
@@ -422,8 +444,14 @@ export function ConversationList({
                         </div>
                       </div>
 
-                      {/* Badges de temperatura e stage */}
+                      {/* Badges de temperatura, stage e IA */}
                       <div className="flex items-center gap-2 mb-1">
+                        {aiStatesData?.[conversation.id] && (
+                          <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4 bg-green-600/20 text-green-400 border-0">
+                            <Bot className="w-3 h-3 mr-0.5" />
+                            IA
+                          </Badge>
+                        )}
                         {leadTemp && (
                           <TemperatureBadge 
                             temperature={leadTemp as 'hot' | 'warm' | 'cold'} 

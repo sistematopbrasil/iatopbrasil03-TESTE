@@ -12,8 +12,9 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Save, Bot, Brain, Shield, Cog, Clock, Lock, Play, Sparkles } from 'lucide-react';
+import { Loader2, Save, Bot, Brain, Shield, Cog, Clock, Lock, Play, Sparkles, MessageSquare, Zap } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function AdminAIConfig() {
   const { data: currentUser, isLoading: loadingUser } = useQuery({
@@ -91,6 +92,25 @@ export default function AdminAIConfig() {
     );
   }
 
+  // Fetch AI usage stats
+  const { data: aiStats } = useQuery({
+    queryKey: ['ai-usage-stats', currentUser?.id],
+    queryFn: async () => {
+      if (!currentUser?.id) return { totalMessages: 0, totalTokens: 0, activeConversations: 0 };
+      const { data } = await supabase
+        .from('ai_conversation_state')
+        .select('messages_sent, total_tokens_used, is_active, permanently_disabled')
+        .eq('user_id', currentUser.id);
+      if (!data) return { totalMessages: 0, totalTokens: 0, activeConversations: 0 };
+      return {
+        totalMessages: data.reduce((sum, s) => sum + (s.messages_sent || 0), 0),
+        totalTokens: data.reduce((sum, s) => sum + (s.total_tokens_used || 0), 0),
+        activeConversations: data.filter(s => s.is_active && !s.permanently_disabled).length,
+      };
+    },
+    enabled: !!(currentUser as any)?.ai_enabled,
+    staleTime: 60_000,
+  });
 
 
 
@@ -172,6 +192,33 @@ export default function AdminAIConfig() {
             Configure seu assistente de IA para atendimento automatizado
           </p>
         </div>
+
+        {/* Usage Stats */}
+        {aiStats && (aiStats.totalMessages > 0 || aiStats.activeConversations > 0) && (
+          <div className="grid grid-cols-3 gap-3">
+            <Card className="p-3">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                <MessageSquare className="w-4 h-4" />
+                Mensagens IA
+              </div>
+              <p className="text-2xl font-bold text-foreground">{aiStats.totalMessages}</p>
+            </Card>
+            <Card className="p-3">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                <Zap className="w-4 h-4" />
+                Tokens Usados
+              </div>
+              <p className="text-2xl font-bold text-foreground">{aiStats.totalTokens.toLocaleString()}</p>
+            </Card>
+            <Card className="p-3">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                <Bot className="w-4 h-4" />
+                Conversas Ativas
+              </div>
+              <p className="text-2xl font-bold text-foreground">{aiStats.activeConversations}</p>
+            </Card>
+          </div>
+        )}
 
         <Tabs defaultValue="identity" className="w-full">
           <TabsList className="w-full overflow-x-auto flex flex-nowrap gap-1">

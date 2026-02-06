@@ -66,6 +66,7 @@ serve(async (req) => {
       .maybeSingle();
 
     // Criar estado se não existir
+    const isNewConversation = !aiState;
     if (!aiState) {
       const { data: newState } = await supabaseAdmin
         .from('ai_conversation_state')
@@ -240,6 +241,46 @@ serve(async (req) => {
 - Use emojis com moderação
 - Se não souber algo, diga que vai verificar e retornar
 - Nunca invente informações sobre preços ou condições`);
+
+    // 8.5. Greeting message: se é conversa nova e tem greeting configurado, usar como primeira resposta
+    if (isNewConversation && config.greeting_message && config.greeting_message.trim()) {
+      console.log('👋 Conversa nova - enviando greeting message');
+      
+      const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL');
+      const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY');
+      
+      if (evolutionApiUrl && evolutionApiKey) {
+        const jid = contact_phone.includes('@') ? contact_phone : `${contact_phone}@s.whatsapp.net`;
+        
+        await fetch(`${evolutionApiUrl}/message/sendText/${instance_name}`, {
+          method: 'POST',
+          headers: { apikey: evolutionApiKey, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ number: jid, text: config.greeting_message }),
+        });
+
+        // Salvar greeting no banco
+        await supabaseAdmin.from('crm_messages').insert({
+          conversation_id,
+          instance_id,
+          message_id: `ai-greeting-${Date.now()}`,
+          direction: 'outgoing',
+          type: 'text',
+          content: config.greeting_message,
+          status: 'sent',
+          timestamp: new Date().toISOString(),
+          metadata: { sent_by_ai: true, ai_agent: config.agent_name, is_greeting: true },
+        });
+
+        // Atualizar conversa
+        await supabaseAdmin.from('crm_conversations').update({
+          last_message_at: new Date().toISOString(),
+          last_message_preview: config.greeting_message.substring(0, 100),
+          status: 'open',
+        }).eq('id', conversation_id);
+      }
+      
+      // Ainda processar a resposta contextual normalmente (abaixo)
+    }
 
     // 9. Montar mensagens para a API
     const apiMessages = [
