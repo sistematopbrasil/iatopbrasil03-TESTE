@@ -696,9 +696,7 @@ serve(async (req) => {
           } else {
             console.log('✅ Mensagem inserida/atualizada:', insertedMsg?.id, 'Tipo:', type, 'URL:', mediaUrl);
             
-            // ✅ REMOVIDO: NÃO mover lead automaticamente para segundo quadro
-            // Leads devem permanecer em "Novos Leads" até serem movidos manualmente pelo consultor
-            // Apenas atualizar last_contact_at para mensagens recebidas
+            // Atualizar last_contact_at para mensagens recebidas
             if (conversation.lead_id && direction === 'incoming') {
               try {
                 await supabaseAdmin
@@ -710,6 +708,74 @@ serve(async (req) => {
                 console.log('📍 last_contact_at atualizado para lead:', conversation.lead_id);
               } catch (updateError) {
                 console.warn('⚠️ Erro ao atualizar last_contact_at:', updateError);
+              }
+            }
+
+            // 🤖 AGENTE IA: Trigger para mensagens incoming
+            if (direction === 'incoming') {
+              try {
+                const supabaseUrl = Deno.env.get('SUPABASE_URL');
+                const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+                
+                if (supabaseUrl && supabaseAnonKey) {
+                  console.log('🤖 Disparando AI Agent (fire-and-forget)...');
+                  // Fire-and-forget: não bloqueia o webhook
+                  fetch(`${supabaseUrl}/functions/v1/ai-agent-respond`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${supabaseAnonKey}`,
+                    },
+                    body: JSON.stringify({
+                      conversation_id: conversation.id,
+                      instance_id: instance.id,
+                      user_id: instance.user_id,
+                      message: content,
+                      message_type: type,
+                      media_url: mediaUrl,
+                      instance_name: instanceName,
+                      contact_phone: normalizedPhone,
+                    }),
+                  }).catch(e => console.warn('⚠️ AI Agent fire-and-forget error:', e));
+                }
+              } catch (aiError) {
+                console.warn('⚠️ Erro ao disparar AI Agent:', aiError);
+              }
+            }
+
+            // 🛑 INTERVENÇÃO HUMANA: Detectar mensagem manual do consultor
+            if (direction === 'outgoing') {
+              try {
+                // Verificar se a mensagem NÃO foi enviada pela IA
+                const isAIMessage = messageData.metadata?.sent_by_ai === true;
+                
+                if (!isAIMessage) {
+                  // Buscar config do consultor para saber tempo de pausa
+                  const { data: aiConfig } = await supabaseAdmin
+                    .from('ai_agent_configs')
+                    .select('pause_on_human_minutes')
+                    .eq('user_id', instance.user_id)
+                    .maybeSingle();
+
+                  if (aiConfig) {
+                    const pauseMinutes = aiConfig.pause_on_human_minutes || 120;
+                    const pausedUntil = new Date(Date.now() + pauseMinutes * 60 * 1000).toISOString();
+
+                    console.log(`🛑 Intervenção humana detectada. Pausando IA por ${pauseMinutes} min`);
+
+                    await supabaseAdmin
+                      .from('ai_conversation_state')
+                      .upsert({
+                        conversation_id: conversation.id,
+                        user_id: instance.user_id,
+                        paused_until: pausedUntil,
+                        paused_by: 'intervention',
+                        is_active: true,
+                      }, { onConflict: 'conversation_id' });
+                  }
+                }
+              } catch (interventionError) {
+                console.warn('⚠️ Erro na detecção de intervenção:', interventionError);
               }
             }
           }

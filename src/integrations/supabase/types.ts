@@ -1593,6 +1593,26 @@ export type Database = {
         Args: { org_id: string }
         Returns: string
       }
+      get_organization_by_id: {
+        Args: { p_id: string }
+        Returns: {
+          id: string
+          logo_url: string
+          meta_pixel_id: string
+          name: string
+          slug: string
+          whatsapp_number: string
+        }[]
+      }
+      get_organization_public: {
+        Args: { p_slug: string }
+        Returns: {
+          id: string
+          logo_url: string
+          name: string
+          slug: string
+        }[]
+      }
       get_user_organization_id: { Args: never; Returns: string }
       is_super_admin: { Args: never; Returns: boolean }
       map_stage_enum_to_uuid: {
@@ -1600,7 +1620,6 @@ export type Database = {
         Returns: string
       }
       normalize_br_phone: { Args: { phone: string }; Returns: string }
-      unaccent: { Args: { "": string }; Returns: string }
     }
     Enums: {
       attendee_status: "convidado" | "confirmado" | "presente" | "ausente"
