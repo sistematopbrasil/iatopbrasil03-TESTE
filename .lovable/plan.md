@@ -1,84 +1,89 @@
 
-# Correcoes e Melhorias no CRM e Agente IA
+# Correcoes de Layout, Pipeline Automatico e Ranking em Tempo Real
 
-Voce levantou varios pontos importantes. Vou explicar primeiro o que pediu e depois detalhar as correcoes.
-
----
-
-## Explicacoes
-
-**Tokens Usados:** Tokens sao a "moeda" da IA. Cada palavra ou pedaco de palavra conta como um token. O numero mostrado (ex: 7.523) e a soma de tudo que a IA processou (sua pergunta + contexto + resposta). Serve para voce acompanhar o consumo do servico de IA.
-
-**Testar Configuracao:** Esse botao permite que voce envie uma pergunta de teste para o agente IA ali mesmo na tela de configuracao, **sem enviar mensagem real para o WhatsApp do cliente**. Ele simula como a IA responderia usando a Persona e os Conhecimentos que voce configurou. Ideal para ajustar o tom de voz antes de ativar.
+Obrigado pelos elogios! Fico feliz que o Agente IA ja esteja funcionando bem. Vamos resolver os pontos pendentes.
 
 ---
 
-## Problemas Identificados e Correcoes
+## 1. CRM - Espaco vazio na parte de baixo do chat
 
-### 1. IA pausa sozinha apos enviar mensagem (BUG CRITICO)
+**Problema:** O container do CRM usa `h-[calc(100vh-64px)]`, mas o `AdminLayout` ja calcula essa altura. No desktop (`md:h-screen`), isso cria um duplo desconto de 64px, deixando espaco vazio embaixo.
 
-**Causa:** Quando a IA envia uma mensagem, ela salva no banco com `metadata: { sent_by_ai: true }`. Porem, o WhatsApp confirma o envio e dispara um webhook de volta. O webhook faz um `upsert` na mensagem e sobrescreve o metadata com os dados crus do WhatsApp (que nao tem `sent_by_ai`). Logo apos, o webhook detecta uma mensagem outgoing sem flag de IA e conclui que foi um humano, ativando a pausa automatica.
-
-**Correcao no arquivo `supabase/functions/crm-webhook/index.ts`:**
-- Na construcao do `messageData` (linha 672), antes de definir `metadata: message`, verificar se ja existe uma mensagem com esse `message_id` no banco e se ela tem `sent_by_ai: true`. Se sim, preservar o metadata original (nao sobrescrever).
-- Na deteccao de intervencao humana (linhas 746-780), adicionar uma verificacao extra: buscar a mensagem recem-inserida no banco e checar se o `metadata.sent_by_ai` e true. So pausar se **nao** for mensagem da IA.
-
-### 2. Mensagens nao aparecem em tempo real
-
-**Causa:** O Supabase Realtime pode nao estar habilitado para as tabelas `crm_messages` e `crm_conversations`. 
-
-**Correcao:** Executar migracao SQL para garantir que as tabelas estejam na publicacao realtime:
-```text
-ALTER PUBLICATION supabase_realtime ADD TABLE crm_messages;
-ALTER PUBLICATION supabase_realtime ADD TABLE crm_conversations;
-```
-
-### 3. IA envia tudo em uma unica mensagem (humanizacao)
-
-**Correcao no arquivo `supabase/functions/ai-agent-respond/index.ts`:**
-- Apos receber a resposta da IA, dividir o texto por `\n\n` (paragrafos)
-- Enviar cada parte como mensagem separada via Evolution API com um delay de 1-2 segundos entre elas
-- Salvar cada parte como mensagem individual no banco com `sent_by_ai: true`
-
-### 4. Aproveitamento de tela na pagina Agente IA
-
-**Correcao no arquivo `src/pages/AdminAIConfig.tsx`:**
-- Remover `max-w-4xl` do container principal para usar a largura total disponivel, ou aumentar para `max-w-6xl`
-
-### 5. Aproveitamento de tela no CRM (chat)
-
-**Correcao no arquivo `src/pages/AdminCRM.tsx`:**
-- Reduzir o padding do container de conteudo de `p-3` para `p-2` ou `p-1`
-- Isso dara mais espaco vertical para a area de mensagens
-
-### 6. Mostrar tempo restante de pausa e mais opcoes de duracao
-
-**Correcao no arquivo `src/components/crm/AIStatusBadge.tsx`:**
-- Quando status for `paused`, calcular e exibir o tempo restante (ex: "IA Pausada (1h 15m)")
-- Adicionar mais opcoes de tempo de pausa no menu: 30 min, 1h, 2h, 4h, 8h, 24h
-
-### 7. Opcao de pausa configuravel pelo atendente
-
-O menu do AIStatusBadge ja permite pausar manualmente. Sera expandido com mais opcoes de duracao conforme item 6.
+**Correcao em `src/pages/AdminCRM.tsx`:**
+- Trocar `h-[calc(100vh-64px)]` por `h-full` nos dois lugares onde aparece (linhas 147 e 174)
+- O layout pai ja gerencia a altura disponivel
 
 ---
 
-## Resumo dos Arquivos Alterados
+## 2. Pipeline - Nao arrasta para o lado
 
-| Arquivo | O que muda |
+**Problema:** O `AdminLayout.tsx` aplica `overflow-x-hidden` quando `disableVerticalScroll` esta ativo (caso do Pipeline). Isso bloqueia o scroll horizontal dos quadros.
+
+**Correcao em `src/components/admin/AdminLayout.tsx`:**
+- Quando `disableVerticalScroll` for true, trocar `overflow-hidden overflow-x-hidden` por `overflow-hidden overflow-x-auto` no container (linha 283)
+- Isso libera o arraste horizontal mantendo o vertical travado
+
+---
+
+## 3. Ranking - Nao atualiza automaticamente ao abrir
+
+**Problema:** O hook `useRankingData` tem `staleTime: 60_000` (1 minuto). Se o cache estiver "fresco", o `refetch()` no `useEffect` nao forca uma nova busca.
+
+**Correcao em `src/pages/AdminRanking.tsx`:**
+- Trocar `refetch()` por `refetch({ cancelRefetch: true })` com `staleTime` ignorado
+- Ou usar `queryClient.invalidateQueries` ao montar o componente para forcar refresh
+
+---
+
+## 4. Pipeline Automatico com IA - Implementacao
+
+**Status atual:** O campo `auto_pipeline` existe no banco e na interface (toggle no Agente IA), mas **nao ha logica implementada** na Edge Function para mover leads automaticamente.
+
+**O que sera feito:**
+
+### 4a. Adicionar secao de configuracao na tela do Agente IA
+Em `src/pages/AdminAIConfig.tsx`, na aba "Comportamento", adicionar:
+- Toggle "Pipeline Automatico" (ja existe)
+- Texto explicativo de como funciona: a IA analisa a conversa e move o lead para o quadro mais adequado com base no interesse demonstrado
+
+### 4b. Implementar logica na Edge Function `ai-agent-respond`
+- Apos gerar a resposta da IA, se `auto_pipeline` estiver ativo:
+  1. Buscar os stages do pipeline da organizacao
+  2. Pedir a IA (no mesmo prompt ou em chamada separada) para classificar o lead com base no historico da conversa
+  3. Se a IA sugerir mudanca de stage, atualizar o `pipeline_stage_id` do lead no banco
+  4. A mudanca aparece automaticamente no Pipeline (ja tem realtime configurado)
+
+---
+
+## 5. Sobre o que ja esta funcionando
+
+| Funcionalidade | Status |
 |:---|:---|
-| `supabase/functions/crm-webhook/index.ts` | Preservar metadata `sent_by_ai` no upsert; corrigir deteccao de intervencao humana |
-| `supabase/functions/ai-agent-respond/index.ts` | Quebrar resposta em multiplas mensagens separadas |
-| `src/pages/AdminAIConfig.tsx` | Aumentar largura maxima da pagina |
-| `src/pages/AdminCRM.tsx` | Reduzir padding para melhor aproveitamento |
-| `src/components/crm/AIStatusBadge.tsx` | Mostrar tempo restante da pausa + mais opcoes de duracao |
-| Migracao SQL | Habilitar realtime para `crm_messages` e `crm_conversations` |
+| Agente IA respondendo mensagens | Funcionando |
+| Pausa automatica ao intervir manualmente | Corrigido (preserva sent_by_ai) |
+| Mensagens separadas (humanizacao) | Implementado |
+| Badge de status IA com countdown | Implementado |
+| Realtime no CRM (mensagens e conversas) | Habilitado |
+| Pipeline drag-and-drop | Funcionando (scroll horizontal a corrigir) |
+| Quiz de captacao | Funcionando |
+| Ranking de consultores | Funcionando (refresh a corrigir) |
+| Analytics | Funcionando |
+| Gestao de consultores (super admin) | Funcionando |
 
 ---
 
-## Ordem de Execucao
+## Resumo dos arquivos alterados
 
-1. Migracao SQL (realtime)
-2. Correcao do webhook (bug critico da pausa)
-3. Correcao do ai-agent-respond (mensagens separadas)
-4. Melhorias de UI (layout + AIStatusBadge)
+| Arquivo | Alteracao |
+|:---|:---|
+| `src/pages/AdminCRM.tsx` | Trocar `h-[calc(100vh-64px)]` por `h-full` |
+| `src/components/admin/AdminLayout.tsx` | Permitir `overflow-x-auto` quando disableVerticalScroll |
+| `src/pages/AdminRanking.tsx` | Forcar refresh ao montar componente |
+| `src/pages/AdminAIConfig.tsx` | Adicionar explicacao do pipeline automatico |
+| `supabase/functions/ai-agent-respond/index.ts` | Implementar logica de auto-pipeline |
+
+## Ordem de execucao
+
+1. Correcoes de layout (CRM + Pipeline)
+2. Ranking auto-refresh
+3. Pipeline automatico (config + edge function)
