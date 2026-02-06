@@ -631,6 +631,86 @@ serve(async (req) => {
 
     console.log('✅ Todas as partes enviadas e salvas');
 
+    // 12. Auto-pipeline: classificar lead e mover no pipeline automaticamente
+    if (config.auto_pipeline) {
+      try {
+        // Buscar conversa para obter lead_id e organization_id
+        const { data: conv } = await supabaseAdmin
+          .from('crm_conversations')
+          .select('lead_id, organization_id')
+          .eq('id', conversation_id)
+          .single();
+
+        if (conv?.lead_id && conv?.organization_id) {
+          // Buscar stages do pipeline
+          const { data: stages } = await supabaseAdmin
+            .from('pipeline_stages')
+            .select('id, name, order_index')
+            .eq('organization_id', conv.organization_id)
+            .order('order_index', { ascending: true });
+
+          if (stages && stages.length > 1) {
+            // Buscar stage atual do lead
+            const { data: lead } = await supabaseAdmin
+              .from('quiz_submissions_new')
+              .select('pipeline_stage_id')
+              .eq('id', conv.lead_id)
+              .single();
+
+            const stageNames = stages.map((s: any) => `"${s.name}" (order: ${s.order_index})`).join(', ');
+            const currentStage = stages.find((s: any) => s.id === lead?.pipeline_stage_id);
+
+            // Pedir à IA para classificar
+            const classificationMessages = [
+              {
+                role: 'system',
+                content: `Você é um classificador de leads. Analise o histórico da conversa e determine em qual quadro do pipeline o lead deve estar.
+
+Quadros disponíveis (em ordem): ${stageNames}
+Quadro atual: ${currentStage ? `"${currentStage.name}"` : 'nenhum'}
+
+Responda APENAS com o nome EXATO do quadro mais adequado. Nada mais. Se o lead deve permanecer no quadro atual, responda com o nome do quadro atual.
+
+Critérios:
+- Se o lead acabou de chegar ou não demonstrou interesse claro → primeiros quadros
+- Se demonstrou interesse e está engajado na conversa → quadros intermediários
+- Se demonstrou alta intenção (pediu preços, agendou reunião, etc.) → quadros avançados
+- Se o lead disse que não tem interesse ou parou de responder → último quadro ou "descartados"`,
+              },
+              ...conversationHistory.slice(-10),
+            ];
+
+            const classResult = await callLovableAI(classificationMessages, {
+              model: 'google/gemini-2.5-flash-lite',
+              temperature: 0.1,
+              max_tokens: 50,
+            });
+
+            const suggestedName = classResult.text.trim().replace(/"/g, '');
+            const matchedStage = stages.find((s: any) => 
+              s.name.toLowerCase() === suggestedName.toLowerCase() ||
+              suggestedName.toLowerCase().includes(s.name.toLowerCase()) ||
+              s.name.toLowerCase().includes(suggestedName.toLowerCase())
+            );
+
+            if (matchedStage && matchedStage.id !== lead?.pipeline_stage_id) {
+              await supabaseAdmin
+                .from('quiz_submissions_new')
+                .update({ pipeline_stage_id: matchedStage.id })
+                .eq('id', conv.lead_id);
+
+              console.log(`🔄 Auto-pipeline: Lead movido para "${matchedStage.name}"`);
+            } else {
+              console.log('📌 Auto-pipeline: Lead mantido no quadro atual');
+            }
+          }
+        }
+      } catch (pipelineErr) {
+        console.error('⚠️ Erro no auto-pipeline (não crítico):', pipelineErr);
+        // Não falhar a resposta por causa do pipeline
+      }
+    }
+
     // 13. Atualizar conversa com última parte
     await supabaseAdmin.from('crm_conversations').update({
       last_message_at: new Date().toISOString(),
