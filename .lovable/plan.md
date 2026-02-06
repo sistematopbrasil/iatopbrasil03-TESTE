@@ -1,88 +1,102 @@
 
-# Etapa 6: Criptografia de API Keys + Suporte Multi-Provider + Farewell Message
 
-O agente IA esta funcional com todas as etapas anteriores concluidas. Esta etapa foca em completar funcionalidades pendentes e robustez.
+# Correcao de Seguranca: Policies TO authenticated
 
----
+## Problema
 
-## Status Atual (Tudo OK)
+Os 2 erros e 1 warning restantes seguem o mesmo padrao ja corrigido nas tabelas `quiz_submissions_new` e `ranking_scores`: as policies SELECT nao especificam `TO authenticated`, permitindo que o role `anon` tente avalia-las.
 
-- Seguranca: Todos os scans limpos (2 erros + 1 warning resolvidos/ignorados)
-- Edge Functions: `ai-agent-respond`, `ai-agent-test`, `crm-webhook` registrados no config.toml
-- Secrets: `EVOLUTION_API_KEY`, `EVOLUTION_API_URL`, `LOVABLE_API_KEY` configurados
-- UI: Badge IA no chat, badge na lista de conversas, stats de uso, botao testar
-- Lovable AI como provider padrao (sem necessidade de API key)
-- Greeting message implementado
-- Pausa automatica por intervencao humana
-- Deteccao de horario comercial
+## Tabelas Afetadas
 
----
+### 1. `users` (Error)
+Policies atuais sem restricao de role:
+- SELECT: "Users can view users in their organization" -- falta `TO authenticated`
+- UPDATE (own profile): sem restricao de role
+- UPDATE (super admin): sem restricao de role
+- INSERT (super admin): sem restricao de role
+- DELETE (super admin): sem restricao de role
 
-## O Que Falta
+**Acao:** Recriar TODAS as policies com `TO authenticated`.
 
-### 1. Criptografia de API Keys (para providers externos)
+### 2. `consultant_recruits` (Error)
+Policies atuais sem restricao de role:
+- SELECT: "Users can view recruits in their organization" -- falta `TO authenticated`
+- INSERT: sem restricao de role
+- UPDATE: sem restricao de role
 
-Atualmente, quando o consultor escolhe OpenAI/Google/Anthropic e insere uma API key, ela e salva em texto puro no campo `api_key_encrypted`. Isso e um risco de seguranca.
+**Acao:** Recriar todas as policies com `TO authenticated`.
 
-**Solucao:** Criar edge function `ai-encrypt-key` que:
-- Recebe a API key do frontend
-- Criptografa usando `pgcrypto` (extensao ja disponivel no banco)
-- Salva no campo `api_key_encrypted`
-- Na `ai-agent-respond`, descriptografa antes de usar
+### 3. `tracking_sessions` (Warning)
+A policy SELECT ja usa `get_user_organization_id()` que retorna NULL para anon. O scanner alerta porque INSERT/UPDATE sao publicos (necessario para tracking anonimo). A policy SELECT tambem nao especifica `TO authenticated`.
 
-**Arquivos:**
-- Criar: `supabase/functions/ai-encrypt-key/index.ts`
-- Modificar: `src/hooks/useAIConfig.ts` (chamar edge function ao salvar key)
-- Modificar: `supabase/functions/ai-agent-respond/index.ts` (descriptografar key)
-- Modificar: `supabase/config.toml` (registrar nova funcao)
-- SQL: Criar funcoes `encrypt_api_key(text)` e `decrypt_api_key(text)` com pgcrypto
+**Acao:** Recriar a policy SELECT com `TO authenticated`. INSERT e UPDATE permanecem publicos (necessarios para o quiz anonimo) e o warning sera marcado como ignorado.
 
-### 2. Suporte completo a Google e Anthropic no ai-agent-respond
+## Migracao SQL
 
-Atualmente a edge function `ai-agent-respond` so suporta `lovable` e `openai`. Os providers `google` (Gemini direto) e `anthropic` (Claude) estao listados no formulario mas nao sao tratados na funcao.
+```sql
+-- =============================================
+-- USERS: Recriar policies com TO authenticated
+-- =============================================
+DROP POLICY IF EXISTS "Users can view users in their organization" ON public.users;
+CREATE POLICY "Users can view users in their organization"
+  ON public.users FOR SELECT TO authenticated
+  USING (organization_id = get_user_organization_id());
 
-**Mudancas em `ai-agent-respond`:**
-- Adicionar caso para `google`: chamar `https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`
-- Adicionar caso para `anthropic`: chamar `https://api.anthropic.com/v1/messages`
-- Mesma logica tambem no `ai-agent-test`
+DROP POLICY IF EXISTS "Users can update their own profile" ON public.users;
+CREATE POLICY "Users can update their own profile"
+  ON public.users FOR UPDATE TO authenticated
+  USING (auth_user_id = auth.uid())
+  WITH CHECK (auth_user_id = auth.uid());
 
-### 3. Farewell Message (Mensagem de despedida)
+DROP POLICY IF EXISTS "Super Admin can create consultants" ON public.users;
+CREATE POLICY "Super Admin can create consultants"
+  ON public.users FOR INSERT TO authenticated
+  WITH CHECK (is_super_admin() AND organization_id = get_user_organization_id());
 
-O campo `farewell_message` existe no config mas nao e usado. Implementar logica para enviar quando a conversa e marcada como "fechada".
+DROP POLICY IF EXISTS "Super Admin can update consultants" ON public.users;
+CREATE POLICY "Super Admin can update consultants"
+  ON public.users FOR UPDATE TO authenticated
+  USING (is_super_admin() AND organization_id = get_user_organization_id());
 
-**Mudancas:**
-- Quando o consultor muda status da conversa para "closed" no CRM, verificar se ha `farewell_message` configurada
-- Se houver e a IA estiver ativa, enviar a mensagem automaticamente via Evolution API
-- Pode ser feito no frontend (ChatWindow) chamando a Evolution API via edge function existente (`crm-send-message`)
+DROP POLICY IF EXISTS "Super Admin can delete consultants" ON public.users;
+CREATE POLICY "Super Admin can delete consultants"
+  ON public.users FOR DELETE TO authenticated
+  USING (is_super_admin() AND organization_id = get_user_organization_id());
 
-### 4. Transcrever audio e analisar imagem com Lovable AI
+-- =============================================
+-- CONSULTANT_RECRUITS: Recriar policies com TO authenticated
+-- =============================================
+DROP POLICY IF EXISTS "Users can view recruits in their organization" ON public.consultant_recruits;
+CREATE POLICY "Users can view recruits in their organization"
+  ON public.consultant_recruits FOR SELECT TO authenticated
+  USING (organization_id = get_user_organization_id());
 
-Atualmente, transcricao de audio (Whisper) e analise de imagem (Vision) so funcionam com API key OpenAI propria. Quando o provider e `lovable`, essas funcionalidades ficam desabilitadas silenciosamente.
+DROP POLICY IF EXISTS "Users can create recruits in their organization" ON public.consultant_recruits;
+CREATE POLICY "Users can create recruits in their organization"
+  ON public.consultant_recruits FOR INSERT TO authenticated
+  WITH CHECK (organization_id = get_user_organization_id());
 
-**Solucao:**
-- Para audio: usar modelo Gemini via Lovable AI gateway com prompt "Transcreva este audio"
-- Para imagem: ja possivel - enviar imagem como content multimodal para Gemini via gateway
-- Alternativa mais simples: usar Lovable AI (modelo com suporte multimodal) para descrever a imagem, pois Gemini suporta imagens nativamente
+DROP POLICY IF EXISTS "Users can update recruits in their organization" ON public.consultant_recruits;
+CREATE POLICY "Users can update recruits in their organization"
+  ON public.consultant_recruits FOR UPDATE TO authenticated
+  USING (organization_id = get_user_organization_id());
 
----
+-- =============================================
+-- TRACKING_SESSIONS: SELECT com TO authenticated
+-- =============================================
+DROP POLICY IF EXISTS "Users can view tracking in their organization" ON public.tracking_sessions;
+CREATE POLICY "Users can view tracking in their organization"
+  ON public.tracking_sessions FOR SELECT TO authenticated
+  USING (organization_id = get_user_organization_id());
+```
 
-## Resumo de Arquivos
+## Apos a migracao
 
-| Acao | Arquivo |
-|------|---------|
-| Criar | `supabase/functions/ai-encrypt-key/index.ts` |
-| SQL | Funcoes pgcrypto para encrypt/decrypt |
-| Modificar | `supabase/functions/ai-agent-respond/index.ts` - Google, Anthropic, decrypt, media com Lovable |
-| Modificar | `supabase/functions/ai-agent-test/index.ts` - Google, Anthropic |
-| Modificar | `src/hooks/useAIConfig.ts` - criptografar key ao salvar |
-| Modificar | `src/components/crm/ChatWindow.tsx` - farewell message ao fechar conversa |
-| Modificar | `supabase/config.toml` - registrar ai-encrypt-key |
+Marcar o warning de `tracking_sessions` como ignorado no scan (INSERT/UPDATE publicos sao necessarios para tracking anonimo do quiz e nao permitem leitura de dados).
 
----
+## Impacto
 
-## Prioridade
-
-1. **Criptografia de API keys** (seguranca - corrige risco existente)
-2. **Suporte Google + Anthropic** (completa funcionalidade prometida no formulario)
-3. **Media com Lovable AI** (imagens/audio sem API key externa)
-4. **Farewell message** (melhoria UX)
+- Zero impacto funcional: todas as funcionalidades continuam iguais
+- O quiz anonimo continua funcionando (usa RPC functions com SECURITY DEFINER, nao acessa `users` diretamente)
+- Tracking anonimo continua funcionando (INSERT/UPDATE publicos mantidos)
+- Apenas bloqueia tentativas de leitura por usuarios nao autenticados
