@@ -1,36 +1,23 @@
 
-# Configurar Super Admin com topbrasil@gmail.com
 
-## Situacao Atual
+# Corrigir erro "Rendered more hooks than during the previous render" na pagina Agente IA
 
-- O email `topbrasil@gmail.com` ja existe no sistema de autenticacao (auth.users)
-- Porem o banco de dados esta vazio: nao existe organizacao nem registro na tabela `users`
-- Por isso o login falha - o sistema autentica mas nao encontra o usuario na tabela `users`
+## Problema
 
-## O que sera feito
+Na pagina `AdminAIConfig.tsx`, existe um `useQuery` (linha 96) que busca estatisticas de uso da IA, porem ele esta posicionado **depois** de dois `return` antecipados (linhas 63-71 e 74-93). Isso viola as regras do React: hooks devem ser chamados sempre na mesma ordem em todos os renders. Quando o consultor nao tem IA habilitada, o componente retorna antes de chegar ao `useQuery`, mas quando a IA e habilitada, o hook executa, causando o erro.
 
-### Passo 1: Criar a organizacao TOP Brasil
-Inserir o registro da organizacao na tabela `organizations` com o slug `topbrasil`.
+## Solucao
 
-### Passo 2: Vincular o super admin
-Inserir um registro na tabela `users` conectando o email `topbrasil@gmail.com` ao auth existente, com role `super_admin` e vinculado a organizacao criada.
+Mover o `useQuery` do `aiStats` para **antes** dos early returns, junto com os outros hooks no topo do componente. O parametro `enabled` ja garante que a query so executa quando `ai_enabled` e verdadeiro, entao nao ha impacto funcional.
 
-### Passo 3: Criar os stages do pipeline
-Inserir os stages padrao do pipeline (Novos Leads, Contato Inicial, Qualificados, Convertidos, Descartados) para a organizacao.
+## Arquivo alterado
 
-## Resultado
+- `src/pages/AdminAIConfig.tsx`
 
-Apos essas insercoes, voce podera:
-1. Fazer login com `topbrasil@gmail.com` e a senha que ja foi definida
-2. Acessar o painel de Super Admin
-3. Criar novos consultores pela interface de Gestao de Consultores
+## Detalhes tecnicos
 
-## Detalhes Tecnicos
+1. Recortar o bloco `useQuery` das linhas 96-113 (o `aiStats`)
+2. Colar logo apos o `useEffect` que sincroniza `config` com `formData` (por volta da linha 57), antes de qualquer `if (...) return`
+3. Tambem mover as declaracoes de `modelOptions` e `currentModels` (linhas 117-141) para dentro do bloco de renderizacao principal (apos os early returns), ja que nao sao hooks e podem ficar onde estao — o importante e que nenhum hook fique depois de um return condicional
 
-Serao executados 3 comandos INSERT no banco de dados (sem necessidade de migracao SQL, pois as tabelas ja existem):
-
-1. `INSERT INTO organizations` - Cria a org TOP Brasil
-2. `INSERT INTO users` - Vincula o auth_user_id do email existente com role super_admin
-3. `INSERT INTO pipeline_stages` - Cria 5 stages padrao do pipeline
-
-Nenhum arquivo de codigo sera alterado.
+Resultado: o componente sempre chamara o mesmo numero de hooks em toda renderizacao, eliminando o erro.
