@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Message } from '@/lib/crm-service';
-import { Check, CheckCheck, Clock, AlertCircle, Download } from 'lucide-react';
+import { Check, CheckCheck, Clock, AlertCircle, Download, Bot } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { AudioPlayer } from './AudioPlayer';
@@ -127,6 +127,12 @@ export function MessageItem({ message }: MessageItemProps) {
 
           {/* Footer with time and status */}
           <div className={`flex items-center justify-end gap-1.5 mt-1.5 ${isOutgoing ? 'text-white/70' : 'text-muted-foreground'}`}>
+            {isOutgoing && message.metadata?.sent_by_ai && (
+              <span className="flex items-center gap-0.5 text-[10px] opacity-80">
+                <Bot className="w-3 h-3" />
+                IA
+              </span>
+            )}
             <span className="text-[10px]">
               {format(new Date(message.timestamp), 'HH:mm', { locale: ptBR })}
             </span>

@@ -2,3 +2,6 @@ project_id = "gteltasotbjtxdtbarst"
 
 [functions.ai-agent-respond]
 verify_jwt = false
+
+[functions.ai-agent-test]
+verify_jwt = false
