@@ -1,202 +1,159 @@
 
-# Etapa 2: Fundacao da IA - Tabelas + Coluna ai_enabled + Pagina de Configuracao
 
-Esta etapa cria toda a infraestrutura de banco de dados e interface para o Agente IA, sem tocar na logica existente do CRM/WhatsApp.
+# Etapa 3: Seguranca Final + Edge Function do Agente IA
 
----
+## PARTE 1: Correcoes de Seguranca Pendentes
 
-## PARTE 1: Migracao SQL
+### 1.1 - Extensao `unaccent` no schema `public` (Warning)
 
-### 1.1 - Coluna `ai_enabled` na tabela `users`
+A extensao `unaccent` ainda esta no schema `public`. A migracao anterior pode ter falhado ou nao foi incluida.
 
-Adiciona o controle do Super Admin para habilitar/desabilitar IA por consultor.
+**Migracao SQL:**
+- Criar schema `extensions` se nao existir
+- Mover extensao `unaccent` para `extensions`
+- Recriar as funcoes `generate_quiz_slug` e `generate_unique_username` usando `extensions.unaccent()` ao inves de `unaccent()`
 
-```sql
-ALTER TABLE public.users 
-  ADD COLUMN ai_enabled BOOLEAN NOT NULL DEFAULT false;
-```
+### 1.2 - Tabela `organizations` expondo dados sensiveis (Warning)
 
-### 1.2 - Tabela `ai_agent_configs`
+A policy `Public can read active organizations by slug` permite que qualquer pessoa leia `meta_pixel_id` e `whatsapp_number` de todas as organizacoes ativas.
 
-Armazena TODA a configuracao do agente IA de cada consultor. Uma linha por consultor.
+**Solucao:** Criar uma funcao RPC Security Definer `get_organization_public(p_slug text)` que retorna apenas `id`, `name`, `slug`, `logo_url`. Remover a policy publica. Atualizar o codigo que faz lookup de organizacao por slug para usar a RPC.
 
-```sql
-CREATE TABLE public.ai_agent_configs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-  organization_id UUID NOT NULL,
-  
-  -- Identidade do Agente
-  agent_name TEXT DEFAULT 'Assistente',
-  description TEXT,
-  
-  -- Prompt / Persona
-  persona TEXT,           -- Papel e tom de voz (ate 2000 chars)
-  skills TEXT,            -- Habilidades e roteiro (ate 20000 chars)
-  products_info TEXT,     -- Info de produtos/servicos (ate 20000 chars)
-  restrictions TEXT,      -- O que nao pode fazer/falar (ate 2000 chars)
-  objective TEXT,         -- Objetivo principal do atendimento
-  
-  -- Configuracao da IA
-  api_provider TEXT NOT NULL DEFAULT 'openai',
-  api_key_encrypted TEXT,   -- Chave criptografada via pgcrypto
-  model TEXT NOT NULL DEFAULT 'gpt-4o-mini',
-  temperature NUMERIC(3,2) DEFAULT 0.7,
-  max_tokens INTEGER DEFAULT 500,
-  
-  -- Comportamento
-  auto_reply BOOLEAN DEFAULT true,
-  pause_on_human_minutes INTEGER DEFAULT 120,
-  greeting_message TEXT,
-  farewell_message TEXT,
-  working_hours_only BOOLEAN DEFAULT false,
-  working_hours_start TIME DEFAULT '08:00',
-  working_hours_end TIME DEFAULT '18:00',
-  
-  -- Pipeline Automatico
-  auto_pipeline BOOLEAN DEFAULT false,
-  
-  -- Multimodalidade
-  transcribe_audio BOOLEAN DEFAULT true,
-  analyze_images BOOLEAN DEFAULT true,
-  
-  -- Timestamps
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now(),
-  
-  UNIQUE(user_id)
-);
+### 1.3 - Tabela `quiz_submissions` sem policies (Info)
 
--- RLS
-ALTER TABLE public.ai_agent_configs ENABLE ROW LEVEL SECURITY;
+RLS habilitado mas zero policies = acesso totalmente bloqueado. Isso e seguro mas gera aviso do linter. Como a tabela e legada e nao e mais usada, a melhor solucao e simplesmente ignorar o aviso (e seguro assim).
 
-CREATE POLICY "Users can manage own AI config"
-  ON public.ai_agent_configs FOR ALL
-  USING (user_id = get_current_consultant_id());
+### 1.4 - `crm_conversations` e `tracking_sessions` (Error/Warning)
 
-CREATE POLICY "Super admin can view all AI configs"
-  ON public.ai_agent_configs FOR SELECT
-  USING (is_super_admin());
-```
+As policies SELECT destas tabelas usam `get_current_consultant_id()` que retorna NULL para usuarios anonimos, entao na pratica o acesso anonimo ja e bloqueado. Porem, o scan flagra porque as policies alvejam `public` (que inclui `anon`). A correcao e adicionar `TO authenticated` nas policies SELECT para ser explicito.
 
-### 1.3 - Tabela `ai_conversation_state`
-
-Controla o estado da IA em cada conversa individual.
-
-```sql
-CREATE TABLE public.ai_conversation_state (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  conversation_id UUID NOT NULL REFERENCES public.crm_conversations(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-  
-  is_active BOOLEAN DEFAULT true,
-  paused_until TIMESTAMPTZ,
-  paused_by TEXT DEFAULT 'system',  -- 'manual', 'intervention', 'system'
-  permanently_disabled BOOLEAN DEFAULT false,
-  
-  last_ai_message_at TIMESTAMPTZ,
-  messages_sent INTEGER DEFAULT 0,
-  total_tokens_used INTEGER DEFAULT 0,
-  
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now(),
-  
-  UNIQUE(conversation_id)
-);
-
--- RLS
-ALTER TABLE public.ai_conversation_state ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can manage own AI conversation state"
-  ON public.ai_conversation_state FOR ALL
-  USING (user_id = get_current_consultant_id());
-```
-
-### 1.4 - Extensao pgcrypto para criptografia de API keys
-
-```sql
-CREATE EXTENSION IF NOT EXISTS pgcrypto SCHEMA extensions;
-```
+**Migracao SQL:**
+- Recriar policies SELECT de `crm_conversations` e `tracking_sessions` com `TO authenticated`
+- Tambem aplicar `TO authenticated` nas policies de `crm_messages`, `crm_notes`, `crm_tags`, `crm_quick_replies` que seguem o mesmo padrao
 
 ---
 
-## PARTE 2: Alteracoes no Codigo
+## PARTE 2: Edge Function do Agente IA
 
-### 2.1 - Super Admin: Toggle de IA na tabela de consultores
+### 2.1 - Funcao `ai-agent-respond`
 
-**Arquivo:** `src/pages/ConsultantsManagement.tsx`
+Nova edge function que sera chamada pelo webhook existente (`crm-webhook`) quando uma mensagem incoming chegar.
 
-Adicionar:
-- Uma coluna "IA" na tabela com um icone de status (ativo/inativo)
-- No dropdown de acoes, adicionar opcao "Ativar IA" / "Desativar IA"
-- Mutation para fazer `UPDATE users SET ai_enabled = !ai_enabled WHERE id = X`
+**Fluxo:**
+1. Webhook recebe mensagem incoming
+2. Verifica se o consultor tem `ai_enabled = true`
+3. Verifica se existe `ai_agent_configs` para o consultor
+4. Verifica `ai_conversation_state` para a conversa (se IA esta ativa, nao pausada, nao desabilitada)
+5. Verifica horario comercial (se configurado)
+6. Monta o prompt com: persona + skills + products_info + restrictions + historico de mensagens
+7. Se a mensagem e audio: transcreve usando Whisper API (OpenAI)
+8. Se a mensagem e imagem: usa GPT-4o Vision para descrever
+9. Chama a API configurada (OpenAI/Google/Anthropic) com o prompt completo
+10. Envia a resposta via Evolution API como mensagem do consultor
+11. Salva a mensagem na tabela `crm_messages`
+12. Atualiza `ai_conversation_state` (incrementa contadores)
 
-Seguindo o mesmo padrao do toggle `is_active` que ja existe (linhas 142-157).
+**Detalhes tecnicos:**
+- Historico de conversa: busca as ultimas 20 mensagens da conversa para contexto
+- API key: descriptografada server-side (edge function)
+- Rate limiting: maximo 1 resposta a cada 3 segundos por conversa
+- Erro handling: se a API falhar, nao envia nada (falha silenciosa, loga o erro)
+- Pausa automatica: se o consultor enviar mensagem manualmente (direction = outgoing e nao e da IA), pausa a IA por `pause_on_human_minutes`
 
-### 2.2 - Consultor: Interface de configuracao da IA
+### 2.2 - Modificacao do `crm-webhook/index.ts`
 
-**Arquivo novo:** `src/pages/AdminAIConfig.tsx`
+Apos processar a mensagem incoming (linha ~714 do webhook atual), adicionar chamada para a edge function `ai-agent-respond` passando:
+- `conversation_id`
+- `instance_id`
+- `user_id` (consultor)
+- `message` (conteudo da mensagem recebida)
+- `message_type` (text, audio, image)
+- `media_url` (se for midia)
 
-Pagina dedicada (nao uma aba em Settings) com:
-- Verificacao se `ai_enabled` esta ativo (se nao, mostra mensagem de que precisa solicitar ao admin)
-- Formulario completo organizado em secoes:
-  - **Identidade:** Nome do agente, descricao, objetivo principal
-  - **Persona:** Campo de texto grande para persona/papel + tom de voz
-  - **Conhecimento:** Habilidades e roteiro + Info de produtos/servicos
-  - **Restricoes:** O que a IA nao pode fazer/falar
-  - **Motor IA:** Provedor (OpenAI/Google), Modelo (dropdown), API Key (campo senha), Temperatura (slider)
-  - **Comportamento:** Tempo de pausa, mensagem de saudacao, horario de atendimento, auto-reply toggle
-  - **Avancado:** Pipeline automatico, transcricao de audio, analise de imagens
+A chamada sera **assincrona** (fire-and-forget via fetch sem await) para nao bloquear o webhook.
 
-**Arquivo novo:** `src/hooks/useAIConfig.ts`
+### 2.3 - Deteccao de intervencao humana
 
-Hook para carregar e salvar a configuracao via Supabase, com:
-- `useQuery` para buscar `ai_agent_configs` do usuario logado
-- `useMutation` para criar/atualizar a configuracao
-- Logica de upsert (INSERT ON CONFLICT UPDATE)
-
-### 2.3 - Navegacao: Menu condicional
-
-**Arquivo:** `src/components/admin/AdminLayout.tsx`
-
-Adicionar item de menu "Agente IA" (icone `Bot`) no array `consultantNavItems`, mas so exibir se o usuario tiver `ai_enabled = true`. Para isso:
-- Adicionar `ai_enabled` ao select do `getCurrentConsultant`
-- Filtrar o item de menu condicionalmente
-
-**Arquivo:** `src/lib/consultant-context.ts`
-
-Adicionar `ai_enabled` na interface `ConsultantUser` e no select da funcao `getCurrentConsultant`.
-
-### 2.4 - Rota protegida
-
-**Arquivo:** `src/App.tsx`
-
-Adicionar rota `/admin/ai-config` com `ProtectedRoute`.
+No webhook, quando uma mensagem outgoing e detectada (fromMe = true):
+- Verificar se existe `ai_conversation_state` para a conversa
+- Se sim, verificar se a mensagem foi enviada pela IA (marcar mensagens da IA com metadata especial)
+- Se nao foi da IA, pausar `ai_conversation_state.paused_until = now() + pause_on_human_minutes`
 
 ---
 
-## PARTE 3: Resumo dos Arquivos
+## PARTE 3: Controle da IA no Chat (UI)
+
+### 3.1 - Indicador no ChatWindow
+
+No header do `ChatWindow.tsx`, adicionar um indicador visual quando a IA esta ativa naquela conversa:
+- Badge "IA Ativa" (verde) / "IA Pausada" (amarelo) / "IA Desativada" (cinza)
+- Botao para pausar/retomar/desativar IA naquela conversa especifica
+
+### 3.2 - Hook `useAIConversationState`
+
+Novo hook para gerenciar o estado da IA por conversa:
+- Buscar estado atual
+- Pausar temporariamente
+- Desativar permanentemente
+- Reativar
+
+---
+
+## PARTE 4: Resumo dos Arquivos
 
 | Acao | Arquivo |
 |------|---------|
-| Migracao SQL | Nova migracao (tabelas + coluna + pgcrypto) |
-| Modificar | `src/pages/ConsultantsManagement.tsx` - toggle IA |
-| Modificar | `src/components/admin/AdminLayout.tsx` - menu condicional |
-| Modificar | `src/lib/consultant-context.ts` - campo ai_enabled |
-| Modificar | `src/App.tsx` - nova rota |
-| Criar | `src/pages/AdminAIConfig.tsx` - pagina de config |
-| Criar | `src/hooks/useAIConfig.ts` - hook CRUD |
+| Migracao SQL | Seguranca: unaccent, organizations RPC, policies TO authenticated |
+| Criar | `supabase/functions/ai-agent-respond/index.ts` |
+| Modificar | `supabase/functions/crm-webhook/index.ts` - trigger IA apos mensagem incoming |
+| Criar | `src/hooks/useAIConversationState.ts` |
+| Modificar | `src/components/crm/ChatWindow.tsx` - indicador + controles IA |
+| Modificar | `src/lib/organization-service.ts` - usar RPC para organizations |
 
 ---
 
-## Notas sobre a pesquisa da outra IA
+## Detalhes Tecnicos: Estrutura do Prompt
 
-Pontos uteis que incorporei no plano:
-- **Criptografia de API keys** com pgcrypto (nao armazenar em texto puro)
-- **Pausa configuravel** (padrao 120 min, editavel pelo consultor)
-- **Horario de atendimento** (IA so responde em horario comercial)
-- **Controle granular por conversa** (pausar/desativar IA em chats especificos)
-- **Contadores de uso** (tokens usados, mensagens enviadas) para monitoramento futuro
-- **Campo `permanently_disabled`** para desativar IA em um contato especifico ate reativacao manual
+O prompt enviado para a API sera montado assim:
 
-A logica de processamento da IA (edge function, integracao com OpenAI/Whisper, webhook) sera implementada na **Etapa 3**, mantendo o isolamento total.
+```text
+[SISTEMA]
+Voce e {agent_name}. {persona}
+
+[OBJETIVO]
+{objective}
+
+[CONHECIMENTO]
+{skills}
+
+[PRODUTOS/SERVICOS]
+{products_info}
+
+[RESTRICOES]
+{restrictions}
+
+[INSTRUCOES]
+- Responda de forma natural e humanizada
+- Use o nome do lead quando possivel
+- Nao mencione que voce e uma IA
+- Mantenha respostas curtas (WhatsApp)
+- Use emojis com moderacao
+
+[HISTORICO DA CONVERSA]
+(ultimas 20 mensagens)
+
+[MENSAGEM ATUAL DO LEAD]
+{mensagem recebida}
+```
+
+## Seguranca da API Key
+
+A API key sera:
+1. Recebida do formulario no frontend
+2. Enviada ao backend (edge function dedicada) para criptografia
+3. Armazenada criptografada no banco com `pgcrypto`
+4. Descriptografada APENAS na edge function `ai-agent-respond` (server-side)
+5. Nunca exposta no frontend apos salva
+
+Para isso, sera necessaria uma edge function auxiliar `ai-encrypt-key` que recebe a key em texto puro e retorna criptografada.
+
