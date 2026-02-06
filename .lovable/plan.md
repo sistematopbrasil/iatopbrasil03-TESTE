@@ -1,71 +1,88 @@
 
-# Etapa 5: Correcoes de Seguranca + Polimento Final
+# Etapa 6: Criptografia de API Keys + Suporte Multi-Provider + Farewell Message
 
-## PARTE 1: Correcoes de Seguranca (3 issues do scan)
-
-Os 2 erros e 1 warning restantes sao causados pelas policies SELECT que usam `TO public` (que inclui `anon`). Mesmo que as funcoes `get_current_consultant_id()` e `get_user_organization_id()` retornem NULL para anon (bloqueando acesso na pratica), o scanner flagra porque a policy *permite* que o role `anon` tente avaliar.
-
-### Migracao SQL:
-
-**1. `quiz_submissions_new` (Error - dados pessoais expostos)**
-- Recriar policy SELECT com `TO authenticated`
-
-**2. `ranking_scores` (Warning - metricas de performance)**
-- Recriar policy SELECT com `TO authenticated`
-
-**3. `tracking_sessions` (Error - IPs e user agents)**
-- A policy SELECT ja e `TO authenticated`. O scanner flagra porque INSERT e UPDATE sao `TO public` (necessario para tracking anonimo do quiz). Nao ha risco real pois INSERT/UPDATE nao permitem leitura. Marcar como ignorado no scan.
-
-### Tambem corrigir (preventivo):
-- `quiz_submissions_new` DELETE policy: adicionar `TO authenticated`
-- `quiz_submissions_new` UPDATE org policy: adicionar `TO authenticated`
-- `ranking_scores` INSERT e UPDATE: adicionar `TO authenticated`
+O agente IA esta funcional com todas as etapas anteriores concluidas. Esta etapa foca em completar funcionalidades pendentes e robustez.
 
 ---
 
-## PARTE 2: Bug Fixes Identificados
+## Status Atual (Tudo OK)
 
-### 2.1 - `ai-agent-respond` nao tem `crm-webhook` no config.toml
-O `crm-webhook` nao esta listado no `config.toml`, o que pode causar problemas de deploy. Verificar e adicionar se necessario.
-
-### 2.2 - Webhook chama AI com anon key mas funcao usa service role
-O webhook dispara `ai-agent-respond` com `SUPABASE_ANON_KEY`, mas a funcao usa `SUPABASE_SERVICE_ROLE_KEY` internamente para ler dados. Como `verify_jwt = false`, isso funciona - a anon key serve apenas para rotear a requisicao. Sem bug real, mas validar que o deploy esta correto.
-
-### 2.3 - Upsert no `ai_conversation_state` pode falhar com RLS
-A funcao `ai-agent-respond` usa `supabaseAdmin` (service role) que bypassa RLS, entao o upsert funciona. Mas o webhook tambem faz upsert com `supabaseAdmin` na deteccao de intervencao humana - confirmar que tambem usa service role. (Verificado: sim, usa `supabaseAdmin`.)
-
----
-
-## PARTE 3: Melhorias de UX
-
-### 3.1 - Mensagem de boas-vindas automatica
-A `greeting_message` e configuravel no AdminAIConfig mas nao e usada em nenhum lugar. Implementar logica: quando uma conversa e criada pela primeira vez (primeira mensagem incoming), se houver `greeting_message` configurada, enviar como primeira resposta da IA antes da resposta contextual.
-
-### 3.2 - Indicador de status da IA na lista de conversas
-Atualmente o badge de IA so aparece no header do chat aberto. Adicionar um indicador sutil (icone de bot pequeno) na lista de conversas (`ConversationList.tsx`) quando a IA esta ativa naquela conversa.
-
-### 3.3 - Contadores de uso na pagina de config
-Mostrar estatisticas basicas na pagina AdminAIConfig: total de mensagens enviadas pela IA, total de tokens usados (somando de `ai_conversation_state`).
+- Seguranca: Todos os scans limpos (2 erros + 1 warning resolvidos/ignorados)
+- Edge Functions: `ai-agent-respond`, `ai-agent-test`, `crm-webhook` registrados no config.toml
+- Secrets: `EVOLUTION_API_KEY`, `EVOLUTION_API_URL`, `LOVABLE_API_KEY` configurados
+- UI: Badge IA no chat, badge na lista de conversas, stats de uso, botao testar
+- Lovable AI como provider padrao (sem necessidade de API key)
+- Greeting message implementado
+- Pausa automatica por intervencao humana
+- Deteccao de horario comercial
 
 ---
 
-## PARTE 4: Resumo dos Arquivos
+## O Que Falta
+
+### 1. Criptografia de API Keys (para providers externos)
+
+Atualmente, quando o consultor escolhe OpenAI/Google/Anthropic e insere uma API key, ela e salva em texto puro no campo `api_key_encrypted`. Isso e um risco de seguranca.
+
+**Solucao:** Criar edge function `ai-encrypt-key` que:
+- Recebe a API key do frontend
+- Criptografa usando `pgcrypto` (extensao ja disponivel no banco)
+- Salva no campo `api_key_encrypted`
+- Na `ai-agent-respond`, descriptografa antes de usar
+
+**Arquivos:**
+- Criar: `supabase/functions/ai-encrypt-key/index.ts`
+- Modificar: `src/hooks/useAIConfig.ts` (chamar edge function ao salvar key)
+- Modificar: `supabase/functions/ai-agent-respond/index.ts` (descriptografar key)
+- Modificar: `supabase/config.toml` (registrar nova funcao)
+- SQL: Criar funcoes `encrypt_api_key(text)` e `decrypt_api_key(text)` com pgcrypto
+
+### 2. Suporte completo a Google e Anthropic no ai-agent-respond
+
+Atualmente a edge function `ai-agent-respond` so suporta `lovable` e `openai`. Os providers `google` (Gemini direto) e `anthropic` (Claude) estao listados no formulario mas nao sao tratados na funcao.
+
+**Mudancas em `ai-agent-respond`:**
+- Adicionar caso para `google`: chamar `https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`
+- Adicionar caso para `anthropic`: chamar `https://api.anthropic.com/v1/messages`
+- Mesma logica tambem no `ai-agent-test`
+
+### 3. Farewell Message (Mensagem de despedida)
+
+O campo `farewell_message` existe no config mas nao e usado. Implementar logica para enviar quando a conversa e marcada como "fechada".
+
+**Mudancas:**
+- Quando o consultor muda status da conversa para "closed" no CRM, verificar se ha `farewell_message` configurada
+- Se houver e a IA estiver ativa, enviar a mensagem automaticamente via Evolution API
+- Pode ser feito no frontend (ChatWindow) chamando a Evolution API via edge function existente (`crm-send-message`)
+
+### 4. Transcrever audio e analisar imagem com Lovable AI
+
+Atualmente, transcricao de audio (Whisper) e analise de imagem (Vision) so funcionam com API key OpenAI propria. Quando o provider e `lovable`, essas funcionalidades ficam desabilitadas silenciosamente.
+
+**Solucao:**
+- Para audio: usar modelo Gemini via Lovable AI gateway com prompt "Transcreva este audio"
+- Para imagem: ja possivel - enviar imagem como content multimodal para Gemini via gateway
+- Alternativa mais simples: usar Lovable AI (modelo com suporte multimodal) para descrever a imagem, pois Gemini suporta imagens nativamente
+
+---
+
+## Resumo de Arquivos
 
 | Acao | Arquivo |
 |------|---------|
-| Migracao SQL | Policies TO authenticated para quiz_submissions_new, ranking_scores |
-| Ignorar scan | tracking_sessions (INSERT/UPDATE publico necessario para quiz) |
-| Ignorar scan | quiz_submissions (legado, ja ignorado) |
-| Verificar | supabase/config.toml - garantir crm-webhook listado |
-| Opcional | Greeting message logic em ai-agent-respond |
-| Opcional | Bot icon em ConversationList |
-| Opcional | Stats cards em AdminAIConfig |
+| Criar | `supabase/functions/ai-encrypt-key/index.ts` |
+| SQL | Funcoes pgcrypto para encrypt/decrypt |
+| Modificar | `supabase/functions/ai-agent-respond/index.ts` - Google, Anthropic, decrypt, media com Lovable |
+| Modificar | `supabase/functions/ai-agent-test/index.ts` - Google, Anthropic |
+| Modificar | `src/hooks/useAIConfig.ts` - criptografar key ao salvar |
+| Modificar | `src/components/crm/ChatWindow.tsx` - farewell message ao fechar conversa |
+| Modificar | `supabase/config.toml` - registrar ai-encrypt-key |
 
 ---
 
 ## Prioridade
 
-1. **Migracao de seguranca** (corrige os 2 erros + 1 warning)
-2. **Ignorar tracking_sessions no scan** (nao e risco real)
-3. **Greeting message** (melhoria rapida)
-4. **Stats de uso** (informativo para consultor)
+1. **Criptografia de API keys** (seguranca - corrige risco existente)
+2. **Suporte Google + Anthropic** (completa funcionalidade prometida no formulario)
+3. **Media com Lovable AI** (imagens/audio sem API key externa)
+4. **Farewell message** (melhoria UX)
