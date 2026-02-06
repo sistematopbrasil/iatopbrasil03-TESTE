@@ -656,20 +656,34 @@ serve(async (req) => {
           }
           
           // ✅ Inserir mensagem com instance_id para unicidade por instância
+          // ✅ PRESERVAR metadata.sent_by_ai se já existir no banco (evita sobrescrever flag da IA)
+          let finalMetadata: any = message;
+          if (direction === 'outgoing') {
+            const { data: existingMsg } = await supabaseAdmin
+              .from('crm_messages')
+              .select('metadata')
+              .eq('instance_id', instance.id)
+              .eq('message_id', key.id)
+              .maybeSingle();
+            if (existingMsg?.metadata?.sent_by_ai) {
+              finalMetadata = { ...message, sent_by_ai: true, ai_agent: existingMsg.metadata.ai_agent };
+            }
+          }
+
           const messageData = {
             conversation_id: conversation.id,
             instance_id: instance.id,
             message_id: key.id,
-            direction, // ✅ Usar direction dinâmico (incoming/outgoing)
+            direction,
             type,
             content,
             media_url: mediaUrl,
             media_mimetype: mediaMimetype,
             media_filename: mediaFilename,
             media_size: mediaSize,
-            status: direction === 'outgoing' ? 'sent' : 'delivered', // ✅ Status apropriado
+            status: direction === 'outgoing' ? 'sent' : 'delivered',
             timestamp: new Date(message.messageTimestamp * 1000).toISOString(),
-            metadata: message,
+            metadata: finalMetadata,
           };
           
           console.log('📝 Inserindo mensagem:', { 
@@ -746,8 +760,8 @@ serve(async (req) => {
             // 🛑 INTERVENÇÃO HUMANA: Detectar mensagem manual do consultor
             if (direction === 'outgoing') {
               try {
-                // Verificar se a mensagem NÃO foi enviada pela IA
-                const isAIMessage = messageData.metadata?.sent_by_ai === true;
+                // ✅ Verificar se a mensagem foi enviada pela IA (checando metadata final)
+                const isAIMessage = finalMetadata?.sent_by_ai === true;
                 
                 if (!isAIMessage) {
                   // Buscar config do consultor para saber tempo de pausa
@@ -773,6 +787,8 @@ serve(async (req) => {
                         is_active: true,
                       }, { onConflict: 'conversation_id' });
                   }
+                } else {
+                  console.log('✅ Mensagem da IA detectada, NÃO pausando');
                 }
               } catch (interventionError) {
                 console.warn('⚠️ Erro na detecção de intervenção:', interventionError);

@@ -198,7 +198,7 @@ function AdminCRMContent() {
         </div>
 
         {/* Content - All tabs rendered but only active one visible */}
-        <div className="flex-1 min-h-0 overflow-hidden overflow-x-hidden p-3 relative overscroll-x-none">
+        <div className="flex-1 min-h-0 overflow-hidden overflow-x-hidden p-1.5 relative overscroll-x-none">
           {/* Tab: Conversas */}
           <div className={activeTab === 'conversations' ? 'h-full' : 'hidden'}>
             {!instance ? (
