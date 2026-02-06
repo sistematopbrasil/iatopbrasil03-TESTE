@@ -565,7 +565,7 @@ serve(async (req) => {
       });
     }
 
-    // 11. Enviar resposta via Evolution API
+    // 11. Enviar resposta via Evolution API (com split de mensagens para humanização)
     const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL');
     const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY');
 
@@ -580,44 +580,61 @@ serve(async (req) => {
     const jid = contact_phone.includes('@') ? contact_phone : `${contact_phone}@s.whatsapp.net`;
     console.log('📤 Enviando mensagem via Evolution API para:', jid);
 
-    const sendResp = await fetch(`${evolutionApiUrl}/message/sendText/${instance_name}`, {
-      method: 'POST',
-      headers: { apikey: evolutionApiKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ number: jid, text: aiResponse }),
-    });
+    // ✅ Dividir resposta em partes por parágrafos duplos para parecer mais humano
+    const messageParts = aiResponse
+      .split(/\n\n+/)
+      .map((p: string) => p.trim())
+      .filter((p: string) => p.length > 0);
 
-    if (!sendResp.ok) {
-      const errText = await sendResp.text();
-      console.error('❌ Erro ao enviar via Evolution:', sendResp.status, errText);
-      return new Response(JSON.stringify({ error: 'Failed to send message' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    let lastSentMessageId = '';
+    const lastPart = messageParts[messageParts.length - 1] || aiResponse;
+
+    for (let i = 0; i < messageParts.length; i++) {
+      const part = messageParts[i];
+      
+      // Delay entre mensagens (1-2s) para parecer digitação humana
+      if (i > 0) {
+        const delay = 1000 + Math.random() * 1000;
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+
+      const sendResp = await fetch(`${evolutionApiUrl}/message/sendText/${instance_name}`, {
+        method: 'POST',
+        headers: { apikey: evolutionApiKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ number: jid, text: part }),
+      });
+
+      if (!sendResp.ok) {
+        const errText = await sendResp.text();
+        console.error(`❌ Erro ao enviar parte ${i + 1}:`, sendResp.status, errText);
+        continue;
+      }
+
+      const sendData = await sendResp.json();
+      const sentMessageId = sendData?.key?.id || `ai-${Date.now()}-${i}`;
+      lastSentMessageId = sentMessageId;
+      console.log(`✅ Parte ${i + 1}/${messageParts.length} enviada! ID:`, sentMessageId);
+
+      // Salvar cada parte como mensagem separada no banco
+      await supabaseAdmin.from('crm_messages').insert({
+        conversation_id,
+        instance_id,
+        message_id: sentMessageId,
+        direction: 'outgoing',
+        type: 'text',
+        content: part,
+        status: 'sent',
+        timestamp: new Date().toISOString(),
+        metadata: { sent_by_ai: true, ai_agent: config.agent_name, model: config.model },
       });
     }
 
-    const sendData = await sendResp.json();
-    const sentMessageId = sendData?.key?.id || `ai-${Date.now()}`;
-    console.log('✅ Mensagem enviada! ID:', sentMessageId);
+    console.log('✅ Todas as partes enviadas e salvas');
 
-    // 12. Salvar mensagem no banco
-    await supabaseAdmin.from('crm_messages').insert({
-      conversation_id,
-      instance_id,
-      message_id: sentMessageId,
-      direction: 'outgoing',
-      type: 'text',
-      content: aiResponse,
-      status: 'sent',
-      timestamp: new Date().toISOString(),
-      metadata: { sent_by_ai: true, ai_agent: config.agent_name, model: config.model },
-    });
-
-    console.log('✅ Mensagem salva no banco');
-
-    // 13. Atualizar conversa
+    // 13. Atualizar conversa com última parte
     await supabaseAdmin.from('crm_conversations').update({
       last_message_at: new Date().toISOString(),
-      last_message_preview: aiResponse.substring(0, 100),
+      last_message_preview: lastPart.substring(0, 100),
       status: 'open',
     }).eq('id', conversation_id);
 
