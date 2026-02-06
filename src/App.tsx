@@ -19,6 +19,7 @@ import AdminSuperAdmin from "./pages/AdminSuperAdmin";
 import ConsultantsManagement from "./pages/ConsultantsManagement";
 import QuizPage from "./pages/Quiz";
 import AdminCRM from "./pages/AdminCRM";
+import AdminAIConfig from "./pages/AdminAIConfig";
 import { ProtectedRoute } from "./components/admin/ProtectedRoute";
 
 // QueryClient com cache otimizado para evitar recarregamentos desnecessários
@@ -126,6 +127,14 @@ const App = () => {
                 element={
                   <ProtectedRoute>
                     <AdminCRM />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/ai-config"
+                element={
+                  <ProtectedRoute>
+                    <AdminAIConfig />
                   </ProtectedRoute>
                 }
               />

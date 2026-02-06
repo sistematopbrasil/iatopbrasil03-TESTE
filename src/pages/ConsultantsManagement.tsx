@@ -33,7 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Target, Flame, Loader2, MoreVertical, Copy, ExternalLink, UserX, UserCheck, Trash2, Users, CheckSquare, XSquare } from 'lucide-react';
+import { Target, Flame, Loader2, MoreVertical, Copy, ExternalLink, UserX, UserCheck, Trash2, Users, CheckSquare, XSquare, Bot, BotOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { calculateLeadPoints, NOVOS_CONSULTORES_BONUS } from '@/lib/ranking-service';
 
@@ -153,6 +153,24 @@ export default function ConsultantsManagement() {
     },
     onError: () => {
       toast.error('Erro ao alterar status do consultor');
+    },
+  });
+
+  // Toggle AI enabled mutation
+  const toggleAIMutation = useMutation({
+    mutationFn: async ({ id, aiEnabled }: { id: string; aiEnabled: boolean }) => {
+      const { error } = await supabase
+        .from('users')
+        .update({ ai_enabled: aiEnabled })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: (_, { aiEnabled }) => {
+      queryClient.invalidateQueries({ queryKey: ['all-consultants-management'] });
+      toast.success(aiEnabled ? 'IA ativada para o consultor' : 'IA desativada para o consultor');
+    },
+    onError: () => {
+      toast.error('Erro ao alterar status da IA');
     },
   });
 
@@ -338,6 +356,7 @@ export default function ConsultantsManagement() {
                     </div>
                   </TableHead>
                   <TableHead className="text-center hidden md:table-cell">Status</TableHead>
+                  <TableHead className="text-center hidden md:table-cell">IA</TableHead>
                   <TableHead className="text-center">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -395,6 +414,13 @@ export default function ConsultantsManagement() {
                           {consultant.is_active ? 'Ativo' : 'Inativo'}
                         </Badge>
                       </TableCell>
+                      <TableCell className="text-center hidden md:table-cell">
+                        {consultant.ai_enabled ? (
+                          <Bot className="w-4 h-4 text-primary mx-auto" />
+                        ) : (
+                          <BotOff className="w-4 h-4 text-muted-foreground mx-auto" />
+                        )}
+                      </TableCell>
                       <TableCell className="text-center">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -434,6 +460,24 @@ export default function ConsultantsManagement() {
                                 </>
                               )}
                             </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => toggleAIMutation.mutate({ 
+                                id: consultant.id, 
+                                aiEnabled: !consultant.ai_enabled 
+                              })}
+                            >
+                              {consultant.ai_enabled ? (
+                                <>
+                                  <BotOff className="mr-2 h-4 w-4" />
+                                  Desativar IA
+                                </>
+                              ) : (
+                                <>
+                                  <Bot className="mr-2 h-4 w-4" />
+                                  Ativar IA
+                                </>
+                              )}
+                            </DropdownMenuItem>
                             {!isSelf && (
                               <>
                                 <DropdownMenuSeparator />
@@ -454,7 +498,7 @@ export default function ConsultantsManagement() {
                 })}
                 {consultants?.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                       Nenhum consultor cadastrado
                     </TableCell>
                   </TableRow>
