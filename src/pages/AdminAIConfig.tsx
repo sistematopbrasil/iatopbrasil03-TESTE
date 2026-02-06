@@ -12,7 +12,8 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Save, Bot, Brain, Shield, Cog, Clock, Lock } from 'lucide-react';
+import { Loader2, Save, Bot, Brain, Shield, Cog, Clock, Lock, Play, Sparkles } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function AdminAIConfig() {
   const { data: currentUser, isLoading: loadingUser } = useQuery({
@@ -22,6 +23,8 @@ export default function AdminAIConfig() {
 
   const { config, isLoading, defaultConfig, save, isSaving } = useAIConfig();
   const [formData, setFormData] = useState<AIConfigFormData>(defaultConfig);
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
 
   useEffect(() => {
     if (config) {
@@ -88,7 +91,17 @@ export default function AdminAIConfig() {
     );
   }
 
+
+
+
   const modelOptions: Record<string, { label: string; value: string }[]> = {
+    lovable: [
+      { label: 'Gemini 3 Flash (Rápido)', value: 'google/gemini-3-flash-preview' },
+      { label: 'Gemini 2.5 Flash', value: 'google/gemini-2.5-flash' },
+      { label: 'Gemini 2.5 Pro (Avançado)', value: 'google/gemini-2.5-pro' },
+      { label: 'GPT-5 Mini', value: 'openai/gpt-5-mini' },
+      { label: 'GPT-5 Nano (Econômico)', value: 'openai/gpt-5-nano' },
+    ],
     openai: [
       { label: 'GPT-4o Mini (Rápido)', value: 'gpt-4o-mini' },
       { label: 'GPT-4o (Avançado)', value: 'gpt-4o' },
@@ -105,7 +118,47 @@ export default function AdminAIConfig() {
     ],
   };
 
-  const currentModels = modelOptions[formData.api_provider] || modelOptions.openai;
+  const currentModels = modelOptions[formData.api_provider] || modelOptions.lovable;
+
+  const handleTestConfig = async () => {
+    setIsTesting(true);
+    setTestResult(null);
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const resp = await fetch(`${supabaseUrl}/functions/v1/ai-agent-test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+        body: JSON.stringify({
+          agent_name: formData.agent_name,
+          persona: formData.persona,
+          objective: formData.objective,
+          skills: formData.skills,
+          products_info: formData.products_info,
+          restrictions: formData.restrictions,
+          api_provider: formData.api_provider,
+          api_key_encrypted: formData.api_provider !== 'lovable' ? formData.api_key_encrypted : undefined,
+          model: formData.model,
+          temperature: formData.temperature,
+          max_tokens: formData.max_tokens,
+          test_message: 'Olá, gostaria de saber mais sobre proteção veicular.',
+        }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: 'Erro desconhecido' }));
+        throw new Error(err.error || `Erro ${resp.status}`);
+      }
+
+      const data = await resp.json();
+      setTestResult(data.response || 'Sem resposta');
+      toast.success('Teste concluído!');
+    } catch (e: any) {
+      toast.error('Erro no teste: ' + e.message);
+      setTestResult(null);
+    } finally {
+      setIsTesting(false);
+    }
+  };
 
   return (
     <AdminLayout>
@@ -263,13 +316,19 @@ export default function AdminAIConfig() {
                     <Label>Provedor</Label>
                     <Select value={formData.api_provider} onValueChange={v => {
                       update('api_provider', v);
-                      update('model', modelOptions[v]?.[0]?.value || 'gpt-4o-mini');
+                      update('model', modelOptions[v]?.[0]?.value || 'google/gemini-3-flash-preview');
                     }}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="openai">OpenAI</SelectItem>
-                        <SelectItem value="google">Google (Gemini)</SelectItem>
-                        <SelectItem value="anthropic">Anthropic (Claude)</SelectItem>
+                        <SelectItem value="lovable">
+                          <span className="flex items-center gap-1.5">
+                            <Sparkles className="w-4 h-4 text-primary" />
+                            Lovable AI (Incluso)
+                          </span>
+                        </SelectItem>
+                        <SelectItem value="openai">OpenAI (API Key própria)</SelectItem>
+                        <SelectItem value="google">Google Gemini (API Key própria)</SelectItem>
+                        <SelectItem value="anthropic">Anthropic Claude (API Key própria)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -287,18 +346,29 @@ export default function AdminAIConfig() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>API Key</Label>
-                  <Input 
-                    type="password"
-                    value={formData.api_key_encrypted || ''} 
-                    onChange={e => update('api_key_encrypted', e.target.value)}
-                    placeholder="sk-..."
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Sua chave será armazenada de forma segura e criptografada
-                  </p>
-                </div>
+                {formData.api_provider === 'lovable' && (
+                  <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
+                    <p className="text-sm text-foreground flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-primary flex-shrink-0" />
+                      <span>Lovable AI está incluso no seu plano. Nenhuma API Key é necessária!</span>
+                    </p>
+                  </div>
+                )}
+
+                {formData.api_provider !== 'lovable' && (
+                  <div className="space-y-2">
+                    <Label>API Key</Label>
+                    <Input 
+                      type="password"
+                      value={formData.api_key_encrypted || ''} 
+                      onChange={e => update('api_key_encrypted', e.target.value)}
+                      placeholder="sk-..."
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Sua chave será armazenada de forma segura
+                    </p>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label>Temperatura: {formData.temperature}</Label>
@@ -437,8 +507,37 @@ export default function AdminAIConfig() {
           </TabsContent>
         </Tabs>
 
-        {/* Save Button - Always visible */}
-        <div className="sticky bottom-4 flex justify-end">
+        {/* Test Result */}
+        {testResult && (
+          <Card className="border-primary/30 bg-primary/5">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Bot className="w-4 h-4 text-primary" />
+                Resposta do Teste
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm whitespace-pre-wrap">{testResult}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Save & Test Buttons - Always visible */}
+        <div className="sticky bottom-4 flex justify-end gap-3">
+          <Button
+            variant="outline"
+            onClick={handleTestConfig}
+            disabled={isTesting}
+            size="lg"
+            className="shadow-lg"
+          >
+            {isTesting ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Play className="w-4 h-4 mr-2" />
+            )}
+            Testar Configuração
+          </Button>
           <Button onClick={() => save(formData)} disabled={isSaving} size="lg" className="shadow-lg">
             {isSaving ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />

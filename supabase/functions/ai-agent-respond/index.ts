@@ -254,8 +254,58 @@ serve(async (req) => {
 
     // 10. Chamar API de IA
     let aiResponse = '';
+    let tokensUsed = 0;
 
-    if (config.api_provider === 'openai' && config.api_key_encrypted) {
+    if (config.api_provider === 'lovable') {
+      // Lovable AI Gateway - no API key needed from user
+      try {
+        const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+        if (!LOVABLE_API_KEY) {
+          console.error('❌ LOVABLE_API_KEY não configurada');
+          return new Response(JSON.stringify({ error: 'LOVABLE_API_KEY not configured' }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const model = config.model || 'google/gemini-3-flash-preview';
+        console.log('🧠 Chamando Lovable AI:', model);
+
+        const lovableResp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model,
+            messages: apiMessages,
+            temperature: config.temperature || 0.7,
+            max_tokens: config.max_tokens || 500,
+          }),
+        });
+
+        if (!lovableResp.ok) {
+          const errText = await lovableResp.text();
+          console.error('❌ Erro Lovable AI:', lovableResp.status, errText);
+          return new Response(JSON.stringify({ error: 'AI API error', status: lovableResp.status }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const lovableData = await lovableResp.json();
+        aiResponse = lovableData.choices?.[0]?.message?.content || '';
+        tokensUsed = lovableData.usage?.total_tokens || 0;
+        console.log('✅ Resposta Lovable AI:', aiResponse.substring(0, 80), '| Tokens:', tokensUsed);
+      } catch (e) {
+        console.error('❌ Erro ao chamar Lovable AI:', e);
+        return new Response(JSON.stringify({ error: 'AI call failed' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    } else if (config.api_provider === 'openai' && config.api_key_encrypted) {
       try {
         const model = config.model || 'gpt-4o-mini';
         console.log('🧠 Chamando OpenAI:', model);
@@ -285,20 +335,8 @@ serve(async (req) => {
 
         const openaiData = await openaiResp.json();
         aiResponse = openaiData.choices?.[0]?.message?.content || '';
-        const tokensUsed = openaiData.usage?.total_tokens || 0;
-
-        console.log('✅ Resposta IA:', aiResponse.substring(0, 80), '| Tokens:', tokensUsed);
-
-        // Atualizar contadores
-        await supabaseAdmin
-          .from('ai_conversation_state')
-          .update({
-            last_ai_message_at: new Date().toISOString(),
-            messages_sent: (aiState?.messages_sent || 0) + 1,
-            total_tokens_used: (aiState?.total_tokens_used || 0) + tokensUsed,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('conversation_id', conversation_id);
+        tokensUsed = openaiData.usage?.total_tokens || 0;
+        console.log('✅ Resposta OpenAI:', aiResponse.substring(0, 80), '| Tokens:', tokensUsed);
       } catch (e) {
         console.error('❌ Erro ao chamar IA:', e);
         return new Response(JSON.stringify({ error: 'AI call failed' }), {
@@ -312,6 +350,17 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    // Update token counters
+    await supabaseAdmin
+      .from('ai_conversation_state')
+      .update({
+        last_ai_message_at: new Date().toISOString(),
+        messages_sent: (aiState?.messages_sent || 0) + 1,
+        total_tokens_used: (aiState?.total_tokens_used || 0) + tokensUsed,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('conversation_id', conversation_id);
 
     if (!aiResponse.trim()) {
       console.log('⏭️ Resposta vazia da IA');
