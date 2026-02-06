@@ -12,6 +12,7 @@ import { MessageInput } from './MessageInput';
 import { LeadProfile } from './LeadProfile';
 import { CreateLeadFromConversation } from './CreateLeadFromConversation';
 import { TemperatureBadge } from '@/components/ui/temperature-badge';
+import { AIStatusBadge } from './AIStatusBadge';
 import { supabase } from '@/integrations/supabase/client';
 import { formatPhoneDisplay, normalizePhone } from '@/lib/phone-utils';
 import { toast } from 'sonner';
@@ -48,6 +49,22 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
   const [showProfile, setShowProfile] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const queryClient = useQueryClient();
+
+  // Check if current consultant has AI enabled
+  const { data: currentUserAI } = useQuery({
+    queryKey: ['current-user-ai-enabled'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return { ai_enabled: false };
+      const { data } = await supabase
+        .from('users')
+        .select('ai_enabled')
+        .eq('auth_user_id', user.id)
+        .single();
+      return data || { ai_enabled: false };
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
   // Buscar stages do pipeline FILTRADO POR ORGANIZAÇÃO
   const { data: pipelineStages = [] } = useQuery({
@@ -290,9 +307,10 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
                       Lead
                     </Badge>
                   )}
-                  {conversation.lead?.temperature && (
+                   {conversation.lead?.temperature && (
                     <TemperatureBadge temperature={conversation.lead.temperature} size="sm" />
                   )}
+                  <AIStatusBadge conversationId={conversation.id} aiEnabled={currentUserAI?.ai_enabled || false} />
                 </div>
                 <p className="text-xs text-muted-foreground font-mono truncate">
                   {formatPhoneDisplay(conversation.contact_phone)}

@@ -103,18 +103,14 @@ export async function updateTrackingActivity(sessionId: string): Promise<void> {
 export async function getOrganizationBySlug(slug: string): Promise<string | null> {
   try {
     const { data, error } = await supabase
-      .from('organizations')
-      .select('id')
-      .eq('slug', slug)
-      .eq('is_active', true)
-      .single();
+      .rpc('get_organization_public', { p_slug: slug });
 
-    if (error || !data) {
+    if (error || !data?.[0]) {
       console.error('Error fetching organization:', error);
       return null;
     }
 
-    return data.id;
+    return data[0].id;
   } catch (error) {
     console.error('Error in getOrganizationBySlug:', error);
     return null;

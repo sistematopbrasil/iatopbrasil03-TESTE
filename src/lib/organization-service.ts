@@ -55,14 +55,9 @@ export async function getQuizDataBySlug(slug: string): Promise<QuizData> {
   const consultant = consultantRows?.[0] || null;
 
   if (consultant) {
-    // Consultor encontrado - buscar org e config em paralelo
+    // Consultor encontrado - buscar org via RPC e config em paralelo
     const [orgResult, configResult] = await Promise.all([
-      supabase
-        .from('organizations')
-        .select('*')
-        .eq('id', consultant.organization_id)
-        .eq('is_active', true)
-        .maybeSingle(),
+      supabase.rpc('get_organization_by_id', { p_id: consultant.organization_id }),
       supabase
         .from('quiz_configurations')
         .select('*')
@@ -71,20 +66,20 @@ export async function getQuizDataBySlug(slug: string): Promise<QuizData> {
         .maybeSingle()
     ]);
 
+    const orgData = orgResult.data?.[0] || null;
+
     return {
       consultant: consultant as ConsultantInfo,
-      organization: orgResult.data as Organization | null,
+      organization: orgData as Organization | null,
       config: parseQuizConfig(configResult.data),
     };
   }
 
-  // Não é consultor, tentar buscar como organização
-  const { data: org } = await supabase
-    .from('organizations')
-    .select('*')
-    .eq('slug', slug)
-    .eq('is_active', true)
-    .maybeSingle();
+  // Não é consultor, tentar buscar como organização via RPC segura
+  const { data: orgRows } = await supabase
+    .rpc('get_organization_public', { p_slug: slug });
+
+  const org = orgRows?.[0] || null;
 
   if (!org) {
     return { consultant: null, organization: null, config: null };
@@ -137,14 +132,11 @@ function parseQuizConfig(data: any): QuizConfig | null {
 export async function getOrganizationBySlug(slug: string): Promise<Organization | null> {
   try {
     const { data, error } = await supabase
-      .from('organizations')
-      .select('*')
-      .eq('slug', slug)
-      .eq('is_active', true)
-      .maybeSingle();
+      .rpc('get_organization_public', { p_slug: slug });
 
     if (error) throw error;
-    return data as Organization | null;
+    const row = data?.[0] || null;
+    return row as Organization | null;
   } catch (error) {
     console.error('Erro ao buscar organização:', error);
     return null;
@@ -167,14 +159,11 @@ export async function getConsultantBySlug(slug: string): Promise<ConsultantInfo 
 export async function getOrganizationById(id: string): Promise<Organization | null> {
   try {
     const { data, error } = await supabase
-      .from('organizations')
-      .select('*')
-      .eq('id', id)
-      .eq('is_active', true)
-      .maybeSingle();
+      .rpc('get_organization_by_id', { p_id: id });
 
     if (error) throw error;
-    return data as Organization | null;
+    const row = data?.[0] || null;
+    return row as Organization | null;
   } catch (error) {
     console.error('Erro ao buscar organização por ID:', error);
     return null;
