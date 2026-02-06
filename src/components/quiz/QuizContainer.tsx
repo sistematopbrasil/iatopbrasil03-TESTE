@@ -59,17 +59,12 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
     queryFn: async () => {
       if (!slug) return null;
 
+      // Usa função security definer - não expõe dados sensíveis da tabela users
       const { data, error } = await supabase
-        .from("users")
-        .select(
-          "id, full_name, organization_id, quiz_slug, whatsapp_button_url, quiz_cover_image, quiz_image_position, quiz_image_size, quiz_image_shape, pixel_id"
-        )
-        .eq("quiz_slug", slug)
-        .eq("is_active", true)
-        .maybeSingle();
+        .rpc('get_consultant_by_slug', { p_slug: slug });
 
       if (error) throw error;
-      return data;
+      return data?.[0] || null;
     },
     enabled: !!slug,
     staleTime: 30 * 1000, // 30 segundos - cache curto para refletir mudanças

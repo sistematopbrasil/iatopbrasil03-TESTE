@@ -1376,6 +1376,22 @@ export type Database = {
         Returns: string
       }
       generate_unique_username: { Args: { full_name: string }; Returns: string }
+      get_consultant_by_slug: {
+        Args: { p_slug: string }
+        Returns: {
+          full_name: string
+          id: string
+          organization_id: string
+          pixel_id: string
+          profile_photo: string
+          quiz_cover_image: string
+          quiz_image_position: string
+          quiz_image_shape: string
+          quiz_image_size: string
+          quiz_slug: string
+          whatsapp_button_url: string
+        }[]
+      }
       get_consultant_ranking_dynamic: {
         Args: { period_end?: string; period_start?: string }
         Returns: {
@@ -1389,6 +1405,22 @@ export type Database = {
           ranking_position: number
           total_leads: number
           warm_leads: number
+        }[]
+      }
+      get_consultants_by_org: {
+        Args: { p_org_id: string }
+        Returns: {
+          full_name: string
+          id: string
+          organization_id: string
+          pixel_id: string
+          profile_photo: string
+          quiz_cover_image: string
+          quiz_image_position: string
+          quiz_image_shape: string
+          quiz_image_size: string
+          quiz_slug: string
+          whatsapp_button_url: string
         }[]
       }
       get_current_consultant_id: { Args: never; Returns: string }
