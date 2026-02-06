@@ -9,6 +9,7 @@ export interface ConsultantUser {
   quiz_slug: string | null;
   is_active: boolean;
   profile_photo: string | null;
+  ai_enabled: boolean;
   // Campos adicionais para configurações
   quiz_cover_image: string | null;
   quiz_image_position: string | null;
@@ -34,6 +35,7 @@ export async function getCurrentConsultant(): Promise<ConsultantUser | null> {
       quiz_slug, 
       is_active, 
       profile_photo,
+      ai_enabled,
       quiz_cover_image,
       quiz_image_position,
       quiz_image_size,

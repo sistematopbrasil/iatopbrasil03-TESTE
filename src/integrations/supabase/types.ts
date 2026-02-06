@@ -14,6 +14,164 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_agent_configs: {
+        Row: {
+          agent_name: string | null
+          analyze_images: boolean | null
+          api_key_encrypted: string | null
+          api_provider: string
+          auto_pipeline: boolean | null
+          auto_reply: boolean | null
+          created_at: string | null
+          description: string | null
+          farewell_message: string | null
+          greeting_message: string | null
+          id: string
+          max_tokens: number | null
+          model: string
+          objective: string | null
+          organization_id: string
+          pause_on_human_minutes: number | null
+          persona: string | null
+          products_info: string | null
+          restrictions: string | null
+          skills: string | null
+          temperature: number | null
+          transcribe_audio: boolean | null
+          updated_at: string | null
+          user_id: string
+          working_hours_end: string | null
+          working_hours_only: boolean | null
+          working_hours_start: string | null
+        }
+        Insert: {
+          agent_name?: string | null
+          analyze_images?: boolean | null
+          api_key_encrypted?: string | null
+          api_provider?: string
+          auto_pipeline?: boolean | null
+          auto_reply?: boolean | null
+          created_at?: string | null
+          description?: string | null
+          farewell_message?: string | null
+          greeting_message?: string | null
+          id?: string
+          max_tokens?: number | null
+          model?: string
+          objective?: string | null
+          organization_id: string
+          pause_on_human_minutes?: number | null
+          persona?: string | null
+          products_info?: string | null
+          restrictions?: string | null
+          skills?: string | null
+          temperature?: number | null
+          transcribe_audio?: boolean | null
+          updated_at?: string | null
+          user_id: string
+          working_hours_end?: string | null
+          working_hours_only?: boolean | null
+          working_hours_start?: string | null
+        }
+        Update: {
+          agent_name?: string | null
+          analyze_images?: boolean | null
+          api_key_encrypted?: string | null
+          api_provider?: string
+          auto_pipeline?: boolean | null
+          auto_reply?: boolean | null
+          created_at?: string | null
+          description?: string | null
+          farewell_message?: string | null
+          greeting_message?: string | null
+          id?: string
+          max_tokens?: number | null
+          model?: string
+          objective?: string | null
+          organization_id?: string
+          pause_on_human_minutes?: number | null
+          persona?: string | null
+          products_info?: string | null
+          restrictions?: string | null
+          skills?: string | null
+          temperature?: number | null
+          transcribe_audio?: boolean | null
+          updated_at?: string | null
+          user_id?: string
+          working_hours_end?: string | null
+          working_hours_only?: boolean | null
+          working_hours_start?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agent_configs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_conversation_state: {
+        Row: {
+          conversation_id: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          last_ai_message_at: string | null
+          messages_sent: number | null
+          paused_by: string | null
+          paused_until: string | null
+          permanently_disabled: boolean | null
+          total_tokens_used: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_ai_message_at?: string | null
+          messages_sent?: number | null
+          paused_by?: string | null
+          paused_until?: string | null
+          permanently_disabled?: boolean | null
+          total_tokens_used?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_ai_message_at?: string | null
+          messages_sent?: number | null
+          paused_by?: string | null
+          paused_until?: string | null
+          permanently_disabled?: boolean | null
+          total_tokens_used?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_conversation_state_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: true
+            referencedRelation: "crm_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_conversation_state_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_settings: {
         Row: {
           created_at: string
@@ -1212,6 +1370,7 @@ export type Database = {
       }
       users: {
         Row: {
+          ai_enabled: boolean
           auth_user_id: string
           created_at: string
           email: string
@@ -1232,6 +1391,7 @@ export type Database = {
           whatsapp_button_url: string | null
         }
         Insert: {
+          ai_enabled?: boolean
           auth_user_id: string
           created_at?: string
           email: string
@@ -1252,6 +1412,7 @@ export type Database = {
           whatsapp_button_url?: string | null
         }
         Update: {
+          ai_enabled?: boolean
           auth_user_id?: string
           created_at?: string
           email?: string

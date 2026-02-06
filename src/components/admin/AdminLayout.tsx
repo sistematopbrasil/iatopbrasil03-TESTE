@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentConsultant, isSuperAdmin } from "@/lib/consultant-context";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, Users, LogOut, Menu, Settings, BarChart3, Kanban, CalendarDays, Trophy, Target, MessageSquare, PieChart } from "lucide-react";
+import { LayoutDashboard, Users, LogOut, Menu, Settings, BarChart3, Kanban, CalendarDays, Trophy, Target, MessageSquare, PieChart, Bot } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { RoleBasedRedirect } from "@/components/RoleBasedRedirect";
@@ -63,6 +63,7 @@ export const AdminLayout = ({ children, disableVerticalScroll = false }: AdminLa
     { path: '/admin/leads', icon: Target, label: 'Leads' },
     { path: '/admin/pipeline', icon: Kanban, label: 'Pipeline' },
     { path: '/admin/crm', icon: MessageSquare, label: 'CRM WhatsApp' },
+    ...(currentUser?.ai_enabled ? [{ path: '/admin/ai-config', icon: Bot, label: 'Agente IA' }] : []),
     { path: '/admin/analytics', icon: PieChart, label: 'Analytics' },
     // { path: '/admin/events', icon: CalendarDays, label: 'Eventos' }, // Oculto temporariamente
     { path: '/admin/ranking', icon: Trophy, label: 'Ranking' },
