@@ -48,13 +48,11 @@ export interface QuizData {
 
 // Nova função unificada que busca tudo em paralelo
 export async function getQuizDataBySlug(slug: string): Promise<QuizData> {
-  // Primeiro tenta buscar como consultor
-  const { data: consultant } = await supabase
-    .from('users')
-    .select('id, full_name, organization_id, quiz_slug, profile_photo, whatsapp_button_url, quiz_cover_image, quiz_image_position, quiz_image_shape, quiz_image_size, pixel_id')
-    .eq('quiz_slug', slug)
-    .eq('is_active', true)
-    .maybeSingle();
+  // Primeiro tenta buscar como consultor via função security definer (não expõe dados sensíveis)
+  const { data: consultantRows } = await supabase
+    .rpc('get_consultant_by_slug', { p_slug: slug });
+
+  const consultant = consultantRows?.[0] || null;
 
   if (consultant) {
     // Consultor encontrado - buscar org e config em paralelo
@@ -156,14 +154,10 @@ export async function getOrganizationBySlug(slug: string): Promise<Organization 
 export async function getConsultantBySlug(slug: string): Promise<ConsultantInfo | null> {
   try {
     const { data, error } = await supabase
-      .from('users')
-      .select('id, full_name, organization_id, quiz_slug, profile_photo, whatsapp_button_url, quiz_cover_image, quiz_image_position, quiz_image_shape, quiz_image_size, pixel_id')
-      .eq('quiz_slug', slug)
-      .eq('is_active', true)
-      .maybeSingle();
+      .rpc('get_consultant_by_slug', { p_slug: slug });
 
     if (error) throw error;
-    return data as ConsultantInfo | null;
+    return (data?.[0] as ConsultantInfo) || null;
   } catch (error) {
     console.error('Erro ao buscar consultor:', error);
     return null;
