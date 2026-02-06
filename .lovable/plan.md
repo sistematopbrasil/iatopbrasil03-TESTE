@@ -1,73 +1,71 @@
 
+# Etapa 5: Correcoes de Seguranca + Polimento Final
 
-# Etapa 4: Testes, Polimento e Melhorias
+## PARTE 1: Correcoes de Seguranca (3 issues do scan)
 
-Com a infraestrutura completa (DB + Edge Function + UI + Webhook), o proximo passo e garantir que tudo funciona corretamente e adicionar melhorias de experiencia.
+Os 2 erros e 1 warning restantes sao causados pelas policies SELECT que usam `TO public` (que inclui `anon`). Mesmo que as funcoes `get_current_consultant_id()` e `get_user_organization_id()` retornem NULL para anon (bloqueando acesso na pratica), o scanner flagra porque a policy *permite* que o role `anon` tente avaliar.
 
----
+### Migracao SQL:
 
-## 1. Correcao: API Key salva em texto puro
+**1. `quiz_submissions_new` (Error - dados pessoais expostos)**
+- Recriar policy SELECT com `TO authenticated`
 
-Atualmente a API key e salva diretamente no campo `api_key_encrypted` sem criptografia real. O plano original previa uma edge function `ai-encrypt-key` para criptografar antes de salvar.
+**2. `ranking_scores` (Warning - metricas de performance)**
+- Recriar policy SELECT com `TO authenticated`
 
-**Opcao pragmatica:** Usar Lovable AI (modelos suportados nativamente) ao inves de exigir API key do consultor. Isso elimina a necessidade de criptografia, reduz custo de implementacao e simplifica a UX.
+**3. `tracking_sessions` (Error - IPs e user agents)**
+- A policy SELECT ja e `TO authenticated`. O scanner flagra porque INSERT e UPDATE sao `TO public` (necessario para tracking anonimo do quiz). Nao ha risco real pois INSERT/UPDATE nao permitem leitura. Marcar como ignorado no scan.
 
-**Mudancas:**
-- Na edge function `ai-agent-respond`, adicionar opcao de usar Lovable AI (via proxy nativo) quando `api_provider = 'lovable'`
-- No formulario `AdminAIConfig.tsx`, adicionar provider "Lovable AI (Gratis)" como opcao padrao
-- Manter opcao de API key propria (OpenAI) para quem quiser
-- Se usar API key propria, criar edge function `ai-encrypt-key` para criptografar com pgcrypto
-
-## 2. Indicador visual de mensagens da IA no chat
-
-Quando a IA envia uma mensagem, ela e salva com `metadata.sent_by_ai = true`. Precisamos mostrar isso visualmente no chat.
-
-**Mudancas:**
-- No `MessageList.tsx` ou componente de bolha de mensagem, verificar `metadata?.sent_by_ai`
-- Exibir um icone discreto de Bot ou badge "IA" na bolha de mensagens enviadas pela IA
-- Diferenciar visualmente (ex: borda sutil ou icone no canto)
-
-## 3. Teste end-to-end do fluxo
-
-Verificar que o fluxo completo funciona:
-1. Super Admin ativa IA para um consultor
-2. Consultor configura persona + API key (ou Lovable AI)
-3. Lead envia mensagem pelo WhatsApp
-4. Webhook recebe, dispara `ai-agent-respond`
-5. IA responde automaticamente
-6. Consultor ve a resposta no CRM com indicador de IA
-7. Consultor envia mensagem manual -> IA pausa automaticamente
-8. Consultor pode reativar pelo badge no chat
-
-## 4. Tratamento de erros e feedback
-
-- Se a edge function falhar, nao mostrar erro ao lead (ja implementado)
-- No chat, se houver erro na IA, mostrar notificacao discreta ao consultor
-- Na pagina de config, adicionar botao "Testar Configuracao" que envia um prompt de teste e mostra a resposta
-
-## 5. Seguranca: Ignorar avisos restantes
-
-- `quiz_submissions` sem policies: tabela legada, RLS habilitado sem policies = bloqueado. Seguro, ignorar aviso.
+### Tambem corrigir (preventivo):
+- `quiz_submissions_new` DELETE policy: adicionar `TO authenticated`
+- `quiz_submissions_new` UPDATE org policy: adicionar `TO authenticated`
+- `ranking_scores` INSERT e UPDATE: adicionar `TO authenticated`
 
 ---
 
-## Resumo de Arquivos
+## PARTE 2: Bug Fixes Identificados
+
+### 2.1 - `ai-agent-respond` nao tem `crm-webhook` no config.toml
+O `crm-webhook` nao esta listado no `config.toml`, o que pode causar problemas de deploy. Verificar e adicionar se necessario.
+
+### 2.2 - Webhook chama AI com anon key mas funcao usa service role
+O webhook dispara `ai-agent-respond` com `SUPABASE_ANON_KEY`, mas a funcao usa `SUPABASE_SERVICE_ROLE_KEY` internamente para ler dados. Como `verify_jwt = false`, isso funciona - a anon key serve apenas para rotear a requisicao. Sem bug real, mas validar que o deploy esta correto.
+
+### 2.3 - Upsert no `ai_conversation_state` pode falhar com RLS
+A funcao `ai-agent-respond` usa `supabaseAdmin` (service role) que bypassa RLS, entao o upsert funciona. Mas o webhook tambem faz upsert com `supabaseAdmin` na deteccao de intervencao humana - confirmar que tambem usa service role. (Verificado: sim, usa `supabaseAdmin`.)
+
+---
+
+## PARTE 3: Melhorias de UX
+
+### 3.1 - Mensagem de boas-vindas automatica
+A `greeting_message` e configuravel no AdminAIConfig mas nao e usada em nenhum lugar. Implementar logica: quando uma conversa e criada pela primeira vez (primeira mensagem incoming), se houver `greeting_message` configurada, enviar como primeira resposta da IA antes da resposta contextual.
+
+### 3.2 - Indicador de status da IA na lista de conversas
+Atualmente o badge de IA so aparece no header do chat aberto. Adicionar um indicador sutil (icone de bot pequeno) na lista de conversas (`ConversationList.tsx`) quando a IA esta ativa naquela conversa.
+
+### 3.3 - Contadores de uso na pagina de config
+Mostrar estatisticas basicas na pagina AdminAIConfig: total de mensagens enviadas pela IA, total de tokens usados (somando de `ai_conversation_state`).
+
+---
+
+## PARTE 4: Resumo dos Arquivos
 
 | Acao | Arquivo |
 |------|---------|
-| Criar | `supabase/functions/ai-encrypt-key/index.ts` (se manter API key propria) |
-| Modificar | `supabase/functions/ai-agent-respond/index.ts` - suporte Lovable AI |
-| Modificar | `src/pages/AdminAIConfig.tsx` - provider Lovable AI + botao teste |
-| Modificar | `src/components/crm/MessageList.tsx` ou bolha - indicador IA |
-| Ignorar | Security warning quiz_submissions |
+| Migracao SQL | Policies TO authenticated para quiz_submissions_new, ranking_scores |
+| Ignorar scan | tracking_sessions (INSERT/UPDATE publico necessario para quiz) |
+| Ignorar scan | quiz_submissions (legado, ja ignorado) |
+| Verificar | supabase/config.toml - garantir crm-webhook listado |
+| Opcional | Greeting message logic em ai-agent-respond |
+| Opcional | Bot icon em ConversationList |
+| Opcional | Stats cards em AdminAIConfig |
 
 ---
 
-## Prioridade sugerida
+## Prioridade
 
-1. **Indicador de mensagens IA no chat** (UX essencial, rapido)
-2. **Provider Lovable AI** (elimina barreira de API key, simplifica onboarding)
-3. **Botao "Testar Configuracao"** (validacao antes de ativar em producao)
-4. **Edge function de criptografia** (so se manter API key propria)
-5. **Ignorar avisos de seguranca restantes**
-
+1. **Migracao de seguranca** (corrige os 2 erros + 1 warning)
+2. **Ignorar tracking_sessions no scan** (nao e risco real)
+3. **Greeting message** (melhoria rapida)
+4. **Stats de uso** (informativo para consultor)
