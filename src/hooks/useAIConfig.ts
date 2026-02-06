@@ -58,6 +58,17 @@ const DEFAULT_CONFIG: AIConfigFormData = {
   analyze_images: true,
 };
 
+// Encrypt API key via edge function
+async function encryptApiKey(plainKey: string): Promise<string> {
+  const { data, error } = await supabase.functions.invoke('ai-encrypt-key', {
+    body: { api_key: plainKey },
+  });
+
+  if (error) throw new Error('Erro ao criptografar chave: ' + error.message);
+  if (!data?.encrypted_key) throw new Error('Falha na criptografia');
+  return data.encrypted_key;
+}
+
 export function useAIConfig() {
   const queryClient = useQueryClient();
 
@@ -83,13 +94,28 @@ export function useAIConfig() {
       const consultant = await getCurrentConsultant();
       if (!consultant) throw new Error('Usuário não autenticado');
 
+      let apiKeyToSave = formData.api_key_encrypted;
+
+      // If API key changed and provider needs external key, encrypt it
+      if (
+        formData.api_provider !== 'lovable' &&
+        apiKeyToSave &&
+        apiKeyToSave !== config?.api_key_encrypted
+      ) {
+        // Only encrypt if it looks like a raw key (not already encrypted/base64)
+        const looksEncrypted = apiKeyToSave.length > 100 && !apiKeyToSave.startsWith('sk-');
+        if (!looksEncrypted) {
+          apiKeyToSave = await encryptApiKey(apiKeyToSave);
+        }
+      }
+
       const payload = {
         ...formData,
+        api_key_encrypted: apiKeyToSave,
         user_id: consultant.id,
         organization_id: consultant.organization_id,
       };
 
-      // Upsert: insert or update
       const { error } = await supabase
         .from('ai_agent_configs')
         .upsert(payload, { onConflict: 'user_id' });

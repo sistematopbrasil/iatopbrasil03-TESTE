@@ -222,17 +222,47 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
     return result;
   };
 
-  const handleChangeStatus = async (status: 'open' | 'closed') => {
+  const handleChangeStatus = async (newStatus: 'open' | 'closed') => {
     if (!conversation) return;
     
     try {
       await supabase
         .from('crm_conversations')
-        .update({ status })
+        .update({ status: newStatus })
         .eq('id', conversation.id);
       
+      // Se fechando conversa, enviar farewell message se configurado
+      if (newStatus === 'closed' && currentUserAI?.ai_enabled) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { data: userData } = await supabase
+              .from('users')
+              .select('id')
+              .eq('auth_user_id', user.id)
+              .single();
+            
+            if (userData) {
+              const { data: aiConfig } = await supabase
+                .from('ai_agent_configs')
+                .select('farewell_message, agent_name')
+                .eq('user_id', userData.id)
+                .maybeSingle();
+              
+              if (aiConfig?.farewell_message?.trim()) {
+                // Enviar farewell via sendMessage
+                await sendMessage('text', aiConfig.farewell_message);
+                console.log('👋 Farewell message enviada');
+              }
+            }
+          }
+        } catch (e) {
+          console.error('Erro ao enviar farewell:', e);
+        }
+      }
+      
       const labels = { open: 'aberta', closed: 'fechada' };
-      toast.success(`Conversa marcada como ${labels[status]}`);
+      toast.success(`Conversa marcada como ${labels[newStatus]}`);
     } catch (error) {
       toast.error('Erro ao atualizar conversa');
     }
