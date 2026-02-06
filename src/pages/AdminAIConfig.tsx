@@ -27,6 +27,27 @@ export default function AdminAIConfig() {
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
 
+  // Fetch AI usage stats (must be before early returns to respect Rules of Hooks)
+  const aiEnabled = !!(currentUser as any)?.ai_enabled;
+  const { data: aiStats } = useQuery({
+    queryKey: ['ai-usage-stats', currentUser?.id],
+    queryFn: async () => {
+      if (!currentUser?.id) return { totalMessages: 0, totalTokens: 0, activeConversations: 0 };
+      const { data } = await supabase
+        .from('ai_conversation_state')
+        .select('messages_sent, total_tokens_used, is_active, permanently_disabled')
+        .eq('user_id', currentUser.id);
+      if (!data) return { totalMessages: 0, totalTokens: 0, activeConversations: 0 };
+      return {
+        totalMessages: data.reduce((sum, s) => sum + (s.messages_sent || 0), 0),
+        totalTokens: data.reduce((sum, s) => sum + (s.total_tokens_used || 0), 0),
+        activeConversations: data.filter(s => s.is_active && !s.permanently_disabled).length,
+      };
+    },
+    enabled: aiEnabled,
+    staleTime: 60_000,
+  });
+
   useEffect(() => {
     if (config) {
       setFormData({
@@ -92,25 +113,6 @@ export default function AdminAIConfig() {
     );
   }
 
-  // Fetch AI usage stats
-  const { data: aiStats } = useQuery({
-    queryKey: ['ai-usage-stats', currentUser?.id],
-    queryFn: async () => {
-      if (!currentUser?.id) return { totalMessages: 0, totalTokens: 0, activeConversations: 0 };
-      const { data } = await supabase
-        .from('ai_conversation_state')
-        .select('messages_sent, total_tokens_used, is_active, permanently_disabled')
-        .eq('user_id', currentUser.id);
-      if (!data) return { totalMessages: 0, totalTokens: 0, activeConversations: 0 };
-      return {
-        totalMessages: data.reduce((sum, s) => sum + (s.messages_sent || 0), 0),
-        totalTokens: data.reduce((sum, s) => sum + (s.total_tokens_used || 0), 0),
-        activeConversations: data.filter(s => s.is_active && !s.permanently_disabled).length,
-      };
-    },
-    enabled: !!(currentUser as any)?.ai_enabled,
-    staleTime: 60_000,
-  });
 
 
 
