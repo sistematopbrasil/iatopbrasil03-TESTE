@@ -1,3 +1,4 @@
+// Pipeline page - v2
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { PipelineBoard } from '@/components/crm/PipelineBoard';
 import { PipelineStageManager } from '@/components/crm/PipelineStageManager';
