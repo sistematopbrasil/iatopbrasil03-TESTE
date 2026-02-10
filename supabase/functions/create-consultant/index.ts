@@ -31,6 +31,45 @@ serve(async (req) => {
   }
 
   try {
+    // Authenticate the caller
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Não autorizado' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseAuth = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(
+      authHeader.replace('Bearer ', '')
+    );
+    if (claimsError || !claimsData?.claims) {
+      return new Response(
+        JSON.stringify({ error: 'Não autorizado' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Verify caller is admin or super_admin
+    const { data: callerUser } = await supabaseAuth
+      .from('users')
+      .select('role')
+      .eq('auth_user_id', claimsData.claims.sub)
+      .single();
+
+    if (!callerUser || !['admin', 'super_admin'].includes(callerUser.role)) {
+      return new Response(
+        JSON.stringify({ error: 'Acesso negado' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { email, password, full_name, organization_id, role } = await req.json();
 
     console.log('Creating consultant:', { email, full_name, organization_id, role });
@@ -144,8 +183,9 @@ serve(async (req) => {
 
         if (newAuthError || !newAuthData.user) {
           console.error('Error creating new auth user after cleanup:', newAuthError);
+        console.error('Error creating new auth user after cleanup:', newAuthError);
           return new Response(
-            JSON.stringify({ error: `Erro ao criar usuário: ${newAuthError?.message}` }),
+            JSON.stringify({ error: 'Erro ao criar usuário. Tente novamente.' }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
@@ -156,7 +196,7 @@ serve(async (req) => {
       } else {
         console.error('Auth error:', authError);
         return new Response(
-          JSON.stringify({ error: `Erro ao criar usuário: ${authError.message}` }),
+          JSON.stringify({ error: 'Erro ao criar usuário. Tente novamente.' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -191,7 +231,7 @@ serve(async (req) => {
         await supabaseAdmin.auth.admin.deleteUser(authUserId);
       }
       return new Response(
-        JSON.stringify({ error: `Erro ao criar consultor: ${userError.message}` }),
+        JSON.stringify({ error: 'Erro ao criar consultor. Tente novamente.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -289,10 +329,9 @@ serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'Erro interno do servidor';
-    console.error('Unexpected error:', errorMessage);
+    console.error('Unexpected error:', err);
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ error: 'Erro interno do servidor' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

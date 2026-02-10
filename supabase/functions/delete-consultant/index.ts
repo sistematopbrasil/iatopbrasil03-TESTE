@@ -60,7 +60,7 @@ serve(async (req) => {
 
     // Only super_admin can delete consultants
     if (currentUserData.role !== 'super_admin') {
-      throw new Error('Apenas super admins podem excluir consultores');
+      throw new Error('Acesso negado');
     }
 
     // Use service role for elevated access
@@ -237,7 +237,7 @@ serve(async (req) => {
 
     if (deleteUserError) {
       console.error('❌ Error deleting from users table:', deleteUserError);
-      throw new Error(`Erro ao excluir consultor: ${deleteUserError.message}`);
+      throw new Error('Erro ao excluir consultor');
     }
 
     console.log('✅ Deleted from users table');
