@@ -24,7 +24,7 @@ async function decryptApiKey(supabaseAdmin: any, encryptedKey: string | null): P
 // ─── Helper: call Lovable AI gateway ───
 async function callLovableAI(messages: any[], config: any): Promise<{ text: string; tokens: number }> {
   const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-  if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY não configurada');
+  if (!LOVABLE_API_KEY) throw new Error('Serviço de IA indisponível');
 
   const model = config.model || 'google/gemini-3-flash-preview';
   console.log('🧠 Chamando Lovable AI:', model);
@@ -725,7 +725,7 @@ Critérios:
   } catch (error: any) {
     console.error('❌ Erro no AI Agent:', error);
     return new Response(
-      JSON.stringify({ error: error?.message || 'Unknown error' }),
+      JSON.stringify({ error: 'Erro ao processar resposta' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

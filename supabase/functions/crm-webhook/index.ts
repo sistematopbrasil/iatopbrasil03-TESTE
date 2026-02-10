@@ -97,10 +97,25 @@ serve(async (req) => {
   try {
     const body = await req.json();
     
-    // ✅ LOG SANITIZADO - sem base64 gigante
+    // ✅ INPUT VALIDATION
     const event = body.event;
     const instanceName = body.instance;
     const data = body.data;
+
+    // Validate required fields
+    if (!event || typeof event !== 'string' || event.length > 100) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid event' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!instanceName || typeof instanceName !== 'string' || instanceName.length > 100 || !/^[a-zA-Z0-9_-]+$/.test(instanceName)) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid instance' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     
     const logSummary = {
       event,
@@ -306,8 +321,8 @@ serve(async (req) => {
             
             const rawPhone = remoteJid?.replace('@s.whatsapp.net', '').replace('@g.us', '');
             
-            if (!rawPhone) {
-              console.log('⏭️ Pulando: telefone vazio');
+            if (!rawPhone || !/^\d{8,15}$/.test(rawPhone)) {
+              console.log('⏭️ Pulando: telefone inválido:', rawPhone?.substring(0, 20));
               continue;
             }
 
@@ -852,7 +867,7 @@ serve(async (req) => {
   } catch (error: any) {
     console.error('❌ Erro no webhook:', error);
     return new Response(
-      JSON.stringify({ success: false, error: error?.message || 'Erro desconhecido' }),
+      JSON.stringify({ success: false, error: 'Erro interno' }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
