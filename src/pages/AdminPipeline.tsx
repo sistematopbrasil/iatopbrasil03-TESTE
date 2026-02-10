@@ -47,8 +47,7 @@ export default function AdminPipeline() {
 
         {/* Pipeline Board - scrollbar nativa estilizada */}
         <div 
-          className="flex-1 min-h-0 px-4 md:px-6 pb-3 pipeline-scroll"
-          style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-x pan-y' }}
+          className="flex-1 min-h-0 px-4 md:px-6 pb-3 pipeline-scroll overflow-x-auto overflow-y-auto"
         >
           <div 
             className="inline-flex gap-3 md:gap-4"
