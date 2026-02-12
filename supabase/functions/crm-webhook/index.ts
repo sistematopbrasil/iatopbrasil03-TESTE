@@ -784,22 +784,31 @@ serve(async (req) => {
                   console.log('✅ Mensagem da IA detectada via prefixo message_id:', key.id);
                 }
                 
-                // ✅ Fallback 2: Verificar se a IA enviou mensagem recentemente (últimos 15 segundos)
+                // ✅ Fallback 2: Verificar se o message_id está na lista de IDs da IA OU janela temporal de 45s
                 if (!isAIMessage) {
                   const { data: aiStateCheck } = await supabaseAdmin
                     .from('ai_conversation_state')
-                    .select('last_ai_message_at, is_active')
+                    .select('last_ai_message_at, is_active, last_ai_message_ids')
                     .eq('conversation_id', conversation.id)
                     .maybeSingle();
                   
-                  if (aiStateCheck?.is_active && aiStateCheck?.last_ai_message_at) {
+                  // ✅ Check 2a: Verificar se o message_id está na lista de IDs conhecidos da IA
+                  if (aiStateCheck?.last_ai_message_ids && Array.isArray(aiStateCheck.last_ai_message_ids)) {
+                    if (aiStateCheck.last_ai_message_ids.includes(key.id)) {
+                      isAIMessage = true;
+                      console.log(`✅ Mensagem da IA detectada via lista de IDs conhecidos: ${key.id}`);
+                    }
+                  }
+                  
+                  // ✅ Check 2b: Janela temporal ampliada para 45 segundos (as partes demoram)
+                  if (!isAIMessage && aiStateCheck?.is_active && aiStateCheck?.last_ai_message_at) {
                     const lastAiTime = new Date(aiStateCheck.last_ai_message_at).getTime();
                     const now = Date.now();
                     const diffSeconds = (now - lastAiTime) / 1000;
                     
-                    if (diffSeconds <= 15) {
+                    if (diffSeconds <= 45) {
                       isAIMessage = true;
-                      console.log(`✅ Mensagem provavelmente da IA (enviou há ${diffSeconds.toFixed(1)}s), NÃO pausando`);
+                      console.log(`✅ Mensagem provavelmente da IA (enviou há ${diffSeconds.toFixed(1)}s, janela 45s), NÃO pausando`);
                     }
                   }
                 }
