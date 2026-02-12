@@ -119,6 +119,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           last_ai_message_at: string | null
+          last_ai_message_ids: Json | null
           messages_sent: number | null
           paused_by: string | null
           paused_until: string | null
@@ -133,6 +134,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           last_ai_message_at?: string | null
+          last_ai_message_ids?: Json | null
           messages_sent?: number | null
           paused_by?: string | null
           paused_until?: string | null
@@ -147,6 +149,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           last_ai_message_at?: string | null
+          last_ai_message_ids?: Json | null
           messages_sent?: number | null
           paused_by?: string | null
           paused_until?: string | null

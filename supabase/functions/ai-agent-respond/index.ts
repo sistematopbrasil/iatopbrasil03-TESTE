@@ -13,11 +13,11 @@ async function decryptApiKey(supabaseAdmin: any, encryptedKey: string | null): P
     const { data, error } = await supabaseAdmin.rpc('decrypt_api_key', { encrypted_key: encryptedKey });
     if (error) {
       console.warn('⚠️ Decrypt failed, using raw value (may be unencrypted legacy key):', error.message);
-      return encryptedKey; // fallback for legacy unencrypted keys
+      return encryptedKey;
     }
     return data as string;
   } catch {
-    return encryptedKey; // fallback
+    return encryptedKey;
   }
 }
 
@@ -92,7 +92,6 @@ async function callGoogle(messages: any[], config: any, apiKey: string): Promise
   const model = config.model || 'gemini-2.5-flash';
   console.log('🧠 Chamando Google Gemini:', model);
 
-  // Convert OpenAI-format messages to Gemini format
   const systemInstruction = messages.find((m: any) => m.role === 'system')?.content || '';
   const contents = messages
     .filter((m: any) => m.role !== 'system')
@@ -172,7 +171,6 @@ async function processMediaWithLovableAI(mediaUrl: string, type: 'audio' | 'imag
 
   try {
     if (type === 'image') {
-      // Gemini supports image URLs natively via multimodal
       const resp = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -199,7 +197,6 @@ async function processMediaWithLovableAI(mediaUrl: string, type: 'audio' | 'imag
         return data.choices?.[0]?.message?.content || '[Imagem sem descrição]';
       }
     } else if (type === 'audio') {
-      // Download audio and send as base64 to Gemini
       const audioResp = await fetch(mediaUrl);
       if (!audioResp.ok) return '[Áudio não acessível]';
       const audioBuffer = await audioResp.arrayBuffer();
@@ -325,6 +322,17 @@ serve(async (req) => {
       });
     }
 
+    // ✅ DEDUPLICAÇÃO TEMPORAL: Se outra instância já respondeu nos últimos 10s, ignorar
+    if (aiState.last_ai_message_at) {
+      const diff = Date.now() - new Date(aiState.last_ai_message_at).getTime();
+      if (diff < 10000) {
+        console.log(`⏱️ Dedup: outra instância já respondeu há ${(diff/1000).toFixed(1)}s, ignorando`);
+        return new Response(JSON.stringify({ skipped: true, reason: 'dedup_another_instance' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     // 4. Verificar horário comercial
     if (config.working_hours_only) {
       const now = new Date();
@@ -346,18 +354,13 @@ serve(async (req) => {
       }
     }
 
-    // 5. Rate limiting
-    if (aiState.last_ai_message_at) {
-      const diff = Date.now() - new Date(aiState.last_ai_message_at).getTime();
-      if (diff < 3000) {
-        console.log('⏱️ Rate limit: muito rápido');
-        return new Response(JSON.stringify({ skipped: true, reason: 'rate_limit' }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-    }
+    // ✅ LOCK: Marcar last_ai_message_at ANTES de processar para evitar race condition com outra instância
+    await supabaseAdmin
+      .from('ai_conversation_state')
+      .update({ last_ai_message_at: new Date().toISOString() })
+      .eq('conversation_id', conversation_id);
 
-    // 6. Buscar histórico de mensagens (últimas 20, apenas das últimas 24h)
+    // 5. Buscar histórico de mensagens (últimas 20, apenas das últimas 24h)
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { data: history } = await supabaseAdmin
       .from('crm_messages')
@@ -372,16 +375,15 @@ serve(async (req) => {
       content: msg.content || (msg.type === 'audio' ? '[Áudio]' : msg.type === 'image' ? '[Imagem]' : '[Mídia]'),
     }));
 
-    // Determinar se é conversa nova baseado no histórico real (não apenas no aiState)
+    // Determinar se é conversa nova baseado no histórico real
     const isNewConversation = conversationHistory.length === 0;
 
-    // 7. Processar mídia (transcrição de áudio, descrição de imagem)
+    // 6. Processar mídia (transcrição de áudio, descrição de imagem)
     let processedMessage = message || '';
     const apiKey = await decryptApiKey(supabaseAdmin, config.api_key_encrypted);
 
     if (message_type === 'audio' && config.transcribe_audio && media_url) {
       if (config.api_provider === 'lovable' || !apiKey) {
-        // Use Lovable AI for transcription
         processedMessage = await processMediaWithLovableAI(media_url, 'audio');
         console.log('✅ Áudio transcrito via Lovable AI:', processedMessage.substring(0, 50));
       } else if (apiKey && (config.api_provider === 'openai')) {
@@ -456,7 +458,7 @@ serve(async (req) => {
       }
     }
 
-    // 8. Montar prompt do sistema
+    // 7. Montar prompt do sistema
     const systemParts: string[] = [];
     if (config.agent_name) systemParts.push(`Você é ${config.agent_name}.`);
     if (config.persona) systemParts.push(`\n[PERSONA]\n${config.persona}`);
@@ -475,7 +477,7 @@ serve(async (req) => {
 - Se não souber algo, diga que vai verificar e retornar
 - Nunca invente informações sobre preços ou condições`);
 
-    // 8.5. Greeting message para conversa nova
+    // 7.5. Greeting message para conversa nova
     if (isNewConversation && config.greeting_message?.trim()) {
       console.log('👋 Conversa nova - enviando greeting message');
 
@@ -485,16 +487,22 @@ serve(async (req) => {
       if (evolutionApiUrl && evolutionApiKey) {
         const jid = contact_phone.includes('@') ? contact_phone : `${contact_phone}@s.whatsapp.net`;
 
-        await fetch(`${evolutionApiUrl}/message/sendText/${instance_name}`, {
+        const greetResp = await fetch(`${evolutionApiUrl}/message/sendText/${instance_name}`, {
           method: 'POST',
           headers: { apikey: evolutionApiKey, 'Content-Type': 'application/json' },
           body: JSON.stringify({ number: jid, text: config.greeting_message }),
         });
 
+        let greetingMsgId = `ai-greeting-${Date.now()}`;
+        if (greetResp.ok) {
+          const greetData = await greetResp.json();
+          if (greetData?.key?.id) greetingMsgId = greetData.key.id;
+        }
+
         await supabaseAdmin.from('crm_messages').insert({
           conversation_id,
           instance_id,
-          message_id: `ai-greeting-${Date.now()}`,
+          message_id: greetingMsgId,
           direction: 'outgoing',
           type: 'text',
           content: config.greeting_message,
@@ -502,6 +510,15 @@ serve(async (req) => {
           timestamp: new Date().toISOString(),
           metadata: { sent_by_ai: true, ai_agent: config.agent_name, is_greeting: true },
         });
+
+        // ✅ Save greeting message ID for webhook detection
+        await supabaseAdmin
+          .from('ai_conversation_state')
+          .update({ 
+            last_ai_message_ids: [greetingMsgId],
+            last_ai_message_at: new Date().toISOString(),
+          })
+          .eq('conversation_id', conversation_id);
 
         await supabaseAdmin.from('crm_conversations').update({
           last_message_at: new Date().toISOString(),
@@ -511,7 +528,7 @@ serve(async (req) => {
       }
     }
 
-    // 9. Montar mensagens para a API (sem duplicar a mensagem atual)
+    // 8. Montar mensagens para a API (sem duplicar a mensagem atual)
     const apiMessages = [
       { role: 'system', content: systemParts.join('\n') },
       ...conversationHistory,
@@ -528,7 +545,7 @@ serve(async (req) => {
       }
     }
 
-    // 10. Chamar API de IA baseado no provider
+    // 9. Chamar API de IA baseado no provider
     let aiResponse = '';
     let tokensUsed = 0;
 
@@ -559,17 +576,6 @@ serve(async (req) => {
 
     console.log(`✅ Resposta (${provider}):`, aiResponse.substring(0, 80), '| Tokens:', tokensUsed);
 
-    // Update token counters
-    await supabaseAdmin
-      .from('ai_conversation_state')
-      .update({
-        last_ai_message_at: new Date().toISOString(),
-        messages_sent: (aiState?.messages_sent || 0) + 1,
-        total_tokens_used: (aiState?.total_tokens_used || 0) + tokensUsed,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('conversation_id', conversation_id);
-
     if (!aiResponse.trim()) {
       console.log('⏭️ Resposta vazia da IA');
       return new Response(JSON.stringify({ skipped: true, reason: 'empty_response' }), {
@@ -577,7 +583,7 @@ serve(async (req) => {
       });
     }
 
-    // 11. Enviar resposta via Evolution API (com split de mensagens para humanização)
+    // 10. Enviar resposta via Evolution API (com split de mensagens para humanização)
     const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL');
     const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY');
 
@@ -598,7 +604,7 @@ serve(async (req) => {
       .map((p: string) => p.trim())
       .filter((p: string) => p.length > 0);
 
-    let lastSentMessageId = '';
+    const allSentMessageIds: string[] = [];
     const lastPart = messageParts[messageParts.length - 1] || aiResponse;
 
     for (let i = 0; i < messageParts.length; i++) {
@@ -624,7 +630,7 @@ serve(async (req) => {
 
       const sendData = await sendResp.json();
       const sentMessageId = sendData?.key?.id || `ai-${Date.now()}-${i}`;
-      lastSentMessageId = sentMessageId;
+      allSentMessageIds.push(sentMessageId);
       console.log(`✅ Parte ${i + 1}/${messageParts.length} enviada! ID:`, sentMessageId);
 
       // Salvar cada parte como mensagem separada no banco
@@ -641,12 +647,23 @@ serve(async (req) => {
       });
     }
 
-    console.log('✅ Todas as partes enviadas e salvas');
+    console.log('✅ Todas as partes enviadas e salvas. IDs:', allSentMessageIds);
 
-    // 12. Auto-pipeline: classificar lead e mover no pipeline automaticamente
+    // ✅ Atualizar last_ai_message_at DEPOIS de enviar todas as partes + salvar IDs
+    await supabaseAdmin
+      .from('ai_conversation_state')
+      .update({
+        last_ai_message_at: new Date().toISOString(),
+        last_ai_message_ids: allSentMessageIds,
+        messages_sent: (aiState?.messages_sent || 0) + messageParts.length,
+        total_tokens_used: (aiState?.total_tokens_used || 0) + tokensUsed,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('conversation_id', conversation_id);
+
+    // 11. Auto-pipeline: classificar lead e mover no pipeline automaticamente
     if (config.auto_pipeline) {
       try {
-        // Buscar conversa para obter lead_id e organization_id
         const { data: conv } = await supabaseAdmin
           .from('crm_conversations')
           .select('lead_id, organization_id')
@@ -654,7 +671,6 @@ serve(async (req) => {
           .single();
 
         if (conv?.lead_id && conv?.organization_id) {
-          // Buscar stages do pipeline
           const { data: stages } = await supabaseAdmin
             .from('pipeline_stages')
             .select('id, name, order_index')
@@ -662,14 +678,12 @@ serve(async (req) => {
             .order('order_index', { ascending: true });
 
           if (stages && stages.length > 1) {
-            // Buscar stage atual do lead
             const { data: lead } = await supabaseAdmin
               .from('quiz_submissions_new')
               .select('pipeline_stage_id')
               .eq('id', conv.lead_id)
               .single();
 
-            const stageNames = stages.map((s: any) => `"${s.name}" (order: ${s.order_index})`).join(', ');
             const currentStage = stages.find((s: any) => s.id === lead?.pipeline_stage_id);
 
             // Filtrar quadros bloqueados para movimentação automática
@@ -686,11 +700,27 @@ serve(async (req) => {
             // Contar mensagens do lead (incoming) no histórico
             const leadMessageCount = conversationHistory.filter((m: any) => m.role === 'user').length;
 
-            // Pedir à IA para classificar
-            const classificationMessages = [
-              {
-                role: 'system',
-                content: `Você é um classificador de leads para um pipeline de vendas. Analise o histórico da conversa e determine em qual quadro o lead deve estar.
+            // ✅ REGRA DETERMINÍSTICA: Se 2+ msgs do lead e está no primeiro quadro, mover direto
+            const firstStage = stages[0];
+            const contatoInicialStage = allowedStages.find((s: any) => 
+              s.name.toLowerCase().includes('contato inicial') || 
+              s.name.toLowerCase().includes('contato') ||
+              s.order_index === 1
+            );
+
+            if (leadMessageCount >= 2 && currentStage?.id === firstStage?.id && contatoInicialStage) {
+              // Mover diretamente sem chamar IA
+              await supabaseAdmin
+                .from('quiz_submissions_new')
+                .update({ pipeline_stage_id: contatoInicialStage.id })
+                .eq('id', conv.lead_id);
+              console.log(`🔄 Auto-pipeline DETERMINÍSTICO: Lead movido para "${contatoInicialStage.name}" (${leadMessageCount} msgs)`);
+            } else {
+              // Pedir à IA para classificar (para progressões mais avançadas)
+              const classificationMessages = [
+                {
+                  role: 'system',
+                  content: `Você é um classificador de leads para um pipeline de vendas. Analise o histórico da conversa e determine em qual quadro o lead deve estar.
 
 QUADROS DISPONÍVEIS para movimentação automática: ${allowedStageNames}
 ${blockedStageNames ? `QUADROS BLOQUEADOS (NUNCA mover para estes, somente humanos podem): ${blockedStageNames}` : ''}
@@ -703,46 +733,47 @@ REGRAS OBRIGATÓRIAS (siga na ordem):
 3. Se o lead demonstrou interesse CLARO (fez perguntas sobre a oportunidade, pediu mais informações, mostrou entusiasmo, perguntou sobre valores/condições) → mover para quadro de "Qualificado" ou equivalente
 4. Se o lead disse EXPLICITAMENTE que não quer, não tem interesse, pediu para parar de mandar mensagem → mover para quadro de "Descartado" ou equivalente
 5. Para quadros com nomes personalizados, interprete o significado pelo nome e aplique a regra mais adequada
-6. NÃO mova para frente no pipeline a menos que haja evidência clara na conversa
+6. IMPORTANTE: Considere a PROGRESSÃO. Se o lead já está em um quadro e a conversa mostra evolução, mova para o próximo quadro adequado.
 7. Se estiver em dúvida, mantenha no quadro atual
 
 Responda APENAS com o nome EXATO de um dos quadros permitidos. Nada mais.`,
-              },
-              ...conversationHistory.slice(-10),
-            ];
+                },
+                ...conversationHistory.slice(-10),
+              ];
 
-            const classResult = await callLovableAI(classificationMessages, {
-              model: 'google/gemini-2.5-flash-lite',
-              temperature: 0.1,
-              max_tokens: 50,
-            });
+              const classResult = await callLovableAI(classificationMessages, {
+                model: 'google/gemini-2.5-flash-lite',
+                temperature: 0.1,
+                max_tokens: 50,
+              });
 
-            const suggestedName = classResult.text.trim().replace(/"/g, '');
-            const matchedStage = allowedStages.find((s: any) => 
-              s.name.toLowerCase() === suggestedName.toLowerCase() ||
-              suggestedName.toLowerCase().includes(s.name.toLowerCase()) ||
-              s.name.toLowerCase().includes(suggestedName.toLowerCase())
-            );
+              const suggestedName = classResult.text.trim().replace(/"/g, '').replace(/\n/g, '');
+              const matchedStage = allowedStages.find((s: any) => 
+                s.name.toLowerCase().trim() === suggestedName.toLowerCase().trim() ||
+                suggestedName.toLowerCase().trim().includes(s.name.toLowerCase().trim()) ||
+                s.name.toLowerCase().trim().includes(suggestedName.toLowerCase().trim())
+              );
 
-            if (matchedStage && matchedStage.id !== lead?.pipeline_stage_id) {
-              await supabaseAdmin
-                .from('quiz_submissions_new')
-                .update({ pipeline_stage_id: matchedStage.id })
-                .eq('id', conv.lead_id);
+              if (matchedStage && matchedStage.id !== lead?.pipeline_stage_id) {
+                await supabaseAdmin
+                  .from('quiz_submissions_new')
+                  .update({ pipeline_stage_id: matchedStage.id })
+                  .eq('id', conv.lead_id);
 
-              console.log(`🔄 Auto-pipeline: Lead movido para "${matchedStage.name}"`);
-            } else {
-              console.log('📌 Auto-pipeline: Lead mantido no quadro atual');
+                console.log(`🔄 Auto-pipeline: Lead movido para "${matchedStage.name}"`);
+              } else {
+                console.log(`📌 Auto-pipeline: Lead mantido no quadro atual (sugestão: "${suggestedName}")`);
+              }
             }
           }
         }
       } catch (pipelineErr) {
         console.error('⚠️ Erro no auto-pipeline (não crítico):', pipelineErr);
-        // Não falhar a resposta por causa do pipeline
       }
     }
 
-    // 13. Atualizar conversa com última parte
+    // 12. Atualizar conversa com última parte
+    const lastSentId = allSentMessageIds[allSentMessageIds.length - 1] || '';
     await supabaseAdmin.from('crm_conversations').update({
       last_message_at: new Date().toISOString(),
       last_message_preview: lastPart.substring(0, 100),
@@ -750,7 +781,7 @@ Responda APENAS com o nome EXATO de um dos quadros permitidos. Nada mais.`,
     }).eq('id', conversation_id);
 
     return new Response(
-      JSON.stringify({ success: true, message_id: sentMessageId, response_length: aiResponse.length }),
+      JSON.stringify({ success: true, message_id: lastSentId, response_length: aiResponse.length }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error: any) {
