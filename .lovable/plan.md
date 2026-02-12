@@ -1,80 +1,102 @@
 
 
-# Aprimoramentos: Deduplicacao Atomica, Pipeline Mais Rapido, Isolamento de Instancias
+# Correcao Definitiva: Lock por Telefone com Advisory Lock
 
-## Problemas Identificados
+## Causa Raiz (confirmada nos logs)
 
-### 1. Mensagens duplicadas persistem (race condition no lock)
-O mecanismo atual faz check-then-update (linhas 326-334 e 358-361 do `ai-agent-respond`):
-1. Verifica se `last_ai_message_at` tem menos de 10s (check)
-2. Se passou, atualiza `last_ai_message_at` (update/lock)
+O `try_acquire_ai_lock` atual falha porque opera em **linhas diferentes** da tabela `ai_conversation_state` (uma por conversa). Quando duas instancias executam simultaneamente:
 
-O problema: duas instancias chegam ao passo 1 simultaneamente (em milissegundos), ambas veem o timestamp antigo, ambas passam no check, ambas fazem o lock e ambas respondem. E um problema classico de TOCTOU (Time-of-Check-Time-of-Use).
+1. Instancia A faz UPDATE na row da conversa A -> sucesso (linha A)
+2. Instancia B faz UPDATE na row da conversa B -> sucesso (linha B diferente)
+3. Ambas fazem o SELECT de verificacao por telefone, mas devido ao MVCC do PostgreSQL, nenhuma ve a alteracao da outra (ambas estao em transacoes concorrentes nao commitadas)
+4. Resultado: ambas adquirem o lock e ambas respondem
 
-**Solucao**: Usar uma operacao atomica via database function (RPC). Criar uma funcao SQL que faz o check E o update em uma unica transacao, retornando se conseguiu o "lock" ou nao. Se outra instancia ja fez o lock, retorna false e o agente ignora.
+## Solucao: `pg_advisory_xact_lock`
 
-### 2. Pipeline demora para mover para "Qualificado"
-A regra deterministica so cobre a transicao "Novos Leads" para "Contato Inicial" (2+ msgs). As transicoes seguintes dependem da IA classificadora que e chamada com `gemini-2.5-flash-lite` e temperatura 0.1. O prompt pede que a IA "considere a progressao" mas nao da sinais claros do que constitui "interesse".
-
-**Solucao**: Adicionar mais regras deterministicas:
-- Se o lead tem 5+ mensagens e o lead fez perguntas ou respondeu positivamente, mover para "Qualificado"
-- Melhorar o prompt com exemplos concretos de sinais de qualificacao
-- Usar um modelo mais capaz para classificacao (gemini-2.5-flash em vez de flash-lite)
-
-### 3. Isolamento entre instancias/consultores
-O codigo ja isola por `user_id` na busca de configs (linha 284) e por `conversation_id` no state. Porem, a deduplicacao temporal atual e por `conversation_id` e nao por telefone. Se o mesmo telefone tem conversas em duas instancias diferentes, ambas disparam o AI Agent com `conversation_id` diferentes, e a dedup nao funciona.
-
-**Solucao**: Adicionar deduplicacao por telefone alem de por conversa. Antes de processar, verificar se algum AI Agent ja respondeu para aquele `contact_phone` nos ultimos 10s (independente da instancia/conversa).
-
----
-
-## Alteracoes Tecnicas
-
-### Alteracao 1: Funcao SQL para lock atomico
-
-Criar uma database function `try_acquire_ai_lock` que:
-- Recebe `p_conversation_id` e `p_contact_phone`
-- Faz `UPDATE ai_conversation_state SET last_ai_message_at = now() WHERE conversation_id = p_conversation_id AND (last_ai_message_at IS NULL OR last_ai_message_at < now() - interval '10 seconds') RETURNING id`
-- Se retornou rows, o lock foi adquirido (retorna true)
-- Se nao retornou, outra instancia ja tem o lock (retorna false)
-- Tambem verifica por telefone: busca se existe OUTRA conversa com o mesmo telefone que tenha `last_ai_message_at` nos ultimos 10s
-
-### Alteracao 2: `ai-agent-respond/index.ts` - Usar lock atomico
-
-Substituir o check manual (linhas 326-334) e o lock manual (linhas 358-361) por uma unica chamada RPC:
+Usar **advisory lock** do PostgreSQL baseado no hash do telefone. Isso serializa todas as execucoes para o mesmo telefone, independente da conversa ou instancia.
 
 ```text
-const { data: lockAcquired } = await supabaseAdmin.rpc('try_acquire_ai_lock', {
-  p_conversation_id: conversation_id,
-  p_contact_phone: contact_phone
-});
-
-if (!lockAcquired) {
-  console.log('Lock nao adquirido - outra instancia ja esta processando');
-  return skip;
-}
+pg_advisory_xact_lock(hashtext(p_contact_phone))
 ```
 
-### Alteracao 3: `ai-agent-respond/index.ts` - Pipeline mais agressivo
+Este lock:
+- E automaticamente liberado no fim da transacao
+- Serializa TODAS as chamadas para o mesmo telefone
+- Funciona mesmo entre linhas/tabelas diferentes
+- Nao tem race condition (e um lock real do kernel do PostgreSQL)
 
-Adicionar regra deterministica adicional para "Qualificado":
-- Se o lead tem 5+ mensagens incoming E o estagio atual e "Contato Inicial" (ou equivalente), mover para "Qualificado"
-- Isso garante que leads engajados progridam mais rapido sem depender da IA classificadora
-- Manter a IA classificadora como fallback para casos intermediarios
+## Alteracoes
 
-Tambem melhorar o modelo da IA classificadora de `gemini-2.5-flash-lite` para `gemini-2.5-flash` para melhor compreensao.
+### Alteracao 1: Recriar a funcao SQL `try_acquire_ai_lock`
 
-### Alteracao 4: `crm-webhook/index.ts` - Sem mudancas necessarias
+Nova logica:
+1. Se o telefone for valido, adquirir `pg_advisory_xact_lock(hashtext(p_contact_phone))` - isso bloqueia qualquer outra chamada concorrente para o mesmo telefone
+2. Verificar se QUALQUER conversa com esse telefone teve resposta da IA nos ultimos 10 segundos
+3. Se sim, retornar false (outra instancia ja respondeu)
+4. Se nao, fazer o UPDATE atomico na conversa especifica e retornar true
 
-A logica de deteccao de intervencao humana com 45s de janela e verificacao de IDs ja esta adequada. O isolamento de instancia ja existe (busca por `instance_id`).
+### Alteracao 2: Nenhuma mudanca no `ai-agent-respond/index.ts`
 
----
+O codigo ja chama `supabaseAdmin.rpc('try_acquire_ai_lock', ...)` corretamente. A correcao e apenas na funcao SQL.
 
-## Resumo
+## Detalhes Tecnicos da Migracao SQL
 
-| Problema | Causa | Solucao |
-|---|---|---|
-| Mensagens duplicadas | Race condition no check-then-update | Lock atomico via funcao SQL |
-| Pipeline lento | Regras deterministicas so para 1a transicao | Adicionar regra para "Qualificado" (5+ msgs) e melhorar modelo da IA |
-| Isolamento de instancias | Dedup por conversation_id nao cobre mesmo telefone em instancias diferentes | Dedup por telefone via funcao SQL |
+```sql
+CREATE OR REPLACE FUNCTION public.try_acquire_ai_lock(
+  p_conversation_id uuid, 
+  p_contact_phone text
+)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  phone_recently_locked boolean := false;
+BEGIN
+  -- 1. Advisory lock por telefone (serializa todas as chamadas para o mesmo numero)
+  IF p_contact_phone IS NOT NULL AND p_contact_phone != '' THEN
+    PERFORM pg_advisory_xact_lock(hashtext(p_contact_phone));
+  ELSE
+    PERFORM pg_advisory_xact_lock(hashtext(p_conversation_id::text));
+  END IF;
+
+  -- 2. Verificar se QUALQUER conversa com este telefone ja teve resposta nos ultimos 10s
+  IF p_contact_phone IS NOT NULL AND p_contact_phone != '' THEN
+    SELECT EXISTS (
+      SELECT 1
+      FROM public.ai_conversation_state acs
+      JOIN public.crm_conversations cc ON cc.id = acs.conversation_id
+      WHERE cc.contact_phone = p_contact_phone
+        AND acs.last_ai_message_at > now() - interval '10 seconds'
+    ) INTO phone_recently_locked;
+
+    IF phone_recently_locked THEN
+      RETURN false;
+    END IF;
+  ELSE
+    -- Sem telefone: verificar apenas pela conversa
+    SELECT EXISTS (
+      SELECT 1
+      FROM public.ai_conversation_state
+      WHERE conversation_id = p_conversation_id
+        AND last_ai_message_at > now() - interval '10 seconds'
+    ) INTO phone_recently_locked;
+
+    IF phone_recently_locked THEN
+      RETURN false;
+    END IF;
+  END IF;
+
+  -- 3. Adquirir o lock: atualizar timestamp
+  UPDATE public.ai_conversation_state
+  SET last_ai_message_at = now(), updated_at = now()
+  WHERE conversation_id = p_conversation_id;
+
+  RETURN true;
+END;
+$$;
+```
+
+Esta abordagem garante que, mesmo que 10 instancias tentem responder ao mesmo tempo para o mesmo telefone, apenas UMA passara. As outras ficarao bloqueadas pelo advisory lock e, quando desbloqueadas, verao que o telefone ja foi respondido nos ultimos 10 segundos.
 
