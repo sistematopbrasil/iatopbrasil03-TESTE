@@ -120,9 +120,6 @@ export default function AdminAIConfig() {
     lovable: [
       { label: 'Gemini 3 Flash (Rápido)', value: 'google/gemini-3-flash-preview' },
       { label: 'Gemini 2.5 Flash', value: 'google/gemini-2.5-flash' },
-      { label: 'Gemini 2.5 Pro (Avançado)', value: 'google/gemini-2.5-pro' },
-      { label: 'GPT-5 Mini', value: 'openai/gpt-5-mini' },
-      { label: 'GPT-5 Nano (Econômico)', value: 'openai/gpt-5-nano' },
     ],
     openai: [
       { label: 'GPT-4o Mini (Rápido)', value: 'gpt-4o-mini' },

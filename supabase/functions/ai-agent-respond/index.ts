@@ -707,6 +707,38 @@ serve(async (req) => {
             // Contar mensagens do lead (incoming) no histórico
             const leadMessageCount = conversationHistory.filter((m: any) => m.role === 'user').length;
 
+            // ✅ REGRA DETERMINÍSTICA: Descarte automático por palavras-chave de desinteresse
+            const descartadoStage = stages.find((s: any) => 
+              s.name.toLowerCase().includes('descartado') || s.name.toLowerCase().includes('descartados')
+            );
+            if (descartadoStage && currentStage?.id !== descartadoStage.id) {
+              const recentUserMessages = conversationHistory
+                .filter((m: any) => m.role === 'user')
+                .slice(-5)
+                .map((m: any) => (m.content || '').toLowerCase())
+                .join(' ');
+              const rejectionKeywords = [
+                'não tenho interesse', 'nao tenho interesse',
+                'não quero', 'nao quero',
+                'não preciso', 'nao preciso',
+                'não me interessa', 'nao me interessa',
+                'para de mandar', 'pare de mandar',
+                'não quero participar', 'nao quero participar',
+                'desisto', 'sem interesse',
+                'não quero mais', 'nao quero mais',
+                'me tire', 'me tira', 'sai fora',
+              ];
+              const hasRejection = rejectionKeywords.some(kw => recentUserMessages.includes(kw));
+              if (hasRejection) {
+                await supabaseAdmin
+                  .from('quiz_submissions_new')
+                  .update({ pipeline_stage_id: descartadoStage.id })
+                  .eq('id', conv.lead_id);
+                console.log(`🚫 Auto-pipeline DETERMINÍSTICO: Lead descartado por palavras-chave de desinteresse`);
+                // Skip remaining pipeline logic
+              }
+            }
+
             // ✅ REGRA DETERMINÍSTICA: Se 2+ msgs do lead e está no primeiro quadro, mover direto
             const firstStage = stages[0];
             const contatoInicialStage = allowedStages.find((s: any) => 
