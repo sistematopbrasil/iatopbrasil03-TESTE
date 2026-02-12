@@ -776,7 +776,33 @@ serve(async (req) => {
             if (direction === 'outgoing') {
               try {
                 // ✅ Verificar se a mensagem foi enviada pela IA (checando metadata final)
-                const isAIMessage = finalMetadata?.sent_by_ai === true;
+                let isAIMessage = finalMetadata?.sent_by_ai === true;
+                
+                // ✅ Fallback 1: Verificar prefixo "ai-" no message_id
+                if (!isAIMessage && key.id && (key.id.startsWith('ai-') || key.id.startsWith('ai-greeting-'))) {
+                  isAIMessage = true;
+                  console.log('✅ Mensagem da IA detectada via prefixo message_id:', key.id);
+                }
+                
+                // ✅ Fallback 2: Verificar se a IA enviou mensagem recentemente (últimos 15 segundos)
+                if (!isAIMessage) {
+                  const { data: aiStateCheck } = await supabaseAdmin
+                    .from('ai_conversation_state')
+                    .select('last_ai_message_at, is_active')
+                    .eq('conversation_id', conversation.id)
+                    .maybeSingle();
+                  
+                  if (aiStateCheck?.is_active && aiStateCheck?.last_ai_message_at) {
+                    const lastAiTime = new Date(aiStateCheck.last_ai_message_at).getTime();
+                    const now = Date.now();
+                    const diffSeconds = (now - lastAiTime) / 1000;
+                    
+                    if (diffSeconds <= 15) {
+                      isAIMessage = true;
+                      console.log(`✅ Mensagem provavelmente da IA (enviou há ${diffSeconds.toFixed(1)}s), NÃO pausando`);
+                    }
+                  }
+                }
                 
                 if (!isAIMessage) {
                   // Buscar config do consultor para saber tempo de pausa

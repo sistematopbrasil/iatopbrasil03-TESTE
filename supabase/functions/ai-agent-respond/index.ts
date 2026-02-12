@@ -301,7 +301,6 @@ serve(async (req) => {
       .eq('conversation_id', conversation_id)
       .maybeSingle();
 
-    const isNewConversation = !aiState;
     if (!aiState) {
       const { data: newState } = await supabaseAdmin
         .from('ai_conversation_state')
@@ -358,11 +357,13 @@ serve(async (req) => {
       }
     }
 
-    // 6. Buscar histórico de mensagens (últimas 20)
+    // 6. Buscar histórico de mensagens (últimas 20, apenas das últimas 24h)
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { data: history } = await supabaseAdmin
       .from('crm_messages')
       .select('direction, type, content, timestamp')
       .eq('conversation_id', conversation_id)
+      .gte('timestamp', twentyFourHoursAgo)
       .order('timestamp', { ascending: false })
       .limit(20);
 
@@ -370,6 +371,9 @@ serve(async (req) => {
       role: msg.direction === 'incoming' ? 'user' : 'assistant',
       content: msg.content || (msg.type === 'audio' ? '[Áudio]' : msg.type === 'image' ? '[Imagem]' : '[Mídia]'),
     }));
+
+    // Determinar se é conversa nova baseado no histórico real (não apenas no aiState)
+    const isNewConversation = conversationHistory.length === 0;
 
     // 7. Processar mídia (transcrição de áudio, descrição de imagem)
     let processedMessage = message || '';
@@ -507,13 +511,21 @@ serve(async (req) => {
       }
     }
 
-    // 9. Montar mensagens para a API
+    // 9. Montar mensagens para a API (sem duplicar a mensagem atual)
     const apiMessages = [
       { role: 'system', content: systemParts.join('\n') },
       ...conversationHistory,
     ];
+    // Verificar se a última mensagem do histórico já é a mensagem atual para evitar duplicação
     if (processedMessage) {
-      apiMessages.push({ role: 'user', content: processedMessage });
+      const lastHistoryMsg = conversationHistory[conversationHistory.length - 1];
+      const isDuplicate = lastHistoryMsg?.role === 'user' && 
+        lastHistoryMsg?.content?.trim() === processedMessage.trim();
+      if (!isDuplicate) {
+        apiMessages.push({ role: 'user', content: processedMessage });
+      } else {
+        console.log('📌 Mensagem já presente no histórico, não duplicando');
+      }
     }
 
     // 10. Chamar API de IA baseado no provider
@@ -660,22 +672,41 @@ serve(async (req) => {
             const stageNames = stages.map((s: any) => `"${s.name}" (order: ${s.order_index})`).join(', ');
             const currentStage = stages.find((s: any) => s.id === lead?.pipeline_stage_id);
 
+            // Filtrar quadros bloqueados para movimentação automática
+            const blockedKeywords = ['novos consultores', 'convertido', 'convertidos'];
+            const allowedStages = stages.filter((s: any) => 
+              !blockedKeywords.some(keyword => s.name.toLowerCase().includes(keyword))
+            );
+            const allowedStageNames = allowedStages.map((s: any) => `"${s.name}" (order: ${s.order_index})`).join(', ');
+            const blockedStageNames = stages
+              .filter((s: any) => blockedKeywords.some(keyword => s.name.toLowerCase().includes(keyword)))
+              .map((s: any) => `"${s.name}"`)
+              .join(', ');
+
+            // Contar mensagens do lead (incoming) no histórico
+            const leadMessageCount = conversationHistory.filter((m: any) => m.role === 'user').length;
+
             // Pedir à IA para classificar
             const classificationMessages = [
               {
                 role: 'system',
-                content: `Você é um classificador de leads. Analise o histórico da conversa e determine em qual quadro do pipeline o lead deve estar.
+                content: `Você é um classificador de leads para um pipeline de vendas. Analise o histórico da conversa e determine em qual quadro o lead deve estar.
 
-Quadros disponíveis (em ordem): ${stageNames}
+QUADROS DISPONÍVEIS para movimentação automática: ${allowedStageNames}
+${blockedStageNames ? `QUADROS BLOQUEADOS (NUNCA mover para estes, somente humanos podem): ${blockedStageNames}` : ''}
 Quadro atual: ${currentStage ? `"${currentStage.name}"` : 'nenhum'}
+Número de mensagens do lead: ${leadMessageCount}
 
-Responda APENAS com o nome EXATO do quadro mais adequado. Nada mais. Se o lead deve permanecer no quadro atual, responda com o nome do quadro atual.
+REGRAS OBRIGATÓRIAS (siga na ordem):
+1. Se o lead enviou apenas 1 mensagem e ainda não teve resposta substantiva → manter no primeiro quadro (equivalente a "Novos Leads" ou similar)
+2. Se o lead começou a responder as mensagens (2+ mensagens do lead) → mover para quadro de "Contato Inicial" ou equivalente
+3. Se o lead demonstrou interesse CLARO (fez perguntas sobre a oportunidade, pediu mais informações, mostrou entusiasmo, perguntou sobre valores/condições) → mover para quadro de "Qualificado" ou equivalente
+4. Se o lead disse EXPLICITAMENTE que não quer, não tem interesse, pediu para parar de mandar mensagem → mover para quadro de "Descartado" ou equivalente
+5. Para quadros com nomes personalizados, interprete o significado pelo nome e aplique a regra mais adequada
+6. NÃO mova para frente no pipeline a menos que haja evidência clara na conversa
+7. Se estiver em dúvida, mantenha no quadro atual
 
-Critérios:
-- Se o lead acabou de chegar ou não demonstrou interesse claro → primeiros quadros
-- Se demonstrou interesse e está engajado na conversa → quadros intermediários
-- Se demonstrou alta intenção (pediu preços, agendou reunião, etc.) → quadros avançados
-- Se o lead disse que não tem interesse ou parou de responder → último quadro ou "descartados"`,
+Responda APENAS com o nome EXATO de um dos quadros permitidos. Nada mais.`,
               },
               ...conversationHistory.slice(-10),
             ];
@@ -687,7 +718,7 @@ Critérios:
             });
 
             const suggestedName = classResult.text.trim().replace(/"/g, '');
-            const matchedStage = stages.find((s: any) => 
+            const matchedStage = allowedStages.find((s: any) => 
               s.name.toLowerCase() === suggestedName.toLowerCase() ||
               suggestedName.toLowerCase().includes(s.name.toLowerCase()) ||
               s.name.toLowerCase().includes(suggestedName.toLowerCase())
