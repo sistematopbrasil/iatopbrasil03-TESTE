@@ -1,102 +1,69 @@
 
 
-# Correcao Definitiva: Lock por Telefone com Advisory Lock
+# Melhorias: Modelos IA, Descarte Automatico, Pipeline Realtime e Scroll
 
-## Causa Raiz (confirmada nos logs)
+## 1. Limpar opcoes de modelos de IA
 
-O `try_acquire_ai_lock` atual falha porque opera em **linhas diferentes** da tabela `ai_conversation_state` (uma por conversa). Quando duas instancias executam simultaneamente:
+**Problema**: Existem modelos gratuitos (via Lovable AI) que nao funcionam bem ou cortam textos, e modelos GPT aparecem como gratuitos.
 
-1. Instancia A faz UPDATE na row da conversa A -> sucesso (linha A)
-2. Instancia B faz UPDATE na row da conversa B -> sucesso (linha B diferente)
-3. Ambas fazem o SELECT de verificacao por telefone, mas devido ao MVCC do PostgreSQL, nenhuma ve a alteracao da outra (ambas estao em transacoes concorrentes nao commitadas)
-4. Resultado: ambas adquirem o lock e ambas respondem
+**Solucao**: Na lista de modelos do provedor "Lovable AI (Incluso)", manter apenas os que realmente funcionam:
+- **Manter**: `google/gemini-3-flash-preview` (Gemini 3 Flash - o que voce usa e funciona)
+- **Manter**: `google/gemini-2.5-flash` (Gemini 2.5 Flash - funciona bem)
+- **Remover**: `google/gemini-2.5-pro`, `openai/gpt-5-mini`, `openai/gpt-5-nano` (GPT so com API propria)
 
-## Solucao: `pg_advisory_xact_lock`
+Para os provedores com API Key propria (OpenAI, Google, Anthropic), mantemos todas as opcoes pois o usuario esta usando sua propria chave.
 
-Usar **advisory lock** do PostgreSQL baseado no hash do telefone. Isso serializa todas as execucoes para o mesmo telefone, independente da conversa ou instancia.
+**Sobre o Gemini 3 Flash**: E um modelo gratuito incluso no plano, com limites de requisicoes por minuto por workspace. Se o volume de uso for muito alto, pode haver rate limiting (erro 429). O modelo e rapido, tem boa capacidade de raciocinio e compreensao de texto, ideal para atendimento via WhatsApp.
 
-```text
-pg_advisory_xact_lock(hashtext(p_contact_phone))
-```
+**Arquivos**: `src/pages/AdminAIConfig.tsx` (linhas 119-141), `supabase/functions/ai-agent-test/index.ts`
 
-Este lock:
-- E automaticamente liberado no fim da transacao
-- Serializa TODAS as chamadas para o mesmo telefone
-- Funciona mesmo entre linhas/tabelas diferentes
-- Nao tem race condition (e um lock real do kernel do PostgreSQL)
+---
 
-## Alteracoes
+## 2. Regra de descarte automatico no pipeline
 
-### Alteracao 1: Recriar a funcao SQL `try_acquire_ai_lock`
+**Problema**: Quando o lead diz que nao tem interesse, o pipeline nao move para "Descartados".
 
-Nova logica:
-1. Se o telefone for valido, adquirir `pg_advisory_xact_lock(hashtext(p_contact_phone))` - isso bloqueia qualquer outra chamada concorrente para o mesmo telefone
-2. Verificar se QUALQUER conversa com esse telefone teve resposta da IA nos ultimos 10 segundos
-3. Se sim, retornar false (outra instancia ja respondeu)
-4. Se nao, fazer o UPDATE atomico na conversa especifica e retornar true
+**Solucao**: Adicionar uma regra deterministica no `ai-agent-respond` que detecta sinais claros de desinteresse e move o lead para o quadro "Descartados":
+- Palavras-chave no historico: "nao tenho interesse", "nao quero", "nao preciso", "para de mandar", "nao me interessa", "desisto"
+- Se detectado, mover direto para o stage "Descartados" (ou equivalente)
+- Essa verificacao sera feita ANTES da classificacao por IA, para ser mais rapida
 
-### Alteracao 2: Nenhuma mudanca no `ai-agent-respond/index.ts`
+**Arquivo**: `supabase/functions/ai-agent-respond/index.ts` (secao auto-pipeline, apos linha 707)
 
-O codigo ja chama `supabaseAdmin.rpc('try_acquire_ai_lock', ...)` corretamente. A correcao e apenas na funcao SQL.
+---
 
-## Detalhes Tecnicos da Migracao SQL
+## 3. Pipeline com atualizacao em tempo real
 
-```sql
-CREATE OR REPLACE FUNCTION public.try_acquire_ai_lock(
-  p_conversation_id uuid, 
-  p_contact_phone text
-)
-RETURNS boolean
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $$
-DECLARE
-  phone_recently_locked boolean := false;
-BEGIN
-  -- 1. Advisory lock por telefone (serializa todas as chamadas para o mesmo numero)
-  IF p_contact_phone IS NOT NULL AND p_contact_phone != '' THEN
-    PERFORM pg_advisory_xact_lock(hashtext(p_contact_phone));
-  ELSE
-    PERFORM pg_advisory_xact_lock(hashtext(p_conversation_id::text));
-  END IF;
+**Problema**: O pipeline so atualiza ao recarregar a pagina.
 
-  -- 2. Verificar se QUALQUER conversa com este telefone ja teve resposta nos ultimos 10s
-  IF p_contact_phone IS NOT NULL AND p_contact_phone != '' THEN
-    SELECT EXISTS (
-      SELECT 1
-      FROM public.ai_conversation_state acs
-      JOIN public.crm_conversations cc ON cc.id = acs.conversation_id
-      WHERE cc.contact_phone = p_contact_phone
-        AND acs.last_ai_message_at > now() - interval '10 seconds'
-    ) INTO phone_recently_locked;
+**Situacao atual**: Ja existe uma subscription realtime na `PipelineBoard.tsx` (linhas 47-62) para `quiz_submissions_new`, mas ela escuta apenas eventos gerais (`*`). O problema e que tambem precisamos escutar mudancas na tabela `pipeline_stages` para refletir reorganizacoes.
 
-    IF phone_recently_locked THEN
-      RETURN false;
-    END IF;
-  ELSE
-    -- Sem telefone: verificar apenas pela conversa
-    SELECT EXISTS (
-      SELECT 1
-      FROM public.ai_conversation_state
-      WHERE conversation_id = p_conversation_id
-        AND last_ai_message_at > now() - interval '10 seconds'
-    ) INTO phone_recently_locked;
+**Solucao**: A subscription ja existe e deveria funcionar. O problema pode ser que as atualizacoes feitas pelo edge function (via service role key) nao disparam o evento realtime para o cliente. Vamos garantir que:
+- A tabela `quiz_submissions_new` esteja na publicacao `supabase_realtime` (verificar/adicionar)
+- A subscription tenha filtro por `organization_id` para eficiencia
 
-    IF phone_recently_locked THEN
-      RETURN false;
-    END IF;
-  END IF;
+**Arquivo**: `src/components/crm/PipelineBoard.tsx` (linhas 47-62)
 
-  -- 3. Adquirir o lock: atualizar timestamp
-  UPDATE public.ai_conversation_state
-  SET last_ai_message_at = now(), updated_at = now()
-  WHERE conversation_id = p_conversation_id;
+---
 
-  RETURN true;
-END;
-$$;
-```
+## 4. Remover scroll vertical do Pipeline
 
-Esta abordagem garante que, mesmo que 10 instancias tentem responder ao mesmo tempo para o mesmo telefone, apenas UMA passara. As outras ficarao bloqueadas pelo advisory lock e, quando desbloqueadas, verao que o telefone ja foi respondido nos ultimos 10 segundos.
+**Problema**: O pipeline tem barra de scroll vertical desnecessaria.
 
+**Causa**: No `AdminPipeline.tsx` linha 50, a classe `overflow-y-auto` esta sobrescrevendo o CSS `.pipeline-scroll` que ja define `overflow-y: hidden !important`.
+
+**Solucao**: Remover `overflow-y-auto` da div do pipeline no `AdminPipeline.tsx`, deixando apenas `overflow-x-auto` (que ja e coberto pelo CSS `.pipeline-scroll`).
+
+**Arquivo**: `src/pages/AdminPipeline.tsx` (linha 50)
+
+---
+
+## Resumo de Arquivos a Editar
+
+| Arquivo | Alteracao |
+|---|---|
+| `src/pages/AdminAIConfig.tsx` | Remover modelos GPT e Gemini Pro da lista "Lovable AI" |
+| `supabase/functions/ai-agent-respond/index.ts` | Adicionar regra de descarte automatico por palavras-chave |
+| `src/components/crm/PipelineBoard.tsx` | Garantir realtime funcional |
+| `src/pages/AdminPipeline.tsx` | Remover `overflow-y-auto` |
+| Migracao SQL | Adicionar `quiz_submissions_new` ao `supabase_realtime` se necessario |
