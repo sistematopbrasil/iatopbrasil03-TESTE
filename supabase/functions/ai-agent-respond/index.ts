@@ -322,16 +322,27 @@ serve(async (req) => {
       });
     }
 
-    // ✅ DEDUPLICAÇÃO TEMPORAL: Se outra instância já respondeu nos últimos 10s, ignorar
-    if (aiState.last_ai_message_at) {
-      const diff = Date.now() - new Date(aiState.last_ai_message_at).getTime();
-      if (diff < 10000) {
-        console.log(`⏱️ Dedup: outra instância já respondeu há ${(diff/1000).toFixed(1)}s, ignorando`);
-        return new Response(JSON.stringify({ skipped: true, reason: 'dedup_another_instance' }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
+    // ✅ LOCK ATÔMICO: Tentar adquirir lock via RPC (dedup por conversa E por telefone)
+    const { data: lockAcquired, error: lockErr } = await supabaseAdmin.rpc('try_acquire_ai_lock', {
+      p_conversation_id: conversation_id,
+      p_contact_phone: contact_phone || '',
+    });
+
+    if (lockErr) {
+      console.error('❌ Erro no lock atômico:', lockErr.message);
+      return new Response(JSON.stringify({ skipped: true, reason: 'lock_error' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
+
+    if (!lockAcquired) {
+      console.log('⏱️ Lock não adquirido - outra instância já está processando este telefone/conversa');
+      return new Response(JSON.stringify({ skipped: true, reason: 'dedup_lock_failed' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    console.log('🔒 Lock atômico adquirido com sucesso');
 
     // 4. Verificar horário comercial
     if (config.working_hours_only) {
@@ -354,11 +365,7 @@ serve(async (req) => {
       }
     }
 
-    // ✅ LOCK: Marcar last_ai_message_at ANTES de processar para evitar race condition com outra instância
-    await supabaseAdmin
-      .from('ai_conversation_state')
-      .update({ last_ai_message_at: new Date().toISOString() })
-      .eq('conversation_id', conversation_id);
+    // Lock já foi adquirido atomicamente pelo RPC acima
 
     // 5. Buscar histórico de mensagens (últimas 20, apenas das últimas 24h)
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -708,13 +715,26 @@ serve(async (req) => {
               s.order_index === 1
             );
 
+            // ✅ REGRA DETERMINÍSTICA: Qualificado se 5+ msgs incoming e está em "Contato Inicial"
+            const qualificadoStage = allowedStages.find((s: any) => 
+              s.name.toLowerCase().includes('qualificado') ||
+              s.name.toLowerCase().includes('qualified')
+            );
+
             if (leadMessageCount >= 2 && currentStage?.id === firstStage?.id && contatoInicialStage) {
-              // Mover diretamente sem chamar IA
+              // Mover diretamente para Contato Inicial
               await supabaseAdmin
                 .from('quiz_submissions_new')
                 .update({ pipeline_stage_id: contatoInicialStage.id })
                 .eq('id', conv.lead_id);
               console.log(`🔄 Auto-pipeline DETERMINÍSTICO: Lead movido para "${contatoInicialStage.name}" (${leadMessageCount} msgs)`);
+            } else if (leadMessageCount >= 5 && contatoInicialStage && currentStage?.id === contatoInicialStage?.id && qualificadoStage) {
+              // ✅ NOVA REGRA: 5+ msgs e está em Contato Inicial → mover para Qualificado
+              await supabaseAdmin
+                .from('quiz_submissions_new')
+                .update({ pipeline_stage_id: qualificadoStage.id })
+                .eq('id', conv.lead_id);
+              console.log(`🔄 Auto-pipeline DETERMINÍSTICO: Lead movido para "${qualificadoStage.name}" (${leadMessageCount} msgs incoming)`);
             } else {
               // Pedir à IA para classificar (para progressões mais avançadas)
               const classificationMessages = [
@@ -730,11 +750,10 @@ Número de mensagens do lead: ${leadMessageCount}
 REGRAS OBRIGATÓRIAS (siga na ordem):
 1. Se o lead enviou apenas 1 mensagem e ainda não teve resposta substantiva → manter no primeiro quadro (equivalente a "Novos Leads" ou similar)
 2. Se o lead começou a responder as mensagens (2+ mensagens do lead) → mover para quadro de "Contato Inicial" ou equivalente
-3. Se o lead demonstrou interesse CLARO (fez perguntas sobre a oportunidade, pediu mais informações, mostrou entusiasmo, perguntou sobre valores/condições) → mover para quadro de "Qualificado" ou equivalente
+3. Se o lead demonstrou interesse CLARO (fez perguntas sobre a oportunidade, pediu mais informações, mostrou entusiasmo, perguntou sobre valores/condições, respondeu positivamente sobre trabalhar, tem veículo, tem experiência) → mover para quadro de "Qualificado" ou equivalente
 4. Se o lead disse EXPLICITAMENTE que não quer, não tem interesse, pediu para parar de mandar mensagem → mover para quadro de "Descartado" ou equivalente
-5. Para quadros com nomes personalizados, interprete o significado pelo nome e aplique a regra mais adequada
-6. IMPORTANTE: Considere a PROGRESSÃO. Se o lead já está em um quadro e a conversa mostra evolução, mova para o próximo quadro adequado.
-7. Se estiver em dúvida, mantenha no quadro atual
+5. IMPORTANTE: Considere a PROGRESSÃO. Se o lead já está em "Contato Inicial" e respondeu 3+ mensagens demonstrando engajamento, mova para "Qualificado".
+6. Se estiver em dúvida entre manter e progredir, PROGRIDA para o próximo quadro.
 
 Responda APENAS com o nome EXATO de um dos quadros permitidos. Nada mais.`,
                 },
@@ -742,7 +761,7 @@ Responda APENAS com o nome EXATO de um dos quadros permitidos. Nada mais.`,
               ];
 
               const classResult = await callLovableAI(classificationMessages, {
-                model: 'google/gemini-2.5-flash-lite',
+                model: 'google/gemini-2.5-flash',
                 temperature: 0.1,
                 max_tokens: 50,
               });
