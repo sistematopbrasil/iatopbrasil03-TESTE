@@ -1625,6 +1625,10 @@ export type Database = {
         Returns: string
       }
       normalize_br_phone: { Args: { phone: string }; Returns: string }
+      try_acquire_ai_lock: {
+        Args: { p_contact_phone: string; p_conversation_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       attendee_status: "convidado" | "confirmado" | "presente" | "ausente"
