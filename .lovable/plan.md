@@ -1,79 +1,80 @@
 
-# Correcao: Mensagens Duplicadas, Pausa Indevida e Pipeline
 
-## Diagnostico Detalhado
+# Aprimoramentos: Deduplicacao Atomica, Pipeline Mais Rapido, Isolamento de Instancias
 
-### Problema 1: Mensagens duplicadas (CAUSA RAIZ ENCONTRADA)
-Existem **duas instancias WhatsApp conectadas simultaneamente** (David `davidmljjs` e Breno `brenomlazv`). O mesmo numero de telefone (5533984109171) tem conversas em AMBAS as instancias. Quando uma mensagem chega, o webhook dispara para AMBAS, e cada uma aciona seu proprio AI Agent. Resultado: a pessoa recebe 2 respostas.
+## Problemas Identificados
 
-**Correcao**: No `ai-agent-respond`, antes de processar, verificar se a conversa pertence a instancia que o consultor realmente usa. Tambem no `crm-webhook`, ao disparar o AI Agent, garantir que apenas UMA instancia processe cada mensagem. Porem, isso e um problema de configuracao (duas instancias para o mesmo numero), entao tambem sera tratado no codigo para que, se a IA ja tiver respondido nos ultimos 10 segundos para aquela conversa, a segunda chamada seja ignorada (deduplicacao temporal).
+### 1. Mensagens duplicadas persistem (race condition no lock)
+O mecanismo atual faz check-then-update (linhas 326-334 e 358-361 do `ai-agent-respond`):
+1. Verifica se `last_ai_message_at` tem menos de 10s (check)
+2. Se passou, atualiza `last_ai_message_at` (update/lock)
 
-### Problema 2: IA sendo pausada sem intervencao humana (CAUSA RAIZ ENCONTRADA)
-Quando a IA envia mensagem via Evolution API, o ID da mensagem e gerado pelo WhatsApp (ex: `3EB0571E3F1AB7...`) - NAO tem prefixo `ai-`. O fallback de prefixo nunca funciona. O fallback temporal de 15 segundos tambem falha porque:
-- A IA envia mensagens em partes (2-4 partes com 1-2s entre elas)
-- `last_ai_message_at` e atualizado ANTES de enviar as partes
-- As partes levam 3-8 segundos para serem todas enviadas
-- Os webhooks da Evolution API para essas mensagens outgoing chegam DEPOIS dos 15 segundos
+O problema: duas instancias chegam ao passo 1 simultaneamente (em milissegundos), ambas veem o timestamp antigo, ambas passam no check, ambas fazem o lock e ambas respondem. E um problema classico de TOCTOU (Time-of-Check-Time-of-Use).
 
-**Correcao**: 
-1. Ampliar a janela temporal de 15 para 45 segundos (as partes demoram)
-2. Salvar TODOS os message_ids das partes enviadas pela IA em um campo `ai_message_ids` no `ai_conversation_state` 
-3. No webhook, verificar se o message_id esta na lista de IDs conhecidos da IA
-4. Atualizar `last_ai_message_at` DEPOIS de enviar todas as partes (nao antes)
+**Solucao**: Usar uma operacao atomica via database function (RPC). Criar uma funcao SQL que faz o check E o update em uma unica transacao, retornando se conseguiu o "lock" ou nao. Se outra instancia ja fez o lock, retorna false e o agente ignora.
 
-### Problema 3: Pipeline nao move para "Contato Inicial"
-Os logs mostram "Lead mantido no quadro atual" em TODOS os casos. A IA classificadora esta retornando o mesmo quadro que o lead ja esta. Problemas identificados:
-- O `leadMessageCount` conta mensagens do historico que ja inclui a mensagem atual
-- A IA classifica corretamente mas o matching pode falhar se o nome retornado tiver espacos extras ou variacao
-- A IA precisa ser instruida mais explicitamente a considerar a PROGRESSAO (se ja esta em Novos Leads e tem 2+ msgs, DEVE mover)
+### 2. Pipeline demora para mover para "Qualificado"
+A regra deterministica so cobre a transicao "Novos Leads" para "Contato Inicial" (2+ msgs). As transicoes seguintes dependem da IA classificadora que e chamada com `gemini-2.5-flash-lite` e temperatura 0.1. O prompt pede que a IA "considere a progressao" mas nao da sinais claros do que constitui "interesse".
+
+**Solucao**: Adicionar mais regras deterministicas:
+- Se o lead tem 5+ mensagens e o lead fez perguntas ou respondeu positivamente, mover para "Qualificado"
+- Melhorar o prompt com exemplos concretos de sinais de qualificacao
+- Usar um modelo mais capaz para classificacao (gemini-2.5-flash em vez de flash-lite)
+
+### 3. Isolamento entre instancias/consultores
+O codigo ja isola por `user_id` na busca de configs (linha 284) e por `conversation_id` no state. Porem, a deduplicacao temporal atual e por `conversation_id` e nao por telefone. Se o mesmo telefone tem conversas em duas instancias diferentes, ambas disparam o AI Agent com `conversation_id` diferentes, e a dedup nao funciona.
+
+**Solucao**: Adicionar deduplicacao por telefone alem de por conversa. Antes de processar, verificar se algum AI Agent ja respondeu para aquele `contact_phone` nos ultimos 10s (independente da instancia/conversa).
 
 ---
 
 ## Alteracoes Tecnicas
 
-### Arquivo 1: `supabase/functions/ai-agent-respond/index.ts`
+### Alteracao 1: Funcao SQL para lock atomico
 
-**Mudanca A - Deduplicacao temporal (evitar dois agentes respondendo):**
-Antes de processar qualquer coisa, verificar se ja houve resposta da IA para esta conversa nos ultimos 10 segundos. Se sim, ignorar (outra instancia ja respondeu).
+Criar uma database function `try_acquire_ai_lock` que:
+- Recebe `p_conversation_id` e `p_contact_phone`
+- Faz `UPDATE ai_conversation_state SET last_ai_message_at = now() WHERE conversation_id = p_conversation_id AND (last_ai_message_at IS NULL OR last_ai_message_at < now() - interval '10 seconds') RETURNING id`
+- Se retornou rows, o lock foi adquirido (retorna true)
+- Se nao retornou, outra instancia ja tem o lock (retorna false)
+- Tambem verifica por telefone: busca se existe OUTRA conversa com o mesmo telefone que tenha `last_ai_message_at` nos ultimos 10s
+
+### Alteracao 2: `ai-agent-respond/index.ts` - Usar lock atomico
+
+Substituir o check manual (linhas 326-334) e o lock manual (linhas 358-361) por uma unica chamada RPC:
 
 ```text
-// Apos verificar ai_state (passo 3), antes do passo 4:
-if (aiState?.last_ai_message_at) {
-  const diff = Date.now() - new Date(aiState.last_ai_message_at).getTime();
-  if (diff < 10000) { // 10 segundos
-    console.log('Rate limit: outra instancia ja respondeu');
-    return skip;
-  }
+const { data: lockAcquired } = await supabaseAdmin.rpc('try_acquire_ai_lock', {
+  p_conversation_id: conversation_id,
+  p_contact_phone: contact_phone
+});
+
+if (!lockAcquired) {
+  console.log('Lock nao adquirido - outra instancia ja esta processando');
+  return skip;
 }
 ```
 
-**Mudanca B - Atualizar `last_ai_message_at` DEPOIS de enviar todas as partes:**
-Mover o update de `last_ai_message_at` para DEPOIS do loop de envio das partes (linha 563-571 atual), nao antes. Isso garante que a janela temporal no webhook comeca a contar a partir do ULTIMO envio.
+### Alteracao 3: `ai-agent-respond/index.ts` - Pipeline mais agressivo
 
-**Mudanca C - Salvar lista de message_ids enviados pela IA:**
-Apos enviar todas as partes, salvar os IDs no `ai_conversation_state` para que o webhook possa verificar.
+Adicionar regra deterministica adicional para "Qualificado":
+- Se o lead tem 5+ mensagens incoming E o estagio atual e "Contato Inicial" (ou equivalente), mover para "Qualificado"
+- Isso garante que leads engajados progridam mais rapido sem depender da IA classificadora
+- Manter a IA classificadora como fallback para casos intermediarios
 
-**Mudanca D - Pipeline mais assertivo:**
-Ajustar o prompt de classificacao para ser mais direto:
-- Se leadMessageCount >= 2 E estagio atual e "Novos Leads" -> DEVE retornar "Contato Inicial"
-- Adicionar instrucao explicita: "Se o lead esta em 'Novos Leads' e ja respondeu 2 ou mais mensagens, mova para 'Contato Inicial'"
+Tambem melhorar o modelo da IA classificadora de `gemini-2.5-flash-lite` para `gemini-2.5-flash` para melhor compreensao.
 
-### Arquivo 2: `supabase/functions/crm-webhook/index.ts`
+### Alteracao 4: `crm-webhook/index.ts` - Sem mudancas necessarias
 
-**Mudanca E - Verificacao robusta de mensagem da IA:**
-1. Ampliar janela temporal de 15 para 45 segundos
-2. Verificar se o message_id esta na lista `last_ai_message_ids` do ai_conversation_state
-3. Esses dois metodos combinados eliminam os falsos positivos
-
-### Migracao de banco (opcional mas recomendada)
-Adicionar coluna `last_ai_message_ids` (jsonb, default '[]') na tabela `ai_conversation_state` para armazenar os IDs das ultimas mensagens enviadas pela IA.
+A logica de deteccao de intervencao humana com 45s de janela e verificacao de IDs ja esta adequada. O isolamento de instancia ja existe (busca por `instance_id`).
 
 ---
 
-## Resumo das correcoes
+## Resumo
 
 | Problema | Causa | Solucao |
 |---|---|---|
-| Mensagens duplicadas | 2 instancias WhatsApp respondem ao mesmo tempo | Rate limit temporal de 10s entre respostas + deduplicacao |
-| IA pausada indevidamente | Message IDs do WhatsApp nao tem prefixo `ai-` e janela de 15s e curta demais | Ampliar para 45s + salvar lista de IDs da IA no banco |
-| Pipeline nao move | Prompt de classificacao nao e assertivo o suficiente | Regras deterministicas: se 2+ msgs e esta em "Novos Leads", mover para "Contato Inicial" |
+| Mensagens duplicadas | Race condition no check-then-update | Lock atomico via funcao SQL |
+| Pipeline lento | Regras deterministicas so para 1a transicao | Adicionar regra para "Qualificado" (5+ msgs) e melhorar modelo da IA |
+| Isolamento de instancias | Dedup por conversation_id nao cobre mesmo telefone em instancias diferentes | Dedup por telefone via funcao SQL |
+
