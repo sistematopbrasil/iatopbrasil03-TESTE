@@ -747,12 +747,6 @@ serve(async (req) => {
               s.order_index === 1
             );
 
-            // ✅ REGRA DETERMINÍSTICA: Qualificado se 5+ msgs incoming e está em "Contato Inicial"
-            const qualificadoStage = allowedStages.find((s: any) => 
-              s.name.toLowerCase().includes('qualificado') ||
-              s.name.toLowerCase().includes('qualified')
-            );
-
             if (leadMessageCount >= 2 && currentStage?.id === firstStage?.id && contatoInicialStage) {
               // Mover diretamente para Contato Inicial
               await supabaseAdmin
@@ -760,13 +754,6 @@ serve(async (req) => {
                 .update({ pipeline_stage_id: contatoInicialStage.id })
                 .eq('id', conv.lead_id);
               console.log(`🔄 Auto-pipeline DETERMINÍSTICO: Lead movido para "${contatoInicialStage.name}" (${leadMessageCount} msgs)`);
-            } else if (leadMessageCount >= 5 && contatoInicialStage && currentStage?.id === contatoInicialStage?.id && qualificadoStage) {
-              // ✅ NOVA REGRA: 5+ msgs e está em Contato Inicial → mover para Qualificado
-              await supabaseAdmin
-                .from('quiz_submissions_new')
-                .update({ pipeline_stage_id: qualificadoStage.id })
-                .eq('id', conv.lead_id);
-              console.log(`🔄 Auto-pipeline DETERMINÍSTICO: Lead movido para "${qualificadoStage.name}" (${leadMessageCount} msgs incoming)`);
             } else {
               // Pedir à IA para classificar (para progressões mais avançadas)
               const classificationMessages = [
@@ -780,12 +767,12 @@ Quadro atual: ${currentStage ? `"${currentStage.name}"` : 'nenhum'}
 Número de mensagens do lead: ${leadMessageCount}
 
 REGRAS OBRIGATÓRIAS (siga na ordem):
-1. Se o lead enviou apenas 1 mensagem e ainda não teve resposta substantiva → manter no primeiro quadro (equivalente a "Novos Leads" ou similar)
+1. Se o lead enviou apenas 1 mensagem e ainda não teve resposta substantiva → MANTER no primeiro quadro (equivalente a "Novos Leads" ou similar)
 2. Se o lead começou a responder as mensagens (2+ mensagens do lead) → mover para quadro de "Contato Inicial" ou equivalente
-3. Se o lead demonstrou interesse CLARO (fez perguntas sobre a oportunidade, pediu mais informações, mostrou entusiasmo, perguntou sobre valores/condições, respondeu positivamente sobre trabalhar, tem veículo, tem experiência) → mover para quadro de "Qualificado" ou equivalente
+3. Para mover para "Qualificado", o lead DEVE demonstrar TODOS estes sinais: interesse claro na oportunidade (fez perguntas, pediu detalhes, mostrou entusiasmo), E ter requisitos básicos (ter veículo, experiência em vendas, ou disponibilidade). Apenas responder perguntas NÃO é suficiente para qualificar.
 4. Se o lead disse EXPLICITAMENTE que não quer, não tem interesse, pediu para parar de mandar mensagem → mover para quadro de "Descartado" ou equivalente
-5. IMPORTANTE: Considere a PROGRESSÃO. Se o lead já está em "Contato Inicial" e respondeu 3+ mensagens demonstrando engajamento, mova para "Qualificado".
-6. Se estiver em dúvida entre manter e progredir, PROGRIDA para o próximo quadro.
+5. IMPORTANTE: Número de mensagens NÃO é critério para qualificar. O que importa é o CONTEÚDO. Um lead pode ter 20 mensagens e ainda não estar qualificado se não demonstrou interesse real.
+6. Se estiver em dúvida entre manter e progredir, MANTENHA no quadro atual. Só mova para "Qualificado" com sinais CLAROS e INEQUÍVOCOS de interesse.
 
 Responda APENAS com o nome EXATO de um dos quadros permitidos. Nada mais.`,
                 },

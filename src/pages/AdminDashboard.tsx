@@ -21,7 +21,7 @@ export default function AdminDashboard() {
     const channel = supabase
       .channel('dashboard-leads-realtime')
       .on('postgres_changes', {
-        event: 'INSERT',
+        event: '*',
         schema: 'public',
         table: 'quiz_submissions_new',
       }, () => {
