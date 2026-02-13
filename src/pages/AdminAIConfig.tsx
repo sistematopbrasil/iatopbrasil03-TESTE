@@ -143,11 +143,8 @@ export default function AdminAIConfig() {
     setIsTesting(true);
     setTestResult(null);
     try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const resp = await fetch(`${supabaseUrl}/functions/v1/ai-agent-test`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke('ai-agent-test', {
+        body: {
           agent_name: formData.agent_name,
           persona: formData.persona,
           objective: formData.objective,
@@ -160,15 +157,12 @@ export default function AdminAIConfig() {
           temperature: formData.temperature,
           max_tokens: formData.max_tokens,
           test_message: 'Olá, gostaria de saber mais sobre proteção veicular.',
-        }),
+        },
       });
 
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({ error: 'Erro desconhecido' }));
-        throw new Error(err.error || `Erro ${resp.status}`);
-      }
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
 
-      const data = await resp.json();
       setTestResult(data.response || 'Sem resposta');
       toast.success('Teste concluído!');
     } catch (e: any) {
@@ -590,7 +584,8 @@ export default function AdminAIConfig() {
             onClick={handleTestConfig}
             disabled={isTesting}
             size="lg"
-            className="shadow-lg"
+            className="shadow-lg bg-background"
+            title="Envia uma mensagem de teste para verificar se a IA responde corretamente com as configurações atuais"
           >
             {isTesting ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />

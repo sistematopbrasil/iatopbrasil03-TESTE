@@ -90,6 +90,7 @@ export function CreateConsultantDialog({ open: controlledOpen, onOpenChange: con
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['all-consultants'] });
+      queryClient.invalidateQueries({ queryKey: ['unified-ranking'] });
       queryClient.invalidateQueries({ queryKey: ['super-admin-metrics'] });
       toast.success('Consultor criado com sucesso!', {
         description: 'As credenciais foram definidas conforme informado no formulário.',

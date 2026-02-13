@@ -707,6 +707,7 @@ serve(async (req) => {
             // Contar mensagens do lead (incoming) no histórico
             const leadMessageCount = conversationHistory.filter((m: any) => m.role === 'user').length;
 
+            let skipRemainingPipeline = false;
             // ✅ REGRA DETERMINÍSTICA: Descarte automático por palavras-chave de desinteresse
             const descartadoStage = stages.find((s: any) => 
               s.name.toLowerCase().includes('descartado') || s.name.toLowerCase().includes('descartados')
@@ -735,31 +736,32 @@ serve(async (req) => {
                   .update({ pipeline_stage_id: descartadoStage.id })
                   .eq('id', conv.lead_id);
                 console.log(`🚫 Auto-pipeline DETERMINÍSTICO: Lead descartado por palavras-chave de desinteresse`);
-                // Skip remaining pipeline logic
+                skipRemainingPipeline = true;
               }
             }
 
-            // ✅ REGRA DETERMINÍSTICA: Se 2+ msgs do lead e está no primeiro quadro, mover direto
-            const firstStage = stages[0];
-            const contatoInicialStage = allowedStages.find((s: any) => 
-              s.name.toLowerCase().includes('contato inicial') || 
-              s.name.toLowerCase().includes('contato') ||
-              s.order_index === 1
-            );
+            if (!skipRemainingPipeline) {
+              // ✅ REGRA DETERMINÍSTICA: Se 2+ msgs do lead e está no primeiro quadro, mover direto
+              const firstStage = stages[0];
+              const contatoInicialStage = allowedStages.find((s: any) => 
+                s.name.toLowerCase().includes('contato inicial') || 
+                s.name.toLowerCase().includes('contato') ||
+                s.order_index === 1
+              );
 
-            if (leadMessageCount >= 2 && currentStage?.id === firstStage?.id && contatoInicialStage) {
-              // Mover diretamente para Contato Inicial
-              await supabaseAdmin
-                .from('quiz_submissions_new')
-                .update({ pipeline_stage_id: contatoInicialStage.id })
-                .eq('id', conv.lead_id);
-              console.log(`🔄 Auto-pipeline DETERMINÍSTICO: Lead movido para "${contatoInicialStage.name}" (${leadMessageCount} msgs)`);
-            } else {
-              // Pedir à IA para classificar (para progressões mais avançadas)
-              const classificationMessages = [
-                {
-                  role: 'system',
-                  content: `Você é um classificador de leads para um pipeline de vendas. Analise o histórico da conversa e determine em qual quadro o lead deve estar.
+              if (leadMessageCount >= 2 && currentStage?.id === firstStage?.id && contatoInicialStage) {
+                // Mover diretamente para Contato Inicial
+                await supabaseAdmin
+                  .from('quiz_submissions_new')
+                  .update({ pipeline_stage_id: contatoInicialStage.id })
+                  .eq('id', conv.lead_id);
+                console.log(`🔄 Auto-pipeline DETERMINÍSTICO: Lead movido para "${contatoInicialStage.name}" (${leadMessageCount} msgs)`);
+              } else {
+                // Pedir à IA para classificar (para progressões mais avançadas)
+                const classificationMessages = [
+                  {
+                    role: 'system',
+                    content: `Você é um classificador de leads para um pipeline de vendas. Analise o histórico da conversa e determine em qual quadro o lead deve estar.
 
 QUADROS DISPONÍVEIS para movimentação automática: ${allowedStageNames}
 ${blockedStageNames ? `QUADROS BLOQUEADOS (NUNCA mover para estes, somente humanos podem): ${blockedStageNames}` : ''}
@@ -769,38 +771,39 @@ Número de mensagens do lead: ${leadMessageCount}
 REGRAS OBRIGATÓRIAS (siga na ordem):
 1. Se o lead enviou apenas 1 mensagem e ainda não teve resposta substantiva → MANTER no primeiro quadro (equivalente a "Novos Leads" ou similar)
 2. Se o lead começou a responder as mensagens (2+ mensagens do lead) → mover para quadro de "Contato Inicial" ou equivalente
-3. Para mover para "Qualificado", o lead DEVE demonstrar TODOS estes sinais: interesse claro na oportunidade (fez perguntas, pediu detalhes, mostrou entusiasmo), E ter requisitos básicos (ter veículo, experiência em vendas, ou disponibilidade). Apenas responder perguntas NÃO é suficiente para qualificar.
+3. Para mover para "Qualificado", o lead DEVE demonstrar interesse real na oportunidade (fez perguntas sobre a empresa, expressou motivação, agendou conversa, pediu mais detalhes com entusiasmo) E ter pelo menos UM dos requisitos básicos: ter veículo (carro ou moto), experiência profissional relevante (vendas, atendimento, etc.), ou disponibilidade declarada para trabalhar. Apenas responder perguntas educadamente NÃO é suficiente para qualificar.
 4. Se o lead disse EXPLICITAMENTE que não quer, não tem interesse, pediu para parar de mandar mensagem → mover para quadro de "Descartado" ou equivalente
 5. IMPORTANTE: Número de mensagens NÃO é critério para qualificar. O que importa é o CONTEÚDO. Um lead pode ter 20 mensagens e ainda não estar qualificado se não demonstrou interesse real.
-6. Se estiver em dúvida entre manter e progredir, MANTENHA no quadro atual. Só mova para "Qualificado" com sinais CLAROS e INEQUÍVOCOS de interesse.
+6. Se estiver em dúvida entre manter e progredir, MANTENHA no quadro atual. Só mova para "Qualificado" quando houver sinais claros de interesse E pelo menos um requisito confirmado.
 
 Responda APENAS com o nome EXATO de um dos quadros permitidos. Nada mais.`,
-                },
-                ...conversationHistory.slice(-10),
-              ];
+                  },
+                  ...conversationHistory.slice(-10),
+                ];
 
-              const classResult = await callLovableAI(classificationMessages, {
-                model: 'google/gemini-2.5-flash',
-                temperature: 0.1,
-                max_tokens: 50,
-              });
+                const classResult = await callLovableAI(classificationMessages, {
+                  model: 'google/gemini-2.5-flash',
+                  temperature: 0.1,
+                  max_tokens: 50,
+                });
 
-              const suggestedName = classResult.text.trim().replace(/"/g, '').replace(/\n/g, '');
-              const matchedStage = allowedStages.find((s: any) => 
-                s.name.toLowerCase().trim() === suggestedName.toLowerCase().trim() ||
-                suggestedName.toLowerCase().trim().includes(s.name.toLowerCase().trim()) ||
-                s.name.toLowerCase().trim().includes(suggestedName.toLowerCase().trim())
-              );
+                const suggestedName = classResult.text.trim().replace(/"/g, '').replace(/\n/g, '');
+                const matchedStage = allowedStages.find((s: any) => 
+                  s.name.toLowerCase().trim() === suggestedName.toLowerCase().trim() ||
+                  suggestedName.toLowerCase().trim().includes(s.name.toLowerCase().trim()) ||
+                  s.name.toLowerCase().trim().includes(suggestedName.toLowerCase().trim())
+                );
 
-              if (matchedStage && matchedStage.id !== lead?.pipeline_stage_id) {
-                await supabaseAdmin
-                  .from('quiz_submissions_new')
-                  .update({ pipeline_stage_id: matchedStage.id })
-                  .eq('id', conv.lead_id);
+                if (matchedStage && matchedStage.id !== lead?.pipeline_stage_id) {
+                  await supabaseAdmin
+                    .from('quiz_submissions_new')
+                    .update({ pipeline_stage_id: matchedStage.id })
+                    .eq('id', conv.lead_id);
 
-                console.log(`🔄 Auto-pipeline: Lead movido para "${matchedStage.name}"`);
-              } else {
-                console.log(`📌 Auto-pipeline: Lead mantido no quadro atual (sugestão: "${suggestedName}")`);
+                  console.log(`🔄 Auto-pipeline: Lead movido para "${matchedStage.name}"`);
+                } else {
+                  console.log(`📌 Auto-pipeline: Lead mantido no quadro atual (sugestão: "${suggestedName}")`);
+                }
               }
             }
           }
