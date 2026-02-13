@@ -1,37 +1,71 @@
 
-# Corrigir Qualificacao e Dashboard Realtime
 
-## 1. Qualificacao mais criteriosa no Pipeline
+# Correcoes: Super Admin Realtime, Botao Testar IA, Qualificacao e Descarte
 
-**Problema**: O lead esta sendo movido para "Qualificado" com apenas 5 mensagens, sem analisar o conteudo. A regra deterministica atual (linha 763 do `ai-agent-respond`) so conta mensagens, nao avalia interesse real.
+## 1. Consultor novo nao aparece na lista do Super Admin
 
-**Solucao**:
-- Remover a regra deterministica de 5 msgs -> Qualificado (linhas 750-769)
-- Manter apenas a regra deterministica de 2 msgs -> Contato Inicial (que faz sentido)
-- Deixar a progressao para "Qualificado" exclusivamente com o classificador de IA, que analisa o conteudo das mensagens
-- Ajustar o prompt do classificador (linha 782-789) para ser mais criterioso:
-  - Remover a regra 6 "Se em duvida, PROGRIDA" (muito agressiva)
-  - Substituir por: "Se em duvida, MANTENHA no quadro atual"
-  - Exigir sinais claros de interesse para qualificar: perguntas sobre a oportunidade, entusiasmo, pedido de mais informacoes, confirmacao de disponibilidade
-  - Exigir que o lead demonstre ter requisitos (veiculo, experiencia, etc.)
+**Problema**: O `CreateConsultantDialog` invalida a query `['all-consultants']` apos criar, mas o `ConsultantsTable` usa o hook `useRankingData()` que busca dados com a query key `['unified-ranking']`. As keys nao coincidem, entao a lista nao atualiza.
 
-**Arquivo**: `supabase/functions/ai-agent-respond/index.ts`
+**Solucao**: No `onSuccess` do `CreateConsultantDialog`, adicionar `queryClient.invalidateQueries({ queryKey: ['unified-ranking'] })` para que a tabela de consultores atualize imediatamente.
+
+**Arquivo**: `src/components/super-admin/CreateConsultantDialog.tsx` (linha 92)
 
 ---
 
-## 2. Dashboard atualizando em tempo real
+## 2. Botao "Testar Configuracao" - visual e funcionalidade
 
-**Problema**: O `AdminDashboard.tsx` so escuta eventos `INSERT` na subscription realtime (linha 24). Quando um lead e atualizado (temperatura, quadro do pipeline), o dashboard nao reflete a mudanca.
+**Problema visual**: O botao com `variant="outline"` no sticky bottom fica com fundo transparente, parecendo estranho ao sobrepor conteudo.
 
-**Solucao**: Mudar `event: 'INSERT'` para `event: '*'` no `AdminDashboard.tsx` para capturar INSERT, UPDATE e DELETE.
+**Problema funcional**: O botao chama a edge function `ai-agent-test` usando apenas a anon key no header de autorizacao (linha 149), mas a funcao precisa do token do usuario autenticado para funcionar corretamente em contextos onde JWT e verificado.
 
-**Arquivo**: `src/pages/AdminDashboard.tsx` (linha 24)
+**Solucao**:
+- Adicionar `bg-background` ao botao para garantir fundo solido
+- Usar `supabase.functions.invoke('ai-agent-test', ...)` em vez de fetch manual, pois o SDK ja inclui o token de autenticacao correto automaticamente
+- Adicionar explicacao visual (tooltip ou texto) sobre o que o botao faz: "Envia uma mensagem de teste para verificar se a IA responde corretamente com as configuracoes atuais"
+
+**Arquivo**: `src/pages/AdminAIConfig.tsx` (linhas 142-180 e 586-610)
+
+---
+
+## 3. Lead qualificado nao esta sendo movido
+
+**Problema**: A conversa que voce mostrou tem sinais claros de qualificacao:
+- Tem veiculo (moto)
+- Demonstrou interesse na liberdade profissional
+- Tem experiencia em atendimento/telemarketing
+- Definiu meta de renda (R$ 20k)
+- Agendou conversa com gestor para o dia seguinte
+- Mostrou motivacao ("vontade de ter um futuro melhor")
+
+O prompt atual exige que o lead demonstre TODOS os sinais simultaneamente (interesse + veiculo + experiencia em vendas). Isso e muito restritivo - a maioria dos leads nunca vai mencionar todos os criterios numa conversa natural.
+
+**Solucao**: Ajustar o prompt do classificador para exigir sinais SUFICIENTES (nao todos). Criterios para qualificar:
+- Demonstrou interesse real (fez perguntas, expressou motivacao, agendou conversa)
+- E tem pelo menos UM requisito basico (veiculo, experiencia profissional relevante, ou disponibilidade)
+
+Mudar de "DEVE demonstrar TODOS estes sinais" para "DEVE demonstrar interesse real E ter pelo menos UM dos requisitos basicos".
+
+**Arquivo**: `supabase/functions/ai-agent-respond/index.ts` (linha 772)
+
+---
+
+## 4. Lead descartado nao esta sendo movido (BUG)
+
+**Problema**: A mensagem "Na verdade eu achei que era outra coisa. Nao quero mais ok?" contem a keyword "nao quero mais" que esta na lista de rejeicao. Porem, ha um BUG no fluxo: apos a regra de descarte (linhas 732-739), o codigo NAO para - ele continua executando as regras seguintes (Contato Inicial na linha 750, e o classificador IA na linha 757). O classificador de IA pode entao sugerir OUTRO quadro e sobrescrever o descarte.
+
+**Solucao**: Adicionar uma flag `skipRemainingPipeline` que, quando o descarte deterministico acontece, impede que as regras seguintes sobrescrevam a decisao. Alternativamente, usar um bloco `if/else if` para garantir exclusao mutua entre as regras.
+
+**Arquivo**: `supabase/functions/ai-agent-respond/index.ts` (linhas 730-805)
 
 ---
 
 ## Resumo
 
-| Arquivo | Alteracao |
-|---|---|
-| `supabase/functions/ai-agent-respond/index.ts` | Remover regra deterministica 5 msgs -> Qualificado; tornar prompt do classificador mais criterioso |
-| `src/pages/AdminDashboard.tsx` | Mudar `event: 'INSERT'` para `event: '*'` no realtime |
+| Item | Arquivo | Mudanca |
+|---|---|---|
+| Lista de consultores nao atualiza | `CreateConsultantDialog.tsx` | Invalidar query `['unified-ranking']` no onSuccess |
+| Botao Testar visual | `AdminAIConfig.tsx` | Adicionar `bg-background` ao botao |
+| Botao Testar funcional | `AdminAIConfig.tsx` | Usar `supabase.functions.invoke` em vez de fetch manual |
+| Qualificacao muito restritiva | `ai-agent-respond/index.ts` | Mudar de "TODOS os sinais" para "interesse + pelo menos 1 requisito" |
+| Descarte sendo sobrescrito (BUG) | `ai-agent-respond/index.ts` | Adicionar flag para impedir que regras subsequentes sobrescrevam o descarte |
+
