@@ -758,27 +758,31 @@ serve(async (req) => {
                 console.log(`🔄 Auto-pipeline DETERMINÍSTICO: Lead movido para "${contatoInicialStage.name}" (${leadMessageCount} msgs)`);
               } else {
                 // Pedir à IA para classificar (para progressões mais avançadas)
+                // Montar historico como texto plano para evitar que o modelo "continue" a conversa
+                const historyText = conversationHistory.slice(-15).map((m: any) => {
+                  const sender = m.role === 'user' ? 'LEAD' : 'CONSULTOR';
+                  return `[${sender}]: ${m.content || '(midia)'}`;
+                }).join('\n');
+
                 const classificationMessages = [
                   {
-                    role: 'system',
-                    content: `Você é um classificador de leads para um pipeline de vendas. Analise o histórico da conversa e determine em qual quadro o lead deve estar.
+                    role: 'user',
+                    content: `Voce e um classificador de leads. Analise o historico abaixo e responda SOMENTE com o nome exato de um dos quadros permitidos. Nenhuma outra palavra.
 
-QUADROS DISPONÍVEIS para movimentação automática: ${allowedStageNames}
-${blockedStageNames ? `QUADROS BLOQUEADOS (NUNCA mover para estes, somente humanos podem): ${blockedStageNames}` : ''}
-Quadro atual: ${currentStage ? `"${currentStage.name}"` : 'nenhum'}
-Número de mensagens do lead: ${leadMessageCount}
+QUADROS PERMITIDOS: ${allowedStageNames}
+${blockedStageNames ? `QUADROS BLOQUEADOS (NUNCA usar): ${blockedStageNames}` : ''}
+QUADRO ATUAL: ${currentStage ? `"${currentStage.name}"` : 'nenhum'}
 
-REGRAS OBRIGATÓRIAS (siga na ordem):
-1. Se o lead enviou apenas 1 mensagem e ainda não teve resposta substantiva → MANTER no primeiro quadro (equivalente a "Novos Leads" ou similar)
-2. Se o lead começou a responder as mensagens (2+ mensagens do lead) → mover para quadro de "Contato Inicial" ou equivalente
-3. Para mover para "Qualificado", o lead DEVE demonstrar interesse real na oportunidade (fez perguntas sobre a empresa, expressou motivação, agendou conversa, pediu mais detalhes com entusiasmo) E ter pelo menos UM dos requisitos básicos: ter veículo (carro ou moto), experiência profissional relevante (vendas, atendimento, etc.), ou disponibilidade declarada para trabalhar. Apenas responder perguntas educadamente NÃO é suficiente para qualificar.
-4. Se o lead disse EXPLICITAMENTE que não quer, não tem interesse, pediu para parar de mandar mensagem → mover para quadro de "Descartado" ou equivalente
-5. IMPORTANTE: Número de mensagens NÃO é critério para qualificar. O que importa é o CONTEÚDO. Um lead pode ter 20 mensagens e ainda não estar qualificado se não demonstrou interesse real.
-6. Se estiver em dúvida entre manter e progredir, MANTENHA no quadro atual. Só mova para "Qualificado" quando houver sinais claros de interesse E pelo menos um requisito confirmado.
+REGRAS:
+1. Para "Qualificado" ou equivalente: o lead demonstrou interesse real (motivacao, agendou conversa, pediu detalhes) E tem pelo menos UM requisito (veiculo, experiencia profissional, disponibilidade).
+2. Para "Descartado" ou equivalente: o lead disse explicitamente que nao quer.
+3. Na duvida, responda com o quadro atual: "${currentStage?.name || 'Contato Inicial'}".
 
-Responda APENAS com o nome EXATO de um dos quadros permitidos. Nada mais.`,
+HISTORICO DA CONVERSA:
+${historyText}
+
+Responda APENAS o nome do quadro. Nada mais.`,
                   },
-                  ...conversationHistory.slice(-10),
                 ];
 
                 const classResult = await callLovableAI(classificationMessages, {
