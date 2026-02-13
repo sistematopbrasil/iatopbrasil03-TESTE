@@ -1,71 +1,67 @@
 
 
-# Correcoes: Super Admin Realtime, Botao Testar IA, Qualificacao e Descarte
+# Corrigir Classificador de Pipeline (IA retornando texto em vez de nome do quadro)
 
-## 1. Consultor novo nao aparece na lista do Super Admin
+## Problema Identificado
 
-**Problema**: O `CreateConsultantDialog` invalida a query `['all-consultants']` apos criar, mas o `ConsultantsTable` usa o hook `useRankingData()` que busca dados com a query key `['unified-ranking']`. As keys nao coincidem, entao a lista nao atualiza.
+Os logs mostram que o classificador de IA esta retornando **respostas conversacionais completas** em vez de apenas o nome do quadro. Exemplos reais dos logs:
 
-**Solucao**: No `onSuccess` do `CreateConsultantDialog`, adicionar `queryClient.invalidateQueries({ queryKey: ['unified-ranking'] })` para que a tabela de consultores atualize imediatamente.
+- `"Vou remover seu contato da nossa lista e voce nao recebera mais mensagens..."` 
+- `"Entendo sua desconfianca. E natural ter cautela hoje em dia..."`
+- `"De qualquer forma, se um dia voce mudar de ideia..."`
 
-**Arquivo**: `src/components/super-admin/CreateConsultantDialog.tsx` (linha 92)
+Isso acontece porque o historico da conversa e passado como mensagens `user`/`assistant` normais. O modelo Gemini "continua a conversa" em vez de classificar. O lead qualificado da conversa que voce mostrou (tem carro, trabalha com atendimento, agendou ligacao com gestor) nao foi movido porque a resposta do classificador nao bateu com nenhum nome de quadro.
 
----
+O descarte por palavras-chave **esta funcionando** (regra deterministica), conforme voce confirmou.
 
-## 2. Botao "Testar Configuracao" - visual e funcionalidade
+## Solucao
 
-**Problema visual**: O botao com `variant="outline"` no sticky bottom fica com fundo transparente, parecendo estranho ao sobrepor conteudo.
+Mudar a forma como o historico e enviado ao classificador. Em vez de enviar como mensagens separadas de `user`/`assistant` (que confunde o modelo), enviar o historico inteiro como **texto plano dentro da mensagem do sistema**, seguido de uma unica mensagem `user` pedindo a classificacao.
 
-**Problema funcional**: O botao chama a edge function `ai-agent-test` usando apenas a anon key no header de autorizacao (linha 149), mas a funcao precisa do token do usuario autenticado para funcionar corretamente em contextos onde JWT e verificado.
+### Mudanca no arquivo `supabase/functions/ai-agent-respond/index.ts`
 
-**Solucao**:
-- Adicionar `bg-background` ao botao para garantir fundo solido
-- Usar `supabase.functions.invoke('ai-agent-test', ...)` em vez de fetch manual, pois o SDK ja inclui o token de autenticacao correto automaticamente
-- Adicionar explicacao visual (tooltip ou texto) sobre o que o botao faz: "Envia uma mensagem de teste para verificar se a IA responde corretamente com as configuracoes atuais"
+Substituir o bloco do classificador (linhas 760-788) por:
 
-**Arquivo**: `src/pages/AdminAIConfig.tsx` (linhas 142-180 e 586-610)
+```text
+// Montar historico como texto plano para evitar que o modelo "continue" a conversa
+const historyText = conversationHistory.slice(-15).map((m) => {
+  const sender = m.role === 'user' ? 'LEAD' : 'CONSULTOR';
+  return `[${sender}]: ${m.content || '(midia)'}`;
+}).join('\n');
 
----
+const classificationMessages = [
+  {
+    role: 'user',
+    content: `Voce e um classificador de leads. Analise o historico abaixo e responda SOMENTE com o nome exato de um dos quadros permitidos. Nenhuma outra palavra.
 
-## 3. Lead qualificado nao esta sendo movido
+QUADROS PERMITIDOS: ${allowedStageNames}
+${blockedStageNames ? `QUADROS BLOQUEADOS (NUNCA usar): ${blockedStageNames}` : ''}
+QUADRO ATUAL: ${currentStage ? `"${currentStage.name}"` : 'nenhum'}
 
-**Problema**: A conversa que voce mostrou tem sinais claros de qualificacao:
-- Tem veiculo (moto)
-- Demonstrou interesse na liberdade profissional
-- Tem experiencia em atendimento/telemarketing
-- Definiu meta de renda (R$ 20k)
-- Agendou conversa com gestor para o dia seguinte
-- Mostrou motivacao ("vontade de ter um futuro melhor")
+REGRAS:
+1. Para "Qualificado" ou equivalente: o lead demonstrou interesse real (motivacao, agendou conversa, pediu detalhes) E tem pelo menos UM requisito (veiculo, experiencia profissional, disponibilidade).
+2. Para "Descartado" ou equivalente: o lead disse explicitamente que nao quer.
+3. Na duvida, responda com o quadro atual: "${currentStage?.name || 'Contato Inicial'}".
 
-O prompt atual exige que o lead demonstre TODOS os sinais simultaneamente (interesse + veiculo + experiencia em vendas). Isso e muito restritivo - a maioria dos leads nunca vai mencionar todos os criterios numa conversa natural.
+HISTORICO DA CONVERSA:
+${historyText}
 
-**Solucao**: Ajustar o prompt do classificador para exigir sinais SUFICIENTES (nao todos). Criterios para qualificar:
-- Demonstrou interesse real (fez perguntas, expressou motivacao, agendou conversa)
-- E tem pelo menos UM requisito basico (veiculo, experiencia profissional relevante, ou disponibilidade)
+Responda APENAS o nome do quadro. Nada mais.`,
+  },
+];
+```
 
-Mudar de "DEVE demonstrar TODOS estes sinais" para "DEVE demonstrar interesse real E ter pelo menos UM dos requisitos basicos".
-
-**Arquivo**: `supabase/functions/ai-agent-respond/index.ts` (linha 772)
-
----
-
-## 4. Lead descartado nao esta sendo movido (BUG)
-
-**Problema**: A mensagem "Na verdade eu achei que era outra coisa. Nao quero mais ok?" contem a keyword "nao quero mais" que esta na lista de rejeicao. Porem, ha um BUG no fluxo: apos a regra de descarte (linhas 732-739), o codigo NAO para - ele continua executando as regras seguintes (Contato Inicial na linha 750, e o classificador IA na linha 757). O classificador de IA pode entao sugerir OUTRO quadro e sobrescrever o descarte.
-
-**Solucao**: Adicionar uma flag `skipRemainingPipeline` que, quando o descarte deterministico acontece, impede que as regras seguintes sobrescrevam a decisao. Alternativamente, usar um bloco `if/else if` para garantir exclusao mutua entre as regras.
-
-**Arquivo**: `supabase/functions/ai-agent-respond/index.ts` (linhas 730-805)
-
----
+Essa mudanca:
+- Envia tudo como uma unica mensagem `user`, eliminando a confusao de roles
+- O historico vira texto plano com prefixos `[LEAD]` e `[CONSULTOR]`
+- O prompt e mais direto e assertivo sobre o formato da resposta
+- Inclui as ultimas 15 mensagens (em vez de 10) para dar mais contexto em conversas longas como a que voce testou
 
 ## Resumo
 
-| Item | Arquivo | Mudanca |
-|---|---|---|
-| Lista de consultores nao atualiza | `CreateConsultantDialog.tsx` | Invalidar query `['unified-ranking']` no onSuccess |
-| Botao Testar visual | `AdminAIConfig.tsx` | Adicionar `bg-background` ao botao |
-| Botao Testar funcional | `AdminAIConfig.tsx` | Usar `supabase.functions.invoke` em vez de fetch manual |
-| Qualificacao muito restritiva | `ai-agent-respond/index.ts` | Mudar de "TODOS os sinais" para "interesse + pelo menos 1 requisito" |
-| Descarte sendo sobrescrito (BUG) | `ai-agent-respond/index.ts` | Adicionar flag para impedir que regras subsequentes sobrescrevam o descarte |
+| Item | Mudanca |
+|---|---|
+| Classificador retornando texto | Reescrever prompt para enviar historico como texto plano em vez de mensagens chat |
+| Lead qualificado nao movido | Corrigido pelo novo formato que evita confusao do modelo |
+| Lead descartado | Ja funciona (regra deterministica por keywords) |
 
