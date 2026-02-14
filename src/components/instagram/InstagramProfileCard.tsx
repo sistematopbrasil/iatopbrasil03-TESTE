@@ -9,11 +9,12 @@ interface Props {
   profile: InstaProfile;
   metrics: InstaMetric[];
   onClick?: () => void;
+  periodChange?: number;
 }
 
-export function InstagramProfileCard({ profile, metrics, onClick }: Props) {
+export function InstagramProfileCard({ profile, metrics, onClick, periodChange }: Props) {
   const latest = getLatestMetric(metrics);
-  const dailyChange = latest?.daily_change || 0;
+  const displayChange = periodChange !== undefined ? periodChange : (latest?.daily_change || 0);
   const followers = latest?.follower_count || 0;
 
   // Last 14 days of data for sparkline
@@ -48,19 +49,19 @@ export function InstagramProfileCard({ profile, metrics, onClick }: Props) {
 
         <div className="flex items-end justify-between">
           <div>
-            <p className="text-2xl font-bold tabular-nums">{formatNumber(followers)}</p>
+            <p className="text-2xl font-bold tabular-nums">{followers.toLocaleString("pt-BR")}</p>
             <div className="flex items-center gap-1 mt-1">
-              {dailyChange > 0 ? (
+              {displayChange > 0 ? (
                 <ArrowUp className="h-3 w-3 text-green-500" />
-              ) : dailyChange < 0 ? (
+              ) : displayChange < 0 ? (
                 <ArrowDown className="h-3 w-3 text-red-500" />
               ) : (
                 <Minus className="h-3 w-3 text-muted-foreground" />
               )}
               <span className={`text-xs font-medium tabular-nums ${
-                dailyChange > 0 ? "text-green-500" : dailyChange < 0 ? "text-red-500" : "text-muted-foreground"
+                displayChange > 0 ? "text-green-500" : displayChange < 0 ? "text-red-500" : "text-muted-foreground"
               }`}>
-                {formatChange(dailyChange)}
+                {formatChange(displayChange)}
               </span>
             </div>
           </div>
