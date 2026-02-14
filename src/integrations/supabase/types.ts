@@ -802,6 +802,132 @@ export type Database = {
           },
         ]
       }
+      insta_campaign_notes: {
+        Row: {
+          created_at: string
+          id: string
+          note_text: string
+          note_type: string
+          profile_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          note_text: string
+          note_type?: string
+          profile_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          note_text?: string
+          note_type?: string
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insta_campaign_notes_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "insta_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insta_follower_metrics: {
+        Row: {
+          daily_change: number | null
+          follower_count: number
+          following_count: number
+          growth_rate: number | null
+          id: string
+          posts_count: number
+          profile_id: string
+          recorded_at: string
+          recorded_date: string
+        }
+        Insert: {
+          daily_change?: number | null
+          follower_count?: number
+          following_count?: number
+          growth_rate?: number | null
+          id?: string
+          posts_count?: number
+          profile_id: string
+          recorded_at?: string
+          recorded_date: string
+        }
+        Update: {
+          daily_change?: number | null
+          follower_count?: number
+          following_count?: number
+          growth_rate?: number | null
+          id?: string
+          posts_count?: number
+          profile_id?: string
+          recorded_at?: string
+          recorded_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insta_follower_metrics_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "insta_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insta_profiles: {
+        Row: {
+          category: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          is_active: boolean
+          notes: string | null
+          organization_id: string
+          profile_picture: string | null
+          profile_url: string | null
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          organization_id: string
+          profile_picture?: string | null
+          profile_url?: string | null
+          updated_at?: string
+          username: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          organization_id?: string
+          profile_picture?: string | null
+          profile_url?: string | null
+          updated_at?: string
+          username?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insta_profiles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           created_at: string

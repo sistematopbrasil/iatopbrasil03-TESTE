@@ -1,1 +1,10 @@
 project_id = "wqpgncybtnqfbgsnangy"
+
+[functions.insta-fetch-profile]
+verify_jwt = false
+
+[functions.insta-update-profiles]
+verify_jwt = false
+
+[functions.insta-scheduled-update]
+verify_jwt = false
