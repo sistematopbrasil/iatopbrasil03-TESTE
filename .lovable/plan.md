@@ -1,62 +1,34 @@
 
 
-## Melhorias no Instagram Insights
+## Correções nos Cards de Perfil - Visão Geral
 
-### 1. Editar Perfil do Instagram
+### Problema 1: Filtro não funciona nos cards
+Na aba "Visão Geral", os cards de perfil recebem `allMetrics` (todas as métricas sem filtro) em vez de `filteredAllMetrics`. Por isso, mudar o filtro de data não altera os dados mostrados nos cards.
 
-Adicionar um botao "Editar" no painel de detalhes do perfil (`InstagramProfileDetail`) que permite alterar:
-- Username (@)
-- Nome de exibicao
-- Categoria
-- Notas
+**Correção:** Passar as métricas filtradas para o `InstagramProfileCard` no `InstagramDashboard.tsx`.
 
-Ao mudar o username, o sistema tambem atualizara o `profile_url` automaticamente.
+### Problema 2: Mostrar ganho total do período (não só o último dia)
+O card atualmente mostra apenas o `daily_change` do último registro. O correto é somar todos os `daily_change` das métricas filtradas para mostrar o ganho total no período selecionado.
 
----
+**Correção:** O `InstagramProfileCard` receberá uma nova prop opcional `periodChange` calculada pelo componente pai, que será a soma dos `daily_change` de todas as métricas filtradas. Quando fornecida, exibe esse valor em vez do `daily_change` do último dia.
 
-### 2. Filtro por Data com Presets
+### Problema 3: Número completo de seguidores
+O card usa `formatNumber()` que abrevia (ex: 1.2K). O correto é mostrar o número completo (ex: 1.234).
 
-Criar um componente reutilizavel `DatePeriodFilter` que sera usado nas 3 abas (Dashboard, Perfis, Analises).
-
-**Opcoes de filtro:**
-- Hoje
-- Ontem
-- Ultimos 7 dias
-- Ultimos 30 dias
-- Total
-- Periodo personalizado (date range picker com calendario)
-
-O filtro controlara quais metricas sao exibidas, filtrando pela coluna `recorded_date`.
+**Correção:** Substituir `formatNumber(followers)` por `followers.toLocaleString("pt-BR")` no `InstagramProfileCard`.
 
 ---
 
-### 3. Ordenacao Padrao por Maior Crescimento
+### Detalhes Técnicos
 
-Na aba Perfis (`InstagramProfilesList`), o valor padrao de `sort` sera alterado de `"recent"` para `"growth"`.
+**`InstagramProfileCard.tsx`:**
+- Adicionar prop opcional `periodChange?: number`
+- Usar `periodChange` (quando fornecido) em vez de `latest?.daily_change` para exibir o ganho
+- Trocar `formatNumber(followers)` por `followers.toLocaleString("pt-BR")`
 
-Na aba Analises (`InstagramAnalytics`), o ranking ja esta ordenado por crescimento por padrao, entao nao precisa de mudanca.
+**`InstagramDashboard.tsx`:**
+- Trocar `allMetrics?.filter(...)` por `filteredAllMetrics.filter(...)` ao passar métricas para os cards
+- Calcular e passar `periodChange` (soma dos `daily_change` filtrados) para cada card
 
-No Dashboard (`InstagramDashboard`), os cards de perfil tambem serao reordenados por crescimento diario.
-
----
-
-### Detalhes Tecnicos
-
-**Componente `DatePeriodFilter`** (novo arquivo `src/components/instagram/DatePeriodFilter.tsx`):
-- Select com as opcoes de preset (Hoje, Ontem, 7d, 30d, Total)
-- Quando "Personalizado" for selecionado, exibe um Popover com calendario de selecao de intervalo (date range)
-- Usa `react-day-picker` no modo `range` com `pointer-events-auto`
-- Retorna `{ from: Date | null, to: Date | null }` para o componente pai
-
-**Alteracoes em arquivos existentes:**
-
-1. **`InstagramProfileDetail.tsx`** -- Adicionar botao "Editar" e dialog/formulario inline para editar username, display_name, category e notes. Usa a mutacao `updateProfile` ja existente.
-
-2. **`InstagramProfilesList.tsx`** -- Trocar sort padrao para `"growth"`. Adicionar o componente `DatePeriodFilter` na toolbar. Passar o filtro de datas para a logica de metricas.
-
-3. **`InstagramDashboard.tsx`** -- Adicionar `DatePeriodFilter`. Ordenar grid de perfis por crescimento. Filtrar metricas pelo periodo selecionado.
-
-4. **`InstagramAnalytics.tsx`** -- Adicionar `DatePeriodFilter`. Filtrar metricas pelo periodo selecionado para que o ranking reflita o periodo escolhido.
-
-5. **`instagram-utils.ts`** -- Adicionar funcao helper `getDateRangeFromPreset(preset: string): { from: Date | null, to: Date | null }` para converter presets em datas.
-
+**`InstagramProfilesList.tsx`:**
+- Também passar as métricas filtradas e o `periodChange` calculado para os cards
