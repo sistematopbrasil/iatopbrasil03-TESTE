@@ -107,14 +107,19 @@ export function InstagramProfilesList() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filtered.map(profile => (
-            <InstagramProfileCard
-              key={profile.id}
-              profile={profile}
-              metrics={allMetrics?.filter(m => m.profile_id === profile.id) || []}
-              onClick={() => setSelectedProfileId(profile.id)}
-            />
-          ))}
+          {filtered.map(profile => {
+            const profileFilteredMetrics = filteredMetrics.filter(m => m.profile_id === profile.id);
+            const periodChange = profileFilteredMetrics.reduce((s, m) => s + (m.daily_change || 0), 0);
+            return (
+              <InstagramProfileCard
+                key={profile.id}
+                profile={profile}
+                metrics={allMetrics?.filter(m => m.profile_id === profile.id) || []}
+                periodChange={periodChange}
+                onClick={() => setSelectedProfileId(profile.id)}
+              />
+            );
+          })}
         </div>
       )}
 
