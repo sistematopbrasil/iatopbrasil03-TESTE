@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentConsultant, isSuperAdmin } from "@/lib/consultant-context";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, Users, LogOut, Menu, Settings, BarChart3, Kanban, CalendarDays, Trophy, Target, MessageSquare, PieChart, Bot } from "lucide-react";
+import { LayoutDashboard, Users, LogOut, Menu, Settings, BarChart3, Kanban, CalendarDays, Trophy, Target, MessageSquare, PieChart, Bot, Instagram } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { RoleBasedRedirect } from "@/components/RoleBasedRedirect";
@@ -53,6 +53,7 @@ export const AdminLayout = ({ children, disableVerticalScroll = false }: AdminLa
   const superAdminNavItems = [
     { path: '/admin/super', icon: BarChart3, label: 'Dashboard' },
     { path: '/admin/consultants', icon: Users, label: 'Consultores' },
+    { path: '/admin/instagram', icon: Instagram, label: 'Instagram' },
     { path: '/admin/ranking', icon: Trophy, label: 'Ranking' },
     { path: '/admin/settings', icon: Settings, label: 'Configurações' },
   ];

@@ -20,6 +20,7 @@ import ConsultantsManagement from "./pages/ConsultantsManagement";
 import QuizPage from "./pages/Quiz";
 import AdminCRM from "./pages/AdminCRM";
 import AdminAIConfig from "./pages/AdminAIConfig";
+import AdminInstagram from "./pages/AdminInstagram";
 import { ProtectedRoute } from "./components/admin/ProtectedRoute";
 
 // QueryClient com cache otimizado para evitar recarregamentos desnecessários
@@ -135,6 +136,14 @@ const App = () => {
                 element={
                   <ProtectedRoute>
                     <AdminAIConfig />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/instagram"
+                element={
+                  <ProtectedRoute>
+                    <AdminInstagram />
                   </ProtectedRoute>
                 }
               />
