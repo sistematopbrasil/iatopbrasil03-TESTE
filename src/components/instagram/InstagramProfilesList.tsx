@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Search, RefreshCw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { DatePeriodFilter, filterMetricsByDatePeriod, type DatePeriodValue } from "./DatePeriodFilter";
+import { startOfDay, subDays } from "date-fns";
 
 export function InstagramProfilesList() {
   const { data: profiles, isLoading } = useInstagramProfiles();
@@ -18,17 +20,22 @@ export function InstagramProfilesList() {
   const { updateAll } = useInstagramUpdate();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<string>("all");
-  const [sort, setSort] = useState<string>("recent");
+  const [sort, setSort] = useState<string>("growth");
   const [showAdd, setShowAdd] = useState(false);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
+  const [datePeriod, setDatePeriod] = useState<DatePeriodValue>({
+    preset: "7d",
+    from: subDays(startOfDay(new Date()), 6),
+    to: startOfDay(new Date()),
+  });
+
+  const filteredMetrics = filterMetricsByDatePeriod(allMetrics || [], datePeriod);
 
   let filtered = profiles || [];
 
-  // Filter
   if (filter === "active") filtered = filtered.filter(p => p.is_active);
   else if (filter === "archived") filtered = filtered.filter(p => !p.is_active);
 
-  // Search
   if (search) {
     const q = search.toLowerCase();
     filtered = filtered.filter(p =>
@@ -38,15 +45,14 @@ export function InstagramProfilesList() {
     );
   }
 
-  // Sort
   if (sort === "alpha") filtered = [...filtered].sort((a, b) => a.username.localeCompare(b.username));
   else if (sort === "recent") filtered = [...filtered].sort((a, b) => b.created_at.localeCompare(a.created_at));
   else if (sort === "growth") {
     filtered = [...filtered].sort((a, b) => {
-      const aMetrics = allMetrics?.filter(m => m.profile_id === a.id) || [];
-      const bMetrics = allMetrics?.filter(m => m.profile_id === b.id) || [];
-      const aChange = aMetrics[0]?.daily_change || 0;
-      const bChange = bMetrics[0]?.daily_change || 0;
+      const aMetrics = filteredMetrics.filter(m => m.profile_id === a.id);
+      const bMetrics = filteredMetrics.filter(m => m.profile_id === b.id);
+      const aChange = aMetrics.reduce((s, m) => s + (m.daily_change || 0), 0);
+      const bChange = bMetrics.reduce((s, m) => s + (m.daily_change || 0), 0);
       return bChange - aChange;
     });
   }
@@ -55,16 +61,10 @@ export function InstagramProfilesList() {
 
   return (
     <div className="space-y-4">
-      {/* Toolbar */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar perfil..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
+          <Input placeholder="Buscar perfil..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
         <Select value={filter} onValueChange={setFilter}>
           <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
@@ -77,17 +77,12 @@ export function InstagramProfilesList() {
         <Select value={sort} onValueChange={setSort}>
           <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
           <SelectContent>
+            <SelectItem value="growth">Maior Crescimento</SelectItem>
             <SelectItem value="recent">Mais Recentes</SelectItem>
             <SelectItem value="alpha">Alfabético</SelectItem>
-            <SelectItem value="growth">Maior Crescimento</SelectItem>
           </SelectContent>
         </Select>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => updateAll.mutate({})}
-          disabled={updateAll.isPending}
-        >
+        <Button variant="outline" size="icon" onClick={() => updateAll.mutate({})} disabled={updateAll.isPending}>
           <RefreshCw className={`h-4 w-4 ${updateAll.isPending ? "animate-spin" : ""}`} />
         </Button>
         <Button onClick={() => setShowAdd(true)}>
@@ -96,7 +91,8 @@ export function InstagramProfilesList() {
         </Button>
       </div>
 
-      {/* Grid */}
+      <DatePeriodFilter value={datePeriod} onChange={setDatePeriod} />
+
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map(i => (
@@ -122,17 +118,11 @@ export function InstagramProfilesList() {
         </div>
       )}
 
-      {/* Add Profile Modal */}
       <AddProfileModal open={showAdd} onOpenChange={setShowAdd} />
-
-      {/* Profile Detail Sheet */}
       <Sheet open={!!selectedProfileId} onOpenChange={(open) => !open && setSelectedProfileId(null)}>
         <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto p-0">
           {selectedProfile && (
-            <InstagramProfileDetail
-              profile={selectedProfile}
-              onClose={() => setSelectedProfileId(null)}
-            />
+            <InstagramProfileDetail profile={selectedProfile} onClose={() => setSelectedProfileId(null)} />
           )}
         </SheetContent>
       </Sheet>
