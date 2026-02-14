@@ -21,6 +21,7 @@ import QuizPage from "./pages/Quiz";
 import AdminCRM from "./pages/AdminCRM";
 import AdminAIConfig from "./pages/AdminAIConfig";
 import AdminInstagram from "./pages/AdminInstagram";
+import AdminTraffic from "./pages/AdminTraffic";
 import { ProtectedRoute } from "./components/admin/ProtectedRoute";
 
 // QueryClient com cache otimizado para evitar recarregamentos desnecessários
@@ -144,6 +145,14 @@ const App = () => {
                 element={
                   <ProtectedRoute>
                     <AdminInstagram />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/traffic"
+                element={
+                  <ProtectedRoute>
+                    <AdminTraffic />
                   </ProtectedRoute>
                 }
               />

@@ -15,7 +15,7 @@ export function RoleBasedRedirect() {
   useEffect(() => {
     if (isLoading || !consultant) return;
 
-    const superAdminOnlyRoutes = ['/admin/super', '/admin/consultants'];
+    const superAdminOnlyRoutes = ['/admin/super', '/admin/consultants', '/admin/traffic'];
     // Rotas que APENAS consultores podem acessar (não super_admin)
     // NOTA: /admin/ranking é acessível por AMBOS os roles
     const consultantOnlyRoutes = ['/admin/dashboard', '/admin/leads', '/admin/pipeline', '/admin/events', '/admin/analytics'];
