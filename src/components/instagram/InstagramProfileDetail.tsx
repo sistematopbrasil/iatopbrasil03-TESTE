@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowUp, ArrowDown, ExternalLink, RefreshCw, Trash2, Archive } from "lucide-react";
+import { ArrowUp, ArrowDown, ExternalLink, RefreshCw, Trash2, Archive, Pencil } from "lucide-react";
 import { formatNumber, formatChange, formatPercentage, getLatestMetric, calculateAverage, filterMetricsByPeriod, type InstaProfile } from "@/lib/instagram-utils";
 import { GrowthAreaChart } from "./GrowthAreaChart";
 import { DailyChangeBarChart } from "./DailyChangeBarChart";
@@ -23,6 +23,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { EditProfileDialog } from "./EditProfileDialog";
 
 interface Props {
   profile: InstaProfile;
@@ -34,6 +35,7 @@ export function InstagramProfileDetail({ profile, onClose }: Props) {
   const { updateAll } = useInstagramUpdate();
   const { updateProfile, deleteProfile } = useInstagramProfiles();
   const [period, setPeriod] = useState<string>("30");
+  const [editOpen, setEditOpen] = useState(false);
 
   const latest = getLatestMetric(metrics || []);
   const periodDays = period === "all" ? null : parseInt(period);
@@ -68,6 +70,10 @@ export function InstagramProfileDetail({ profile, onClose }: Props) {
 
       {/* Actions */}
       <div className="flex gap-2 flex-wrap">
+        <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>
+          <Pencil className="h-4 w-4 mr-1" />
+          Editar
+        </Button>
         <Button
           size="sm"
           variant="outline"
@@ -178,6 +184,8 @@ export function InstagramProfileDetail({ profile, onClose }: Props) {
           <DailyChangeBarChart metrics={filteredMetrics} />
         </TabsContent>
       </Tabs>
+
+      <EditProfileDialog profile={profile} open={editOpen} onOpenChange={setEditOpen} />
     </div>
   );
 }
