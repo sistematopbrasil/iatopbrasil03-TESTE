@@ -14,6 +14,133 @@ export type Database = {
   }
   public: {
     Tables: {
+      ad_accounts: {
+        Row: {
+          ad_account_id: string
+          created_at: string | null
+          currency: string | null
+          id: string
+          instagram_user_id: string | null
+          instagram_username: string | null
+          is_monitored: boolean | null
+          last_synced_at: string | null
+          meta_status: string | null
+          name: string
+          organization_id: string
+          page_id: string | null
+          page_name: string | null
+          status: string | null
+          timezone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ad_account_id: string
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          instagram_user_id?: string | null
+          instagram_username?: string | null
+          is_monitored?: boolean | null
+          last_synced_at?: string | null
+          meta_status?: string | null
+          name: string
+          organization_id: string
+          page_id?: string | null
+          page_name?: string | null
+          status?: string | null
+          timezone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ad_account_id?: string
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          instagram_user_id?: string | null
+          instagram_username?: string | null
+          is_monitored?: boolean | null
+          last_synced_at?: string | null
+          meta_status?: string | null
+          name?: string
+          organization_id?: string
+          page_id?: string | null
+          page_name?: string | null
+          status?: string | null
+          timezone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_accounts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_metrics: {
+        Row: {
+          ad_account_id: string
+          clicks: number | null
+          cost_per_visit: number | null
+          cpc: number | null
+          created_at: string | null
+          ctr: number | null
+          date: string
+          frequency: number | null
+          id: string
+          impressions: number | null
+          organization_id: string
+          profile_visits: number | null
+          reach: number | null
+          spend: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          ad_account_id: string
+          clicks?: number | null
+          cost_per_visit?: number | null
+          cpc?: number | null
+          created_at?: string | null
+          ctr?: number | null
+          date: string
+          frequency?: number | null
+          id?: string
+          impressions?: number | null
+          organization_id: string
+          profile_visits?: number | null
+          reach?: number | null
+          spend?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          ad_account_id?: string
+          clicks?: number | null
+          cost_per_visit?: number | null
+          cpc?: number | null
+          created_at?: string | null
+          ctr?: number | null
+          date?: string
+          frequency?: number | null
+          id?: string
+          impressions?: number | null
+          organization_id?: string
+          profile_visits?: number | null
+          reach?: number | null
+          spend?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_metrics_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_agent_configs: {
         Row: {
           agent_name: string | null
@@ -1475,6 +1602,41 @@ export type Database = {
             columns: ["submission_id"]
             isOneToOne: false
             referencedRelation: "quiz_submissions_new"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      traffic_settings: {
+        Row: {
+          ai_enabled: boolean | null
+          created_at: string | null
+          id: string
+          meta_token_configured: boolean | null
+          organization_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          ai_enabled?: boolean | null
+          created_at?: string | null
+          id?: string
+          meta_token_configured?: boolean | null
+          organization_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          ai_enabled?: boolean | null
+          created_at?: string | null
+          id?: string
+          meta_token_configured?: boolean | null
+          organization_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "traffic_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
