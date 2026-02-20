@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
 
     const { data: accounts, error: accErr } = await supabase
       .from("ad_accounts")
-      .select("ad_account_id, organization_id")
+      .select("ad_account_id, organization_id, days_synced")
       .eq("is_monitored", true);
 
     if (accErr) throw accErr;
@@ -32,6 +32,10 @@ Deno.serve(async (req) => {
 
     for (const acc of accounts) {
       try {
+        // Smart sync: first time = 60d history, subsequent = last 2 days only
+        const isFirstSync = !acc.days_synced || acc.days_synced === 0;
+        const datePreset = isFirstSync ? "last_60d" : "last_2d";
+
         const res = await fetch(`${baseUrl}/functions/v1/fetch-meta-ads-data`, {
           method: "POST",
           headers: {
@@ -41,16 +45,19 @@ Deno.serve(async (req) => {
           body: JSON.stringify({
             ad_account_id: acc.ad_account_id,
             organization_id: acc.organization_id,
-            date_preset: "last_7d",
+            date_preset: datePreset,
           }),
         });
         const data = await res.json();
-        results.push({ ad_account_id: acc.ad_account_id, ...data });
+        results.push({ ad_account_id: acc.ad_account_id, preset: datePreset, ...data });
 
-        // Update last_synced_at
+        // Update last_synced_at and days_synced
         await supabase
           .from("ad_accounts")
-          .update({ last_synced_at: new Date().toISOString() })
+          .update({
+            last_synced_at: new Date().toISOString(),
+            days_synced: isFirstSync ? 60 : (acc.days_synced || 0) + 2,
+          })
           .eq("ad_account_id", acc.ad_account_id)
           .eq("organization_id", acc.organization_id);
       } catch (e) {

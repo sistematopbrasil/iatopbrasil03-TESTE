@@ -72,10 +72,32 @@ export function useAdAccounts(organizationId?: string) {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["ad-accounts"] });
       queryClient.invalidateQueries({ queryKey: ["ad-metrics"] });
-      toast({ title: "Sincronização concluída!" });
+      toast({ title: `Sincronização concluída! ${data?.synced || 0} contas atualizadas.` });
+    },
+    onError: (e: Error) => {
+      toast({ title: "Erro na sincronização", description: e.message, variant: "destructive" });
+    },
+  });
+
+  const syncSingleAccount = useMutation({
+    mutationFn: async ({ ad_account_id, force60d }: { ad_account_id: string; force60d?: boolean }) => {
+      const { data, error } = await supabase.functions.invoke("fetch-meta-ads-data", {
+        body: {
+          ad_account_id,
+          organization_id: organizationId,
+          date_preset: force60d ? "last_60d" : "last_2d",
+        },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["ad-metrics"] });
+      queryClient.invalidateQueries({ queryKey: ["ad-accounts"] });
+      toast({ title: `Conta sincronizada! ${data?.synced || 0} dias atualizados.` });
     },
     onError: (e: Error) => {
       toast({ title: "Erro na sincronização", description: e.message, variant: "destructive" });
@@ -104,6 +126,7 @@ export function useAdAccounts(organizationId?: string) {
     toggleMonitoring,
     validateToken,
     syncAllAccounts,
+    syncSingleAccount,
     syncHistory,
   };
 }
