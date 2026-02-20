@@ -1,11 +1,12 @@
-import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrafficDashboard } from "@/components/traffic/TrafficDashboard";
 import { TrafficAccounts } from "@/components/traffic/TrafficAccounts";
 import { TrafficSettings } from "@/components/traffic/TrafficSettings";
+import { CampaignsTab } from "@/components/traffic/CampaignsTab";
 import { getCurrentConsultant } from "@/lib/consultant-context";
+import { supabase } from "@/integrations/supabase/client";
 import { Megaphone } from "lucide-react";
 
 const AdminTraffic = () => {
@@ -15,6 +16,22 @@ const AdminTraffic = () => {
   });
 
   const organizationId = consultant?.organization_id;
+
+  // Load aiEnabled once centrally so it's available for all tabs
+  const { data: trafficSettings } = useQuery({
+    queryKey: ["traffic-settings", organizationId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("traffic_settings")
+        .select("ai_enabled")
+        .eq("organization_id", organizationId!)
+        .single();
+      return data;
+    },
+    enabled: !!organizationId,
+  });
+
+  const aiEnabled = trafficSettings?.ai_enabled ?? false;
 
   return (
     <AdminLayout>
@@ -31,12 +48,17 @@ const AdminTraffic = () => {
           <Tabs defaultValue="overview" className="w-full">
             <TabsList>
               <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+              <TabsTrigger value="campaigns">Campanhas</TabsTrigger>
               <TabsTrigger value="accounts">Contas</TabsTrigger>
               <TabsTrigger value="settings">Configurações</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview">
               <TrafficDashboard organizationId={organizationId} />
+            </TabsContent>
+
+            <TabsContent value="campaigns">
+              <CampaignsTab organizationId={organizationId} aiEnabled={aiEnabled} />
             </TabsContent>
 
             <TabsContent value="accounts">
