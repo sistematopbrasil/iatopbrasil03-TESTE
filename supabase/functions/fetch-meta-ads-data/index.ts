@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
         post_engagement,
         conversions,
         organization_id,
-      }, { onConflict: "ad_account_id,date" });
+      }, { onConflict: "ad_account_id,date,organization_id" });
 
       if (!error) synced++;
     }

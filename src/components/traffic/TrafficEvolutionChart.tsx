@@ -13,8 +13,6 @@ interface DailyData {
   clicks: number;
   reach: number;
   profile_visits: number;
-  post_engagement: number;
-  conversions: number;
   ctr: number;
 }
 
@@ -29,8 +27,6 @@ const METRICS = [
   { key: "clicks", label: "Cliques", color: "#22c55e", format: (v: number) => v.toLocaleString("pt-BR") },
   { key: "reach", label: "Alcance", color: "#a855f7", format: (v: number) => v.toLocaleString("pt-BR") },
   { key: "profile_visits", label: "Visitas ao Perfil", color: "#ec4899", format: (v: number) => v.toLocaleString("pt-BR") },
-  { key: "post_engagement", label: "Engajamento", color: "#8b5cf6", format: (v: number) => v.toLocaleString("pt-BR") },
-  { key: "conversions", label: "Conversões", color: "#f97316", format: (v: number) => v.toLocaleString("pt-BR") },
   { key: "ctr", label: "CTR (%)", color: "#f59e0b", format: (v: number) => v.toFixed(2) + "%" },
 ];
 
