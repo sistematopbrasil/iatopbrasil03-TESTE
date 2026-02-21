@@ -1615,9 +1615,48 @@ export type Database = {
           },
         ]
       }
+      traffic_ai_conversations: {
+        Row: {
+          ad_account_id: string
+          created_at: string
+          id: string
+          messages: Json
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          ad_account_id: string
+          created_at?: string
+          id?: string
+          messages?: Json
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          ad_account_id?: string
+          created_at?: string
+          id?: string
+          messages?: Json
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "traffic_ai_conversations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       traffic_settings: {
         Row: {
           ai_enabled: boolean | null
+          ai_model: string
+          ai_response_mode: string
+          ai_system_prompt: string | null
+          ai_temperature: number
           created_at: string | null
           id: string
           meta_token_configured: boolean | null
@@ -1626,6 +1665,10 @@ export type Database = {
         }
         Insert: {
           ai_enabled?: boolean | null
+          ai_model?: string
+          ai_response_mode?: string
+          ai_system_prompt?: string | null
+          ai_temperature?: number
           created_at?: string | null
           id?: string
           meta_token_configured?: boolean | null
@@ -1634,6 +1677,10 @@ export type Database = {
         }
         Update: {
           ai_enabled?: boolean | null
+          ai_model?: string
+          ai_response_mode?: string
+          ai_system_prompt?: string | null
+          ai_temperature?: number
           created_at?: string | null
           id?: string
           meta_token_configured?: boolean | null

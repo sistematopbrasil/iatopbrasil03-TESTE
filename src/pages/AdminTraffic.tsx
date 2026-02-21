@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -7,6 +8,7 @@ import { TrafficSettings } from "@/components/traffic/TrafficSettings";
 import { CampaignsTab } from "@/components/traffic/CampaignsTab";
 import { getCurrentConsultant } from "@/lib/consultant-context";
 import { supabase } from "@/integrations/supabase/client";
+import { useAdAccounts } from "@/hooks/useAdAccounts";
 import { Megaphone } from "lucide-react";
 
 const AdminTraffic = () => {
@@ -17,7 +19,6 @@ const AdminTraffic = () => {
 
   const organizationId = consultant?.organization_id;
 
-  // Load aiEnabled once centrally so it's available for all tabs
   const { data: trafficSettings } = useQuery({
     queryKey: ["traffic-settings", organizationId],
     queryFn: async () => {
@@ -32,6 +33,18 @@ const AdminTraffic = () => {
   });
 
   const aiEnabled = trafficSettings?.ai_enabled ?? false;
+
+  // Auto-sync on mount
+  const { syncAllAccounts } = useAdAccounts(organizationId);
+  const hasSynced = useRef(false);
+
+  useEffect(() => {
+    if (organizationId && !hasSynced.current) {
+      hasSynced.current = true;
+      // Background sync — don't show toast for auto-sync
+      supabase.functions.invoke("sync-all-accounts").catch(() => {});
+    }
+  }, [organizationId]);
 
   return (
     <AdminLayout>
