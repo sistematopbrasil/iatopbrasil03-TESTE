@@ -1,0 +1,1 @@
+ALTER TABLE public.ad_accounts ADD COLUMN IF NOT EXISTS days_synced integer DEFAULT 0;
