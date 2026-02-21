@@ -1,22 +1,14 @@
 
 
-## Plano de Correção: Dados de Tráfego, Logo, PWA e Filtros de Campanhas
+## Plano Completo: Correcoes de Trafego, Logo, PWA e Campanhas
 
-### 1. Causa raiz dos dados de tráfego não atualizarem
+Este plano cobre TODAS as correcoes pendentes de uma vez. Nada foi implementado ainda alem da coluna `days_synced`.
 
-A tabela `ad_metrics` ainda **não tem** as colunas `link_clicks`, `post_engagement` e `video_views`. A edge function `fetch-meta-ads-data` tenta gravar nessas colunas inexistentes, fazendo com que **todos os upserts falhem silenciosamente**. Os 27 registros existentes (apenas 7 dias, do dia 13 ao 19/fev) são de antes dessas colunas serem adicionadas ao código.
+---
 
-Apesar do `days_synced` estar em 93 (o que significa que o sync "achou" que funcionou), nenhum dado novo foi realmente salvo.
+### 1. Migracao de banco de dados
 
-### Solução
-
-**1.1 Migração de banco de dados**
-
-Adicionar 2 novas colunas úteis (substituindo as 3 originais por métricas mais relevantes):
-- `post_engagement` (engajamento total com publicações -- curtidas, comentários, compartilhamentos)
-- `conversions` (resultados/conversões das campanhas)
-
-Resetar `days_synced = 0` para forçar re-sync completo de 90 dias.
+A tabela `ad_metrics` nao tem as colunas que a edge function tenta gravar, causando falha silenciosa em todos os upserts. Alem disso, `days_synced` esta em 93 (falso), impedindo re-sync completo.
 
 ```sql
 ALTER TABLE public.ad_metrics ADD COLUMN IF NOT EXISTS post_engagement bigint DEFAULT 0;
@@ -24,66 +16,88 @@ ALTER TABLE public.ad_metrics ADD COLUMN IF NOT EXISTS conversions bigint DEFAUL
 UPDATE public.ad_accounts SET days_synced = 0;
 ```
 
-**1.2 Atualizar `fetch-meta-ads-data`**
-
-- Remover gravação de `link_clicks` e `video_views`
-- Substituir por `post_engagement` e `conversions` (extraídos do campo `actions` da API Meta)
-- A coluna `clicks` já cobre cliques totais (inclui cliques no link)
-
-**1.3 Corrigir `sync-all-accounts`**
-
-- Só atualizar `days_synced` se o sync realmente retornou `synced > 0`
+- `post_engagement`: engajamento com publicacoes (curtidas, comentarios, compartilhamentos)
+- `conversions`: resultados/conversoes das campanhas
+- Nao adicionar `link_clicks` nem `video_views` (usuario nao quer essas metricas)
 
 ---
 
-### 2. Logo desaparecendo ao trocar de página
+### 2. Atualizar edge function `fetch-meta-ads-data`
 
-O problema é que o componente `AdminLayout` usa `resolvedTheme` do `next-themes` para escolher entre logo claro/escuro. Quando a página muda, o hook `useTheme` momentaneamente retorna `undefined` para `resolvedTheme`, causando um "flash" onde a logo some.
+Trocar a gravacao de `link_clicks`, `post_engagement` e `video_views` pelas novas colunas:
 
-**Solução**: Usar fallback para `resolvedTheme` e adicionar eager loading na tag `<img>` para evitar re-download.
-
----
-
-### 3. Remover notificações/pop-ups de instalação PWA
-
-Dois componentes exibem banners de instalação:
-- `InstallAdminPWA` (dentro do `AdminLayout`)
-- `InstallPWA` (componente separado)
-
-**Solução**: Remover a renderização de `InstallAdminPWA` do `AdminLayout`. O componente `InstallPWA` não é importado em nenhum lugar ativo, mas será limpo também.
+- `post_engagement`: extrair de `actions` com tipos `post_engagement`, `post`
+- `conversions`: extrair de `actions` com tipos `offsite_conversion.fb_pixel_purchase`, `onsite_conversion.messaging_conversation_started_7d`, `lead`, `complete_registration`
+- Remover `link_clicks` e `video_views` do upsert
 
 ---
 
-### 4. Filtros na aba de Campanhas
+### 3. Corrigir edge function `sync-all-accounts`
 
-Adicionar barra de filtros com:
-- **Ordenar por**: Data de criação (mais recente/mais antiga), Orçamento (maior/menor)
-- **Filtrar por status**: Mostrar apenas campanhas ativas
+So atualizar `days_synced` se o fetch retornou `synced > 0`:
 
-Será adicionado no componente `CampaignsTab`.
-
----
-
-### 5. Atualizar TrafficMetricCards e hooks
-
-- Remover métricas `linkClicks` e `videoViews` dos cards
-- Adicionar `postEngagement` (Engajamento) e `conversions` (Conversões)
-- Atualizar `useTrafficMetrics` para calcular as novas métricas
-- Atualizar `TrafficEvolutionChart` para remover `link_clicks` das opções de gráfico
+```text
+Antes:  sempre atualiza days_synced apos cada conta
+Depois: if (data.synced > 0) { atualizar days_synced }
+```
 
 ---
 
-### Arquivos Afetados
+### 4. Corrigir logo piscando no AdminLayout
 
-| Arquivo | Mudança |
+- Adicionar fallback para `resolvedTheme` quando `undefined`: usar `'light'` como padrao
+- Adicionar `loading="eager"` na tag `<img>` da logo para evitar re-download
+
+---
+
+### 5. Remover notificacoes PWA
+
+- Remover `<InstallAdminPWA />` da linha 279 do `AdminLayout.tsx`
+- Remover o import na linha 16
+
+---
+
+### 6. Atualizar metricas no frontend
+
+**useTrafficMetrics.ts:**
+- Remover `totalLinkClicks` e `totalVideoViews`
+- Adicionar `totalPostEngagement` e `totalConversions`
+- Atualizar agregacoes diarias e por conta
+
+**TrafficMetricCards.tsx:**
+- Trocar card "Cliques no Link" por "Engajamento"
+- Trocar card "Views de Video" por "Conversoes"
+- Atualizar props e interface
+
+**TrafficDashboard.tsx:**
+- Atualizar props passadas para `TrafficMetricCards` (trocar `totalLinkClicks`/`totalVideoViews` por novas metricas)
+
+**TrafficEvolutionChart.tsx:**
+- Remover `link_clicks` das opcoes de metrica no grafico
+
+---
+
+### 7. Filtros na aba de Campanhas (CampaignsTab)
+
+Adicionar barra de filtros acima da lista:
+
+- **Ordenar por**: Status (padrao atual), Data de criacao (recente/antiga), Orcamento (maior/menor)
+- **Filtrar por status**: Checkbox ou toggle "Apenas ativas"
+
+---
+
+### Arquivos afetados
+
+| Arquivo | Mudanca |
 |---|---|
-| Migração SQL | Adicionar colunas `post_engagement` e `conversions`, resetar `days_synced` |
-| `supabase/functions/fetch-meta-ads-data/index.ts` | Trocar `link_clicks`/`video_views` por `post_engagement`/`conversions` |
+| Migracao SQL | Adicionar `post_engagement` + `conversions`, resetar `days_synced` |
+| `supabase/functions/fetch-meta-ads-data/index.ts` | Trocar colunas gravadas |
 | `supabase/functions/sync-all-accounts/index.ts` | Validar resultado antes de atualizar `days_synced` |
-| `src/hooks/useTrafficMetrics.ts` | Trocar métricas por `postEngagement`/`conversions` |
-| `src/components/traffic/TrafficMetricCards.tsx` | Trocar cards de linkClicks/videoViews por engajamento/conversões |
-| `src/components/traffic/TrafficEvolutionChart.tsx` | Remover `link_clicks` das opções do gráfico |
-| `src/components/traffic/TrafficDashboard.tsx` | Atualizar props passadas para MetricCards |
-| `src/components/traffic/CampaignsTab.tsx` | Adicionar filtros de ordenação e status |
-| `src/components/admin/AdminLayout.tsx` | Remover `InstallAdminPWA`, corrigir flash da logo |
+| `src/hooks/useTrafficMetrics.ts` | Trocar metricas |
+| `src/components/traffic/TrafficMetricCards.tsx` | Trocar cards |
+| `src/components/traffic/TrafficEvolutionChart.tsx` | Remover `link_clicks` do grafico |
+| `src/components/traffic/TrafficDashboard.tsx` | Atualizar props |
+| `src/components/traffic/CampaignsTab.tsx` | Adicionar filtros |
+| `src/components/admin/AdminLayout.tsx` | Remover PWA banner + corrigir logo |
+| `src/integrations/supabase/types.ts` | Atualizado automaticamente apos migracao |
 
