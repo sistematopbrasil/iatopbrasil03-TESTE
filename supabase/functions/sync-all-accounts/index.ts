@@ -51,6 +51,22 @@ Deno.serve(async (req) => {
         const data = await res.json();
         results.push({ ad_account_id: acc.ad_account_id, preset: datePreset, ...data });
 
+        // Always sync today's data to ensure real-time metrics
+        const resToday = await fetch(`${baseUrl}/functions/v1/fetch-meta-ads-data`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${serviceKey}`,
+          },
+          body: JSON.stringify({
+            ad_account_id: acc.ad_account_id,
+            organization_id: acc.organization_id,
+            date_preset: "today",
+          }),
+        });
+        const dataToday = await resToday.json();
+        results.push({ ad_account_id: acc.ad_account_id, preset: "today", ...dataToday });
+
         // Only update days_synced if data was actually synced
         if (data.synced > 0) {
           await supabase

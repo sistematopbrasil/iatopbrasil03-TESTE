@@ -51,9 +51,9 @@ export const AdminLayout = ({ children, disableVerticalScroll = false }: AdminLa
   const superAdminNavItems = [
     { path: '/admin/super', icon: BarChart3, label: 'Dashboard' },
     { path: '/admin/consultants', icon: Users, label: 'Consultores' },
+    { path: '/admin/ranking', icon: Trophy, label: 'Ranking' },
     { path: '/admin/instagram', icon: Instagram, label: 'Instagram' },
     { path: '/admin/traffic', icon: Megaphone, label: 'Tráfego' },
-    { path: '/admin/ranking', icon: Trophy, label: 'Ranking' },
     { path: '/admin/settings', icon: Settings, label: 'Configurações' },
   ];
 
