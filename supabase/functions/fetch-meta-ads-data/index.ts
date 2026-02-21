@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
     }
 
     const token = Deno.env.get("META_ACCESS_TOKEN")!;
-    const preset = date_preset || "last_7d";
+    const preset = date_preset || "last_3d";
 
     const fields = "impressions,clicks,spend,cpc,ctr,reach,frequency,actions,action_values";
     const url = `https://graph.facebook.com/v21.0/act_${ad_account_id}/insights?fields=${fields}&time_increment=1&date_preset=${preset}&limit=100&access_token=${token}`;

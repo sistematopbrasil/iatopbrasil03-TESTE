@@ -88,7 +88,7 @@ export function useAdAccounts(organizationId?: string) {
         body: {
           ad_account_id,
           organization_id: organizationId,
-          date_preset: force60d ? "last_60d" : "last_2d",
+          date_preset: force60d ? "last_90d" : "last_3d",
         },
       });
       if (error) throw error;
