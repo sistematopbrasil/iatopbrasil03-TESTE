@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useAdAccounts } from "@/hooks/useAdAccounts";
 import { useAccountCampaigns } from "@/hooks/useAccountCampaigns";
 import { useTrafficMetrics } from "@/hooks/useTrafficMetrics";
@@ -10,7 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RefreshCw, Megaphone, Bot, LayoutList, AlertCircle } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RefreshCw, Megaphone, Bot, LayoutList, AlertCircle, ArrowUpDown } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 interface CampaignsTabProps {
@@ -22,6 +23,8 @@ export function CampaignsTab({ organizationId, aiEnabled }: CampaignsTabProps) {
   const isMobile = useIsMobile();
   const { accounts } = useAdAccounts(organizationId);
   const [selectedAccountId, setSelectedAccountId] = useState<string>("");
+  const [sortBy, setSortBy] = useState<string>("status");
+  const [onlyActive, setOnlyActive] = useState(false);
 
   const monitoredAccounts = accounts.filter(a => a.is_monitored);
   const selectedAccount = monitoredAccounts.find(a => a.ad_account_id === selectedAccountId);
@@ -91,11 +94,35 @@ export function CampaignsTab({ organizationId, aiEnabled }: CampaignsTabProps) {
     }
 
     const statusOrder: Record<string, number> = { ACTIVE: 0, IN_PROCESS: 1, PAUSED: 2, ARCHIVED: 3, DELETED: 4 };
-    const sorted = [...campaigns].sort((a, b) => (statusOrder[a.status] ?? 5) - (statusOrder[b.status] ?? 5));
+    
+    let filtered = onlyActive ? campaigns.filter(c => c.status === "ACTIVE") : [...campaigns];
+    
+    if (sortBy === "status") {
+      filtered.sort((a, b) => (statusOrder[a.status] ?? 5) - (statusOrder[b.status] ?? 5));
+    } else if (sortBy === "date_newest") {
+      filtered.sort((a, b) => new Date(b.created_time || 0).getTime() - new Date(a.created_time || 0).getTime());
+    } else if (sortBy === "date_oldest") {
+      filtered.sort((a, b) => new Date(a.created_time || 0).getTime() - new Date(b.created_time || 0).getTime());
+    } else if (sortBy === "budget_high") {
+      filtered.sort((a, b) => Number(b.daily_budget || b.lifetime_budget || 0) - Number(a.daily_budget || a.lifetime_budget || 0));
+    } else if (sortBy === "budget_low") {
+      filtered.sort((a, b) => Number(a.daily_budget || a.lifetime_budget || 0) - Number(b.daily_budget || b.lifetime_budget || 0));
+    }
+
+    if (filtered.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center h-48 text-center gap-3">
+          <Megaphone className="h-8 w-8 text-muted-foreground/40" />
+          <p className="text-muted-foreground text-sm">
+            {onlyActive ? "Nenhuma campanha ativa encontrada" : "Nenhuma campanha encontrada para esta conta"}
+          </p>
+        </div>
+      );
+    }
 
     return (
       <div className="space-y-2">
-        {sorted.map(campaign => (
+        {filtered.map(campaign => (
           <CampaignCard key={campaign.id} campaign={campaign} />
         ))}
       </div>
@@ -145,6 +172,37 @@ export function CampaignsTab({ organizationId, aiEnabled }: CampaignsTabProps) {
           </div>
         )}
       </div>
+
+      {/* Filters bar */}
+      {selectedAccountId && campaigns.length > 0 && (
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="h-8 w-[180px] text-xs">
+                <SelectValue placeholder="Ordenar por..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="status">Status</SelectItem>
+                <SelectItem value="date_newest">Mais recentes</SelectItem>
+                <SelectItem value="date_oldest">Mais antigas</SelectItem>
+                <SelectItem value="budget_high">Maior orçamento</SelectItem>
+                <SelectItem value="budget_low">Menor orçamento</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="only-active"
+              checked={onlyActive}
+              onCheckedChange={(checked) => setOnlyActive(checked === true)}
+            />
+            <label htmlFor="only-active" className="text-xs text-muted-foreground cursor-pointer">
+              Apenas ativas
+            </label>
+          </div>
+        </div>
+      )}
 
       {/* Content layout */}
       {isMobile && aiEnabled && selectedAccountId && campaigns.length > 0 ? (

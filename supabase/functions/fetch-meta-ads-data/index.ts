@@ -61,9 +61,13 @@ Deno.serve(async (req) => {
         "onsite_conversion.profile_visit",
         "page_engagement"
       );
-      const link_clicks = findAction("link_click", "outbound_click");
       const post_engagement = findAction("post_engagement", "post");
-      const video_views = findAction("video_view", "video_p25_watched_actions");
+      const conversions = findAction(
+        "offsite_conversion.fb_pixel_purchase",
+        "onsite_conversion.messaging_conversation_started_7d",
+        "lead",
+        "complete_registration"
+      );
 
       const spend = parseFloat(row.spend || "0");
       const pv = profile_visits;
@@ -80,9 +84,8 @@ Deno.serve(async (req) => {
         frequency: parseFloat(row.frequency || "0"),
         profile_visits: pv,
         cost_per_visit: pv > 0 ? spend / pv : 0,
-        link_clicks,
         post_engagement,
-        video_views,
+        conversions,
         organization_id,
       }, { onConflict: "ad_account_id,date" });
 
