@@ -86,6 +86,7 @@ export type Database = {
         Row: {
           ad_account_id: string
           clicks: number | null
+          conversions: number | null
           cost_per_visit: number | null
           cpc: number | null
           created_at: string | null
@@ -95,6 +96,7 @@ export type Database = {
           id: string
           impressions: number | null
           organization_id: string
+          post_engagement: number | null
           profile_visits: number | null
           reach: number | null
           spend: number | null
@@ -103,6 +105,7 @@ export type Database = {
         Insert: {
           ad_account_id: string
           clicks?: number | null
+          conversions?: number | null
           cost_per_visit?: number | null
           cpc?: number | null
           created_at?: string | null
@@ -112,6 +115,7 @@ export type Database = {
           id?: string
           impressions?: number | null
           organization_id: string
+          post_engagement?: number | null
           profile_visits?: number | null
           reach?: number | null
           spend?: number | null
@@ -120,6 +124,7 @@ export type Database = {
         Update: {
           ad_account_id?: string
           clicks?: number | null
+          conversions?: number | null
           cost_per_visit?: number | null
           cpc?: number | null
           created_at?: string | null
@@ -129,6 +134,7 @@ export type Database = {
           id?: string
           impressions?: number | null
           organization_id?: string
+          post_engagement?: number | null
           profile_visits?: number | null
           reach?: number | null
           spend?: number | null
