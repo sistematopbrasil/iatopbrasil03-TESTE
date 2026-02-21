@@ -1,88 +1,65 @@
 
 
-## Plano Completo: Correcoes de Trafego, Logo, PWA e Campanhas
+## Plano: Correcao do Sync, Logo, Frequencia e Limpeza de Metricas
 
-Este plano cobre TODAS as correcoes pendentes de uma vez. Nada foi implementado ainda alem da coluna `days_synced`.
+### 1. CAUSA RAIZ do sync falhando (CRITICO)
 
----
+Testei a edge function diretamente e confirmei: a Meta API retorna **78 registros**, mas **0 sao salvos** no banco.
 
-### 1. Migracao de banco de dados
+O motivo: a tabela `ad_metrics` tem uma constraint UNIQUE em `(ad_account_id, date, organization_id)`, mas o codigo usa `onConflict: "ad_account_id,date"` (sem `organization_id`). Essa incompatibilidade faz TODOS os upserts falharem silenciosamente.
 
-A tabela `ad_metrics` nao tem as colunas que a edge function tenta gravar, causando falha silenciosa em todos os upserts. Alem disso, `days_synced` esta em 93 (falso), impedindo re-sync completo.
-
-```sql
-ALTER TABLE public.ad_metrics ADD COLUMN IF NOT EXISTS post_engagement bigint DEFAULT 0;
-ALTER TABLE public.ad_metrics ADD COLUMN IF NOT EXISTS conversions bigint DEFAULT 0;
-UPDATE public.ad_accounts SET days_synced = 0;
+**Correcao**: Mudar a linha 90 de `fetch-meta-ads-data/index.ts`:
 ```
-
-- `post_engagement`: engajamento com publicacoes (curtidas, comentarios, compartilhamentos)
-- `conversions`: resultados/conversoes das campanhas
-- Nao adicionar `link_clicks` nem `video_views` (usuario nao quer essas metricas)
-
----
-
-### 2. Atualizar edge function `fetch-meta-ads-data`
-
-Trocar a gravacao de `link_clicks`, `post_engagement` e `video_views` pelas novas colunas:
-
-- `post_engagement`: extrair de `actions` com tipos `post_engagement`, `post`
-- `conversions`: extrair de `actions` com tipos `offsite_conversion.fb_pixel_purchase`, `onsite_conversion.messaging_conversation_started_7d`, `lead`, `complete_registration`
-- Remover `link_clicks` e `video_views` do upsert
-
----
-
-### 3. Corrigir edge function `sync-all-accounts`
-
-So atualizar `days_synced` se o fetch retornou `synced > 0`:
-
-```text
-Antes:  sempre atualiza days_synced apos cada conta
-Depois: if (data.synced > 0) { atualizar days_synced }
+// De:
+onConflict: "ad_account_id,date"
+// Para:
+onConflict: "ad_account_id,date,organization_id"
 ```
 
 ---
 
-### 4. Corrigir logo piscando no AdminLayout
+### 2. Logo sumindo ao trocar de pagina
 
-- Adicionar fallback para `resolvedTheme` quando `undefined`: usar `'light'` como padrao
-- Adicionar `loading="eager"` na tag `<img>` da logo para evitar re-download
+O problema NAO e o `resolvedTheme` (o fallback ja esta la). O problema e que `DesktopSidebar` e `MobileMenuContent` sao definidos como funcoes-componente DENTRO do `AdminLayout`. Isso faz o React recriar (unmount + mount) esses componentes a cada navegacao, causando flash da imagem.
 
----
-
-### 5. Remover notificacoes PWA
-
-- Remover `<InstallAdminPWA />` da linha 279 do `AdminLayout.tsx`
-- Remover o import na linha 16
+**Correcao**: Converter `DesktopSidebar` e `MobileMenuContent` de componentes internos para JSX inline direto no return do `AdminLayout`. Isso evita a recriacao e a logo permanece estavel.
 
 ---
 
-### 6. Atualizar metricas no frontend
+### 3. Frequencia menor que 1
 
-**useTrafficMetrics.ts:**
-- Remover `totalLinkClicks` e `totalVideoViews`
-- Adicionar `totalPostEngagement` e `totalConversions`
-- Atualizar agregacoes diarias e por conta
+O calculo atual faz media simples dos valores de frequencia de cada registro. Se uma conta tem dias sem dados, a media fica distorcida. A correcao e calcular a frequencia como `total_impressions / total_reach` (definicao real da Meta), que sempre sera >= 1 quando ha dados.
 
-**TrafficMetricCards.tsx:**
-- Trocar card "Cliques no Link" por "Engajamento"
-- Trocar card "Views de Video" por "Conversoes"
-- Atualizar props e interface
-
-**TrafficDashboard.tsx:**
-- Atualizar props passadas para `TrafficMetricCards` (trocar `totalLinkClicks`/`totalVideoViews` por novas metricas)
-
-**TrafficEvolutionChart.tsx:**
-- Remover `link_clicks` das opcoes de metrica no grafico
+**Correcao em `useTrafficMetrics.ts`**:
+```
+// De:
+const avgFrequency = metrics.length > 0
+  ? metrics.reduce((s, m) => s + Number(m.frequency || 0), 0) / metrics.length
+  : 0;
+// Para:
+const avgFrequency = totalReach > 0 ? totalImpressions / totalReach : 0;
+```
 
 ---
 
-### 7. Filtros na aba de Campanhas (CampaignsTab)
+### 4. Remover metricas de Engajamento e Conversoes
 
-Adicionar barra de filtros acima da lista:
+O usuario pediu para remover essas duas metricas. Vou remover de:
+- `TrafficMetricCards.tsx`: remover os cards "Engajamento" e "Conversoes"
+- `TrafficEvolutionChart.tsx`: remover dos botoes de metrica do grafico
+- `TrafficDashboard.tsx`: remover props `totalPostEngagement` e `totalConversions`
+- `TrafficAccountsTable.tsx`: remover colunas da interface (simplificar)
+- `useTrafficMetrics.ts`: remover os calculos (manter no banco para uso futuro)
 
-- **Ordenar por**: Status (padrao atual), Data de criacao (recente/antiga), Orcamento (maior/menor)
-- **Filtrar por status**: Checkbox ou toggle "Apenas ativas"
+As metricas restantes serao: Gasto, Impressoes, Cliques, CTR, Alcance, CPC, Visitas ao Perfil, Frequencia (8 cards organizados em grid responsivo).
+
+---
+
+### 5. Organizacao e responsividade
+
+- Grid dos cards: `grid-cols-2 sm:grid-cols-3 md:grid-cols-4` (8 cards ficam bem distribuidos)
+- Tabela de contas: manter colunas essenciais (Conta, Gasto, Impressoes, Cliques, CTR, Status, Monitor, Acoes)
+- Grafico de evolucao: remover opcoes de Engajamento e Conversoes dos botoes
 
 ---
 
@@ -90,14 +67,15 @@ Adicionar barra de filtros acima da lista:
 
 | Arquivo | Mudanca |
 |---|---|
-| Migracao SQL | Adicionar `post_engagement` + `conversions`, resetar `days_synced` |
-| `supabase/functions/fetch-meta-ads-data/index.ts` | Trocar colunas gravadas |
-| `supabase/functions/sync-all-accounts/index.ts` | Validar resultado antes de atualizar `days_synced` |
-| `src/hooks/useTrafficMetrics.ts` | Trocar metricas |
-| `src/components/traffic/TrafficMetricCards.tsx` | Trocar cards |
-| `src/components/traffic/TrafficEvolutionChart.tsx` | Remover `link_clicks` do grafico |
-| `src/components/traffic/TrafficDashboard.tsx` | Atualizar props |
-| `src/components/traffic/CampaignsTab.tsx` | Adicionar filtros |
-| `src/components/admin/AdminLayout.tsx` | Remover PWA banner + corrigir logo |
-| `src/integrations/supabase/types.ts` | Atualizado automaticamente apos migracao |
+| `supabase/functions/fetch-meta-ads-data/index.ts` | Corrigir `onConflict` para incluir `organization_id` |
+| `src/components/admin/AdminLayout.tsx` | Inline DesktopSidebar/MobileMenuContent (evitar re-mount) |
+| `src/hooks/useTrafficMetrics.ts` | Corrigir calculo de frequencia, remover post_engagement/conversions da interface |
+| `src/components/traffic/TrafficMetricCards.tsx` | Remover cards de Engajamento e Conversoes |
+| `src/components/traffic/TrafficEvolutionChart.tsx` | Remover opcoes de Engajamento e Conversoes |
+| `src/components/traffic/TrafficDashboard.tsx` | Remover props de Engajamento e Conversoes |
+| `src/components/traffic/TrafficAccountsTable.tsx` | Remover colunas de Engajamento e Conversoes |
+
+### Resultado esperado
+
+Apos o deploy, ao clicar "Sincronizar", os 78+ registros serao salvos no banco com sucesso, e os dados de 90 dias aparecerao nos graficos e cards. A logo ficara fixa sem piscar, e a frequencia mostrara valores corretos (>= 1).
 
