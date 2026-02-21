@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Bot, Send, Loader2, Sparkles, RotateCcw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-traffic-chat`;
 
@@ -26,6 +28,7 @@ interface TrafficAIChatProps {
   adAccountId: string;
   campaigns: Campaign[];
   metricsSummary?: Record<string, number>;
+  organizationId?: string;
 }
 
 function renderMarkdown(text: string): string {
@@ -42,12 +45,66 @@ function renderMarkdown(text: string): string {
     .replace(/\n/g, "<br/>");
 }
 
-export function TrafficAIChat({ accountName, adAccountId, campaigns, metricsSummary }: TrafficAIChatProps) {
+export function TrafficAIChat({ accountName, adAccountId, campaigns, metricsSummary, organizationId }: TrafficAIChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [initialized, setInitialized] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Load persisted messages from DB
+  const { data: savedConv } = useQuery({
+    queryKey: ["traffic-ai-conv", organizationId, adAccountId],
+    queryFn: async () => {
+      if (!organizationId || !adAccountId) return null;
+      const { data } = await supabase
+        .from("traffic_ai_conversations" as any)
+        .select("*")
+        .eq("organization_id", organizationId)
+        .eq("ad_account_id", adAccountId)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!organizationId && !!adAccountId,
+  });
+
+  // Initialize messages from DB once
+  useEffect(() => {
+    if (savedConv && !initialized) {
+      const saved = (savedConv as any)?.messages;
+      if (Array.isArray(saved) && saved.length > 0) {
+        setMessages(saved as Message[]);
+      }
+      setInitialized(true);
+    } else if (!savedConv && !initialized && organizationId && adAccountId) {
+      setInitialized(true);
+    }
+  }, [savedConv, initialized, organizationId, adAccountId]);
+
+  // Reset when account changes
+  useEffect(() => {
+    setInitialized(false);
+    setMessages([]);
+  }, [adAccountId]);
+
+  // Save messages to DB
+  const persistMessages = useCallback(async (msgs: Message[]) => {
+    if (!organizationId || !adAccountId) return;
+    try {
+      await supabase
+        .from("traffic_ai_conversations" as any)
+        .upsert({
+          organization_id: organizationId,
+          ad_account_id: adAccountId,
+          messages: msgs as any,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "organization_id,ad_account_id" } as any);
+    } catch (e) {
+      console.error("Failed to persist AI conversation:", e);
+    }
+  }, [organizationId, adAccountId]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -60,11 +117,11 @@ export function TrafficAIChat({ accountName, adAccountId, campaigns, metricsSumm
     if (!text.trim() || isLoading) return;
 
     const userMsg: Message = { role: "user", content: text };
-    setMessages(prev => [...prev, userMsg]);
+    const updatedMessages = [...messages, userMsg];
+    setMessages(updatedMessages);
     setInput("");
     setIsLoading(true);
 
-    const allMessages = [...messages, userMsg];
     let assistantText = "";
 
     try {
@@ -75,7 +132,7 @@ export function TrafficAIChat({ accountName, adAccountId, campaigns, metricsSumm
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
         body: JSON.stringify({
-          messages: allMessages.map(m => ({ role: m.role, content: m.content })),
+          messages: updatedMessages.map(m => ({ role: m.role, content: m.content })),
           account_name: accountName,
           ad_account_id: adAccountId,
           campaigns_data: campaigns,
@@ -101,7 +158,6 @@ export function TrafficAIChat({ accountName, adAccountId, campaigns, metricsSumm
       let textBuffer = "";
       let streamDone = false;
 
-      // Add empty assistant message
       setMessages(prev => [...prev, { role: "assistant", content: "" }]);
 
       while (!streamDone) {
@@ -134,13 +190,30 @@ export function TrafficAIChat({ accountName, adAccountId, campaigns, metricsSumm
           }
         }
       }
+
+      // Persist complete conversation
+      const finalMessages = [...updatedMessages, { role: "assistant" as const, content: assistantText }];
+      setMessages(finalMessages);
+      await persistMessages(finalMessages);
     } catch (e) {
       console.error("AI chat error:", e);
       toast({ title: "Erro", description: "Falha na comunicação com a IA.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
-  }, [messages, isLoading, accountName, adAccountId, campaigns, metricsSummary, toast]);
+  }, [messages, isLoading, accountName, adAccountId, campaigns, metricsSummary, toast, persistMessages]);
+
+  const clearConversation = useCallback(async () => {
+    setMessages([]);
+    if (organizationId && adAccountId) {
+      await supabase
+        .from("traffic_ai_conversations" as any)
+        .delete()
+        .eq("organization_id", organizationId)
+        .eq("ad_account_id", adAccountId);
+      queryClient.invalidateQueries({ queryKey: ["traffic-ai-conv", organizationId, adAccountId] });
+    }
+  }, [organizationId, adAccountId, queryClient]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -168,13 +241,7 @@ export function TrafficAIChat({ accountName, adAccountId, campaigns, metricsSumm
             Especialista em Ads
           </Badge>
           {messages.length > 0 && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={() => setMessages([])}
-              title="Limpar conversa"
-            >
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={clearConversation} title="Limpar conversa">
               <RotateCcw className="h-3 w-3" />
             </Button>
           )}
@@ -190,11 +257,7 @@ export function TrafficAIChat({ accountName, adAccountId, campaigns, metricsSumm
             </p>
             <div className="space-y-1.5">
               {QUICK_SUGGESTIONS.map((s, i) => (
-                <button
-                  key={i}
-                  onClick={() => sendMessage(s)}
-                  className="w-full text-left text-xs p-2 rounded-lg border border-border/60 hover:bg-muted/50 hover:border-primary/30 transition-colors text-muted-foreground hover:text-foreground"
-                >
+                <button key={i} onClick={() => sendMessage(s)} className="w-full text-left text-xs p-2 rounded-lg border border-border/60 hover:bg-muted/50 hover:border-primary/30 transition-colors text-muted-foreground hover:text-foreground">
                   {s}
                 </button>
               ))}
@@ -209,18 +272,10 @@ export function TrafficAIChat({ accountName, adAccountId, campaigns, metricsSumm
                     <Bot className="h-3 w-3 text-primary" />
                   </div>
                 )}
-                <div
-                  className={`max-w-[85%] rounded-lg px-3 py-2 text-xs leading-relaxed ${
-                    msg.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted/60 text-foreground border border-border/40"
-                  }`}
-                >
+                <div className={`max-w-[85%] rounded-lg px-3 py-2 text-xs leading-relaxed ${msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted/60 text-foreground border border-border/40"}`}>
                   {msg.role === "assistant" ? (
                     <div dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content || "…") }} />
-                  ) : (
-                    msg.content
-                  )}
+                  ) : msg.content}
                 </div>
               </div>
             ))}
@@ -241,20 +296,8 @@ export function TrafficAIChat({ accountName, adAccountId, campaigns, metricsSumm
       {/* Input */}
       <div className="p-2 border-t border-border/60 bg-background flex-shrink-0">
         <div className="flex items-end gap-2">
-          <Textarea
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Pergunte sobre campanhas, métricas ou peça análises..."
-            className="min-h-[60px] max-h-[120px] text-xs resize-none"
-            disabled={isLoading}
-          />
-          <Button
-            size="icon"
-            className="h-9 w-9 flex-shrink-0"
-            onClick={() => sendMessage(input)}
-            disabled={isLoading || !input.trim()}
-          >
+          <Textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown} placeholder="Pergunte sobre campanhas, métricas ou peça análises..." className="min-h-[60px] max-h-[120px] text-xs resize-none" disabled={isLoading} />
+          <Button size="icon" className="h-9 w-9 flex-shrink-0" onClick={() => sendMessage(input)} disabled={isLoading || !input.trim()}>
             {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
         </div>

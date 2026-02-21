@@ -9,8 +9,6 @@ export interface TrafficMetrics {
   totalClicks: number;
   totalReach: number;
   totalProfileVisits: number;
-  totalPostEngagement: number;
-  totalConversions: number;
   avgCtr: number;
   avgCpc: number;
   avgFrequency: number;
@@ -22,8 +20,6 @@ export interface TrafficMetrics {
     clicks: number;
     reach: number;
     profile_visits: number;
-    post_engagement: number;
-    conversions: number;
     ctr: number;
     cpc: number;
     frequency: number;
@@ -37,8 +33,6 @@ export interface TrafficMetrics {
     ctr: number;
     cpc: number;
     profile_visits: number;
-    post_engagement: number;
-    conversions: number;
   }>;
   lastDate: string | null;
 }
@@ -77,8 +71,6 @@ export function useTrafficMetrics(
       const totalClicks = metrics.reduce((s, m) => s + Number(m.clicks || 0), 0);
       const totalReach = metrics.reduce((s, m) => s + Number(m.reach || 0), 0);
       const totalProfileVisits = metrics.reduce((s, m) => s + Number((m as any).profile_visits || 0), 0);
-      const totalPostEngagement = metrics.reduce((s, m) => s + Number((m as any).post_engagement || 0), 0);
-      const totalConversions = metrics.reduce((s, m) => s + Number((m as any).conversions || 0), 0);
 
       const avgCtr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
       const avgCpc = totalClicks > 0 ? totalSpend / totalClicks : 0;
@@ -88,14 +80,14 @@ export function useTrafficMetrics(
       // Aggregate daily across all accounts
       const dailyMap = new Map<string, {
         spend: number; impressions: number; clicks: number; reach: number;
-        profile_visits: number; post_engagement: number; conversions: number;
+        profile_visits: number;
         ctr: number; cpc: number; frequency: number; count: number;
       }>();
       for (const m of metrics) {
         const key = m.date;
         const existing = dailyMap.get(key) || {
           spend: 0, impressions: 0, clicks: 0, reach: 0,
-          profile_visits: 0, post_engagement: 0, conversions: 0,
+          profile_visits: 0,
           ctr: 0, cpc: 0, frequency: 0, count: 0
         };
         existing.spend += Number(m.spend || 0);
@@ -103,8 +95,6 @@ export function useTrafficMetrics(
         existing.clicks += Number(m.clicks || 0);
         existing.reach += Number(m.reach || 0);
         existing.profile_visits += Number((m as any).profile_visits || 0);
-        existing.post_engagement += Number((m as any).post_engagement || 0);
-        existing.conversions += Number((m as any).conversions || 0);
         existing.ctr += Number(m.ctr || 0);
         existing.cpc += Number(m.cpc || 0);
         existing.frequency += Number(m.frequency || 0);
@@ -120,8 +110,6 @@ export function useTrafficMetrics(
           clicks: vals.clicks,
           reach: vals.reach,
           profile_visits: vals.profile_visits,
-          post_engagement: vals.post_engagement,
-          conversions: vals.conversions,
           ctr: vals.count > 0 ? vals.ctr / vals.count : 0,
           cpc: vals.count > 0 ? vals.cpc / vals.count : 0,
           frequency: vals.count > 0 ? vals.frequency / vals.count : 0,
@@ -131,14 +119,14 @@ export function useTrafficMetrics(
       // Aggregate by account
       const accountMap = new Map<string, {
         spend: number; impressions: number; clicks: number; reach: number;
-        profile_visits: number; post_engagement: number; conversions: number;
+        profile_visits: number;
         ctr_sum: number; cpc_sum: number; count: number;
       }>();
       for (const m of metrics) {
         const key = m.ad_account_id;
         const existing = accountMap.get(key) || {
           spend: 0, impressions: 0, clicks: 0, reach: 0,
-          profile_visits: 0, post_engagement: 0, conversions: 0,
+          profile_visits: 0,
           ctr_sum: 0, cpc_sum: 0, count: 0
         };
         existing.spend += Number(m.spend || 0);
@@ -146,8 +134,6 @@ export function useTrafficMetrics(
         existing.clicks += Number(m.clicks || 0);
         existing.reach += Number(m.reach || 0);
         existing.profile_visits += Number((m as any).profile_visits || 0);
-        existing.post_engagement += Number((m as any).post_engagement || 0);
-        existing.conversions += Number((m as any).conversions || 0);
         existing.ctr_sum += Number(m.ctr || 0);
         existing.cpc_sum += Number(m.cpc || 0);
         existing.count += 1;
@@ -163,15 +149,13 @@ export function useTrafficMetrics(
         ctr: vals.impressions > 0 ? (vals.clicks / vals.impressions) * 100 : 0,
         cpc: vals.clicks > 0 ? vals.spend / vals.clicks : 0,
         profile_visits: vals.profile_visits,
-        post_engagement: vals.post_engagement,
-        conversions: vals.conversions,
       })).sort((a, b) => b.spend - a.spend);
 
       const lastDate = metrics.length > 0 ? metrics[metrics.length - 1].date : null;
 
       return {
         totalSpend, totalImpressions, totalClicks, totalReach,
-        totalProfileVisits, totalPostEngagement, totalConversions,
+        totalProfileVisits,
         avgCtr, avgCpc, avgFrequency, avgCostPerVisit,
         dailyData, byAccount, lastDate
       };

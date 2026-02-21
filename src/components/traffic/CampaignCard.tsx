@@ -2,13 +2,17 @@ import { useState } from "react";
 import { Campaign } from "@/hooks/useAccountCampaigns";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   ChevronDown, ChevronUp, Target, Users, MapPin, Layers, Calendar,
-  TrendingUp, MousePointer, Eye, Radio, DollarSign, Activity
+  TrendingUp, MousePointer, Eye, Radio, DollarSign, Activity, Loader2
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const STATUS_MAP: Record<string, { label: string; className: string }> = {
   ACTIVE: { label: "Ativa", className: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30" },
@@ -89,6 +93,29 @@ interface CampaignCardProps {
 
 export function CampaignCard({ campaign }: CampaignCardProps) {
   const [open, setOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const toggleStatus = useMutation({
+    mutationFn: async (newStatus: "ACTIVE" | "PAUSED") => {
+      const { data, error } = await supabase.functions.invoke("toggle-campaign-status", {
+        body: { campaign_id: campaign.id, status: newStatus },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (_, newStatus) => {
+      queryClient.invalidateQueries({ queryKey: ["account-campaigns"] });
+      toast({ title: `Campanha ${newStatus === "ACTIVE" ? "ativada" : "pausada"} com sucesso!` });
+    },
+    onError: (e: Error) => {
+      toast({ title: "Erro ao alterar status", description: e.message, variant: "destructive" });
+    },
+  });
+
+  const canToggle = campaign.status === "ACTIVE" || campaign.status === "PAUSED";
+  const isActive = campaign.status === "ACTIVE";
 
   const status = STATUS_MAP[campaign.status] || { label: campaign.status, className: "bg-muted text-muted-foreground border-border" };
   const objective = OBJECTIVE_MAP[campaign.objective] || campaign.objective?.replace(/_/g, " ") || "N/A";
@@ -127,8 +154,26 @@ export function CampaignCard({ campaign }: CampaignCardProps) {
                 )}
               </div>
             </div>
-            <div className="text-muted-foreground flex-shrink-0 mt-0.5">
-              {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
+              {canToggle && (
+                <div
+                  className="flex items-center gap-1.5"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {toggleStatus.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                  ) : (
+                    <Switch
+                      checked={isActive}
+                      onCheckedChange={(checked) =>
+                        toggleStatus.mutate(checked ? "ACTIVE" : "PAUSED")
+                      }
+                      disabled={toggleStatus.isPending}
+                    />
+                  )}
+                </div>
+              )}
+              {open ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
             </div>
           </div>
         </CollapsibleTrigger>

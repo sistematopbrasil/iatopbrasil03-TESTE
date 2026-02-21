@@ -228,6 +228,7 @@ export function CampaignsTab({ organizationId, aiEnabled }: CampaignsTabProps) {
                 adAccountId={selectedAccountId}
                 campaigns={campaigns}
                 metricsSummary={metricsSummary}
+                organizationId={organizationId}
               />
             </div>
           </TabsContent>
@@ -244,6 +245,7 @@ export function CampaignsTab({ organizationId, aiEnabled }: CampaignsTabProps) {
               adAccountId={selectedAccountId}
               campaigns={campaigns}
               metricsSummary={metricsSummary}
+              organizationId={organizationId}
             />
           </div>
         </div>

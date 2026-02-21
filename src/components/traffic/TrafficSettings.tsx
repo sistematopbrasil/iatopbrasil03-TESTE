@@ -6,12 +6,43 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, XCircle, RefreshCw, Loader2, Clock, Zap } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Slider } from "@/components/ui/slider";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CheckCircle, XCircle, RefreshCw, Loader2, Clock, Zap, Bot, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Props {
   organizationId: string;
 }
+
+const AI_MODELS = [
+  { value: "google/gemini-3-flash-preview", label: "Gemini 3 Flash (Rápido)" },
+  { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash (Balanceado)" },
+  { value: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro (Avançado)" },
+  { value: "openai/gpt-5-mini", label: "GPT-5 Mini (Rápido)" },
+  { value: "openai/gpt-5", label: "GPT-5 (Avançado)" },
+];
+
+const RESPONSE_MODES = [
+  { value: "detailed", label: "Detalhado" },
+  { value: "summary", label: "Resumido" },
+  { value: "technical", label: "Técnico" },
+];
+
+const DEFAULT_PROMPT = `Você é um especialista sênior em Meta Ads (Facebook e Instagram Ads), com profundo conhecimento em estratégias de performance, otimização de campanhas e análise de métricas.
+
+INSTRUÇÕES:
+- Responda SEMPRE em português brasileiro
+- Seja preciso e use os dados reais fornecidos
+- Ao analisar campanhas, cite nomes e métricas específicas
+- Identifique anomalias: CTR abaixo de 1%, CPC acima da média do setor, frequência alta (>3)
+- Ao sugerir otimizações, explique o raciocínio com base nos dados
+- Sugira públicos baseados no targeting existente
+- Quando criar briefings de novas campanhas, seja detalhado: objetivo, público-alvo, orçamento sugerido, posicionamentos recomendados, tipos de criativo
+- Compare performance entre campanhas quando relevante
+- Use formatação markdown para listas e destaques
+- Se algum dado estiver ausente, informe e sugira como obtê-lo`;
 
 export function TrafficSettings({ organizationId }: Props) {
   const { toast } = useToast();
@@ -20,6 +51,13 @@ export function TrafficSettings({ organizationId }: Props) {
   const [checking, setChecking] = useState(false);
   const [aiEnabled, setAiEnabled] = useState(false);
   const [loadingSettings, setLoadingSettings] = useState(true);
+  const [savingAI, setSavingAI] = useState(false);
+
+  // AI config state
+  const [aiModel, setAiModel] = useState("google/gemini-3-flash-preview");
+  const [aiPrompt, setAiPrompt] = useState(DEFAULT_PROMPT);
+  const [aiTemperature, setAiTemperature] = useState(0.5);
+  const [aiResponseMode, setAiResponseMode] = useState("detailed");
 
   useEffect(() => {
     loadSettings();
@@ -32,7 +70,13 @@ export function TrafficSettings({ organizationId }: Props) {
       .select("*")
       .eq("organization_id", organizationId)
       .maybeSingle();
-    if (data) setAiEnabled(data.ai_enabled ?? false);
+    if (data) {
+      setAiEnabled(data.ai_enabled ?? false);
+      setAiModel((data as any).ai_model || "google/gemini-3-flash-preview");
+      setAiPrompt((data as any).ai_system_prompt || DEFAULT_PROMPT);
+      setAiTemperature(Number((data as any).ai_temperature) || 0.5);
+      setAiResponseMode((data as any).ai_response_mode || "detailed");
+    }
     setLoadingSettings(false);
   };
 
@@ -51,11 +95,32 @@ export function TrafficSettings({ organizationId }: Props) {
     setAiEnabled(enabled);
     const { error } = await supabase
       .from("traffic_settings")
-      .upsert({ organization_id: organizationId, ai_enabled: enabled }, { onConflict: "organization_id" });
+      .upsert({ organization_id: organizationId, ai_enabled: enabled } as any, { onConflict: "organization_id" });
     if (error) {
       toast({ title: "Erro ao salvar", variant: "destructive" });
       setAiEnabled(!enabled);
     }
+  };
+
+  const saveAIConfig = async () => {
+    setSavingAI(true);
+    const { error } = await supabase
+      .from("traffic_settings")
+      .upsert({
+        organization_id: organizationId,
+        ai_enabled: aiEnabled,
+        ai_model: aiModel,
+        ai_system_prompt: aiPrompt === DEFAULT_PROMPT ? null : aiPrompt,
+        ai_temperature: aiTemperature,
+        ai_response_mode: aiResponseMode,
+      } as any, { onConflict: "organization_id" });
+    
+    if (error) {
+      toast({ title: "Erro ao salvar configurações da IA", variant: "destructive" });
+    } else {
+      toast({ title: "Configurações da IA salvas!" });
+    }
+    setSavingAI(false);
   };
 
   return (
@@ -116,47 +181,138 @@ export function TrafficSettings({ organizationId }: Props) {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Frequência</span>
-              <span className="font-medium text-foreground">Diária</span>
+              <span className="font-medium text-foreground">Diária + ao abrir o painel</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Primeira sincronização</span>
-              <span className="font-medium text-foreground">60 dias de histórico</span>
+              <span className="font-medium text-foreground">90 dias de histórico</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Sincronizações seguintes</span>
-              <span className="font-medium text-foreground">Últimos 2 dias (incremental)</span>
+              <span className="font-medium text-foreground">Últimos 3 dias + hoje (incremental)</span>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Você também pode sincronizar manualmente a qualquer momento usando o botão "Sincronizar" na visão geral.
-          </p>
         </CardContent>
       </Card>
 
       {/* AI Toggle */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold">Assistente IA</CardTitle>
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <Bot className="h-4 w-4 text-primary" />
+            Assistente IA
+          </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           {loadingSettings ? (
             <div className="h-8 bg-muted animate-pulse rounded" />
           ) : (
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <Label className="text-sm font-medium">Ativar módulo de IA</Label>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Quando ativado, mostra análises e sugestões com IA para suas campanhas
-                </p>
+            <>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <Label className="text-sm font-medium">Ativar módulo de IA</Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Quando ativado, mostra análises e sugestões com IA para suas campanhas
+                  </p>
+                </div>
+                <Switch checked={aiEnabled} onCheckedChange={toggleAI} />
               </div>
-              <Switch checked={aiEnabled} onCheckedChange={toggleAI} />
-            </div>
+              <Badge variant={aiEnabled ? "default" : "secondary"} className="text-xs font-medium">
+                {aiEnabled ? "IA Ativada" : "IA Desativada"}
+              </Badge>
+            </>
           )}
-          <Badge variant={aiEnabled ? "default" : "secondary"} className="mt-3 text-xs font-medium">
-            {aiEnabled ? "IA Ativada" : "IA Desativada"}
-          </Badge>
         </CardContent>
       </Card>
+
+      {/* AI Configuration */}
+      {aiEnabled && !loadingSettings && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold">Configurações da IA</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {/* Model */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Modelo de IA</Label>
+              <Select value={aiModel} onValueChange={setAiModel}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {AI_MODELS.map(m => (
+                    <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Modelos mais avançados são mais precisos mas podem ser mais lentos</p>
+            </div>
+
+            {/* Temperature */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Temperatura</Label>
+                <span className="text-xs font-mono text-muted-foreground">{aiTemperature.toFixed(1)}</span>
+              </div>
+              <Slider
+                value={[aiTemperature]}
+                onValueChange={([v]) => setAiTemperature(v)}
+                min={0}
+                max={1}
+                step={0.1}
+                className="w-full"
+              />
+              <p className="text-xs text-muted-foreground">
+                Valores baixos = respostas mais precisas. Valores altos = respostas mais criativas.
+              </p>
+            </div>
+
+            {/* Response Mode */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Modo de resposta</Label>
+              <Select value={aiResponseMode} onValueChange={setAiResponseMode}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {RESPONSE_MODES.map(m => (
+                    <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* System Prompt */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Prompt do sistema</Label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setAiPrompt(DEFAULT_PROMPT)}
+                >
+                  Restaurar padrão
+                </Button>
+              </div>
+              <Textarea
+                value={aiPrompt}
+                onChange={e => setAiPrompt(e.target.value)}
+                className="min-h-[200px] text-xs font-mono"
+                placeholder="Instruções para o assistente de IA..."
+              />
+              <p className="text-xs text-muted-foreground">
+                Personalize como a IA analisa e responde sobre suas campanhas
+              </p>
+            </div>
+
+            <Button onClick={saveAIConfig} disabled={savingAI} className="w-full">
+              {savingAI ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Save className="h-4 w-4 mr-1.5" />}
+              Salvar Configurações
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
