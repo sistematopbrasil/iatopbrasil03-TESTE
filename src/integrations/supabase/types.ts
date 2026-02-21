@@ -19,6 +19,7 @@ export type Database = {
           ad_account_id: string
           created_at: string | null
           currency: string | null
+          days_synced: number | null
           id: string
           instagram_user_id: string | null
           instagram_username: string | null
@@ -37,6 +38,7 @@ export type Database = {
           ad_account_id: string
           created_at?: string | null
           currency?: string | null
+          days_synced?: number | null
           id?: string
           instagram_user_id?: string | null
           instagram_username?: string | null
@@ -55,6 +57,7 @@ export type Database = {
           ad_account_id?: string
           created_at?: string | null
           currency?: string | null
+          days_synced?: number | null
           id?: string
           instagram_user_id?: string | null
           instagram_username?: string | null
