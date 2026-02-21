@@ -46,11 +46,11 @@ const AdminTraffic = () => {
 
         {organizationId ? (
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList>
-              <TabsTrigger value="overview">Visão Geral</TabsTrigger>
-              <TabsTrigger value="campaigns">Campanhas</TabsTrigger>
-              <TabsTrigger value="accounts">Contas</TabsTrigger>
-              <TabsTrigger value="settings">Configurações</TabsTrigger>
+            <TabsList className="w-full sm:w-auto overflow-x-auto">
+              <TabsTrigger value="overview" className="text-xs sm:text-sm">Visão Geral</TabsTrigger>
+              <TabsTrigger value="campaigns" className="text-xs sm:text-sm">Campanhas</TabsTrigger>
+              <TabsTrigger value="accounts" className="text-xs sm:text-sm">Contas</TabsTrigger>
+              <TabsTrigger value="settings" className="text-xs sm:text-sm">Configurações</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview">

@@ -19,9 +19,7 @@ interface Props {
 }
 
 function formatNumber(n: number): string {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
-  if (n >= 1_000) return (n / 1_000).toFixed(1) + "K";
-  return n.toFixed(0);
+  return n.toLocaleString("pt-BR");
 }
 
 function formatCurrency(n: number): string {
@@ -113,7 +111,7 @@ export function TrafficMetricCards({
                 {isLoading ? (
                   <Skeleton className="h-7 w-full" />
                 ) : (
-                  <p className={`text-lg font-bold ${m.featured ? "text-primary" : "text-foreground"}`}>
+                  <p className={`text-base sm:text-lg font-bold ${m.featured ? "text-primary" : "text-foreground"} truncate`}>
                     {m.format(values[m.key])}
                   </p>
                 )}

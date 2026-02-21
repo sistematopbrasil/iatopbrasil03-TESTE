@@ -58,13 +58,13 @@ export function TrafficEvolutionChart({ data, isLoading }: Props) {
       <CardHeader className="pb-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <CardTitle className="text-base font-semibold">Evolução Temporal</CardTitle>
-          <div className="flex flex-wrap gap-1">
+          <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
             {METRICS.map((m) => (
               <Button
                 key={m.key}
                 size="sm"
                 variant={activeMetric === m.key ? "default" : "ghost"}
-                className="h-7 px-2.5 text-xs"
+                className="h-7 px-2.5 text-xs whitespace-nowrap flex-shrink-0"
                 onClick={() => setActiveMetric(m.key)}
               >
                 {m.label}
