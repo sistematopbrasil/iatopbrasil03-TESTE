@@ -113,17 +113,20 @@ export function TrafficSpendChart({ byAccount, accounts, isLoading }: Props) {
                 }}
               />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "8px",
-                  color: "hsl(var(--foreground))",
-                  fontSize: "12px",
+                content={({ active, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const item = payload[0];
+                  const fullName = item.payload?.fullName || "";
+                  const value = item.value as number;
+                  return (
+                    <div className="rounded-lg border border-border bg-card px-3 py-2 shadow-md">
+                      <p className="text-xs font-semibold text-foreground mb-1">{fullName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {metric.label}: <span className="font-bold text-foreground">{metric.format(value)}</span>
+                      </p>
+                    </div>
+                  );
                 }}
-                formatter={(value: number, _, props) => [
-                  metric.format(value),
-                  props.payload?.fullName || metric.label
-                ]}
               />
               <Bar dataKey={activeMetric} radius={[4, 4, 0, 0]}>
                 {chartData.map((_, index) => (

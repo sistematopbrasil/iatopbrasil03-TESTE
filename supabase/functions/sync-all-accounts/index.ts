@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
       try {
         // Smart sync: first time = 60d history, subsequent = last 2 days only
         const isFirstSync = !acc.days_synced || acc.days_synced === 0;
-        const datePreset = isFirstSync ? "last_60d" : "last_2d";
+        const datePreset = isFirstSync ? "last_90d" : "last_3d";
 
         const res = await fetch(`${baseUrl}/functions/v1/fetch-meta-ads-data`, {
           method: "POST",
@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
           .from("ad_accounts")
           .update({
             last_synced_at: new Date().toISOString(),
-            days_synced: isFirstSync ? 60 : (acc.days_synced || 0) + 2,
+            days_synced: isFirstSync ? 90 : (acc.days_synced || 0) + 3,
           })
           .eq("ad_account_id", acc.ad_account_id)
           .eq("organization_id", acc.organization_id);
