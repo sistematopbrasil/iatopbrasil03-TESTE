@@ -82,9 +82,7 @@ export function useTrafficMetrics(
 
       const avgCtr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
       const avgCpc = totalClicks > 0 ? totalSpend / totalClicks : 0;
-      const avgFrequency = metrics.length > 0
-        ? metrics.reduce((s, m) => s + Number(m.frequency || 0), 0) / metrics.length
-        : 0;
+      const avgFrequency = totalReach > 0 ? totalImpressions / totalReach : 0;
       const avgCostPerVisit = totalProfileVisits > 0 ? totalSpend / totalProfileVisits : 0;
 
       // Aggregate daily across all accounts

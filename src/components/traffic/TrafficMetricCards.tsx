@@ -1,4 +1,4 @@
-import { DollarSign, Eye, MousePointerClick, Target, BarChart3, TrendingUp, Users, Repeat, Heart, CheckCircle } from "lucide-react";
+import { DollarSign, Eye, MousePointerClick, Target, BarChart3, TrendingUp, Users, Repeat } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -8,8 +8,6 @@ interface Props {
   totalClicks: number;
   totalReach: number;
   totalProfileVisits: number;
-  totalPostEngagement: number;
-  totalConversions: number;
   avgCtr: number;
   avgCpc: number;
   avgFrequency: number;
@@ -59,19 +57,11 @@ const metricsConfig = [
     key: "frequency", label: "Frequência Média", icon: Repeat,
     format: (n: number) => n.toFixed(2) + "x", colorClass: "text-cyan-500", borderClass: "border-l-cyan-500"
   },
-  {
-    key: "postEngagement", label: "Engajamento", icon: Heart,
-    format: formatNumber, colorClass: "text-violet-500", borderClass: "border-l-violet-500"
-  },
-  {
-    key: "conversions", label: "Conversões", icon: CheckCircle,
-    format: formatNumber, colorClass: "text-rose-500", borderClass: "border-l-rose-500"
-  },
 ];
 
 export function TrafficMetricCards({
   totalSpend, totalImpressions, totalClicks, totalReach,
-  totalProfileVisits, totalPostEngagement, totalConversions,
+  totalProfileVisits,
   avgCtr, avgCpc, avgFrequency, avgCostPerVisit,
   isLoading, lastDate
 }: Props) {
@@ -84,8 +74,6 @@ export function TrafficMetricCards({
     cpc: avgCpc,
     profileVisits: totalProfileVisits,
     frequency: avgFrequency,
-    postEngagement: totalPostEngagement,
-    conversions: totalConversions,
   };
 
   return (
@@ -95,7 +83,7 @@ export function TrafficMetricCards({
           Dados atualizados até: <span className="font-medium text-foreground">{lastDate}</span>
         </p>
       )}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
         {metricsConfig.map((m) => {
           const Icon = m.icon;
           return (

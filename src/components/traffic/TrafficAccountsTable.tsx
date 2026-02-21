@@ -17,9 +17,6 @@ interface AccountRow {
   clicks: number;
   ctr: number;
   reach: number;
-  profile_visits: number;
-  post_engagement: number;
-  conversions: number;
 }
 
 interface Props {
@@ -62,9 +59,8 @@ export function TrafficAccountsTable({ rows, isLoading, onViewDetail, onToggleMo
                   <TableHead className="text-xs font-medium text-right hidden md:table-cell">Impressões</TableHead>
                   <TableHead className="text-xs font-medium text-right hidden md:table-cell">Cliques</TableHead>
                   <TableHead className="text-xs font-medium text-right hidden lg:table-cell">CTR</TableHead>
-                  <TableHead className="text-xs font-medium text-right hidden lg:table-cell">Alcance</TableHead>
-                  <TableHead className="text-xs font-medium text-right hidden xl:table-cell">Visitas</TableHead>
-                  <TableHead className="text-xs font-medium text-center">Status</TableHead>
+                   <TableHead className="text-xs font-medium text-right hidden lg:table-cell">Alcance</TableHead>
+                   <TableHead className="text-xs font-medium text-center">Status</TableHead>
                   <TableHead className="text-xs font-medium text-center">Monitor</TableHead>
                   <TableHead className="text-xs font-medium text-center">Ações</TableHead>
                 </TableRow>
@@ -93,12 +89,9 @@ export function TrafficAccountsTable({ rows, isLoading, onViewDetail, onToggleMo
                     <TableCell className="text-right py-3 hidden lg:table-cell text-sm text-muted-foreground">
                       {row.ctr.toFixed(2)}%
                     </TableCell>
-                    <TableCell className="text-right py-3 hidden lg:table-cell text-sm text-muted-foreground">
-                      {formatNumber(row.reach)}
-                    </TableCell>
-                    <TableCell className="text-right py-3 hidden xl:table-cell text-sm text-muted-foreground">
-                      {formatNumber(row.profile_visits)}
-                    </TableCell>
+                     <TableCell className="text-right py-3 hidden lg:table-cell text-sm text-muted-foreground">
+                       {formatNumber(row.reach)}
+                     </TableCell>
                     <TableCell className="text-center py-3">
                       <Badge
                         variant={row.status === "active" ? "default" : "secondary"}
