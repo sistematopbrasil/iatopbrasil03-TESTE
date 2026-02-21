@@ -173,6 +173,54 @@ export function usePrefetchAdminData() {
           });
 
         // =============================================
+        // PREFETCH INSTAGRAM DATA
+        // =============================================
+        supabase
+          .from('insta_profiles')
+          .select('*')
+          .eq('organization_id', orgId)
+          .then(({ data }) => {
+            if (data) {
+              queryClient.setQueryData(['insta-profiles'], data);
+            }
+          });
+
+        supabase
+          .from('insta_follower_metrics')
+          .select('*')
+          .order('recorded_date', { ascending: false })
+          .limit(1000)
+          .then(({ data }) => {
+            if (data) {
+              queryClient.setQueryData(['insta-metrics'], data);
+            }
+          });
+
+        // =============================================
+        // PREFETCH TRAFFIC DATA
+        // =============================================
+        supabase
+          .from('ad_accounts')
+          .select('*')
+          .eq('organization_id', orgId)
+          .then(({ data }) => {
+            if (data) {
+              queryClient.setQueryData(['ad-accounts', orgId], data);
+            }
+          });
+
+        supabase
+          .from('traffic_settings')
+          .select('ai_enabled')
+          .eq('organization_id', orgId)
+          .single()
+          .then(({ data }) => {
+            if (data) {
+              queryClient.setQueryData(['traffic-settings', orgId], data);
+            }
+          });
+
+        // =============================================
         // PREFETCH SUPER ADMIN DATA
         // =============================================
         if (isSuperAdminUser && orgId) {
