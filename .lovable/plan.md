@@ -1,90 +1,97 @@
 
 
-## Correção de Bugs e Melhorias no Módulo de Tráfego
+## Melhorias: Números Completos, Pré-carregamento, Responsividade Mobile e Retenção de Dados
 
-### Problemas Identificados
+### 1. Números Completos (sem abreviações K/M)
 
-**1. Erro na sincronização (CAUSA RAIZ ENCONTRADA)**
-A Meta Graph API **nao aceita** `last_2d` nem `last_60d` como valores de `date_preset`. Os valores validos sao: `today`, `yesterday`, `last_3d`, `last_7d`, `last_14d`, `last_28d`, `last_30d`, `last_90d`, `maximum`, etc.
+Atualmente, funções `formatNumber` em dois locais usam abreviações como "1.1K", "51.9K". Todas serão alteradas para mostrar o número completo com separador de milhar (ex: 1.100, 51.900).
 
-O sistema esta usando `last_60d` no primeiro sync e `last_2d` nos syncs seguintes -- ambos invalidos, causando erro 400 da API Meta.
+**Arquivos afetados:**
 
-**2. Lista de campanhas nao rola (scroll cortado)**
-O componente `CampaignsTab` usa `ScrollArea` com `max-height` que corta o conteudo. Quando a lista tem muitas campanhas (50 no caso), nao e possivel rolar. O layout precisa permitir scroll natural.
+| Arquivo | O que muda |
+|---|---|
+| `src/lib/instagram-utils.ts` | `formatNumber()` removera abreviações K/M, usara `toLocaleString("pt-BR")` sempre |
+| `src/components/traffic/TrafficMetricCards.tsx` | `formatNumber()` local removera K/M, usara `toLocaleString("pt-BR")` |
+| `src/components/traffic/TrafficAccountsTable.tsx` | `formatNumber()` local removera K/M, usara `toLocaleString("pt-BR")` |
 
-**3. CampaignCard cortado ao expandir**
-O card expansivel dentro do `ScrollArea` fica cortado porque o `ScrollArea` nao recalcula a altura ao expandir. Precisa usar scroll nativo.
+Isso afeta automaticamente todos os componentes Instagram (Dashboard, ProfileCard, Analytics, ProfileDetail, AddProfileModal) e Traffic (MetricCards, AccountsTable) pois todos importam essas funções.
 
-**4. Consultor nao aparece apos criacao**
-O `CreateConsultantDialog` invalida `['all-consultants']` e `['unified-ranking']`, mas a `ConsultantsTable` usa `useRankingData` com query key `['unified-ranking', periodStart, periodEnd]`. A invalidacao precisa usar `queryKey` parcial que cubra todas as variantes.
-
-**5. Tooltip do grafico "Performance por Conta" ilegivel**
-O tooltip mostra duas linhas: o valor formatado + o `fullName` da conta. O formato esta confuso -- o `formatter` retorna `[valor, nome]` mas o Recharts renderiza isso de forma pouco clara. Precisa de um `CustomTooltip`.
+Os eixos Y dos gráficos (TrafficEvolutionChart e TrafficSpendChart) manterão abreviações K/M pois no eixo do gráfico números completos ficariam ilegíveis.
 
 ---
 
-### Solucoes Propostas
+### 2. Pré-carregamento de Todas as Páginas
 
-#### 1. Corrigir date_preset na sincronizacao
+O hook `usePrefetchAdminData` já existe e pré-carrega Ranking, Settings, Pipeline, Analytics e CRM. Faltam: **Instagram** e **Tráfego**.
 
-**Arquivos:** `sync-all-accounts/index.ts`, `fetch-meta-ads-data/index.ts`
+**Arquivo:** `src/hooks/usePrefetchAdminData.ts`
 
-- Primeiro sync: usar `last_90d` (valor valido mais longo, 90 dias de historico)
-- Syncs seguintes: usar `last_3d` (valor minimo valido para manter atualizado)
-- Corrigir tambem o `syncSingleAccount` em `useAdAccounts.ts` que usa `last_2d` -> trocar para `last_3d`
-
-#### 2. Corrigir scroll da lista de campanhas
-
-**Arquivo:** `CampaignsTab.tsx`
-
-- Remover `ScrollArea` com `max-height` fixo
-- Usar `overflow-y-auto` nativo com `max-h-[calc(100vh-280px)]` no container da lista
-- Garantir que o `CollapsibleContent` do `CampaignCard` funcione dentro do scroll
-
-#### 3. Consultor aparecer imediatamente
-
-**Arquivo:** `CreateConsultantDialog.tsx`
-
-- A invalidacao `queryKey: ['unified-ranking']` sem os parametros `periodStart` e `periodEnd` ja deveria funcionar como partial match no TanStack Query.
-- Problema: a query key e `['unified-ranking', 'all', 'now']` e a invalidacao `['unified-ranking']` deveria casar parcialmente. Vou adicionar tambem `queryClient.invalidateQueries({ queryKey: ['super-admin-metrics'] })` e garantir `refetchType: 'all'`.
-
-#### 4. Tooltip legivel no grafico Performance por Conta
-
-**Arquivo:** `TrafficSpendChart.tsx`
-
-- Substituir o `formatter` do Tooltip por um componente `CustomTooltip` completo
-- Mostrar: nome da conta em destaque + valor formatado da metrica selecionada
-- Usar cores de fundo e texto compativeis com o tema escuro
-
-#### 5. Verificar tooltips em outros graficos
-
-**Arquivo:** `TrafficEvolutionChart.tsx`
-
-- Tooltip ja usa `formatter` simples que funciona bem, mas vou garantir que o `labelFormatter` mostre a data corretamente
+Adições:
+- **Prefetch Instagram**: perfis (`insta_profiles`) e métricas (`insta_follower_metrics`)
+- **Prefetch Tráfego**: contas de anúncios (`ad_accounts`) e métricas (`ad_metrics` dos últimos 7 dias como default)
+- **Prefetch Traffic Settings**: `traffic_settings` para `aiEnabled`
 
 ---
 
-### Detalhes Tecnicos
+### 3. Responsividade Mobile Completa
 
-**Valores validos de `date_preset` da Meta API:**
-```text
-today, yesterday, this_month, last_month, this_quarter, maximum, 
-data_maximum, last_3d, last_7d, last_14d, last_28d, last_30d, 
-last_90d, last_week_mon_sun, last_week_sun_sat, last_quarter, 
-last_year, this_week_mon_today, this_week_sun_today, this_year
+Revisão de todos os componentes para garantir que funcionem perfeitamente em telas de 320px a 414px.
+
+**Arquivos a revisar e ajustar:**
+
+| Arquivo | Ajuste |
+|---|---|
+| `src/components/traffic/TrafficDashboard.tsx` | Filter bar empilhado vertical no mobile, botões com `w-full` |
+| `src/components/traffic/TrafficMetricCards.tsx` | Grid `grid-cols-2` no mobile com texto `text-sm` para números grandes, truncar labels |
+| `src/components/traffic/TrafficEvolutionChart.tsx` | Botões de métrica em scroll horizontal no mobile, altura reduzida do gráfico |
+| `src/components/traffic/TrafficSpendChart.tsx` | Mesma abordagem do EvolutionChart |
+| `src/components/traffic/TrafficAccountsTable.tsx` | Manter overflow-x-auto (ja tem), garantir min-width adequado |
+| `src/components/traffic/CampaignsTab.tsx` | Verificar layout mobile (ja usa tabs internas no mobile) |
+| `src/components/instagram/InstagramDashboard.tsx` | Grid de cards `grid-cols-1 sm:grid-cols-2`, botões empilhados |
+| `src/components/instagram/InstagramAnalytics.tsx` | Tabela responsiva |
+| `src/components/instagram/InstagramProfileDetail.tsx` | Cards de métricas em `grid-cols-2` no mobile |
+| `src/pages/AdminTraffic.tsx` | TabsList com scroll horizontal se necessário |
+
+---
+
+### 4. Retenção Acumulativa de Dados de Tráfego
+
+O sistema atual já usa upsert com `onConflict: "ad_account_id,date"`, o que significa que dados existentes não são apagados -- apenas atualizados. O problema é que após o primeiro sync de 90 dias, os syncs subsequentes só puxam `last_3d`, nunca re-buscando dados antigos.
+
+**Isso já funciona como o usuário quer**: os dados dos 90 dias iniciais ficam no banco permanentemente. Cada dia que passa, o sync de 3 dias adiciona 1 novo dia. Após 60 dias, haverá 150 dias de registros.
+
+**Único ajuste necessário**: o filtro "Total" na UI precisa realmente buscar TODOS os dados sem limite de data. Verificar se `useTrafficMetrics` quando `preset === "total"` não aplica filtro de data (já parece correto no código atual).
+
+---
+
+### Detalhes Técnicos
+
+**`formatNumber` unificado (Instagram):**
+```typescript
+export function formatNumber(num: number): string {
+  return num.toLocaleString("pt-BR");
+}
 ```
 
-**Mudancas no Smart Sync:**
-- `days_synced === 0` (primeiro sync) -> `last_90d` (maximo pratico com dados diarios)
-- `days_synced > 0` (syncs seguintes) -> `last_3d` (garante cobertura de 2-3 dias com overlap)
+**`formatNumber` unificado (Traffic):**
+```typescript
+function formatNumber(n: number): string {
+  return n.toLocaleString("pt-BR");
+}
+```
 
-**Arquivos que serao editados:**
-| Arquivo | Mudanca |
-|---|---|
-| `supabase/functions/sync-all-accounts/index.ts` | `last_60d` -> `last_90d`, `last_2d` -> `last_3d` |
-| `supabase/functions/fetch-meta-ads-data/index.ts` | Fallback de `last_2d` -> `last_3d` |
-| `src/hooks/useAdAccounts.ts` | `syncSingleAccount` usar `last_3d` em vez de `last_2d` |
-| `src/components/traffic/CampaignsTab.tsx` | Corrigir scroll da lista de campanhas |
-| `src/components/traffic/TrafficSpendChart.tsx` | Custom tooltip legivel |
-| `src/components/super-admin/CreateConsultantDialog.tsx` | Melhorar invalidacao de cache |
+**Prefetch Instagram adicionado ao hook:**
+- Query key `["insta-profiles"]` para perfis
+- Query key `["insta-metrics", "all"]` para métricas
+
+**Prefetch Tráfego adicionado ao hook:**
+- Query key para `ad_accounts` do org
+- Query key para `ad_metrics` do org
+
+**Responsividade -- padrões aplicados:**
+- Botões de filtro de métrica: `overflow-x-auto flex-nowrap` no mobile
+- Cards de métricas: `text-base` em vez de `text-lg` no mobile para números grandes (ex: 1.234.567)
+- Gráficos: altura reduzida de 280px para 220px no mobile
+- Tabelas: `overflow-x-auto` com `min-w` definido
+- Tabs: `overflow-x-auto` quando muitas abas
 
