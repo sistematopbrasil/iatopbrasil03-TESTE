@@ -1,205 +1,90 @@
 
-## Módulo de Campanhas + IA por Conta — Plano Completo
 
-### Visão Geral do que Será Construído
+## Correção de Bugs e Melhorias no Módulo de Tráfego
 
-O sistema atual tem: Visão Geral (métricas agregadas), Contas (lista simples), Configurações. Será adicionada uma 4ª aba central chamada **"Campanhas"**, que será o coração do novo módulo. Ela permitirá: selecionar uma conta, ver todas as campanhas daquela conta com detalhes completos, e (quando IA ativa) conversar com um assistente especializado sobre aquela conta.
+### Problemas Identificados
+
+**1. Erro na sincronização (CAUSA RAIZ ENCONTRADA)**
+A Meta Graph API **nao aceita** `last_2d` nem `last_60d` como valores de `date_preset`. Os valores validos sao: `today`, `yesterday`, `last_3d`, `last_7d`, `last_14d`, `last_28d`, `last_30d`, `last_90d`, `maximum`, etc.
+
+O sistema esta usando `last_60d` no primeiro sync e `last_2d` nos syncs seguintes -- ambos invalidos, causando erro 400 da API Meta.
+
+**2. Lista de campanhas nao rola (scroll cortado)**
+O componente `CampaignsTab` usa `ScrollArea` com `max-height` que corta o conteudo. Quando a lista tem muitas campanhas (50 no caso), nao e possivel rolar. O layout precisa permitir scroll natural.
+
+**3. CampaignCard cortado ao expandir**
+O card expansivel dentro do `ScrollArea` fica cortado porque o `ScrollArea` nao recalcula a altura ao expandir. Precisa usar scroll nativo.
+
+**4. Consultor nao aparece apos criacao**
+O `CreateConsultantDialog` invalida `['all-consultants']` e `['unified-ranking']`, mas a `ConsultantsTable` usa `useRankingData` com query key `['unified-ranking', periodStart, periodEnd]`. A invalidacao precisa usar `queryKey` parcial que cubra todas as variantes.
+
+**5. Tooltip do grafico "Performance por Conta" ilegivel**
+O tooltip mostra duas linhas: o valor formatado + o `fullName` da conta. O formato esta confuso -- o `formatter` retorna `[valor, nome]` mas o Recharts renderiza isso de forma pouco clara. Precisa de um `CustomTooltip`.
 
 ---
 
-### Arquitetura das Novas Abas
+### Solucoes Propostas
 
+#### 1. Corrigir date_preset na sincronizacao
+
+**Arquivos:** `sync-all-accounts/index.ts`, `fetch-meta-ads-data/index.ts`
+
+- Primeiro sync: usar `last_90d` (valor valido mais longo, 90 dias de historico)
+- Syncs seguintes: usar `last_3d` (valor minimo valido para manter atualizado)
+- Corrigir tambem o `syncSingleAccount` em `useAdAccounts.ts` que usa `last_2d` -> trocar para `last_3d`
+
+#### 2. Corrigir scroll da lista de campanhas
+
+**Arquivo:** `CampaignsTab.tsx`
+
+- Remover `ScrollArea` com `max-height` fixo
+- Usar `overflow-y-auto` nativo com `max-h-[calc(100vh-280px)]` no container da lista
+- Garantir que o `CollapsibleContent` do `CampaignCard` funcione dentro do scroll
+
+#### 3. Consultor aparecer imediatamente
+
+**Arquivo:** `CreateConsultantDialog.tsx`
+
+- A invalidacao `queryKey: ['unified-ranking']` sem os parametros `periodStart` e `periodEnd` ja deveria funcionar como partial match no TanStack Query.
+- Problema: a query key e `['unified-ranking', 'all', 'now']` e a invalidacao `['unified-ranking']` deveria casar parcialmente. Vou adicionar tambem `queryClient.invalidateQueries({ queryKey: ['super-admin-metrics'] })` e garantir `refetchType: 'all'`.
+
+#### 4. Tooltip legivel no grafico Performance por Conta
+
+**Arquivo:** `TrafficSpendChart.tsx`
+
+- Substituir o `formatter` do Tooltip por um componente `CustomTooltip` completo
+- Mostrar: nome da conta em destaque + valor formatado da metrica selecionada
+- Usar cores de fundo e texto compativeis com o tema escuro
+
+#### 5. Verificar tooltips em outros graficos
+
+**Arquivo:** `TrafficEvolutionChart.tsx`
+
+- Tooltip ja usa `formatter` simples que funciona bem, mas vou garantir que o `labelFormatter` mostre a data corretamente
+
+---
+
+### Detalhes Tecnicos
+
+**Valores validos de `date_preset` da Meta API:**
 ```text
-[Visão Geral] [Campanhas ★ NOVA] [Contas] [Configurações]
+today, yesterday, this_month, last_month, this_quarter, maximum, 
+data_maximum, last_3d, last_7d, last_14d, last_28d, last_30d, 
+last_90d, last_week_mon_sun, last_week_sun_sat, last_quarter, 
+last_year, this_week_mon_today, this_week_sun_today, this_year
 ```
 
-A aba "Campanhas" terá 3 zonas:
-1. **Seletor de Conta** — dropdown ou cards laterais para escolher qual conta visualizar
-2. **Lista de Campanhas** — tabela/cards com dados detalhados de cada campanha
-3. **Chat IA** (condicional) — painel lateral ou inferior que aparece quando IA está ativa
+**Mudancas no Smart Sync:**
+- `days_synced === 0` (primeiro sync) -> `last_90d` (maximo pratico com dados diarios)
+- `days_synced > 0` (syncs seguintes) -> `last_3d` (garante cobertura de 2-3 dias com overlap)
 
----
-
-### 1. Nova Edge Function: `get-account-campaigns`
-
-**Propósito:** Buscar campanhas diretamente da Meta Graph API (não do banco — campanhas mudam com frequência, dados devem ser frescos).
-
-**Dados retornados por campanha:**
-- `id`, `name`, `status`, `objective`
-- `daily_budget` / `lifetime_budget`, `budget_remaining`
-- `start_time`, `stop_time`, `created_time`
-- **Targeting:** `age_min`, `age_max`, `genders`, `geo_locations`, `interests`, `publisher_platforms`, `device_platforms`
-- **Insights** (últimos 30d): `spend`, `impressions`, `clicks`, `reach`, `ctr`, `cpc`, `frequency`
-
-**Endpoint Meta usado:**
-```
-GET /act_{ad_account_id}/campaigns
-?fields=id,name,status,objective,daily_budget,lifetime_budget,budget_remaining,start_time,stop_time,created_time,insights{spend,impressions,clicks,reach,ctr,cpc,frequency},adsets{targeting}
-```
-
-O adset contém o `targeting` com público, gênero, idade e posicionamento.
-
----
-
-### 2. Nova Edge Function: `ai-traffic-chat`
-
-**Propósito:** Assistente IA especializado em análise de campanhas Meta Ads.
-
-**Funcionamento:**
-- Recebe: `messages[]` (histórico do chat), `account_name`, `campaigns_data` (JSON das campanhas), `metrics_summary` (métricas do período)
-- Usa `LOVABLE_API_KEY` + `google/gemini-2.5-flash` via Lovable AI Gateway
-- O sistema prompt injeta automaticamente os dados da conta + campanhas como contexto
-- Capaz de:
-  - Analisar performance de campanhas existentes
-  - Sugerir otimizações (CTR baixo, CPC alto, frequência elevada)
-  - Criar briefing de novas campanhas (objetivo, público sugerido, orçamento)
-  - Responder perguntas sobre métricas históricas
-
-**Sistema Prompt injetado:**
-```
-Você é um especialista em Meta Ads (Facebook/Instagram Ads). 
-Contexto da conta: {account_name} (ID: {ad_account_id})
-Campanhas ativas: {campaigns_json}
-Métricas dos últimos {period} dias: {metrics_summary}
-Responda em português brasileiro. Seja preciso, use os dados reais fornecidos.
-```
-
-**Streaming:** Sim — usa SSE para resposta token a token.
-
----
-
-### 3. Hook: `useAccountCampaigns`
-
-Novo hook `src/hooks/useAccountCampaigns.ts` que:
-- Chama `get-account-campaigns` via `supabase.functions.invoke()`
-- Recebe `ad_account_id` como parâmetro
-- Retorna `{ campaigns, isLoading, refetch }`
-- Cache de 5 minutos (dados da API Meta são "frescos" mas não precisam ser recarregados a todo momento)
-
----
-
-### 4. Componente: `CampaignsTab`
-
-**Arquivo:** `src/components/traffic/CampaignsTab.tsx`
-
-**Layout (2 painéis quando IA ativa, 1 painel quando desativa):**
-
-```text
-┌─────────────────────────────────────────────────────────┐
-│  [Seletor de Conta ▼]        [Atualizar] [Status conta]  │
-├─────────────────────────────┬───────────────────────────┤
-│                             │                           │
-│  LISTA DE CAMPANHAS         │  CHAT IA (se ai_enabled)  │
-│  ─────────────────          │  ─────────────────────── │
-│  Campanha A        [ATIVA]  │  💬 Olá! Sou especialista │
-│  Objetivo: Tráfego          │  em Meta Ads. Analisando  │
-│  Orçamento: R$ 50/dia       │  sua conta...             │
-│  Público: 25-45, M/F        │                           │
-│  Alcance: São Paulo         │  [input do usuário...]    │
-│  Interesse: Finanças        │                           │
-│  Posicionamento: Feed+Reels │  [Enviar]                 │
-│                             │                           │
-│  Campanha B        [PAUSADA]│                           │
-│  ...                        │                           │
-└─────────────────────────────┴───────────────────────────┘
-```
-
-**Quando IA desativada:** lista de campanhas ocupa 100% da largura, sem painel de chat.
-
----
-
-### 5. Componente: `CampaignCard`
-
-**Arquivo:** `src/components/traffic/CampaignCard.tsx`
-
-Cada campanha exibirá em formato card expansível:
-
-**Header (sempre visível):**
-- Nome da campanha + badge de status (Ativa / Pausada / Arquivada) com cor semântica
-- Objetivo (Tráfego, Engajamento, Conversões, etc.) com ícone
-- Gasto total no período + badge de orçamento diário/total
-
-**Corpo expandido (ao clicar):**
-- **Métricas:** Impressões, Cliques, CTR, Alcance, Frequência, CPC — em mini-cards horizontais
-- **Público-alvo:** Faixa de idade (ex: 25–45), Gênero (Todos / Masculino / Feminino)
-- **Localização:** Cidades/estados/países do targeting
-- **Interesses:** Tags dos interesses configurados
-- **Posicionamentos:** Feed, Stories, Reels, Audience Network, Messenger — com ícones
-- **Período da campanha:** Data início → Data fim (ou "Em andamento")
-
----
-
-### 6. Componente: `TrafficAIChat`
-
-**Arquivo:** `src/components/traffic/TrafficAIChat.tsx`
-
-Painel de chat lateral com:
-- **Header:** "Assistente IA — {nome da conta}" + badge "Especialista em Ads"
-- **Área de mensagens:** scroll com markdown rendering (usando `dangerouslySetInnerHTML` com sanitização básica para bold/listas)
-- **Sugestões rápidas** (chips clicáveis na primeira interação):
-  - "Analise a campanha com melhor CTR"
-  - "Qual campanha está com CPC muito alto?"
-  - "Sugira um novo público para tráfego"
-  - "Crie um briefing de campanha de conversão"
-- **Input:** Textarea + botão Enviar
-- **Streaming:** Tokens aparecem progressivamente
-- **Contexto automático:** A cada nova conta selecionada, o contexto é reiniciado com dados frescos
-
----
-
-### 7. Reorganização das Abas em `AdminTraffic.tsx`
-
-```text
-[Visão Geral] [Campanhas] [Contas] [Configurações]
-```
-
-- "Campanhas" recebe `organizationId` + `aiEnabled` (lido do banco)
-- `aiEnabled` é carregado uma vez na página pai e passado como prop para evitar queries duplicadas
-
----
-
-### Arquivos que Serão Criados
-
-| Arquivo | Descrição |
+**Arquivos que serao editados:**
+| Arquivo | Mudanca |
 |---|---|
-| `supabase/functions/get-account-campaigns/index.ts` | Busca campanhas + targeting + insights da Meta API |
-| `supabase/functions/ai-traffic-chat/index.ts` | Chat IA especializado com contexto de campanhas |
-| `src/hooks/useAccountCampaigns.ts` | Hook para buscar campanhas de uma conta |
-| `src/components/traffic/CampaignsTab.tsx` | Aba principal com seletor, lista e chat |
-| `src/components/traffic/CampaignCard.tsx` | Card expansível de campanha com targeting |
-| `src/components/traffic/TrafficAIChat.tsx` | Painel de chat IA com streaming |
+| `supabase/functions/sync-all-accounts/index.ts` | `last_60d` -> `last_90d`, `last_2d` -> `last_3d` |
+| `supabase/functions/fetch-meta-ads-data/index.ts` | Fallback de `last_2d` -> `last_3d` |
+| `src/hooks/useAdAccounts.ts` | `syncSingleAccount` usar `last_3d` em vez de `last_2d` |
+| `src/components/traffic/CampaignsTab.tsx` | Corrigir scroll da lista de campanhas |
+| `src/components/traffic/TrafficSpendChart.tsx` | Custom tooltip legivel |
+| `src/components/super-admin/CreateConsultantDialog.tsx` | Melhorar invalidacao de cache |
 
-### Arquivos que Serão Editados
-
-| Arquivo | O que muda |
-|---|---|
-| `src/pages/AdminTraffic.tsx` | Adiciona aba "Campanhas", carrega `aiEnabled` centralmente |
-| `supabase/config.toml` | Registra novas functions (`get-account-campaigns`, `ai-traffic-chat`) |
-
----
-
-### Detalhes Técnicos Importantes
-
-**Por que buscar campanhas da API (não do banco):**
-- Campanhas mudam status, orçamento e targeting com frequência
-- Dados de `ad_metrics` no banco são métricas históricas (bom para gráficos)
-- Campanhas precisam de dados frescos da Meta API a cada visualização
-
-**Targeting via `adsets`:**
-- A API Meta retorna o targeting dentro dos `adsets` de cada campanha
-- Será feito um `adsets{targeting}` na mesma query para evitar N+1
-- O targeting inclui: `age_min`, `age_max`, `genders[]`, `geo_locations.cities[]/.countries[]`, `flexible_spec[].interests[]`, `publisher_platforms[]`, `device_platforms[]`
-
-**Segurança do Chat IA:**
-- O contexto (campanhas + métricas) é sempre injetado pelo backend (edge function)
-- O frontend só envia `messages[]` + `ad_account_id` + período
-- Nunca expõe o `META_ACCESS_TOKEN` no frontend
-
-**Responsividade:**
-- Mobile: Chat IA fica em aba separada abaixo da lista de campanhas (usando Tabs internas)
-- Desktop: Layout de 2 colunas (70% lista / 30% chat)
-
-**Streaming do chat:**
-- A edge function `ai-traffic-chat` retorna `text/event-stream`
-- O frontend usa `ReadableStream` + `TextDecoder` para tokens progressivos
-- Mesma implementação já comprovada em outros módulos IA do projeto
