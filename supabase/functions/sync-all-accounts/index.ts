@@ -51,15 +51,17 @@ Deno.serve(async (req) => {
         const data = await res.json();
         results.push({ ad_account_id: acc.ad_account_id, preset: datePreset, ...data });
 
-        // Update last_synced_at and days_synced
-        await supabase
-          .from("ad_accounts")
-          .update({
-            last_synced_at: new Date().toISOString(),
-            days_synced: isFirstSync ? 90 : (acc.days_synced || 0) + 3,
-          })
-          .eq("ad_account_id", acc.ad_account_id)
-          .eq("organization_id", acc.organization_id);
+        // Only update days_synced if data was actually synced
+        if (data.synced > 0) {
+          await supabase
+            .from("ad_accounts")
+            .update({
+              last_synced_at: new Date().toISOString(),
+              days_synced: isFirstSync ? 90 : (acc.days_synced || 0) + 3,
+            })
+            .eq("ad_account_id", acc.ad_account_id)
+            .eq("organization_id", acc.organization_id);
+        }
       } catch (e) {
         results.push({ ad_account_id: acc.ad_account_id, error: e.message });
       }

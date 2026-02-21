@@ -18,7 +18,8 @@ interface AccountRow {
   ctr: number;
   reach: number;
   profile_visits: number;
-  link_clicks: number;
+  post_engagement: number;
+  conversions: number;
 }
 
 interface Props {

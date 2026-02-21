@@ -13,7 +13,7 @@ import logoLight from "@/assets/logo-top-brasil-dark.png";
 import logoDark from "@/assets/logo-top-brasil.png";
 import { queryClient } from "@/App";
 import { usePrefetchAdminData } from "@/hooks/usePrefetchAdminData";
-import { InstallAdminPWA } from "./InstallAdminPWA";
+
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -31,7 +31,8 @@ export const AdminLayout = ({ children, disableVerticalScroll = false }: AdminLa
   usePrefetchAdminData();
 
   // Determina se está no modo claro
-  const isLightMode = resolvedTheme === 'light' || theme === 'light';
+  const effectiveTheme = resolvedTheme || theme || 'light';
+  const isLightMode = effectiveTheme === 'light';
 
   const { data: currentUser, isLoading: isLoadingUser } = useQuery({
     queryKey: ['current-user-layout'],
@@ -95,7 +96,8 @@ export const AdminLayout = ({ children, disableVerticalScroll = false }: AdminLa
         <img 
           src={isLightMode ? logoLight : logoDark} 
           alt="TOP Brasil" 
-          className="h-12 w-auto mx-auto transition-all" 
+          className="h-12 w-auto mx-auto" 
+          loading="eager"
         />
       </div>
       
@@ -166,7 +168,8 @@ export const AdminLayout = ({ children, disableVerticalScroll = false }: AdminLa
         <img 
           src={isLightMode ? logoLight : logoDark} 
           alt="TOP Brasil" 
-          className="h-10 w-auto mx-auto transition-all" 
+          className="h-10 w-auto mx-auto" 
+          loading="eager"
         />
       </div>
       
@@ -267,16 +270,14 @@ export const AdminLayout = ({ children, disableVerticalScroll = false }: AdminLa
               <img 
                 src={isLightMode ? logoLight : logoDark} 
                 alt="TOP Brasil" 
-                className="h-8 w-auto transition-all" 
+                className="h-8 w-auto" 
+                loading="eager"
               />
               
               {/* Espaço vazio para centralizar a logo */}
               <div className="w-10" />
             </div>
           </header>
-
-          {/* PWA Install Banner - Mobile Only */}
-          <InstallAdminPWA />
 
           {/* Page Content */}
           <div 

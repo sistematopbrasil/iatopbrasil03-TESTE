@@ -58,7 +58,8 @@ export function TrafficDashboard({ organizationId }: Props) {
       ctr: accMetrics?.ctr || 0,
       reach: accMetrics?.reach || 0,
       profile_visits: accMetrics?.profile_visits || 0,
-      link_clicks: accMetrics?.link_clicks || 0,
+      post_engagement: accMetrics?.post_engagement || 0,
+      conversions: accMetrics?.conversions || 0,
     };
   });
 
@@ -118,8 +119,8 @@ export function TrafficDashboard({ organizationId }: Props) {
         totalClicks={metrics?.totalClicks || 0}
         totalReach={metrics?.totalReach || 0}
         totalProfileVisits={metrics?.totalProfileVisits || 0}
-        totalLinkClicks={metrics?.totalLinkClicks || 0}
-        totalVideoViews={metrics?.totalVideoViews || 0}
+        totalPostEngagement={metrics?.totalPostEngagement || 0}
+        totalConversions={metrics?.totalConversions || 0}
         avgCtr={metrics?.avgCtr || 0}
         avgCpc={metrics?.avgCpc || 0}
         avgFrequency={metrics?.avgFrequency || 0}

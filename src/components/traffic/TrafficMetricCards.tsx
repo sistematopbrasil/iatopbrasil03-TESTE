@@ -1,4 +1,4 @@
-import { DollarSign, Eye, MousePointerClick, Target, BarChart3, TrendingUp, Users, Repeat, Link, PlayCircle } from "lucide-react";
+import { DollarSign, Eye, MousePointerClick, Target, BarChart3, TrendingUp, Users, Repeat, Heart, CheckCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -8,8 +8,8 @@ interface Props {
   totalClicks: number;
   totalReach: number;
   totalProfileVisits: number;
-  totalLinkClicks: number;
-  totalVideoViews: number;
+  totalPostEngagement: number;
+  totalConversions: number;
   avgCtr: number;
   avgCpc: number;
   avgFrequency: number;
@@ -60,18 +60,18 @@ const metricsConfig = [
     format: (n: number) => n.toFixed(2) + "x", colorClass: "text-cyan-500", borderClass: "border-l-cyan-500"
   },
   {
-    key: "linkClicks", label: "Cliques no Link", icon: Link,
+    key: "postEngagement", label: "Engajamento", icon: Heart,
     format: formatNumber, colorClass: "text-violet-500", borderClass: "border-l-violet-500"
   },
   {
-    key: "videoViews", label: "Views de Vídeo", icon: PlayCircle,
+    key: "conversions", label: "Conversões", icon: CheckCircle,
     format: formatNumber, colorClass: "text-rose-500", borderClass: "border-l-rose-500"
   },
 ];
 
 export function TrafficMetricCards({
   totalSpend, totalImpressions, totalClicks, totalReach,
-  totalProfileVisits, totalLinkClicks, totalVideoViews,
+  totalProfileVisits, totalPostEngagement, totalConversions,
   avgCtr, avgCpc, avgFrequency, avgCostPerVisit,
   isLoading, lastDate
 }: Props) {
@@ -84,8 +84,8 @@ export function TrafficMetricCards({
     cpc: avgCpc,
     profileVisits: totalProfileVisits,
     frequency: avgFrequency,
-    linkClicks: totalLinkClicks,
-    videoViews: totalVideoViews,
+    postEngagement: totalPostEngagement,
+    conversions: totalConversions,
   };
 
   return (
