@@ -1,59 +1,89 @@
 
 
-## Correção: Colunas Faltantes + Re-sync Completo
+## Plano de Correção: Dados de Tráfego, Logo, PWA e Filtros de Campanhas
 
-### Causa Raiz
+### 1. Causa raiz dos dados de tráfego não atualizarem
 
-A edge function `fetch-meta-ads-data` tenta gravar nas colunas `link_clicks`, `post_engagement` e `video_views` na tabela `ad_metrics`, mas essas colunas **nao existem no banco**. Isso faz com que **100% dos upserts falhem**, e nenhum dado novo e salvo. Os 27 registros existentes sao de uma versao anterior do codigo que nao incluia esses campos.
+A tabela `ad_metrics` ainda **não tem** as colunas `link_clicks`, `post_engagement` e `video_views`. A edge function `fetch-meta-ads-data` tenta gravar nessas colunas inexistentes, fazendo com que **todos os upserts falhem silenciosamente**. Os 27 registros existentes (apenas 7 dias, do dia 13 ao 19/fev) são de antes dessas colunas serem adicionadas ao código.
 
-Alem disso, o `sync-all-accounts` marcou `days_synced = 90` sem verificar se o sync realmente funcionou, entao agora ele so tenta puxar 3 dias em vez de 90.
+Apesar do `days_synced` estar em 93 (o que significa que o sync "achou" que funcionou), nenhum dado novo foi realmente salvo.
 
-### Solucao
+### Solução
 
-**1. Migracao de banco de dados**
+**1.1 Migração de banco de dados**
 
-Adicionar as 3 colunas faltantes e resetar `days_synced`:
+Adicionar 2 novas colunas úteis (substituindo as 3 originais por métricas mais relevantes):
+- `post_engagement` (engajamento total com publicações -- curtidas, comentários, compartilhamentos)
+- `conversions` (resultados/conversões das campanhas)
+
+Resetar `days_synced = 0` para forçar re-sync completo de 90 dias.
 
 ```sql
--- Colunas que a edge function tenta gravar mas nao existem
-ALTER TABLE public.ad_metrics ADD COLUMN IF NOT EXISTS link_clicks bigint DEFAULT 0;
 ALTER TABLE public.ad_metrics ADD COLUMN IF NOT EXISTS post_engagement bigint DEFAULT 0;
-ALTER TABLE public.ad_metrics ADD COLUMN IF NOT EXISTS video_views bigint DEFAULT 0;
-
--- Resetar days_synced para forcar re-sync completo de 90 dias
+ALTER TABLE public.ad_metrics ADD COLUMN IF NOT EXISTS conversions bigint DEFAULT 0;
 UPDATE public.ad_accounts SET days_synced = 0;
 ```
 
-**2. Corrigir sync-all-accounts para validar resultado**
+**1.2 Atualizar `fetch-meta-ads-data`**
 
-Antes de atualizar `days_synced`, verificar se o fetch realmente salvou dados:
+- Remover gravação de `link_clicks` e `video_views`
+- Substituir por `post_engagement` e `conversions` (extraídos do campo `actions` da API Meta)
+- A coluna `clicks` já cobre cliques totais (inclui cliques no link)
 
-```typescript
-// Antes (sempre atualiza):
-await supabase.from("ad_accounts").update({ days_synced: 90 })
+**1.3 Corrigir `sync-all-accounts`**
 
-// Depois (so atualiza se synced > 0):
-if (data.synced && data.synced > 0) {
-  await supabase.from("ad_accounts").update({ days_synced: ... })
-}
-```
+- Só atualizar `days_synced` se o sync realmente retornou `synced > 0`
 
-**3. Sobre a frequencia**
+---
 
-A frequencia na API Meta e por dia (ex: 1.04x). O frontend faz media aritmetica dos valores diarios, o que e correto. A metrica ja esta sendo salva e exibida corretamente -- o problema era que os dados novos nao estavam sendo salvos.
+### 2. Logo desaparecendo ao trocar de página
 
-### Resultado Esperado
+O problema é que o componente `AdminLayout` usa `resolvedTheme` do `next-themes` para escolher entre logo claro/escuro. Quando a página muda, o hook `useTheme` momentaneamente retorna `undefined` para `resolvedTheme`, causando um "flash" onde a logo some.
 
-Apos a migracao + re-deploy + clicar em "Sincronizar":
-- 90 dias de historico serao puxados e salvos com sucesso
-- `link_clicks`, `post_engagement`, `video_views` serao preenchidos
-- Dados de hoje aparecerão
-- Syncs futuros adicionarão 3 dias incrementais
+**Solução**: Usar fallback para `resolvedTheme` e adicionar eager loading na tag `<img>` para evitar re-download.
+
+---
+
+### 3. Remover notificações/pop-ups de instalação PWA
+
+Dois componentes exibem banners de instalação:
+- `InstallAdminPWA` (dentro do `AdminLayout`)
+- `InstallPWA` (componente separado)
+
+**Solução**: Remover a renderização de `InstallAdminPWA` do `AdminLayout`. O componente `InstallPWA` não é importado em nenhum lugar ativo, mas será limpo também.
+
+---
+
+### 4. Filtros na aba de Campanhas
+
+Adicionar barra de filtros com:
+- **Ordenar por**: Data de criação (mais recente/mais antiga), Orçamento (maior/menor)
+- **Filtrar por status**: Mostrar apenas campanhas ativas
+
+Será adicionado no componente `CampaignsTab`.
+
+---
+
+### 5. Atualizar TrafficMetricCards e hooks
+
+- Remover métricas `linkClicks` e `videoViews` dos cards
+- Adicionar `postEngagement` (Engajamento) e `conversions` (Conversões)
+- Atualizar `useTrafficMetrics` para calcular as novas métricas
+- Atualizar `TrafficEvolutionChart` para remover `link_clicks` das opções de gráfico
+
+---
 
 ### Arquivos Afetados
 
-| Arquivo | Mudanca |
+| Arquivo | Mudança |
 |---|---|
-| Migracao SQL | Adicionar 3 colunas + resetar days_synced |
-| `sync-all-accounts/index.ts` | Validar resultado antes de atualizar days_synced |
+| Migração SQL | Adicionar colunas `post_engagement` e `conversions`, resetar `days_synced` |
+| `supabase/functions/fetch-meta-ads-data/index.ts` | Trocar `link_clicks`/`video_views` por `post_engagement`/`conversions` |
+| `supabase/functions/sync-all-accounts/index.ts` | Validar resultado antes de atualizar `days_synced` |
+| `src/hooks/useTrafficMetrics.ts` | Trocar métricas por `postEngagement`/`conversions` |
+| `src/components/traffic/TrafficMetricCards.tsx` | Trocar cards de linkClicks/videoViews por engajamento/conversões |
+| `src/components/traffic/TrafficEvolutionChart.tsx` | Remover `link_clicks` das opções do gráfico |
+| `src/components/traffic/TrafficDashboard.tsx` | Atualizar props passadas para MetricCards |
+| `src/components/traffic/CampaignsTab.tsx` | Adicionar filtros de ordenação e status |
+| `src/components/admin/AdminLayout.tsx` | Remover `InstallAdminPWA`, corrigir flash da logo |
 
