@@ -7,10 +7,21 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { campaign_id, status } = await req.json();
+    const { campaign_id, status, entity_id, entity_type } = await req.json();
 
-    if (!campaign_id || !status) {
-      return new Response(JSON.stringify({ error: "campaign_id e status são obrigatórios" }), {
+    // Support both legacy (campaign_id) and new (entity_id + entity_type) params
+    const targetId = entity_id || campaign_id;
+    const targetType = entity_type || "campaign";
+
+    if (!targetId || !status) {
+      return new Response(JSON.stringify({ error: "ID e status são obrigatórios" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!["campaign", "adset", "ad"].includes(targetType)) {
+      return new Response(JSON.stringify({ error: "entity_type deve ser campaign, adset ou ad" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -26,7 +37,7 @@ Deno.serve(async (req) => {
     const META_ACCESS_TOKEN = Deno.env.get("META_ACCESS_TOKEN");
     if (!META_ACCESS_TOKEN) throw new Error("META_ACCESS_TOKEN não configurado");
 
-    const url = `https://graph.facebook.com/v21.0/${campaign_id}`;
+    const url = `https://graph.facebook.com/v21.0/${targetId}`;
     const resp = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

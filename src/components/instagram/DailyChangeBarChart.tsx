@@ -43,12 +43,16 @@ export function DailyChangeBarChart({ metrics }: Props) {
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: "hsl(var(--card))",
+                backgroundColor: "hsl(var(--popover))",
                 border: "1px solid hsl(var(--border))",
                 borderRadius: "8px",
+                color: "hsl(var(--popover-foreground))",
               }}
+              labelStyle={{ color: "hsl(var(--popover-foreground))" }}
+              itemStyle={{ color: "hsl(var(--popover-foreground))" }}
               labelFormatter={(v) => format(parseISO(v as string), "dd/MM/yyyy", { locale: ptBR })}
               formatter={(v: number) => [v > 0 ? `+${v}` : v, "Variação"]}
+              cursor={{ fill: "hsl(var(--muted))", opacity: 0.3 }}
             />
             <Bar dataKey="change" radius={[4, 4, 0, 0]}>
               {data.map((entry, index) => (
