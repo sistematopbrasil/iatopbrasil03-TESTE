@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InstagramDashboard } from "@/components/instagram/InstagramDashboard";
 import { InstagramProfilesList } from "@/components/instagram/InstagramProfilesList";
 import { InstagramAnalytics } from "@/components/instagram/InstagramAnalytics";
-import { LayoutDashboard, Users, BarChart3 } from "lucide-react";
+import { LayoutGrid, UserCircle, TrendingUp } from "lucide-react";
 
 const AdminInstagram = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -20,15 +20,15 @@ const AdminInstagram = () => {
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full max-w-md grid-cols-3">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
-              <LayoutDashboard className="h-4 w-4" />
+              <LayoutGrid className="h-4 w-4" />
               <span className="hidden sm:inline">Visão Geral</span>
             </TabsTrigger>
             <TabsTrigger value="profiles" className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
+              <UserCircle className="h-4 w-4" />
               <span className="hidden sm:inline">Perfis</span>
             </TabsTrigger>
             <TabsTrigger value="analytics" className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
+              <TrendingUp className="h-4 w-4" />
               <span className="hidden sm:inline">Análises</span>
             </TabsTrigger>
           </TabsList>

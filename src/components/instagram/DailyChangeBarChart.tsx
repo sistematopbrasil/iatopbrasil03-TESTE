@@ -54,7 +54,7 @@ export function DailyChangeBarChart({ metrics }: Props) {
               {data.map((entry, index) => (
                 <Cell
                   key={index}
-                  fill={entry.change >= 0 ? "hsl(var(--chart-2))" : "hsl(var(--destructive))"}
+                  fill={entry.change >= 0 ? "#22c55e" : "#ef4444"}
                 />
               ))}
             </Bar>

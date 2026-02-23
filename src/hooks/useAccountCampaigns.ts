@@ -21,6 +21,34 @@ export interface CampaignTargeting {
   publisher_platforms: string[];
 }
 
+export interface AdCreative {
+  id: string;
+  name: string;
+  thumbnail_url: string | null;
+  image_url: string | null;
+  body: string | null;
+  title: string | null;
+}
+
+export interface Ad {
+  id: string;
+  name: string;
+  status: string;
+  creative: AdCreative | null;
+}
+
+export interface AdSet {
+  id: string;
+  name: string;
+  status: string;
+  daily_budget: number | null;
+  lifetime_budget: number | null;
+  optimization_goal: string | null;
+  targeting: CampaignTargeting;
+  insights: CampaignInsights;
+  ads: Ad[];
+}
+
 export interface Campaign {
   id: string;
   name: string;
@@ -35,6 +63,7 @@ export interface Campaign {
   insights: CampaignInsights;
   targeting: CampaignTargeting;
   adsets_count: number;
+  adsets: AdSet[];
 }
 
 export function useAccountCampaigns(ad_account_id?: string | null) {

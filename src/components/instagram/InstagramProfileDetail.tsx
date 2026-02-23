@@ -11,6 +11,7 @@ import { ArrowUp, ArrowDown, ExternalLink, RefreshCw, Trash2, Archive, Pencil } 
 import { formatNumber, formatChange, formatPercentage, getLatestMetric, calculateAverage, filterMetricsByPeriod, type InstaProfile } from "@/lib/instagram-utils";
 import { GrowthAreaChart } from "./GrowthAreaChart";
 import { DailyChangeBarChart } from "./DailyChangeBarChart";
+import { DailyMetricsTable } from "./DailyMetricsTable";
 import { LastUpdatedBadge } from "./LastUpdatedBadge";
 import {
   AlertDialog,
@@ -176,12 +177,16 @@ export function InstagramProfileDetail({ profile, onClose }: Props) {
         <TabsList>
           <TabsTrigger value="growth">Crescimento</TabsTrigger>
           <TabsTrigger value="daily">Diário</TabsTrigger>
+          <TabsTrigger value="history">Histórico</TabsTrigger>
         </TabsList>
         <TabsContent value="growth" className="mt-4">
           <GrowthAreaChart metrics={filteredMetrics} />
         </TabsContent>
         <TabsContent value="daily" className="mt-4">
           <DailyChangeBarChart metrics={filteredMetrics} />
+        </TabsContent>
+        <TabsContent value="history" className="mt-4">
+          <DailyMetricsTable metrics={filteredMetrics} />
         </TabsContent>
       </Tabs>
 
