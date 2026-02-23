@@ -1,100 +1,108 @@
 
 
-## Plano: Campanhas On/Off, Reorganizacao de Graficos, IA Persistente e Auto-Sync
+## Plano: Melhorias Visuais no Instagram, Chat IA Maior, e Detalhes de Conjuntos/Anuncios nas Campanhas
 
-### 1. Toggle Ligar/Desligar Campanhas
+### 1. Graficos do Instagram - Melhor visualizacao de crescimento
 
-Adicionar um botao de ligar/desligar em cada `CampaignCard` que altera o status da campanha via Meta API.
+**Problema**: O grafico de crescimento com numeros grandes (ex: 6.000-7.000) mostra quase uma linha reta porque o eixo Y comeca em 0. O grafico diario tem barras escuras que se misturam com o fundo.
 
-**Implementacao:**
-- Criar edge function `toggle-campaign-status/index.ts` que faz `POST` na Meta Graph API para alterar o `status` da campanha (ACTIVE <-> PAUSED)
-- Adicionar botao `Switch` ou `Toggle` no header do `CampaignCard.tsx` ao lado do badge de status
-- Usar `useMutation` para chamar a edge function e invalidar `account-campaigns` apos sucesso
-- Mostrar toast de confirmacao/erro
+**Correcoes**:
+- **GrowthAreaChart**: Configurar `YAxis` com `domain={['dataMin - offset', 'dataMax + offset']}` para fazer zoom automatico no range real dos dados, mostrando claramente as variacoes
+- **DailyChangeBarChart**: Usar cores mais vibrantes e com melhor contraste (verde mais claro para positivo, vermelho mais claro para negativo), adicionar labels nos topos das barras para valores significativos
+- Ambos os graficos: melhorar tooltips, adicionar padding, garantir responsividade
 
-### 2. Mover "Performance das Contas" para aba "Contas"
+### 2. Tabela de historico diario na pagina de detalhes do perfil
 
-**Problema atual:** `TrafficAccountsTable` (tabela de performance) esta na "Visao Geral", duplicando informacao com a aba "Contas".
+**Referencia**: O print mostra uma tabela com Data, Seguidores, Mudanca Diaria, Taxa de Crescimento, Seguindo, Posts (igual ao InstaGrow).
 
-**Correcao:**
-- Remover `TrafficAccountsTable` do `TrafficDashboard.tsx`
-- Integrar a tabela de performance no `TrafficAccounts.tsx`, combinando a listagem de contas com as metricas de performance em uma unica view organizada
+**Implementacao em `InstagramProfileDetail.tsx`**:
+- Adicionar uma terceira aba "Historico" (alem de Crescimento e Diario)
+- Criar componente `DailyMetricsTable` com as colunas: Data, Seguidores, Mudanca Diaria, Taxa de Crescimento, Seguindo, Posts
+- Paginacao (10 por pagina)
+- Cores semanticas: verde para mudancas positivas, vermelho para negativas
+- Dados ordenados do mais recente para o mais antigo
 
-### 3. Graficos na Visao Geral: 2 fixos + 1 selecionavel
+### 3. Perfil clicavel em todas as paginas
 
-**Layout atual:** 2 graficos ambos com seletores de metrica (repetitivo).
+**Problema**: Na Dashboard e Analises, clicar no card de perfil nao abre os detalhes.
 
-**Novo layout:**
-- **Grafico 1 (fixo):** Evolucao de Gasto (R$) ao longo do tempo (AreaChart) - sem botoes de troca
-- **Grafico 2 (fixo):** Impressoes vs Cliques (dual AreaChart com duas linhas) - comparativo visual direto
-- **Grafico 3 (selecionavel):** Manter seletor de metricas (Alcance, CTR, CPC, Visitas ao Perfil, Frequencia) - permite explorar metricas secundarias
+**Correcao**:
+- `InstagramDashboard.tsx`: Adicionar state para `selectedProfileId` e passar `onClick` para cada `InstagramProfileCard`, abrir o `Sheet` com `InstagramProfileDetail`
+- `InstagramAnalytics.tsx`: Tornar cada item do ranking clicavel, abrir o mesmo Sheet de detalhes
+- Reutilizar o mesmo padrao que ja existe em `InstagramProfilesList.tsx`
 
-Grid: `grid-cols-1 lg:grid-cols-2` para os 2 primeiros + full-width para o terceiro em telas grandes, ou todos empilhados em mobile.
+### 4. Icones mais modernos no modulo de Instagram
 
-### 4. Remover metricas de Engajamento e Conversoes (novamente)
+Substituir icones genericos por opcoes mais adequadas do Lucide:
+- Dashboard: `LayoutGrid` em vez de `LayoutDashboard`
+- Perfis: `UserCircle` ou `Instagram` (do Lucide) em vez de `Users` generico
+- Analises: `TrendingUp` em vez de `BarChart3`
+- Cards de metricas: usar icones mais especificos (ex: `UsersRound` para seguidores, `Flame` ou `Zap` para crescimento)
 
-As metricas `totalPostEngagement` e `totalConversions` voltaram ao `useTrafficMetrics.ts`. Vou remover:
-- Do tipo `TrafficMetrics` e dos calculos
-- Do `dailyData` e `byAccount`
-- De qualquer componente que ainda referencia
+### 5. Chat da IA de Trafego - Layout maior e melhor legibilidade
 
-### 5. Persistencia de conversas da IA por conta
+**Problema no print**: O chat fica numa coluna estreita de 340px, texto pequeno e cortado.
 
-**Problema atual:** As mensagens ficam em estado local (`useState`) e se perdem ao sair.
+**Correcoes em `CampaignsTab.tsx` e `TrafficAIChat.tsx`**:
+- Aumentar a coluna do chat de `340px` para `420px` no grid desktop
+- Aumentar o font-size das mensagens de `text-xs` para `text-sm`
+- Aumentar o tamanho do header e do avatar do bot
+- Input: aumentar `min-h` de 60px para 80px
+- Garantir que o ScrollArea ocupa todo o espaco disponivel sem cortar mensagens
+- Mobile: aumentar a altura do container de `500px` para `600px`
 
-**Solucao:**
-- Criar tabela `traffic_ai_conversations` no banco: `id, organization_id, ad_account_id, messages (jsonb), updated_at, created_at`
-- RLS: Super admin pode gerenciar
-- Ao abrir o chat de uma conta, carregar mensagens salvas do banco
-- A cada mensagem nova (user ou assistant finalizada), salvar o array completo no banco via upsert
-- Botao "Limpar" limpa mensagens locais E no banco
-- Cada conta tem sua propria conversa persistente
+### 6. Campanhas - Mostrar conjuntos de anuncios e anuncios
 
-### 6. Configuracoes da IA de Trafego
+**Problema**: Atualmente a campanha mostra `adsets_count` mas nao mostra detalhes dos conjuntos nem dos anuncios.
 
-Adicionar secao de configuracao da IA na aba "Configuracoes" do modulo de Trafego.
+**Implementacao**:
 
-**Campos de configuracao (salvos em `traffic_settings`):**
-- **Modelo de IA**: Select com opcoes (google/gemini-3-flash-preview, google/gemini-2.5-flash, google/gemini-2.5-pro, openai/gpt-5-mini, openai/gpt-5)
-- **Prompt do sistema**: Textarea para customizar o prompt base (vem pre-preenchido com prompt otimizado)
-- **Temperatura**: Slider 0.0-1.0 (default 0.5 para analises precisas)
-- **Foco de analise**: Checkboxes (Otimizacao de CPC, Analise de CTR, Sugestoes de publico, Criacao de campanhas, Analise de criativos)
-- **Modo de resposta**: Select (Detalhado / Resumido / Tecnico)
+**Backend (`get-account-campaigns/index.ts`)**:
+- Expandir o campo `adsets` para incluir: `name, status, daily_budget, lifetime_budget, targeting, insights.date_preset(last_30d){spend,impressions,clicks,reach}, optimization_goal`
+- Adicionar campo `ads` dentro de cada adset: `ads{name,status,creative{id,name,thumbnail_url,effective_object_story_id,image_url,body,title}}`
+- Retornar os dados de conjuntos e anuncios no response
 
-**Migracoes necessarias:** Adicionar colunas a `traffic_settings`:
-- `ai_model` (text, default 'google/gemini-3-flash-preview')
-- `ai_system_prompt` (text, nullable - se null usa o padrao)
-- `ai_temperature` (numeric, default 0.5)
-- `ai_response_mode` (text, default 'detailed')
+**Frontend (`CampaignCard.tsx`)**:
+- No expand da campanha, adicionar secao "Conjuntos de Anuncios" com accordion/collapsible
+- Cada conjunto mostra: Nome, Status, Orcamento, Publico (targeting resumido), Posicionamento, Otimizacao
+- Dentro de cada conjunto, lista de anuncios com: Nome, Status, preview do criativo (thumbnail se disponivel)
+- Layout hierarquico organizado: Campanha > Conjuntos > Anuncios, cada nivel com indentacao visual
+- Criativo: exibir thumbnail se `thumbnail_url` ou `image_url` estiver disponivel, senao mostrar placeholder
 
-**Prompt pre-configurado (default otimizado):**
-O prompt padrao incluira instrucoes para: analise profunda de metricas, identificacao de anomalias (CTR abaixo de 1%, CPC acima da media do setor), sugestoes de publico baseadas em targeting existente, criacao de campanhas completas com briefing detalhado (objetivo, publico, orcamento, posicionamentos, criativos), e comparacao de performance entre campanhas.
+**Interface atualizada**:
+```
+Campanha [ALINE] [LEADS]         [Ativa] [Toggle]
+  |- Conjunto: "Mulheres 25-45"   [Ativo]
+  |    Publico: Feminino, 25-45, Sao Paulo
+  |    Posicionamento: Feed IG, Stories IG
+  |    |- Anuncio: "Criativo V1"  [Ativo]
+  |    |   [Preview do criativo]
+  |- Conjunto: "Homens 30-55"     [Pausado]
+  |    ...
+```
 
-**Edge function `ai-traffic-chat`:** Atualizar para ler configuracoes do banco antes de chamar a API, usando modelo/temperatura/prompt customizados.
+### 7. Tipos atualizados
 
-### 7. Auto-sync ao abrir o painel
+Atualizar `useAccountCampaigns.ts`:
+- Adicionar interfaces `AdSet` e `Ad` com campos de targeting, criativos etc.
+- Campanha passa a ter `adsets: AdSet[]` em vez de apenas `adsets_count`
 
-**Implementacao:**
-- No `AdminTraffic.tsx`, ao montar o componente (com `organizationId` disponivel), disparar automaticamente o `syncAllAccounts.mutate()` em background
-- Usar `useEffect` com flag para evitar chamadas duplicadas
-- Nao mostrar loading bloqueante - os dados existentes aparecem imediatamente e se atualizam quando o sync terminar
-- Combinar com a sincronizacao diaria automatica (cron) que ja existe
+---
 
 ### Resumo dos arquivos afetados
 
 | Arquivo | Mudanca |
 |---|---|
-| `supabase/functions/toggle-campaign-status/index.ts` | **NOVO** - Edge function para ligar/desligar campanha via Meta API |
-| `src/components/traffic/CampaignCard.tsx` | Adicionar toggle de status (ligar/desligar) |
-| `src/components/traffic/TrafficDashboard.tsx` | Remover TrafficAccountsTable, reorganizar graficos (2 fixos + 1 selecionavel) |
-| `src/components/traffic/TrafficEvolutionChart.tsx` | Refatorar: criar 3 componentes de grafico (SpendChart fixo, ImpressionsClicksChart fixo, MetricExplorerChart selecionavel) |
-| `src/components/traffic/TrafficSpendChart.tsx` | Remover (substituido pelo layout de 3 graficos) |
-| `src/components/traffic/TrafficAccounts.tsx` | Integrar tabela de performance das contas |
-| `src/hooks/useTrafficMetrics.ts` | Remover post_engagement e conversions |
-| `src/components/traffic/TrafficMetricCards.tsx` | Limpar referencias restantes |
-| `src/components/traffic/TrafficAIChat.tsx` | Persistir mensagens no banco por conta |
-| `src/components/traffic/TrafficSettings.tsx` | Adicionar secao de configuracao da IA (modelo, prompt, temperatura) |
-| `supabase/functions/ai-traffic-chat/index.ts` | Ler configuracoes do banco (modelo, prompt, temperatura) |
-| `src/pages/AdminTraffic.tsx` | Adicionar auto-sync ao montar |
-| Migracao SQL | Criar tabela `traffic_ai_conversations` + adicionar colunas de config IA em `traffic_settings` |
+| `src/components/instagram/GrowthAreaChart.tsx` | YAxis com domain auto-zoom, visual melhorado |
+| `src/components/instagram/DailyChangeBarChart.tsx` | Cores mais vibrantes, melhor contraste |
+| `src/components/instagram/InstagramProfileDetail.tsx` | Adicionar aba "Historico" com tabela diaria |
+| `src/components/instagram/DailyMetricsTable.tsx` | **NOVO** - Tabela paginada de metricas diarias |
+| `src/components/instagram/InstagramDashboard.tsx` | Tornar perfis clicaveis, abrir Sheet de detalhes |
+| `src/components/instagram/InstagramAnalytics.tsx` | Ranking clicavel, abrir Sheet de detalhes |
+| `src/pages/AdminInstagram.tsx` | Icones atualizados nas tabs |
+| `src/components/traffic/TrafficAIChat.tsx` | Fontes maiores, melhor spacing, layout expandido |
+| `src/components/traffic/CampaignsTab.tsx` | Coluna IA mais larga, mobile com mais altura |
+| `src/components/traffic/CampaignCard.tsx` | Secao de conjuntos e anuncios com hierarquia visual |
+| `src/hooks/useAccountCampaigns.ts` | Interfaces AdSet e Ad adicionadas |
+| `supabase/functions/get-account-campaigns/index.ts` | Buscar adsets detalhados e ads com criativos |
 
