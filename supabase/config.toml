@@ -33,3 +33,9 @@ verify_jwt = false
 [functions.ai-traffic-chat]
 verify_jwt = false
 
+[functions.toggle-campaign-status]
+verify_jwt = false
+
+[functions.update-campaign-targeting]
+verify_jwt = false
+

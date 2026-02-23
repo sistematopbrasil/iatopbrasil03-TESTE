@@ -124,7 +124,7 @@ export function TrafficSettings({ organizationId }: Props) {
   };
 
   return (
-    <div className="space-y-5 max-w-2xl">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
       {/* Token Status */}
       <Card>
         <CardHeader className="pb-3">
@@ -195,7 +195,7 @@ export function TrafficSettings({ organizationId }: Props) {
         </CardContent>
       </Card>
 
-      {/* AI Toggle */}
+      {/* AI Toggle - starts column 2 on desktop */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -225,9 +225,9 @@ export function TrafficSettings({ organizationId }: Props) {
         </CardContent>
       </Card>
 
-      {/* AI Configuration */}
+      {/* AI Configuration - spans full width */}
       {aiEnabled && !loadingSettings && (
-        <Card>
+        <Card className="lg:col-span-2">
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-semibold">Configurações da IA</CardTitle>
           </CardHeader>

@@ -234,12 +234,12 @@ export function CampaignsTab({ organizationId, aiEnabled }: CampaignsTabProps) {
           </TabsContent>
         </Tabs>
       ) : aiEnabled && selectedAccountId ? (
-        // Desktop: 2-column layout
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-4 items-start">
-          <div className="overflow-y-auto max-h-[calc(100vh-280px)] pr-2">
+        // Desktop: 2-column layout — fit viewport
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-4 items-start" style={{ height: "calc(100vh - 260px)" }}>
+          <div className="overflow-y-auto h-full pr-2">
             <CampaignsList />
           </div>
-          <div className="h-[calc(100vh-280px)] min-h-[500px] sticky top-4">
+          <div className="h-full min-h-[400px] sticky top-4">
             <TrafficAIChat
               accountName={selectedAccount?.name || ""}
               adAccountId={selectedAccountId}

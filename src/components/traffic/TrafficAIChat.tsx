@@ -88,11 +88,11 @@ export function TrafficAIChat({ accountName, adAccountId, campaigns, metricsSumm
     setMessages([]);
   }, [adAccountId]);
 
-  // Save messages to DB
+  // Save messages to DB with fallback
   const persistMessages = useCallback(async (msgs: Message[]) => {
     if (!organizationId || !adAccountId) return;
     try {
-      await supabase
+      const { error } = await supabase
         .from("traffic_ai_conversations" as any)
         .upsert({
           organization_id: organizationId,
@@ -100,6 +100,25 @@ export function TrafficAIChat({ accountName, adAccountId, campaigns, metricsSumm
           messages: msgs as any,
           updated_at: new Date().toISOString(),
         }, { onConflict: "organization_id,ad_account_id" } as any);
+      
+      if (error) {
+        // Fallback: try select + update/insert
+        const { data: existing } = await supabase
+          .from("traffic_ai_conversations" as any)
+          .select("id")
+          .eq("organization_id", organizationId)
+          .eq("ad_account_id", adAccountId)
+          .maybeSingle();
+
+        if (existing) {
+          await supabase.from("traffic_ai_conversations" as any)
+            .update({ messages: msgs as any, updated_at: new Date().toISOString() })
+            .eq("id", (existing as any).id);
+        } else {
+          await supabase.from("traffic_ai_conversations" as any)
+            .insert({ organization_id: organizationId, ad_account_id: adAccountId, messages: msgs as any });
+        }
+      }
     } catch (e) {
       console.error("Failed to persist AI conversation:", e);
     }

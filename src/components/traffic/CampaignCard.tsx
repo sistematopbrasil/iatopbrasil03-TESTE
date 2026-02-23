@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Campaign, AdSet, Ad } from "@/hooks/useAccountCampaigns";
+import { CampaignEditDialog } from "./CampaignEditDialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -7,13 +8,14 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import {
   ChevronDown, ChevronUp, Target, Users, MapPin, Layers, Calendar,
   TrendingUp, MousePointer, Eye, Radio, DollarSign, Activity, Loader2,
-  Image, FileText
+  Image, FileText, Pencil
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
 
 const STATUS_MAP: Record<string, { label: string; className: string }> = {
   ACTIVE: { label: "Ativa", className: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30" },
@@ -167,6 +169,7 @@ function AdItem({ ad }: { ad: Ad }) {
 
 export function CampaignCard({ campaign }: { campaign: Campaign }) {
   const [open, setOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -225,6 +228,15 @@ export function CampaignCard({ campaign }: { campaign: Campaign }) {
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={(e) => { e.stopPropagation(); setEditOpen(true); }}
+                title="Editar campanha"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
               {canToggle && (
                 <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                   {toggleStatus.isPending ? (
@@ -286,6 +298,7 @@ export function CampaignCard({ campaign }: { campaign: Campaign }) {
           </CardContent>
         </CollapsibleContent>
       </Card>
+      <CampaignEditDialog campaign={campaign} open={editOpen} onOpenChange={setEditOpen} />
     </Collapsible>
   );
 }
