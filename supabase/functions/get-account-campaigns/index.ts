@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch campaigns with adsets (for targeting) and insights
+    // Fetch campaigns with adsets (including ads with creatives) and insights
     const fields = [
       "id",
       "name",
@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
       "stop_time",
       "created_time",
       "insights.date_preset(last_30d){spend,impressions,clicks,reach,ctr,cpc,frequency}",
-      "adsets{targeting,name,status,daily_budget,lifetime_budget}",
+      "adsets{id,name,status,daily_budget,lifetime_budget,optimization_goal,targeting,insights.date_preset(last_30d){spend,impressions,clicks,reach,ctr,cpc,frequency},ads{id,name,status,creative{id,name,thumbnail_url,image_url,body,title}}}",
     ].join(",");
 
     const url = `https://graph.facebook.com/v21.0/act_${ad_account_id}/campaigns?fields=${encodeURIComponent(fields)}&limit=50&access_token=${token}`;
@@ -50,50 +50,88 @@ Deno.serve(async (req) => {
       });
     }
 
-    const campaigns = (data.data || []).map((c: any) => {
-      // Extract insights (last 30d)
-      const insightsData = c.insights?.data?.[0] || {};
+    function parseInsights(insightsData: any) {
+      return {
+        spend: Number(insightsData?.spend || 0),
+        impressions: Number(insightsData?.impressions || 0),
+        clicks: Number(insightsData?.clicks || 0),
+        reach: Number(insightsData?.reach || 0),
+        ctr: Number(insightsData?.ctr || 0),
+        cpc: Number(insightsData?.cpc || 0),
+        frequency: Number(insightsData?.frequency || 0),
+      };
+    }
 
-      // Aggregate targeting from all adsets
-      const adsets = c.adsets?.data || [];
-      const firstAdset = adsets[0] || {};
-      const targeting = firstAdset.targeting || {};
-
-      // Parse geo locations
-      const geoLocations = targeting.geo_locations || {};
+    function parseTargeting(targeting: any) {
+      const geoLocations = targeting?.geo_locations || {};
       const cities = (geoLocations.cities || []).map((city: any) => city.name || city.key);
       const regions = (geoLocations.regions || []).map((r: any) => r.name || r.key);
       const countries = (geoLocations.countries || []);
       const allLocations = [...cities, ...regions, ...countries].filter(Boolean);
 
-      // Parse interests from flexible_spec
-      const flexibleSpec = targeting.flexible_spec || [];
+      const flexibleSpec = targeting?.flexible_spec || [];
       const interests: string[] = [];
       for (const spec of flexibleSpec) {
-        for (const interest of spec.interests || []) {
-          interests.push(interest.name);
-        }
-        for (const behavior of spec.behaviors || []) {
-          interests.push(behavior.name);
-        }
+        for (const interest of spec.interests || []) interests.push(interest.name);
+        for (const behavior of spec.behaviors || []) interests.push(behavior.name);
       }
 
-      // Parse genders: 1=male, 2=female, empty/[1,2]=all
-      const genders = targeting.genders || [];
+      const genders = targeting?.genders || [];
       let genderLabel = "Todos";
-      if (genders.length === 1) {
-        genderLabel = genders[0] === 1 ? "Masculino" : "Feminino";
-      }
+      if (genders.length === 1) genderLabel = genders[0] === 1 ? "Masculino" : "Feminino";
 
-      // Parse placements
-      const publisherPlatforms = targeting.publisher_platforms || [];
-      const facebookPositions = targeting.facebook_positions || [];
-      const instagramPositions = targeting.instagram_positions || [];
+      const publisherPlatforms = targeting?.publisher_platforms || [];
+      const facebookPositions = targeting?.facebook_positions || [];
+      const instagramPositions = targeting?.instagram_positions || [];
       const allPlacements = [
         ...publisherPlatforms,
         ...facebookPositions.map((p: string) => `fb_${p}`),
         ...instagramPositions.map((p: string) => `ig_${p}`),
       ];
+
+      return {
+        age_min: targeting?.age_min || 18,
+        age_max: targeting?.age_max || 65,
+        gender: genderLabel,
+        locations: allLocations,
+        interests,
+        placements: allPlacements,
+        publisher_platforms: publisherPlatforms,
+      };
+    }
+
+    const campaigns = (data.data || []).map((c: any) => {
+      const insightsData = c.insights?.data?.[0] || {};
+      const adsets = c.adsets?.data || [];
+      const firstAdset = adsets[0] || {};
+
+      const parsedAdsets = adsets.map((as: any) => {
+        const asAds = (as.ads?.data || []).map((ad: any) => ({
+          id: ad.id,
+          name: ad.name,
+          status: ad.status,
+          creative: ad.creative ? {
+            id: ad.creative.id,
+            name: ad.creative.name || null,
+            thumbnail_url: ad.creative.thumbnail_url || null,
+            image_url: ad.creative.image_url || null,
+            body: ad.creative.body || null,
+            title: ad.creative.title || null,
+          } : null,
+        }));
+
+        return {
+          id: as.id,
+          name: as.name,
+          status: as.status,
+          daily_budget: as.daily_budget ? Number(as.daily_budget) / 100 : null,
+          lifetime_budget: as.lifetime_budget ? Number(as.lifetime_budget) / 100 : null,
+          optimization_goal: as.optimization_goal || null,
+          targeting: parseTargeting(as.targeting),
+          insights: parseInsights(as.insights?.data?.[0]),
+          ads: asAds,
+        };
+      });
 
       return {
         id: c.id,
@@ -106,25 +144,10 @@ Deno.serve(async (req) => {
         start_time: c.start_time,
         stop_time: c.stop_time,
         created_time: c.created_time,
-        insights: {
-          spend: Number(insightsData.spend || 0),
-          impressions: Number(insightsData.impressions || 0),
-          clicks: Number(insightsData.clicks || 0),
-          reach: Number(insightsData.reach || 0),
-          ctr: Number(insightsData.ctr || 0),
-          cpc: Number(insightsData.cpc || 0),
-          frequency: Number(insightsData.frequency || 0),
-        },
-        targeting: {
-          age_min: targeting.age_min || 18,
-          age_max: targeting.age_max || 65,
-          gender: genderLabel,
-          locations: allLocations,
-          interests: interests,
-          placements: allPlacements,
-          publisher_platforms: publisherPlatforms,
-        },
+        insights: parseInsights(insightsData),
+        targeting: parseTargeting(firstAdset.targeting),
         adsets_count: adsets.length,
+        adsets: parsedAdsets,
       };
     });
 

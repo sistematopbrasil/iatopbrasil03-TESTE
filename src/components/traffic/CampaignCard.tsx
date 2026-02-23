@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { Campaign } from "@/hooks/useAccountCampaigns";
+import { Campaign, AdSet, Ad } from "@/hooks/useAccountCampaigns";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   ChevronDown, ChevronUp, Target, Users, MapPin, Layers, Calendar,
-  TrendingUp, MousePointer, Eye, Radio, DollarSign, Activity, Loader2
+  TrendingUp, MousePointer, Eye, Radio, DollarSign, Activity, Loader2,
+  Image, FileText
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -23,40 +24,20 @@ const STATUS_MAP: Record<string, { label: string; className: string }> = {
 };
 
 const OBJECTIVE_MAP: Record<string, string> = {
-  LINK_CLICKS: "Tráfego",
-  TRAFFIC: "Tráfego",
-  CONVERSIONS: "Conversões",
-  OUTCOME_TRAFFIC: "Tráfego",
-  OUTCOME_LEADS: "Geração de Leads",
-  OUTCOME_SALES: "Vendas",
-  OUTCOME_ENGAGEMENT: "Engajamento",
-  OUTCOME_AWARENESS: "Reconhecimento",
-  OUTCOME_APP_PROMOTION: "Promoção de App",
-  LEAD_GENERATION: "Geração de Leads",
-  BRAND_AWARENESS: "Reconhecimento",
-  REACH: "Alcance",
-  ENGAGEMENT: "Engajamento",
-  VIDEO_VIEWS: "Visualizações de Vídeo",
-  APP_INSTALLS: "Instalações de App",
-  MESSAGES: "Mensagens",
-  CATALOG_SALES: "Vendas de Catálogo",
-  STORE_VISITS: "Visitas à Loja",
+  LINK_CLICKS: "Tráfego", TRAFFIC: "Tráfego", CONVERSIONS: "Conversões",
+  OUTCOME_TRAFFIC: "Tráfego", OUTCOME_LEADS: "Geração de Leads", OUTCOME_SALES: "Vendas",
+  OUTCOME_ENGAGEMENT: "Engajamento", OUTCOME_AWARENESS: "Reconhecimento",
+  OUTCOME_APP_PROMOTION: "Promoção de App", LEAD_GENERATION: "Geração de Leads",
+  BRAND_AWARENESS: "Reconhecimento", REACH: "Alcance", ENGAGEMENT: "Engajamento",
+  VIDEO_VIEWS: "Visualizações de Vídeo", APP_INSTALLS: "Instalações de App",
+  MESSAGES: "Mensagens", CATALOG_SALES: "Vendas de Catálogo", STORE_VISITS: "Visitas à Loja",
 };
 
 const PLACEMENT_LABELS: Record<string, string> = {
-  facebook: "Facebook",
-  instagram: "Instagram",
-  audience_network: "Audience Network",
-  messenger: "Messenger",
-  fb_feed: "Feed FB",
-  fb_right_column: "Coluna Direita",
-  fb_video_feeds: "Vídeo FB",
-  fb_marketplace: "Marketplace",
-  fb_story: "Stories FB",
-  ig_stream: "Feed IG",
-  ig_story: "Stories IG",
-  ig_reels: "Reels",
-  ig_explore: "Explorar IG",
+  facebook: "Facebook", instagram: "Instagram", audience_network: "Audience Network",
+  messenger: "Messenger", fb_feed: "Feed FB", fb_right_column: "Coluna Direita",
+  fb_video_feeds: "Vídeo FB", fb_marketplace: "Marketplace", fb_story: "Stories FB",
+  ig_stream: "Feed IG", ig_story: "Stories IG", ig_reels: "Reels", ig_explore: "Explorar IG",
 };
 
 function formatCurrency(val: number | null) {
@@ -69,13 +50,7 @@ function formatNumber(val: number) {
   return new Intl.NumberFormat("pt-BR", { notation: "compact" }).format(val);
 }
 
-interface MetricMiniCardProps {
-  label: string;
-  value: string;
-  icon: React.ReactNode;
-}
-
-function MetricMiniCard({ label, value, icon }: MetricMiniCardProps) {
+function MetricMiniCard({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1 p-3 rounded-lg bg-muted/40 border border-border/40 min-w-[90px]">
       <div className="flex items-center gap-1.5 text-muted-foreground">
@@ -87,11 +62,110 @@ function MetricMiniCard({ label, value, icon }: MetricMiniCardProps) {
   );
 }
 
-interface CampaignCardProps {
-  campaign: Campaign;
+function AdSetSection({ adset }: { adset: AdSet }) {
+  const [open, setOpen] = useState(false);
+  const status = STATUS_MAP[adset.status] || { label: adset.status, className: "bg-muted text-muted-foreground border-border" };
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger asChild>
+        <div className="flex items-center justify-between p-3 rounded-lg bg-muted/20 border border-border/30 cursor-pointer hover:bg-muted/40 transition-colors">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Layers className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+              <span className="text-sm font-medium truncate">{adset.name}</span>
+              <Badge variant="outline" className={`text-xs px-1.5 py-0 ${status.className}`}>{status.label}</Badge>
+            </div>
+            <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
+              {adset.targeting && (
+                <span>{adset.targeting.gender}, {adset.targeting.age_min}–{adset.targeting.age_max}</span>
+              )}
+              {(adset.daily_budget || adset.lifetime_budget) && (
+                <span className="flex items-center gap-0.5">
+                  <DollarSign className="h-3 w-3" />
+                  {adset.daily_budget ? `${formatCurrency(adset.daily_budget)}/dia` : formatCurrency(adset.lifetime_budget)}
+                </span>
+              )}
+              <span>{adset.ads?.length || 0} anúncio(s)</span>
+            </div>
+          </div>
+          {open ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
+        </div>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="ml-4 mt-2 space-y-3 border-l-2 border-border/30 pl-4">
+          {/* Targeting details */}
+          <div className="flex flex-wrap gap-3 text-xs">
+            {adset.targeting?.locations?.length > 0 && (
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <MapPin className="h-3 w-3" />
+                {adset.targeting.locations.slice(0, 3).join(", ")}
+                {adset.targeting.locations.length > 3 && ` +${adset.targeting.locations.length - 3}`}
+              </div>
+            )}
+            {adset.targeting?.publisher_platforms?.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {adset.targeting.publisher_platforms.map((p, i) => (
+                  <Badge key={i} variant="outline" className="text-xs px-1.5 py-0 capitalize">
+                    {PLACEMENT_LABELS[p] || p}
+                  </Badge>
+                ))}
+              </div>
+            )}
+            {adset.optimization_goal && (
+              <span className="text-muted-foreground">Meta: {adset.optimization_goal.replace(/_/g, " ")}</span>
+            )}
+          </div>
+
+          {/* Ads */}
+          {adset.ads?.length > 0 && (
+            <div className="space-y-2">
+              {adset.ads.map((ad) => (
+                <AdItem key={ad.id} ad={ad} />
+              ))}
+            </div>
+          )}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
 }
 
-export function CampaignCard({ campaign }: CampaignCardProps) {
+function AdItem({ ad }: { ad: Ad }) {
+  const status = STATUS_MAP[ad.status] || { label: ad.status, className: "bg-muted text-muted-foreground border-border" };
+  const thumbnailUrl = ad.creative?.thumbnail_url || ad.creative?.image_url;
+
+  return (
+    <div className="flex items-start gap-3 p-2.5 rounded-lg bg-background border border-border/30">
+      {thumbnailUrl ? (
+        <img
+          src={thumbnailUrl}
+          alt={ad.name}
+          className="w-12 h-12 rounded object-cover flex-shrink-0 border border-border/40"
+          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+        />
+      ) : (
+        <div className="w-12 h-12 rounded bg-muted/60 flex items-center justify-center flex-shrink-0 border border-border/40">
+          <Image className="h-5 w-5 text-muted-foreground/50" />
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium truncate">{ad.name}</span>
+          <Badge variant="outline" className={`text-[10px] px-1 py-0 ${status.className}`}>{status.label}</Badge>
+        </div>
+        {ad.creative?.title && (
+          <p className="text-xs text-muted-foreground mt-0.5 truncate flex items-center gap-1">
+            <FileText className="h-3 w-3 flex-shrink-0" />
+            {ad.creative.title}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function CampaignCard({ campaign }: { campaign: Campaign }) {
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -116,10 +190,10 @@ export function CampaignCard({ campaign }: CampaignCardProps) {
 
   const canToggle = campaign.status === "ACTIVE" || campaign.status === "PAUSED";
   const isActive = campaign.status === "ACTIVE";
-
   const status = STATUS_MAP[campaign.status] || { label: campaign.status, className: "bg-muted text-muted-foreground border-border" };
   const objective = OBJECTIVE_MAP[campaign.objective] || campaign.objective?.replace(/_/g, " ") || "N/A";
   const hasBudget = campaign.daily_budget !== null || campaign.lifetime_budget !== null;
+  const totalAds = (campaign.adsets || []).reduce((s, as) => s + (as.ads?.length || 0), 0);
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
@@ -129,47 +203,34 @@ export function CampaignCard({ campaign }: CampaignCardProps) {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap mb-1">
                 <span className="font-semibold text-foreground text-sm truncate max-w-[300px]">{campaign.name}</span>
-                <Badge variant="outline" className={`text-xs px-2 py-0.5 ${status.className}`}>
-                  {status.label}
-                </Badge>
+                <Badge variant="outline" className={`text-xs px-2 py-0.5 ${status.className}`}>{status.label}</Badge>
               </div>
               <div className="flex items-center gap-3 flex-wrap text-xs text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <Target className="h-3 w-3" />
-                  {objective}
-                </span>
+                <span className="flex items-center gap-1"><Target className="h-3 w-3" />{objective}</span>
                 {hasBudget && (
                   <span className="flex items-center gap-1">
                     <DollarSign className="h-3 w-3" />
-                    {campaign.daily_budget !== null
-                      ? `${formatCurrency(campaign.daily_budget)}/dia`
-                      : `${formatCurrency(campaign.lifetime_budget)} total`}
+                    {campaign.daily_budget !== null ? `${formatCurrency(campaign.daily_budget)}/dia` : `${formatCurrency(campaign.lifetime_budget)} total`}
                   </span>
                 )}
                 {campaign.insights.spend > 0 && (
                   <span className="flex items-center gap-1 text-primary font-medium">
-                    <TrendingUp className="h-3 w-3" />
-                    {formatCurrency(campaign.insights.spend)} gasto (30d)
+                    <TrendingUp className="h-3 w-3" />{formatCurrency(campaign.insights.spend)} gasto (30d)
                   </span>
                 )}
+                <span className="flex items-center gap-1">
+                  <Layers className="h-3 w-3" />
+                  {campaign.adsets_count} conj. · {totalAds} anúnc.
+                </span>
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
               {canToggle && (
-                <div
-                  className="flex items-center gap-1.5"
-                  onClick={(e) => e.stopPropagation()}
-                >
+                <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                   {toggleStatus.isPending ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
                   ) : (
-                    <Switch
-                      checked={isActive}
-                      onCheckedChange={(checked) =>
-                        toggleStatus.mutate(checked ? "ACTIVE" : "PAUSED")
-                      }
-                      disabled={toggleStatus.isPending}
-                    />
+                    <Switch checked={isActive} onCheckedChange={(checked) => toggleStatus.mutate(checked ? "ACTIVE" : "PAUSED")} disabled={toggleStatus.isPending} />
                   )}
                 </div>
               )}
@@ -197,87 +258,19 @@ export function CampaignCard({ campaign }: CampaignCardProps) {
               </div>
             </div>
 
-            {/* Público */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                  <Users className="h-3 w-3" /> Público-alvo
+            {/* Conjuntos de Anúncios */}
+            {campaign.adsets?.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
+                  <Layers className="h-3 w-3" /> Conjuntos de Anúncios ({campaign.adsets.length})
                 </p>
-                <div className="space-y-1 text-sm">
-                  <p className="text-foreground">
-                    <span className="text-muted-foreground text-xs">Idade: </span>
-                    {campaign.targeting.age_min}–{campaign.targeting.age_max} anos
-                  </p>
-                  <p className="text-foreground">
-                    <span className="text-muted-foreground text-xs">Gênero: </span>
-                    {campaign.targeting.gender}
-                  </p>
+                <div className="space-y-2">
+                  {campaign.adsets.map((adset) => (
+                    <AdSetSection key={adset.id} adset={adset} />
+                  ))}
                 </div>
-
-                {campaign.targeting.locations.length > 0 && (
-                  <div>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
-                      <MapPin className="h-3 w-3" /> Localizações
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                      {campaign.targeting.locations.slice(0, 5).map((loc, i) => (
-                        <Badge key={i} variant="outline" className="text-xs px-1.5 py-0">{loc}</Badge>
-                      ))}
-                      {campaign.targeting.locations.length > 5 && (
-                        <Badge variant="outline" className="text-xs px-1.5 py-0 text-muted-foreground">
-                          +{campaign.targeting.locations.length - 5}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                )}
               </div>
-
-              <div className="space-y-2">
-                {campaign.targeting.interests.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-                      Interesses
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                      {campaign.targeting.interests.slice(0, 6).map((interest, i) => (
-                        <Badge key={i} className="text-xs px-1.5 py-0 bg-primary/10 text-primary border-primary/20">
-                          {interest}
-                        </Badge>
-                      ))}
-                      {campaign.targeting.interests.length > 6 && (
-                        <Badge variant="outline" className="text-xs px-1.5 py-0 text-muted-foreground">
-                          +{campaign.targeting.interests.length - 6}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {(campaign.targeting.placements.length > 0 || campaign.targeting.publisher_platforms.length > 0) && (
-                  <div>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                      <Layers className="h-3 w-3" /> Posicionamentos
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                      {campaign.targeting.publisher_platforms.map((p, i) => (
-                        <Badge key={i} variant="outline" className="text-xs px-1.5 py-0 capitalize">
-                          {PLACEMENT_LABELS[p] || p}
-                        </Badge>
-                      ))}
-                      {campaign.targeting.placements
-                        .filter(p => !campaign.targeting.publisher_platforms.includes(p))
-                        .slice(0, 4)
-                        .map((p, i) => (
-                          <Badge key={i} variant="outline" className="text-xs px-1.5 py-0">
-                            {PLACEMENT_LABELS[p] || p}
-                          </Badge>
-                        ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+            )}
 
             {/* Período */}
             <div>
@@ -285,13 +278,9 @@ export function CampaignCard({ campaign }: CampaignCardProps) {
                 <Calendar className="h-3 w-3" /> Período
               </p>
               <p className="text-sm text-foreground">
-                {campaign.start_time
-                  ? format(new Date(campaign.start_time), "dd/MM/yyyy", { locale: ptBR })
-                  : "—"}
+                {campaign.start_time ? format(new Date(campaign.start_time), "dd/MM/yyyy", { locale: ptBR }) : "—"}
                 {" → "}
-                {campaign.stop_time
-                  ? format(new Date(campaign.stop_time), "dd/MM/yyyy", { locale: ptBR })
-                  : <span className="text-emerald-600 font-medium">Em andamento</span>}
+                {campaign.stop_time ? format(new Date(campaign.stop_time), "dd/MM/yyyy", { locale: ptBR }) : <span className="text-emerald-600 font-medium">Em andamento</span>}
               </p>
             </div>
           </CardContent>

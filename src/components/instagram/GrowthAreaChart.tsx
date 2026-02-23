@@ -15,6 +15,15 @@ export function GrowthAreaChart({ metrics }: Props) {
     followers: m.follower_count,
   }));
 
+  // Calculate dynamic Y domain for better visualization of growth
+  const values = data.map(d => d.followers);
+  const minVal = Math.min(...values);
+  const maxVal = Math.max(...values);
+  const range = maxVal - minVal;
+  const padding = Math.max(range * 0.15, 10); // At least 15% padding or 10
+  const yMin = Math.max(0, Math.floor((minVal - padding) / 10) * 10);
+  const yMax = Math.ceil((maxVal + padding) / 10) * 10;
+
   if (data.length === 0) {
     return (
       <Card>
@@ -46,7 +55,8 @@ export function GrowthAreaChart({ metrics }: Props) {
             <YAxis
               stroke="hsl(var(--muted-foreground))"
               fontSize={12}
-              tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}K` : v}
+              domain={[yMin, yMax]}
+              tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(1)}K` : v}
             />
             <Tooltip
               contentStyle={{

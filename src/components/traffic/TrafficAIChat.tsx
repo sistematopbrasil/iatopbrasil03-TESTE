@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Campaign } from "@/hooks/useAccountCampaigns";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -225,39 +224,39 @@ export function TrafficAIChat({ accountName, adAccountId, campaigns, metricsSumm
   return (
     <div className="flex flex-col h-full border border-border/60 rounded-lg bg-card overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-border/60 bg-muted/30 flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10">
-            <Bot className="h-4 w-4 text-primary" />
+      <div className="flex items-center justify-between p-3.5 border-b border-border/60 bg-muted/30 flex-shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+            <Bot className="h-4.5 w-4.5 text-primary" />
           </div>
           <div>
-            <p className="text-xs font-semibold text-foreground leading-tight">Assistente IA</p>
-            <p className="text-[10px] text-muted-foreground truncate max-w-[150px]">{accountName}</p>
+            <p className="text-sm font-semibold text-foreground leading-tight">Assistente IA</p>
+            <p className="text-xs text-muted-foreground truncate max-w-[180px]">{accountName}</p>
           </div>
         </div>
-        <div className="flex items-center gap-1">
-          <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-primary/5 border-primary/20 text-primary">
-            <Sparkles className="h-2.5 w-2.5 mr-1" />
+        <div className="flex items-center gap-1.5">
+          <Badge variant="outline" className="text-xs px-2 py-0.5 bg-primary/5 border-primary/20 text-primary">
+            <Sparkles className="h-3 w-3 mr-1" />
             Especialista em Ads
           </Badge>
           {messages.length > 0 && (
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={clearConversation} title="Limpar conversa">
-              <RotateCcw className="h-3 w-3" />
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={clearConversation} title="Limpar conversa">
+              <RotateCcw className="h-3.5 w-3.5" />
             </Button>
           )}
         </div>
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-3" ref={scrollRef as any}>
+      <div className="flex-1 overflow-y-auto p-3" ref={scrollRef}>
         {messages.length === 0 ? (
           <div className="space-y-3">
-            <p className="text-xs text-muted-foreground text-center">
+            <p className="text-sm text-muted-foreground text-center">
               Olá! Sou seu especialista em Meta Ads. Tenho acesso a todos os dados desta conta. Como posso ajudar?
             </p>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {QUICK_SUGGESTIONS.map((s, i) => (
-                <button key={i} onClick={() => sendMessage(s)} className="w-full text-left text-xs p-2 rounded-lg border border-border/60 hover:bg-muted/50 hover:border-primary/30 transition-colors text-muted-foreground hover:text-foreground">
+                <button key={i} onClick={() => sendMessage(s)} className="w-full text-left text-sm p-2.5 rounded-lg border border-border/60 hover:bg-muted/50 hover:border-primary/30 transition-colors text-muted-foreground hover:text-foreground">
                   {s}
                 </button>
               ))}
@@ -268,11 +267,11 @@ export function TrafficAIChat({ accountName, adAccountId, campaigns, metricsSumm
             {messages.map((msg, i) => (
               <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                 {msg.role === "assistant" && (
-                  <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5 mr-1.5">
-                    <Bot className="h-3 w-3 text-primary" />
+                  <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5 mr-2">
+                    <Bot className="h-3.5 w-3.5 text-primary" />
                   </div>
                 )}
-                <div className={`max-w-[85%] rounded-lg px-3 py-2 text-xs leading-relaxed ${msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted/60 text-foreground border border-border/40"}`}>
+                <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed ${msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted/60 text-foreground border border-border/40"}`}>
                   {msg.role === "assistant" ? (
                     <div dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content || "…") }} />
                   ) : msg.content}
@@ -280,24 +279,24 @@ export function TrafficAIChat({ accountName, adAccountId, campaigns, metricsSumm
               </div>
             ))}
             {isLoading && messages[messages.length - 1]?.role === "user" && (
-              <div className="flex items-start gap-1.5">
-                <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <Bot className="h-3 w-3 text-primary" />
+              <div className="flex items-start gap-2">
+                <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Bot className="h-3.5 w-3.5 text-primary" />
                 </div>
                 <div className="bg-muted/60 rounded-lg px-3 py-2 border border-border/40">
-                  <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 </div>
               </div>
             )}
           </div>
         )}
-      </ScrollArea>
+      </div>
 
       {/* Input */}
-      <div className="p-2 border-t border-border/60 bg-background flex-shrink-0">
+      <div className="p-3 border-t border-border/60 bg-background flex-shrink-0">
         <div className="flex items-end gap-2">
-          <Textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown} placeholder="Pergunte sobre campanhas, métricas ou peça análises..." className="min-h-[60px] max-h-[120px] text-xs resize-none" disabled={isLoading} />
-          <Button size="icon" className="h-9 w-9 flex-shrink-0" onClick={() => sendMessage(input)} disabled={isLoading || !input.trim()}>
+          <Textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown} placeholder="Pergunte sobre campanhas, métricas ou peça análises..." className="min-h-[70px] max-h-[140px] text-sm resize-none" disabled={isLoading} />
+          <Button size="icon" className="h-10 w-10 flex-shrink-0" onClick={() => sendMessage(input)} disabled={isLoading || !input.trim()}>
             {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
         </div>

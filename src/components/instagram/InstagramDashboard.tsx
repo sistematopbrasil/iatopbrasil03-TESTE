@@ -4,9 +4,11 @@ import { useInstagramMetrics } from "@/hooks/useInstagramMetrics";
 import { useInstagramUpdate } from "@/hooks/useInstagramUpdate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, TrendingUp, RefreshCw, Award, ArrowUp, ArrowDown } from "lucide-react";
-import { formatNumber, formatChange, getLatestMetric, calculateAverage } from "@/lib/instagram-utils";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { UsersRound, Zap, RefreshCw, Award, ArrowUp, ArrowDown } from "lucide-react";
+import { formatNumber, formatChange, getLatestMetric } from "@/lib/instagram-utils";
 import { InstagramProfileCard } from "./InstagramProfileCard";
+import { InstagramProfileDetail } from "./InstagramProfileDetail";
 import { LastUpdatedBadge } from "./LastUpdatedBadge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DatePeriodFilter, filterMetricsByDatePeriod, type DatePeriodValue } from "./DatePeriodFilter";
@@ -21,11 +23,12 @@ export function InstagramDashboard() {
     from: subDays(startOfDay(new Date()), 6),
     to: startOfDay(new Date()),
   });
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
 
   const isLoading = loadingProfiles || loadingMetrics;
-
   const activeProfiles = profiles?.filter(p => p.is_active) || [];
   const filteredAllMetrics = filterMetricsByDatePeriod(allMetrics || [], datePeriod);
+  const selectedProfile = activeProfiles.find(p => p.id === selectedProfileId);
 
   const totalFollowers = activeProfiles.reduce((sum, p) => {
     const metrics = allMetrics?.filter(m => m.profile_id === p.id) || [];
@@ -42,7 +45,6 @@ export function InstagramDashboard() {
       }, 0) / activeProfiles.length
     : 0;
 
-  // Best profile by daily change within period
   const bestProfile = activeProfiles.reduce<{ profile: any; change: number } | null>((best, p) => {
     const metrics = filteredAllMetrics.filter(m => m.profile_id === p.id);
     const totalChange = metrics.reduce((s, m) => s + (m.daily_change || 0), 0);
@@ -54,7 +56,6 @@ export function InstagramDashboard() {
     ? allMetrics.reduce((latest, m) => m.recorded_at > latest ? m.recorded_at : latest, allMetrics[0].recorded_at)
     : null;
 
-  // Sort by growth
   const sortedProfiles = [...activeProfiles].sort((a, b) => {
     const aMetrics = filteredAllMetrics.filter(m => m.profile_id === a.id);
     const bMetrics = filteredAllMetrics.filter(m => m.profile_id === b.id);
@@ -78,11 +79,7 @@ export function InstagramDashboard() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 flex-wrap">
-        <Button
-          onClick={() => updateAll.mutate({})}
-          disabled={updateAll.isPending}
-          size="sm"
-        >
+        <Button onClick={() => updateAll.mutate({})} disabled={updateAll.isPending} size="sm">
           <RefreshCw className={`h-4 w-4 mr-2 ${updateAll.isPending ? "animate-spin" : ""}`} />
           Atualizar Todos
         </Button>
@@ -94,21 +91,21 @@ export function InstagramDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Perfis Ativos</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <UsersRound className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent><div className="text-2xl font-bold">{activeProfiles.length}</div></CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Seguidores</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <UsersRound className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent><div className="text-2xl font-bold">{formatNumber(totalFollowers)}</div></CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Média Crescimento/Dia</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <Zap className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold flex items-center gap-1">
@@ -152,12 +149,22 @@ export function InstagramDashboard() {
                   profile={profile}
                   metrics={allMetrics?.filter(m => m.profile_id === profile.id) || []}
                   periodChange={periodChange}
+                  onClick={() => setSelectedProfileId(profile.id)}
                 />
               );
             })}
           </div>
         )}
       </div>
+
+      {/* Profile Detail Sheet */}
+      <Sheet open={!!selectedProfile} onOpenChange={(open) => !open && setSelectedProfileId(null)}>
+        <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
+          {selectedProfile && (
+            <InstagramProfileDetail profile={selectedProfile} onClose={() => setSelectedProfileId(null)} />
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
