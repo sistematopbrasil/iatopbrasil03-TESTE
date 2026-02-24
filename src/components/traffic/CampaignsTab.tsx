@@ -235,7 +235,7 @@ export function CampaignsTab({ organizationId, aiEnabled }: CampaignsTabProps) {
         </Tabs>
       ) : aiEnabled && selectedAccountId ? (
         // Desktop: 2-column layout — fit viewport
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-4 items-start" style={{ height: "calc(100vh - 260px)" }}>
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-4 items-start lg:h-[calc(100vh-260px)]">
           <div className="overflow-y-auto h-full pr-2">
             <CampaignsList />
           </div>

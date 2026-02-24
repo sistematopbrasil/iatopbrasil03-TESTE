@@ -90,6 +90,7 @@ export function CreateConsultantDialog({ open: controlledOpen, onOpenChange: con
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['all-consultants'] });
+      queryClient.invalidateQueries({ queryKey: ['all-consultants-management'] });
       queryClient.invalidateQueries({ queryKey: ['unified-ranking'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['super-admin-metrics'], refetchType: 'all' });
       toast.success('Consultor criado com sucesso!', {

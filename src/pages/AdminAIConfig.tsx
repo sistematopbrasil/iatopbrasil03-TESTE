@@ -175,7 +175,7 @@ export default function AdminAIConfig() {
 
   return (
     <AdminLayout>
-      <div className="p-4 md:p-6 space-y-6 max-w-6xl">
+      <div className="p-4 md:p-6 space-y-6 overflow-x-hidden">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-3">
             <Bot className="w-8 h-8 text-primary" />
@@ -186,9 +186,35 @@ export default function AdminAIConfig() {
           </p>
         </div>
 
+        {/* Global AI Toggle */}
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="flex items-center justify-between py-4 px-5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-semibold text-foreground">Agente IA Ativo</p>
+                <p className="text-xs text-muted-foreground">
+                  {formData.auto_reply
+                    ? 'A IA está respondendo automaticamente'
+                    : 'A IA não está respondendo automaticamente'}
+                </p>
+              </div>
+            </div>
+            <Switch
+              checked={formData.auto_reply}
+              onCheckedChange={(v) => {
+                update('auto_reply', v);
+                save({ ...formData, auto_reply: v });
+              }}
+            />
+          </CardContent>
+        </Card>
+
         {/* Usage Stats */}
         {aiStats && (aiStats.totalMessages > 0 || aiStats.activeConversations > 0) && (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Card className="p-3">
               <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                 <MessageSquare className="w-4 h-4" />

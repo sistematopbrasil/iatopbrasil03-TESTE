@@ -11,7 +11,7 @@ const AdminInstagram = () => {
 
   return (
     <AdminLayout>
-      <div className="p-4 md:p-6 space-y-6">
+      <div className="p-4 md:p-6 space-y-6 overflow-x-hidden min-w-0">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-foreground">Instagram Insights</h1>
           <p className="text-muted-foreground mt-1">Acompanhe o crescimento dos perfis do Instagram</p>
