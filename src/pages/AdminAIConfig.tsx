@@ -175,7 +175,7 @@ export default function AdminAIConfig() {
 
   return (
     <AdminLayout>
-      <div className="p-4 md:p-6 space-y-6 overflow-hidden min-w-0 max-w-full">
+      <div className="p-4 md:p-6 space-y-6 min-w-0 w-full">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-3">
             <Bot className="w-8 h-8 text-primary" />
