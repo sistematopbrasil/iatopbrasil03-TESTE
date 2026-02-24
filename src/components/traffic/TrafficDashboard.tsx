@@ -190,7 +190,7 @@ export function TrafficDashboard({ organizationId }: Props) {
   const detailAccountInfo = accounts.find((a) => a.ad_account_id === detailAccount) || null;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 min-w-0">
       {/* Filters bar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 flex-1">

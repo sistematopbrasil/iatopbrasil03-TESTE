@@ -139,7 +139,7 @@ export const AdminLayout = ({ children, disableVerticalScroll = false }: AdminLa
   return (
     <>
       <RoleBasedRedirect />
-      <div className={`min-h-screen bg-background flex ${disableVerticalScroll ? '' : 'overflow-x-hidden'}`}>
+      <div className={`bg-background flex ${disableVerticalScroll ? 'h-dvh overflow-hidden' : 'min-h-screen overflow-x-hidden'}`}>
         {/* Desktop Sidebar - inline JSX */}
         <aside className="hidden md:block w-64 fixed inset-y-0 left-0 z-50">
           <div className="h-full bg-card border-r border-border flex flex-col">

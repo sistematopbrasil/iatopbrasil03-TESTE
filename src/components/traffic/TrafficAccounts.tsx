@@ -52,7 +52,7 @@ export function TrafficAccounts({ organizationId }: Props) {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 min-w-0">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-foreground">Contas de Anúncios</h3>
         <Button onClick={() => setImportOpen(true)} size="sm">
