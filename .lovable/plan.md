@@ -1,72 +1,97 @@
 
 
-## Plano: Correção do Pipeline Travado + Responsividade Mobile em Todas as Páginas
+## Plano: Correção Definitiva de Responsividade e Pipeline
 
-### Diagnóstico
+### Problema Real Identificado
 
-Analisei todos os arquivos afetados e identifiquei as causas raiz:
+Analisando os prints do celular, o problema em TODAS as paginas e o mesmo: o conteudo transborda pela direita da tela. Isso acontece porque:
 
----
+1. O `<main>` no AdminLayout usa `flex-1 md:ml-64` mas nao tem `min-w-0` -- em flexbox, o filho nao encolhe abaixo do seu conteudo intrinseco sem `min-w-0`.
+2. O wrapper interno (linha 196) tambem nao tem `w-full min-w-0`, entao o conteudo pode empurrar para alem da viewport.
+3. O `overflow-hidden` nos containers filhos apenas esconde o conteudo cortado -- nao resolve o problema de largura.
 
-### 1. Pipeline Travado (não arrasta pro lado)
+Para o pipeline: o `overflow-hidden` no wrapper (linha 199) bloqueia o scroll horizontal do `.pipeline-scroll` interno. O pipeline precisa de `overflow-hidden` apenas no eixo Y, mas `overflow-x: auto` deve propagar do `.pipeline-scroll`.
 
-**Causa raiz**: O `touch-action: pan-x` no container do pipeline (linha 51 de `AdminPipeline.tsx`) e a regra CSS mobile `.pipeline-scroll { touch-action: pan-x }` (index.css) conflitam com o `@hello-pangea/dnd`. A biblioteca precisa de `touch-action: none` nos itens arrastáveis, mas `touch-action: pan-x` no container pai anula isso e trava o drag.
-
-Além disso, o `AdminLayout.tsx` (linha 199) usa `overflow-y-hidden overflow-x-auto` quando `disableVerticalScroll` está ativo, mas isso cria dois eixos de scroll conflitantes.
-
-**Correções**:
-
-- **`AdminPipeline.tsx` linha 51**: Remover `style={{ touchAction: 'pan-x' }}` do container. O scroll horizontal deve vir do `overflow-x: auto` nativo, não do touch-action.
-
-- **`index.css` linhas 225-230**: Remover o bloco `@media (max-width: 767px)` que adiciona `touch-action: pan-x` ao `.pipeline-scroll`. Manter apenas `overscroll-behavior-y: contain` como regra base.
-
-- **`AdminLayout.tsx` linha 199**: Trocar `overflow-y-hidden overflow-x-auto` para apenas `overflow-hidden`. O scroll horizontal é gerenciado pelo `.pipeline-scroll` interno, não pelo container do layout.
-
-- **`PipelineBoard.tsx` linha 298**: Ajustar a altura de `100dvh-160px` para `100dvh-180px` no mobile para dar mais margem e evitar que colunas ultrapassem a viewport.
+### Correcoes
 
 ---
 
-### 2. Agente IA - Todas as abas cortadas no mobile
+**1. AdminLayout.tsx -- Raiz do problema (linhas 163, 196-201)**
 
-**Causa raiz**: A `TabsList` (linha 243) usa `w-full max-w-full overflow-x-auto flex flex-nowrap` mas o container pai não tem `overflow-hidden` e os labels das tabs são longos demais para telas pequenas.
+- Linha 163: Adicionar `min-w-0 w-full` ao `<main>` para que ele encolha dentro do flex container
+- Linha 196-201: O wrapper interno precisa de `w-full min-w-0`. E quando `disableVerticalScroll`, usar `overflow-y-hidden` em vez de `overflow-hidden` para nao bloquear o scroll-x do pipeline
 
-**Correções em `AdminAIConfig.tsx`**:
+```
+// Linha 163
+<main className="flex-1 md:ml-64 min-w-0 w-full">
 
-- **Linha 178**: Trocar `overflow-x-hidden` para `overflow-hidden` no container principal.
-- **Linhas 243-260**: Encapsular a TabsList em um div com `overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0` para permitir scroll das tabs. Abreviar os labels no mobile: "Identidade" → "ID", "Conhecimento" → "Dados", "Motor IA" → "Motor", "Comportamento" → "Config" usando `hidden sm:inline` / `sm:hidden`. Usar `flex-1` em cada trigger para distribuir o espaço.
-
----
-
-### 3. Consultores - Tabela cortada no mobile
-
-**Causa raiz**: O container (linha 280) tem `min-w-0 max-w-full` mas falta `overflow-hidden` para conter a tabela.
-
-**Correção em `ConsultantsManagement.tsx`**:
-- **Linha 280**: Adicionar `overflow-hidden` ao div principal.
-
----
-
-### 4. Tráfego - Visão Geral e Contas cortadas no mobile
-
-**Causa raiz**: O container em `AdminTraffic.tsx` (linha 51) usa `overflow-x-hidden` mas os sub-componentes (`TrafficDashboard`, `TrafficAccounts`) têm conteúdo que estoura. O `TrafficPeriodFilter` tem 7 botões + calendário que não cabem em tela pequena.
-
-**Correções**:
-- **`AdminTraffic.tsx` linha 51**: Trocar `overflow-x-hidden` para `overflow-hidden min-w-0 max-w-full`.
-- **`TrafficDashboard.tsx`**: Já tem `min-w-0` (ok).
-- **`TrafficAccounts.tsx`**: Já tem `min-w-0` (ok).
+// Linhas 196-201
+<div className={`h-[calc(100dvh-64px)] md:h-dvh w-full min-w-0 ${
+  disableVerticalScroll 
+    ? 'overflow-y-hidden' 
+    : 'overflow-y-auto overflow-x-hidden overscroll-x-none'
+}`}>
+```
 
 ---
 
-### Resumo dos arquivos e linhas exatas
+**2. AdminAIConfig.tsx -- Container principal (linha 178)**
 
-| Arquivo | Linha | Mudança |
-|---|---|---|
-| `AdminPipeline.tsx` | 51 | Remover `style={{ touchAction: 'pan-x' }}` |
-| `index.css` | 225-230 | Remover bloco `@media` com `touch-action: pan-x` do `.pipeline-scroll` |
-| `AdminLayout.tsx` | 199 | `overflow-hidden` em vez de `overflow-y-hidden overflow-x-auto` |
-| `PipelineBoard.tsx` | 298 | `100dvh-180px` em vez de `100dvh-160px` |
-| `AdminAIConfig.tsx` | 178 | `overflow-hidden` no container |
-| `AdminAIConfig.tsx` | 243-260 | Tabs com labels abreviados no mobile + scroll horizontal |
-| `ConsultantsManagement.tsx` | 280 | Adicionar `overflow-hidden` |
-| `AdminTraffic.tsx` | 51 | `overflow-hidden min-w-0 max-w-full` |
+- Trocar `overflow-hidden` por `w-full` (o overflow sera contido pelo AdminLayout agora)
+- O `min-w-0 max-w-full` ja esta correto
+
+```
+<div className="p-4 md:p-6 space-y-6 min-w-0 w-full">
+```
+
+---
+
+**3. ConsultantsManagement.tsx -- Container principal (linha 280)**
+
+- Mesmo ajuste: remover `overflow-hidden`, confiar no `min-w-0` + `w-full` do layout
+
+```
+<div className="p-4 md:p-6 space-y-6 min-w-0 w-full">
+```
+
+---
+
+**4. AdminTraffic.tsx -- Container principal (linha 51)**
+
+- Mesmo padrao
+
+```
+<div className="p-4 md:p-6 space-y-6 min-w-0 w-full">
+```
+
+---
+
+**5. AdminPipeline.tsx -- Container do pipeline scroll (linhas 49-58)**
+
+- O `.pipeline-scroll` precisa que o pai permita scroll-x, que agora funciona porque o AdminLayout usa `overflow-y-hidden` em vez de `overflow-hidden`
+- Sem mudancas necessarias aqui
+
+---
+
+**6. index.css -- Pipeline scroll**
+
+- Adicionar `overscroll-behavior: contain` (ambos eixos) para evitar que o scroll do pipeline propague para o body
+
+---
+
+### Resumo de arquivos
+
+| Arquivo | Mudanca |
+|---|---|
+| `AdminLayout.tsx` | `min-w-0 w-full` no `<main>`, `overflow-y-hidden` no wrapper quando pipeline |
+| `AdminAIConfig.tsx` | Remover `overflow-hidden`, usar `w-full` |
+| `ConsultantsManagement.tsx` | Remover `overflow-hidden`, usar `w-full` |
+| `AdminTraffic.tsx` | Remover `overflow-hidden`, usar `w-full` |
+| `index.css` | `overscroll-behavior: contain` no `.pipeline-scroll` |
+
+### Por que isso resolve
+
+A causa raiz e que em flexbox, um filho com conteudo largo (tabela, textarea, card) nao encolhe automaticamente. O `min-w-0` no `<main>` e no wrapper forca o elemento a respeitar o limite do pai. O `w-full` garante que ele ocupe exatamente 100% disponivel. Sem isso, qualquer `overflow-hidden` nos filhos so esconde o problema visualmente -- o conteudo continua mais largo que a tela.
+
+Para o pipeline, `overflow-y-hidden` (em vez de `overflow-hidden`) permite que o scroll horizontal do `.pipeline-scroll` funcione normalmente.
 
