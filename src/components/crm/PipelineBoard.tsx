@@ -295,7 +295,7 @@ export function PipelineBoard() {
                     ref={provided.innerRef}
                     {...provided.droppableProps}
                     className={cn(
-                      "flex flex-col w-[260px] md:w-[300px] shrink-0 h-[calc(100vh-180px)] md:h-[calc(100%-8px)] rounded-xl",
+                      "flex flex-col w-[260px] md:w-[300px] shrink-0 h-[calc(100dvh-160px)] md:h-[calc(100%-8px)] rounded-xl",
                       "bg-card/80 border border-border/60",
                       "shadow-[inset_0_1px_3px_rgba(0,0,0,0.1)]",
                       snapshot.isDraggingOver && "bg-primary/10 border-primary/40 shadow-[inset_0_0_20px_rgba(235,102,8,0.1)]",

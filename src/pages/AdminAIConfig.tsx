@@ -175,7 +175,7 @@ export default function AdminAIConfig() {
 
   return (
     <AdminLayout>
-      <div className="p-4 md:p-6 space-y-6 overflow-x-hidden">
+      <div className="p-4 md:p-6 space-y-6 overflow-x-hidden min-w-0">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-3">
             <Bot className="w-8 h-8 text-primary" />
@@ -240,7 +240,7 @@ export default function AdminAIConfig() {
         )}
 
         <Tabs defaultValue="identity" className="w-full">
-          <TabsList className="w-full overflow-x-auto flex flex-nowrap gap-1">
+          <TabsList className="w-full max-w-full overflow-x-auto flex flex-nowrap gap-1">
             <TabsTrigger value="identity" className="text-xs sm:text-sm whitespace-nowrap">
               <Bot className="w-4 h-4 mr-1.5" />
               Identidade
@@ -260,13 +260,13 @@ export default function AdminAIConfig() {
           </TabsList>
 
           {/* Identity Tab */}
-          <TabsContent value="identity" className="space-y-6">
+          <TabsContent value="identity" className="space-y-6 min-w-0">
             <Card>
               <CardHeader>
                 <CardTitle>Identidade do Agente</CardTitle>
                 <CardDescription>Defina quem é o seu assistente e como ele deve se comportar</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 overflow-hidden">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Nome do Agente</Label>
@@ -329,13 +329,13 @@ export default function AdminAIConfig() {
           </TabsContent>
 
           {/* Knowledge Tab */}
-          <TabsContent value="knowledge" className="space-y-6">
+          <TabsContent value="knowledge" className="space-y-6 min-w-0">
             <Card>
               <CardHeader>
                 <CardTitle>Base de Conhecimento</CardTitle>
                 <CardDescription>Informe o que a IA precisa saber para atender bem</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 overflow-hidden">
                 <div className="space-y-2">
                   <Label>
                     Habilidades e Roteiro
@@ -370,7 +370,7 @@ export default function AdminAIConfig() {
           </TabsContent>
 
           {/* Engine Tab */}
-          <TabsContent value="engine" className="space-y-6">
+          <TabsContent value="engine" className="space-y-6 min-w-0">
             <Card>
               <CardHeader>
                 <CardTitle>Motor de IA</CardTitle>
@@ -480,7 +480,7 @@ export default function AdminAIConfig() {
           </TabsContent>
 
           {/* Behavior Tab */}
-          <TabsContent value="behavior" className="space-y-6">
+          <TabsContent value="behavior" className="space-y-6 min-w-0">
             <Card>
               <CardHeader>
                 <CardTitle>Comportamento</CardTitle>

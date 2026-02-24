@@ -100,9 +100,9 @@ export function InstagramAnalytics() {
                       {item.profile.username[0]?.toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 overflow-hidden">
                     <p className="font-semibold text-sm truncate">@{item.profile.username}</p>
-                    <p className="text-xs text-muted-foreground">{formatNumber(item.followers)} seguidores</p>
+                    <p className="text-xs text-muted-foreground truncate">{formatNumber(item.followers)} seguidores</p>
                   </div>
                   <div className="text-right shrink-0">
                     <div className={`flex items-center gap-1 text-sm font-medium ${
@@ -114,7 +114,9 @@ export function InstagramAnalytics() {
                     <p className="text-xs text-muted-foreground">média {formatChange(item.avgChange)}/dia</p>
                   </div>
                   {item.sparkline.length > 1 && (
-                    <MiniSparkline data={item.sparkline} width={60} height={24} />
+                    <div className="hidden sm:block shrink-0">
+                      <MiniSparkline data={item.sparkline} width={60} height={24} />
+                    </div>
                   )}
                 </div>
               ))}
