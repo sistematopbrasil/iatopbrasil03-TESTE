@@ -175,7 +175,7 @@ export default function AdminAIConfig() {
 
   return (
     <AdminLayout>
-      <div className="p-4 md:p-6 space-y-6 overflow-x-hidden min-w-0">
+      <div className="p-4 md:p-6 space-y-6 overflow-hidden min-w-0 max-w-full">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-3">
             <Bot className="w-8 h-8 text-primary" />
@@ -240,24 +240,30 @@ export default function AdminAIConfig() {
         )}
 
         <Tabs defaultValue="identity" className="w-full">
-          <TabsList className="w-full max-w-full overflow-x-auto flex flex-nowrap gap-1">
-            <TabsTrigger value="identity" className="text-xs sm:text-sm whitespace-nowrap">
-              <Bot className="w-4 h-4 mr-1.5" />
-              Identidade
-            </TabsTrigger>
-            <TabsTrigger value="knowledge" className="text-xs sm:text-sm whitespace-nowrap">
-              <Brain className="w-4 h-4 mr-1.5" />
-              Conhecimento
-            </TabsTrigger>
-            <TabsTrigger value="engine" className="text-xs sm:text-sm whitespace-nowrap">
-              <Cog className="w-4 h-4 mr-1.5" />
-              Motor IA
-            </TabsTrigger>
-            <TabsTrigger value="behavior" className="text-xs sm:text-sm whitespace-nowrap">
-              <Clock className="w-4 h-4 mr-1.5" />
-              Comportamento
-            </TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+            <TabsList className="inline-flex w-auto min-w-full sm:w-full gap-1">
+              <TabsTrigger value="identity" className="text-xs sm:text-sm whitespace-nowrap flex-1">
+                <Bot className="w-4 h-4 mr-1 sm:mr-1.5" />
+                <span className="hidden sm:inline">Identidade</span>
+                <span className="sm:hidden">ID</span>
+              </TabsTrigger>
+              <TabsTrigger value="knowledge" className="text-xs sm:text-sm whitespace-nowrap flex-1">
+                <Brain className="w-4 h-4 mr-1 sm:mr-1.5" />
+                <span className="hidden sm:inline">Conhecimento</span>
+                <span className="sm:hidden">Dados</span>
+              </TabsTrigger>
+              <TabsTrigger value="engine" className="text-xs sm:text-sm whitespace-nowrap flex-1">
+                <Cog className="w-4 h-4 mr-1 sm:mr-1.5" />
+                <span className="hidden sm:inline">Motor IA</span>
+                <span className="sm:hidden">Motor</span>
+              </TabsTrigger>
+              <TabsTrigger value="behavior" className="text-xs sm:text-sm whitespace-nowrap flex-1">
+                <Clock className="w-4 h-4 mr-1 sm:mr-1.5" />
+                <span className="hidden sm:inline">Comportamento</span>
+                <span className="sm:hidden">Config</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* Identity Tab */}
           <TabsContent value="identity" className="space-y-6 min-w-0">

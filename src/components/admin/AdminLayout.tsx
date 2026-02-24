@@ -196,7 +196,7 @@ export const AdminLayout = ({ children, disableVerticalScroll = false }: AdminLa
           <div 
             className={`h-[calc(100dvh-64px)] md:h-dvh ${
             disableVerticalScroll 
-                ? 'overflow-y-hidden overflow-x-auto' 
+                ? 'overflow-hidden' 
                 : 'overflow-y-auto overflow-x-hidden overscroll-x-none'
             }`}
           >

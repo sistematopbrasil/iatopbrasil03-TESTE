@@ -222,12 +222,7 @@
     scrollbar-color: hsl(var(--primary)) hsl(var(--muted));
   }
 
-  @media (max-width: 767px) {
-    .pipeline-scroll {
-      touch-action: pan-x;
-      overscroll-behavior: none;
-    }
-  }
+
 
   .pipeline-scroll::-webkit-scrollbar {
     height: 10px !important;
