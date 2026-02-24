@@ -118,35 +118,29 @@ export function CampaignEditDialog({ campaign, open, onOpenChange }: CampaignEdi
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] p-0 gap-0 overflow-hidden">
         <DialogHeader className="p-5 pb-0">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <DialogTitle className="text-lg font-bold truncate">{campaign.name}</DialogTitle>
-              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                <Badge variant="outline" className={`text-xs ${status.className}`}>{status.label}</Badge>
-                <span className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Target className="h-3 w-3" /> {objective}
-                </span>
-                {campaign.daily_budget && (
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">
-                    <DollarSign className="h-3 w-3" /> {formatCurrency(campaign.daily_budget)}/dia
-                  </span>
-                )}
+          <DialogTitle className="text-lg font-bold truncate pr-8">{campaign.name}</DialogTitle>
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
+            <Badge variant="outline" className={`text-xs ${status.className}`}>{status.label}</Badge>
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Target className="h-3 w-3" /> {objective}
+            </span>
+            {campaign.daily_budget && (
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <DollarSign className="h-3 w-3" /> {formatCurrency(campaign.daily_budget)}/dia
+              </span>
+            )}
+            {(campaign.status === "ACTIVE" || campaign.status === "PAUSED") && (
+              <div className="flex items-center gap-2 ml-auto" onClick={(e) => e.stopPropagation()}>
+                <span className="text-xs text-muted-foreground">{campaign.status === "ACTIVE" ? "Ativa" : "Pausada"}</span>
+                <Switch
+                  checked={campaign.status === "ACTIVE"}
+                  disabled={toggleEntity.isPending}
+                  onCheckedChange={(checked) =>
+                    toggleEntity.mutate({ entityId: campaign.id, entityType: "campaign", newStatus: checked ? "ACTIVE" : "PAUSED" })
+                  }
+                />
               </div>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-              {(campaign.status === "ACTIVE" || campaign.status === "PAUSED") && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">{campaign.status === "ACTIVE" ? "Ativa" : "Pausada"}</span>
-                  <Switch
-                    checked={campaign.status === "ACTIVE"}
-                    disabled={toggleEntity.isPending}
-                    onCheckedChange={(checked) =>
-                      toggleEntity.mutate({ entityId: campaign.id, entityType: "campaign", newStatus: checked ? "ACTIVE" : "PAUSED" })
-                    }
-                  />
-                </div>
-              )}
-            </div>
+            )}
           </div>
         </DialogHeader>
 

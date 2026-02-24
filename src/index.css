@@ -216,8 +216,16 @@
   .pipeline-scroll {
     overflow-x: auto !important;
     overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--primary)) hsl(var(--muted));
+  }
+
+  @media (max-width: 767px) {
+    .pipeline-scroll {
+      touch-action: pan-x;
+    }
   }
 
   .pipeline-scroll::-webkit-scrollbar {
