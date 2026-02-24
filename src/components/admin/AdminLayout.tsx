@@ -160,7 +160,7 @@ export const AdminLayout = ({ children, disableVerticalScroll = false }: AdminLa
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 md:ml-64">
+        <main className="flex-1 md:ml-64 min-w-0 w-full">
           {/* Mobile Header */}
           <header className="md:hidden border-b border-border sticky top-0 z-50 bg-background">
             <div className="flex items-center justify-between p-4">
@@ -194,9 +194,9 @@ export const AdminLayout = ({ children, disableVerticalScroll = false }: AdminLa
           </header>
 
           <div 
-            className={`h-[calc(100dvh-64px)] md:h-dvh ${
+            className={`h-[calc(100dvh-64px)] md:h-dvh w-full min-w-0 ${
             disableVerticalScroll 
-                ? 'overflow-hidden' 
+                ? 'overflow-y-hidden' 
                 : 'overflow-y-auto overflow-x-hidden overscroll-x-none'
             }`}
           >
