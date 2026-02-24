@@ -1,104 +1,96 @@
 
 
-## Plano: Correções de Segurança, Responsividade Mobile e Melhorias de UX
+## Plano: Correções de Responsividade Mobile, Pipeline e Segurança
 
-### 1. Segurança
+### Diagnóstico Completo
 
-**1a. Tabela `quiz_submissions` com RLS ativado mas sem policies**
-- Adicionar policies SELECT/INSERT/UPDATE para a tabela `quiz_submissions` (provavelmente tabela legada - precisa de ao menos uma policy para nao bloquear acesso)
+Após análise detalhada do código e scan de segurança (15 findings), identifiquei os seguintes problemas:
 
-**1b. Leaked Password Protection desabilitado**
-- Nota: Esta configuração é gerenciada no painel do backend e não pode ser alterada via código. Sera documentado como ponto de atenção.
+---
 
-### 2. Pipeline - Scroll horizontal sem scroll vertical (mobile)
+### 1. Pipeline - Scroll vertical persistente no mobile
 
-**Problema**: No mobile, o pipeline faz scroll vertical alem do horizontal, e a pagina toda desce. Isso acontece porque os cards dentro de cada coluna usam `ScrollArea` do Radix que pode conflitar com o layout flex. Alem disso, a altura `h-[calc(100%-8px)]` pode nao funcionar bem no mobile.
+**Causa raiz**: O container pai na `AdminLayout` (linha 142) tem `min-h-screen` que permite ao body expandir verticalmente. Mesmo com `overflow-y-hidden` no content div, o wrapper externo não bloqueia o scroll. Além disso, a interação de touch nos cards do pipeline ainda permite gestos verticais.
 
-**Correcoes**:
-- Em `PipelineBoard.tsx`: Reduzir altura dos cards no mobile com classes responsivas. Trocar `h-[calc(100%-8px)]` para uma altura fixa menor no mobile: `h-[calc(100vh-180px)] md:h-[calc(100%-8px)]`
-- Em `AdminLayout.tsx`: Garantir que quando `disableVerticalScroll` estiver ativo, o container main usa `overflow-y-hidden` tambem na versao mobile (atualmente ja faz, mas o calculo de `h-[calc(100vh-64px)]` pode estar incorreto)
-- Em `AdminPipeline.tsx`: Adicionar `touch-action: pan-x` no container do pipeline para mobile, garantindo que o touch so rola horizontalmente
-- Adicionar CSS: `.pipeline-scroll { -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; }` para conter o scroll vertical no container
+**Correções**:
+- `AdminLayout.tsx`: Quando `disableVerticalScroll`, o wrapper externo deve usar `h-dvh overflow-hidden` em vez de `min-h-screen` para bloquear qualquer scroll vertical no nível do body
+- `AdminPipeline.tsx`: Adicionar `touch-action: pan-x` explicitamente no container do pipeline board via style inline
+- `PipelineBoard.tsx`: Reduzir altura das colunas no mobile para `h-[calc(100dvh-160px)]` usando `dvh` em vez de `vh` para compatibilidade com barras de navegação do browser mobile
+- `index.css`: Reforçar regra mobile `.pipeline-scroll` com `overscroll-behavior: none` (bloquear em ambas direções no container)
 
-### 3. Responsividade Mobile - Paginas de Trafego
+### 2. Página do Agente IA - Conteúdo cortado no mobile
 
-**Problema**: Conteudo cortado nas paginas de trafego no mobile (configuracoes, campanhas).
+**Causa raiz**: Os `Textarea` com `rows={6}` e `rows={8}` estouram a largura em telas pequenas. Os cards não têm `overflow-hidden` e o conteúdo dos tabs pode ser mais largo que a viewport.
 
-**Correcoes em `TrafficSettings.tsx`**:
-- Ja usa `grid-cols-1 lg:grid-cols-2` - ok no mobile
-- Verificar que Cards nao ultrapassem a largura da tela com `overflow-hidden` e `max-w-full`
+**Correções em `AdminAIConfig.tsx`**:
+- Adicionar `min-w-0` no container principal e em cada `TabsContent`
+- Cards que contêm textareas: adicionar `overflow-hidden` no `CardContent`
+- Garantir que `TabsList` tenha `max-w-full` para não estourar
 
-**Correcoes em `CampaignsTab.tsx`**:
-- O container desktop com `height: calc(100vh - 260px)` causa problemas no mobile porque nao ha espaco suficiente
-- Remover a altura fixa do container quando em mobile (ja usa tabs separadas no mobile, entao nao deve ter problema)
+### 3. Página de Consultores - Tabela cortada no mobile
 
-**Correcoes em `AdminTraffic.tsx`**:
-- Adicionar `overflow-x-hidden` ao container principal
+**Causa raiz**: A tabela tem muitas colunas e embora use `overflow-x-auto`, o container pai em `ConsultantsManagement.tsx` (linha 280) já tem `overflow-x-hidden` que conflita.
 
-### 4. Responsividade Mobile - Instagram Insights
+**Correção em `ConsultantsManagement.tsx`**:
+- Remover `overflow-x-hidden` do container pai (linha 280) ou mover para o nível correto
+- A tabela em `div className="overflow-x-auto"` (linha 326) precisa de `min-w-0` no pai para funcionar corretamente
+- Adicionar `min-w-0` no container `space-y-6`
 
-**Problema**: Conteudo cortado no mobile.
+### 4. Instagram Insights - Aba Análises cortada no mobile
 
-**Correcao em `AdminInstagram.tsx`**:
-- Adicionar `overflow-x-hidden` ao container
-- Garantir que graficos e tabelas tenham `min-w-0` para nao estourar
+**Causa raiz**: O componente `InstagramAnalytics` tem cards com layout flexbox nos itens do ranking onde `MiniSparkline` (width=60px fixo) compete com texto, causando overflow.
 
-### 5. Responsividade Mobile - Agente IA (Painel do Consultor)
+**Correções em `InstagramAnalytics.tsx`**:
+- Esconder `MiniSparkline` em telas muito pequenas com `hidden sm:block`
+- Adicionar `min-w-0` nos containers flex para permitir truncamento
 
-**Problema**: Pagina de configuracao do Agente IA fica cortada no mobile.
+### 5. Tráfego - Visão Geral cortada no mobile
 
-**Correcoes em `AdminAIConfig.tsx`**:
-- Remover `max-w-6xl` que pode estar limitando a largura em telas menores de forma estranha
-- Garantir que os grids `grid-cols-3` de stats mudem para `grid-cols-1 sm:grid-cols-3` no mobile
-- TabsList: ja usa `overflow-x-auto` - verificar se funciona corretamente
-- Cards de configuração com Textareas: garantir `overflow-hidden` no container pai
+**Causa raiz**: `TrafficDashboard` tem gráficos `ResponsiveContainer` que funcionam, mas o `TrafficPeriodFilter` e a barra de filtros podem gerar overflow horizontal.
 
-### 6. Toggle global de IA para o consultor
+**Correções em `TrafficDashboard.tsx`**:
+- Adicionar `min-w-0` no container principal
+- Garantir que a barra de filtros faça wrap correto em mobile com `flex-wrap`
 
-**Problema**: O consultor pode ter a IA ativada pelo admin, mas quer poder desativar temporariamente.
+### 6. Tráfego - Aba Contas cortada no mobile  
 
-**Implementacao**:
-- Na pagina `AdminAIConfig.tsx`, adicionar um Switch no topo "Ativar/Desativar Agente IA" que altera um campo na tabela `ai_config` (ou cria um campo `is_globally_active` no `ai_config`)
-- Alternativa mais simples: usar o campo `auto_reply` ja existente na config como toggle principal - quando desativado, a IA nao responde automaticamente
-- **Melhor opcao**: Adicionar um card proeminente no topo da pagina do Agente IA com um Switch "Agente IA Ativo" que salva no `ai_config.auto_reply`. O label explica: "Quando desativado, a IA nao responde automaticamente"
-- Isso ja existe na aba "Comportamento" como "Resposta Automatica", mas pode nao ser obvio. Vamos adicionar um switch mais visivel no topo da pagina, antes das tabs, controlando `auto_reply`
+**Causa raiz**: A tabela em `TrafficAccounts` é larga e o `overflow-x-auto` funciona, mas o container pai pode estar limitando.
 
-### 7. Novo consultor nao aparece na lista sem atualizar
+**Correção em `TrafficAccounts.tsx`**:
+- Adicionar `min-w-0` no container principal da div
 
-**Problema**: `CreateConsultantDialog` invalida `['all-consultants']` mas `ConsultantsManagement` usa `['all-consultants-management']`.
+---
 
-**Correcao em `CreateConsultantDialog.tsx`**:
-- Adicionar `queryClient.invalidateQueries({ queryKey: ['all-consultants-management'] })` no `onSuccess`
-- Manter o `['all-consultants']` existente para compatibilidade com `ConsultantsTable` do Super Admin
+### 7. Segurança - Correções críticas (SQL Migration)
 
-### 8. CampaignEditDialog - X sobrepondo toggle
+Foram identificados **6 erros críticos** e **5 warnings**. As correções prioritárias:
 
-**Problema**: O botao X de fechar o dialog fica sobreposto ao switch de ativar/desativar campanha (visivel no print).
+**7a. `quiz_submissions_new` SELECT - Super admin vê dados de TODAS as organizações**
+- Alterar policy para: `consultant_id = get_current_consultant_id() OR (is_super_admin() AND organization_id = get_user_organization_id())`
 
-**Correcao em `CampaignEditDialog.tsx`**:
-- Mover o switch de status da campanha para ABAIXO do titulo, em vez de ao lado direito onde compete com o X do dialog
-- Reorganizar o header: titulo na esquerda, badge de status + switch abaixo, X do dialog fica no canto superior direito sem conflito
+**7b. `quiz_submissions` (legacy) SELECT - Qualquer pessoa pode ler TODOS os dados**  
+- Alterar de `USING (true)` para `USING (organization_id = get_user_organization_id())` com role `authenticated`
 
-### 9. Responsividade geral - overflow protection
+**7c. `crm_messages` e `whatsapp_instances` - Super admin sem escopo de organização**
+- Adicionar `AND organization_id = get_user_organization_id()` nas policies que usam `is_super_admin()` sem escopo
 
-Adicionar protecoes globais:
-- Em `AdminLayout.tsx`: adicionar `overflow-x-hidden` no container `main` para prevenir scroll horizontal acidental em todas as paginas (exceto quando `disableVerticalScroll` esta ativo para o pipeline)
+**7d. `ai_agent_configs` - Chave API exposta no SELECT**
+- Criar policy que exclui `api_key_encrypted` do SELECT não é possível via RLS. Documentar como risco aceito (a chave é criptografada).
 
 ---
 
 ### Resumo dos arquivos afetados
 
-| Arquivo | Mudanca |
+| Arquivo | Mudança |
 |---|---|
-| `src/components/crm/PipelineBoard.tsx` | Altura responsiva, touch-action |
-| `src/pages/AdminPipeline.tsx` | Ajustes de overflow mobile |
-| `src/index.css` | CSS de overscroll-behavior para pipeline |
-| `src/components/admin/AdminLayout.tsx` | overflow-x-hidden global |
-| `src/components/traffic/CampaignsTab.tsx` | Altura fixa apenas no desktop |
-| `src/components/traffic/CampaignEditDialog.tsx` | Reposicionar switch longe do X |
-| `src/pages/AdminAIConfig.tsx` | Toggle global de IA, grid responsivo stats, remover max-w |
-| `src/pages/AdminInstagram.tsx` | overflow protection |
-| `src/pages/AdminTraffic.tsx` | overflow protection |
-| `src/components/super-admin/CreateConsultantDialog.tsx` | Corrigir query key para atualizar lista |
-| Migracao SQL | Policy para tabela `quiz_submissions` |
+| `src/components/admin/AdminLayout.tsx` | `h-dvh overflow-hidden` quando `disableVerticalScroll` |
+| `src/pages/AdminPipeline.tsx` | `touch-action: pan-x` inline style |
+| `src/components/crm/PipelineBoard.tsx` | Altura `100dvh-160px`, melhor calc |
+| `src/index.css` | `overscroll-behavior: none` no `.pipeline-scroll` mobile |
+| `src/pages/AdminAIConfig.tsx` | `min-w-0`, `overflow-hidden` nos cards |
+| `src/pages/ConsultantsManagement.tsx` | Remover conflito de overflow, `min-w-0` |
+| `src/components/instagram/InstagramAnalytics.tsx` | Sparkline hidden em mobile pequeno |
+| `src/components/traffic/TrafficDashboard.tsx` | `min-w-0` no container |
+| `src/components/traffic/TrafficAccounts.tsx` | `min-w-0` no container |
+| Migração SQL | Corrigir RLS policies com escopo de organização |
 
