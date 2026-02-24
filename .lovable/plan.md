@@ -1,73 +1,88 @@
 
 
-## Plano: Correcoes de Tooltip, Editor de Campanhas, Layout e Persistencia da IA
+## Plano: Correções de Segurança, Responsividade Mobile e Melhorias de UX
 
-### 1. Corrigir tooltip do grafico diario do Instagram
+### 1. Segurança
 
-**Problema**: No tema escuro, o tooltip do `DailyChangeBarChart` tem fundo escuro com texto escuro, ficando invisivel.
+**1a. Tabela `quiz_submissions` com RLS ativado mas sem policies**
+- Adicionar policies SELECT/INSERT/UPDATE para a tabela `quiz_submissions` (provavelmente tabela legada - precisa de ao menos uma policy para nao bloquear acesso)
 
-**Correcao em `DailyChangeBarChart.tsx`**:
-- Adicionar `color: "hsl(var(--foreground))"` no `contentStyle` do Tooltip
-- Melhorar o contraste adicionando `labelStyle` e `itemStyle` com cor explicita
-- Cursor com cor semi-transparente para destacar a barra sendo hover
+**1b. Leaked Password Protection desabilitado**
+- Nota: Esta configuração é gerenciada no painel do backend e não pode ser alterada via código. Sera documentado como ponto de atenção.
 
-### 2. Editor de campanha (Dialog completo)
+### 2. Pipeline - Scroll horizontal sem scroll vertical (mobile)
 
-Criar um **Dialog fullscreen** para editar campanhas via Meta API. Sera acessado por um botao "Editar" no `CampaignCard`.
+**Problema**: No mobile, o pipeline faz scroll vertical alem do horizontal, e a pagina toda desce. Isso acontece porque os cards dentro de cada coluna usam `ScrollArea` do Radix que pode conflitar com o layout flex. Alem disso, a altura `h-[calc(100%-8px)]` pode nao funcionar bem no mobile.
 
-**Novo componente `CampaignEditDialog.tsx`**:
-- Dialog grande (max-w-4xl) com scroll interno
-- Secoes organizadas em Cards:
-  - **Cabecalho**: Nome da campanha, status, objetivo, orcamento
-  - **Conjuntos de Anuncios**: Lista cada AdSet com:
-    - Toggle ligar/desligar (reutiliza edge function existente)
-    - Campos editaveis: Idade min/max (sliders), Genero (select), Posicionamentos (checkboxes)
-    - Orcamento diario (input numerico)
-  - **Anuncios**: Dentro de cada conjunto, lista anuncios com toggle e preview do criativo
-  - **Metricas resumidas** no topo (spend, clicks, CTR, CPC dos ultimos 30d)
+**Correcoes**:
+- Em `PipelineBoard.tsx`: Reduzir altura dos cards no mobile com classes responsivas. Trocar `h-[calc(100%-8px)]` para uma altura fixa menor no mobile: `h-[calc(100vh-180px)] md:h-[calc(100%-8px)]`
+- Em `AdminLayout.tsx`: Garantir que quando `disableVerticalScroll` estiver ativo, o container main usa `overflow-y-hidden` tambem na versao mobile (atualmente ja faz, mas o calculo de `h-[calc(100vh-64px)]` pode estar incorreto)
+- Em `AdminPipeline.tsx`: Adicionar `touch-action: pan-x` no container do pipeline para mobile, garantindo que o touch so rola horizontalmente
+- Adicionar CSS: `.pipeline-scroll { -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; }` para conter o scroll vertical no container
 
-**Nova edge function `update-campaign-targeting/index.ts`**:
-- Aceita `adset_id` + campos de targeting (age_min, age_max, genders, publisher_platforms)
-- Faz POST na Meta Graph API `/{adset_id}` com o targeting atualizado
-- Tambem aceita `daily_budget` para atualizar orcamento do AdSet
+### 3. Responsividade Mobile - Paginas de Trafego
 
-**Nova edge function (reutilizar `toggle-campaign-status`)**: 
-- Estender para aceitar `type: "campaign" | "adset" | "ad"` e o respectivo ID
-- A Meta API usa o mesmo endpoint POST `/{id}` com `{ status }` para campanhas, adsets e ads
+**Problema**: Conteudo cortado nas paginas de trafego no mobile (configuracoes, campanhas).
 
-### 3. Layout das Configuracoes (full-width)
-
-**Problema**: `TrafficSettings` usa `max-w-2xl`, deixando metade da tela vazia.
-
-**Correcao**: 
-- Mudar para grid de 2 colunas em desktop: `grid grid-cols-1 lg:grid-cols-2 gap-5`
-- Coluna 1: Token + Sincronizacao + Toggle IA
-- Coluna 2: Configuracoes da IA (modelo, temperatura, prompt)
-- Em mobile: empilhado normalmente
-
-### 4. Layout da aba Campanhas (sem scroll desnecessario)
+**Correcoes em `TrafficSettings.tsx`**:
+- Ja usa `grid-cols-1 lg:grid-cols-2` - ok no mobile
+- Verificar que Cards nao ultrapassem a largura da tela com `overflow-hidden` e `max-w-full`
 
 **Correcoes em `CampaignsTab.tsx`**:
-- Usar `h-[calc(100vh-200px)]` no container principal para encaixar tudo na viewport
-- Campanhas com scroll interno (`overflow-y-auto`) dentro do espaco disponivel
-- Chat da IA tambem com altura calculada para preencher sem cortar
+- O container desktop com `height: calc(100vh - 260px)` causa problemas no mobile porque nao ha espaco suficiente
+- Remover a altura fixa do container quando em mobile (ja usa tabs separadas no mobile, entao nao deve ter problema)
 
-### 5. Corrigir persistencia das conversas da IA
+**Correcoes em `AdminTraffic.tsx`**:
+- Adicionar `overflow-x-hidden` ao container principal
 
-**Problema**: O upsert usa `onConflict: "organization_id,ad_account_id"` mas nao existe um UNIQUE constraint nessas colunas. O upsert falha silenciosamente.
+### 4. Responsividade Mobile - Instagram Insights
 
-**Migracao SQL**: Adicionar unique constraint:
-```
-ALTER TABLE traffic_ai_conversations 
-ADD CONSTRAINT traffic_ai_conversations_org_account_unique 
-UNIQUE (organization_id, ad_account_id);
-```
+**Problema**: Conteudo cortado no mobile.
 
-### 6. Melhorar persistencia no codigo
+**Correcao em `AdminInstagram.tsx`**:
+- Adicionar `overflow-x-hidden` ao container
+- Garantir que graficos e tabelas tenham `min-w-0` para nao estourar
 
-**Correcao em `TrafficAIChat.tsx`**:
-- No `persistMessages`, fazer fallback: tentar upsert, se falhar (sem unique), usar select + update/insert manual
-- Garantir que ao trocar de conta o `initialized` reseta corretamente (ja faz, mas confirmar timing)
+### 5. Responsividade Mobile - Agente IA (Painel do Consultor)
+
+**Problema**: Pagina de configuracao do Agente IA fica cortada no mobile.
+
+**Correcoes em `AdminAIConfig.tsx`**:
+- Remover `max-w-6xl` que pode estar limitando a largura em telas menores de forma estranha
+- Garantir que os grids `grid-cols-3` de stats mudem para `grid-cols-1 sm:grid-cols-3` no mobile
+- TabsList: ja usa `overflow-x-auto` - verificar se funciona corretamente
+- Cards de configuração com Textareas: garantir `overflow-hidden` no container pai
+
+### 6. Toggle global de IA para o consultor
+
+**Problema**: O consultor pode ter a IA ativada pelo admin, mas quer poder desativar temporariamente.
+
+**Implementacao**:
+- Na pagina `AdminAIConfig.tsx`, adicionar um Switch no topo "Ativar/Desativar Agente IA" que altera um campo na tabela `ai_config` (ou cria um campo `is_globally_active` no `ai_config`)
+- Alternativa mais simples: usar o campo `auto_reply` ja existente na config como toggle principal - quando desativado, a IA nao responde automaticamente
+- **Melhor opcao**: Adicionar um card proeminente no topo da pagina do Agente IA com um Switch "Agente IA Ativo" que salva no `ai_config.auto_reply`. O label explica: "Quando desativado, a IA nao responde automaticamente"
+- Isso ja existe na aba "Comportamento" como "Resposta Automatica", mas pode nao ser obvio. Vamos adicionar um switch mais visivel no topo da pagina, antes das tabs, controlando `auto_reply`
+
+### 7. Novo consultor nao aparece na lista sem atualizar
+
+**Problema**: `CreateConsultantDialog` invalida `['all-consultants']` mas `ConsultantsManagement` usa `['all-consultants-management']`.
+
+**Correcao em `CreateConsultantDialog.tsx`**:
+- Adicionar `queryClient.invalidateQueries({ queryKey: ['all-consultants-management'] })` no `onSuccess`
+- Manter o `['all-consultants']` existente para compatibilidade com `ConsultantsTable` do Super Admin
+
+### 8. CampaignEditDialog - X sobrepondo toggle
+
+**Problema**: O botao X de fechar o dialog fica sobreposto ao switch de ativar/desativar campanha (visivel no print).
+
+**Correcao em `CampaignEditDialog.tsx`**:
+- Mover o switch de status da campanha para ABAIXO do titulo, em vez de ao lado direito onde compete com o X do dialog
+- Reorganizar o header: titulo na esquerda, badge de status + switch abaixo, X do dialog fica no canto superior direito sem conflito
+
+### 9. Responsividade geral - overflow protection
+
+Adicionar protecoes globais:
+- Em `AdminLayout.tsx`: adicionar `overflow-x-hidden` no container `main` para prevenir scroll horizontal acidental em todas as paginas (exceto quando `disableVerticalScroll` esta ativo para o pipeline)
 
 ---
 
@@ -75,13 +90,15 @@ UNIQUE (organization_id, ad_account_id);
 
 | Arquivo | Mudanca |
 |---|---|
-| `src/components/instagram/DailyChangeBarChart.tsx` | Tooltip com cores de alto contraste |
-| `src/components/traffic/CampaignCard.tsx` | Adicionar botao "Editar" que abre CampaignEditDialog |
-| `src/components/traffic/CampaignEditDialog.tsx` | **NOVO** - Dialog completo para editar campanhas, conjuntos e anuncios |
-| `supabase/functions/update-campaign-targeting/index.ts` | **NOVO** - Edge function para atualizar targeting de AdSets via Meta API |
-| `supabase/functions/toggle-campaign-status/index.ts` | Estender para suportar adsets e ads alem de campanhas |
-| `src/components/traffic/TrafficSettings.tsx` | Layout 2 colunas, usar espaco completo da tela |
-| `src/components/traffic/CampaignsTab.tsx` | Ajustar alturas para caber na viewport sem scroll externo |
-| Migracao SQL | Adicionar UNIQUE constraint em traffic_ai_conversations(organization_id, ad_account_id) |
-| `src/components/traffic/TrafficAIChat.tsx` | Melhorar logica de persistencia com fallback |
+| `src/components/crm/PipelineBoard.tsx` | Altura responsiva, touch-action |
+| `src/pages/AdminPipeline.tsx` | Ajustes de overflow mobile |
+| `src/index.css` | CSS de overscroll-behavior para pipeline |
+| `src/components/admin/AdminLayout.tsx` | overflow-x-hidden global |
+| `src/components/traffic/CampaignsTab.tsx` | Altura fixa apenas no desktop |
+| `src/components/traffic/CampaignEditDialog.tsx` | Reposicionar switch longe do X |
+| `src/pages/AdminAIConfig.tsx` | Toggle global de IA, grid responsivo stats, remover max-w |
+| `src/pages/AdminInstagram.tsx` | overflow protection |
+| `src/pages/AdminTraffic.tsx` | overflow protection |
+| `src/components/super-admin/CreateConsultantDialog.tsx` | Corrigir query key para atualizar lista |
+| Migracao SQL | Policy para tabela `quiz_submissions` |
 
