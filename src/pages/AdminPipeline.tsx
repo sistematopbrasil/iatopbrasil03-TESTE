@@ -11,8 +11,10 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
+import { useHorizontalDragScroll } from '@/hooks/useHorizontalDragScroll';
 
 export default function AdminPipeline() {
+  const scrollRef = useHorizontalDragScroll<HTMLDivElement>();
 
   return (
     <AdminLayout disableVerticalScroll>
@@ -47,7 +49,8 @@ export default function AdminPipeline() {
 
         {/* Pipeline Board - scrollbar nativa estilizada */}
         <div 
-          className="flex-1 min-h-0 px-4 md:px-6 pb-3 pipeline-scroll"
+          ref={scrollRef}
+          className="flex-1 min-h-0 px-4 md:px-6 pb-3 pipeline-scroll cursor-grab active:cursor-grabbing"
         >
           <div 
             className="inline-flex gap-3 md:gap-4"

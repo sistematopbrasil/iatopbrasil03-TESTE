@@ -610,13 +610,13 @@ export default function AdminAIConfig() {
         )}
 
         {/* Save & Test Buttons - Always visible */}
-        <div className="sticky bottom-4 flex justify-end gap-3">
+        <div className="sticky bottom-4 flex flex-col-reverse sm:flex-row justify-end gap-3">
           <Button
             variant="outline"
             onClick={handleTestConfig}
             disabled={isTesting}
             size="lg"
-            className="shadow-lg bg-background"
+            className="shadow-lg bg-background w-full sm:w-auto"
             title="Envia uma mensagem de teste para verificar se a IA responde corretamente com as configurações atuais"
           >
             {isTesting ? (
@@ -626,7 +626,7 @@ export default function AdminAIConfig() {
             )}
             Testar Configuração
           </Button>
-          <Button onClick={() => save(formData)} disabled={isSaving} size="lg" className="shadow-lg">
+          <Button onClick={() => save(formData)} disabled={isSaving} size="lg" className="shadow-lg w-full sm:w-auto">
             {isSaving ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
             ) : (
