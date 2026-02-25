@@ -31,8 +31,8 @@ interface ConsultantData {
 }
 
 const DEFAULT_CONFIG: CaptureConfig = {
-  title: 'Quer uma renda extra ou mudar de vida?',
-  subtitle: 'Preencha seus dados e descubra como fazer parte do nosso time de sucesso.',
+  title: 'Descubra uma oportunidade única!',
+  subtitle: 'Preencha seus dados e saiba como começar.',
   button_text: 'Quero saber mais!',
   button_color: '#EB6608',
   hero_image: null,
@@ -184,6 +184,12 @@ export default function CapturePage() {
   }
 
   if (submitted) {
+    const whatsappUrl = consultant?.whatsapp_button_url;
+    const whatsappPhone = whatsappUrl ? whatsappUrl.replace(/\D/g, '') : null;
+    const whatsappLink = whatsappPhone
+      ? `https://wa.me/${whatsappPhone}?text=${encodeURIComponent(config.whatsapp_message)}`
+      : null;
+
     return (
       <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center px-4">
         <div className="text-center space-y-6 max-w-md">
@@ -194,6 +200,18 @@ export default function CapturePage() {
           <p className="text-gray-400 text-lg">
             Seus dados foram enviados com sucesso. Em breve entraremos em contato!
           </p>
+          {whatsappLink && (
+            <a
+              href={whatsappLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white font-bold text-lg transition-all hover:scale-[1.02] hover:shadow-xl"
+              style={{ backgroundColor: '#25D366' }}
+            >
+              <Phone className="w-5 h-5" />
+              Falar no WhatsApp
+            </a>
+          )}
         </div>
       </div>
     );

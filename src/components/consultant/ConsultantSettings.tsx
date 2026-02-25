@@ -33,12 +33,39 @@ function ThemeSelector() {
   );
 }
 
+function CapturePagePreview({ config }: { config: { title: string; subtitle: string; button_text: string; button_color: string; hero_image: string } }) {
+  return (
+    <div className="relative w-full rounded-xl overflow-hidden border border-border shadow-lg" style={{ background: '#0D0D0D' }}>
+      <div className="absolute inset-0 bg-gradient-to-br from-[#EB6608]/10 via-transparent to-[#EB6608]/5 pointer-events-none" />
+      <div className="relative p-4 flex flex-col items-center gap-3" style={{ minHeight: 320 }}>
+        {config.hero_image && (
+          <img src={config.hero_image} alt="Hero" className="w-16 h-16 object-cover rounded-xl border border-[#EB6608]/30" />
+        )}
+        <h3 className="text-sm font-bold text-white text-center leading-tight">{config.title || 'Título'}</h3>
+        <p className="text-[11px] text-gray-400 text-center">{config.subtitle || 'Subtítulo'}</p>
+        <div className="w-full space-y-2 px-2">
+          <div className="bg-white/10 rounded-lg h-8 flex items-center px-3"><span className="text-[10px] text-gray-500">Nome completo</span></div>
+          <div className="bg-white/10 rounded-lg h-8 flex items-center px-3"><span className="text-[10px] text-gray-500">Seu melhor email</span></div>
+          <div className="bg-white/10 rounded-lg h-8 flex items-center px-3"><span className="text-[10px] text-gray-500">(00) 00000-0000</span></div>
+        </div>
+        <button className="w-full mx-2 h-9 rounded-lg text-white text-xs font-bold" style={{ backgroundColor: config.button_color || '#EB6608' }}>
+          {config.button_text || 'Enviar'}
+        </button>
+        <p className="text-[9px] text-gray-600 text-center">Seus dados estão protegidos.</p>
+      </div>
+    </div>
+  );
+}
+
 function CaptureSettingsTab({ consultant }: { consultant: any }) {
   const queryClient = useQueryClient();
+  const heroInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
+  const [uploadingHero, setUploadingHero] = useState(false);
+  const [editableLink, setEditableLink] = useState('');
   const [captureForm, setCaptureForm] = useState({
-    title: 'Quer uma renda extra ou mudar de vida?',
-    subtitle: 'Preencha seus dados e descubra como fazer parte do nosso time de sucesso.',
+    title: 'Descubra uma oportunidade única!',
+    subtitle: 'Preencha seus dados e saiba como começar.',
     button_text: 'Quero saber mais!',
     button_color: '#EB6608',
     hero_image: '',
@@ -76,6 +103,32 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
     }
   }, [existingConfig]);
 
+  useEffect(() => {
+    setEditableLink(getCaptureUrl(consultant?.quiz_slug || 'seu-slug'));
+  }, [consultant?.quiz_slug]);
+
+  const handleHeroUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !consultant) return;
+    if (!file.type.startsWith('image/')) { toast.error('Selecione uma imagem'); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error('Imagem muito grande (máx 5MB)'); return; }
+    setUploadingHero(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `capture-hero-${consultant.id}-${Date.now()}.${fileExt}`;
+      const filePath = `capture-heroes/${fileName}`;
+      const { error: uploadError } = await supabase.storage.from('quiz-images').upload(filePath, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data } = supabase.storage.from('quiz-images').getPublicUrl(filePath);
+      setCaptureForm(prev => ({ ...prev, hero_image: data.publicUrl }));
+      toast.success('Imagem carregada!');
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao enviar imagem');
+    } finally {
+      setUploadingHero(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!consultant) return;
     setSaving(true);
@@ -95,15 +148,10 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
       };
 
       if (existingConfig) {
-        const { error } = await supabase
-          .from('capture_page_configs')
-          .update(payload)
-          .eq('id', existingConfig.id);
+        const { error } = await supabase.from('capture_page_configs').update(payload).eq('id', existingConfig.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase
-          .from('capture_page_configs')
-          .insert(payload);
+        const { error } = await supabase.from('capture_page_configs').insert(payload);
         if (error) throw error;
       }
 
@@ -116,92 +164,119 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
     }
   };
 
-  const captureUrl = getCaptureUrl(consultant?.quiz_slug || 'seu-slug');
-
   return (
     <div className="w-full max-w-full overflow-x-hidden space-y-6">
-      <Card className="overflow-hidden">
-        <CardHeader>
-          <CardTitle>Página de Captura</CardTitle>
-          <CardDescription>Configure sua página de captura de leads simplificada</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6 overflow-x-hidden min-w-0">
-          {/* Link da página */}
-          <div className="space-y-2">
-            <Label>Link da Página de Captura</Label>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full">
-              <code className="text-xs bg-muted px-3 py-2 rounded flex-1 min-w-0 break-all">{captureUrl}</code>
-              <div className="flex gap-2 w-full sm:w-auto">
-                <Button variant="outline" size="sm" className="w-full sm:w-auto"
-                  onClick={() => { navigator.clipboard.writeText(captureUrl); toast.success('Link copiado!'); }}>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Form */}
+        <Card className="overflow-hidden">
+          <CardHeader>
+            <CardTitle>Página de Captura</CardTitle>
+            <CardDescription>Configure sua página de captura de leads</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5 overflow-x-hidden min-w-0">
+            {/* Link editável */}
+            <div className="space-y-2">
+              <Label>Link da Página de Captura</Label>
+              <Input value={editableLink} onChange={(e) => setEditableLink(e.target.value)}
+                placeholder={getCaptureUrl(consultant?.quiz_slug || 'seu-slug')} className="text-xs font-mono" />
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm"
+                  onClick={() => { navigator.clipboard.writeText(editableLink); toast.success('Link copiado!'); }}>
                   <Copy className="w-4 h-4 mr-2" />Copiar
                 </Button>
-                <Button variant="outline" size="sm" className="w-full sm:w-auto"
-                  onClick={() => window.open(captureUrl, '_blank')}>
+                <Button variant="outline" size="sm"
+                  onClick={() => window.open(editableLink, '_blank')}>
                   <ExternalLink className="w-4 h-4 mr-2" />Abrir
                 </Button>
               </div>
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <Label>Título</Label>
-            <Input value={captureForm.title} onChange={(e) => setCaptureForm({ ...captureForm, title: e.target.value })} maxLength={200} />
-          </div>
-          <div className="space-y-2">
-            <Label>Subtítulo</Label>
-            <Input value={captureForm.subtitle} onChange={(e) => setCaptureForm({ ...captureForm, subtitle: e.target.value })} maxLength={500} />
-          </div>
-          <div className="space-y-2">
-            <Label>Texto do Botão</Label>
-            <Input value={captureForm.button_text} onChange={(e) => setCaptureForm({ ...captureForm, button_text: e.target.value })} maxLength={50} />
-          </div>
-          <div className="space-y-2">
-            <Label>Cor do Botão</Label>
-            <div className="flex items-center gap-3">
-              <input type="color" value={captureForm.button_color} onChange={(e) => setCaptureForm({ ...captureForm, button_color: e.target.value })}
-                className="w-10 h-10 rounded cursor-pointer border border-border" />
-              <Input value={captureForm.button_color} onChange={(e) => setCaptureForm({ ...captureForm, button_color: e.target.value })}
-                className="font-mono w-32" maxLength={7} />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label>URL da Imagem Hero (opcional)</Label>
-            <Input value={captureForm.hero_image} onChange={(e) => setCaptureForm({ ...captureForm, hero_image: e.target.value })}
-              placeholder="https://exemplo.com/imagem.jpg" maxLength={500} />
-          </div>
-          <div className="space-y-2">
-            <Label>Redirecionamento após envio</Label>
-            <Select value={captureForm.redirect_type} onValueChange={(v) => setCaptureForm({ ...captureForm, redirect_type: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="whatsapp">WhatsApp do consultor</SelectItem>
-                <SelectItem value="url">URL externa</SelectItem>
-                <SelectItem value="thank_you">Página de obrigado</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {captureForm.redirect_type === 'url' && (
             <div className="space-y-2">
-              <Label>URL de Redirecionamento</Label>
-              <Input value={captureForm.redirect_url} onChange={(e) => setCaptureForm({ ...captureForm, redirect_url: e.target.value })}
-                placeholder="https://exemplo.com" maxLength={500} />
+              <Label>Título</Label>
+              <Input value={captureForm.title} onChange={(e) => setCaptureForm({ ...captureForm, title: e.target.value })} maxLength={200} />
             </div>
-          )}
-          {captureForm.redirect_type === 'whatsapp' && (
             <div className="space-y-2">
-              <Label>Mensagem do WhatsApp</Label>
-              <Input value={captureForm.whatsapp_message} onChange={(e) => setCaptureForm({ ...captureForm, whatsapp_message: e.target.value })}
-                placeholder="Olá! Vim pela página de captura..." maxLength={500} />
+              <Label>Subtítulo</Label>
+              <Input value={captureForm.subtitle} onChange={(e) => setCaptureForm({ ...captureForm, subtitle: e.target.value })} maxLength={500} />
             </div>
-          )}
+            <div className="space-y-2">
+              <Label>Texto do Botão</Label>
+              <Input value={captureForm.button_text} onChange={(e) => setCaptureForm({ ...captureForm, button_text: e.target.value })} maxLength={50} />
+            </div>
+            <div className="space-y-2">
+              <Label>Cor do Botão</Label>
+              <div className="flex items-center gap-3">
+                <input type="color" value={captureForm.button_color} onChange={(e) => setCaptureForm({ ...captureForm, button_color: e.target.value })}
+                  className="w-10 h-10 rounded cursor-pointer border border-border" />
+                <Input value={captureForm.button_color} onChange={(e) => setCaptureForm({ ...captureForm, button_color: e.target.value })}
+                  className="font-mono w-32" maxLength={7} />
+              </div>
+            </div>
 
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-            Salvar Configurações de Captura
-          </Button>
-        </CardContent>
-      </Card>
+            {/* Image upload */}
+            <div className="space-y-2">
+              <Label>Imagem Hero (opcional)</Label>
+              <input ref={heroInputRef} type="file" accept="image/*" onChange={handleHeroUpload} className="hidden" />
+              {captureForm.hero_image ? (
+                <div className="flex items-center gap-3">
+                  <img src={captureForm.hero_image} alt="Hero" className="w-16 h-16 object-cover rounded-lg border border-border" />
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => heroInputRef.current?.click()} disabled={uploadingHero}>
+                      {uploadingHero ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setCaptureForm({ ...captureForm, hero_image: '' })}>
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button variant="outline" onClick={() => heroInputRef.current?.click()} disabled={uploadingHero} className="w-full">
+                  {uploadingHero ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+                  Enviar imagem
+                </Button>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Redirecionamento após envio</Label>
+              <Select value={captureForm.redirect_type} onValueChange={(v) => setCaptureForm({ ...captureForm, redirect_type: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                  <SelectItem value="url">URL externa</SelectItem>
+                  <SelectItem value="thank_you">Página de obrigado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {captureForm.redirect_type === 'url' && (
+              <div className="space-y-2">
+                <Label>URL de Redirecionamento</Label>
+                <Input value={captureForm.redirect_url} onChange={(e) => setCaptureForm({ ...captureForm, redirect_url: e.target.value })}
+                  placeholder="https://exemplo.com" maxLength={500} />
+              </div>
+            )}
+            {captureForm.redirect_type === 'whatsapp' && (
+              <div className="space-y-2">
+                <Label>Mensagem do WhatsApp</Label>
+                <Input value={captureForm.whatsapp_message} onChange={(e) => setCaptureForm({ ...captureForm, whatsapp_message: e.target.value })}
+                  placeholder="Olá! Vim pela página de captura..." maxLength={500} />
+                <p className="text-xs text-muted-foreground">O número do WhatsApp é o configurado na aba "Conta".</p>
+              </div>
+            )}
+
+            <Button onClick={handleSave} disabled={saving} className="w-full">
+              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+              Salvar Configurações
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Live Preview */}
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Preview</h3>
+          <CapturePagePreview config={captureForm} />
+        </div>
+      </div>
     </div>
   );
 }
