@@ -132,12 +132,12 @@ export function WhatsAppLeadsList({ onStartConversation }: WhatsAppLeadsListProp
       for (const conv of conversations) {
         const lead = conv.lead_id ? leadsMap.get(conv.lead_id) : null;
         
-        // ✅ Se tem lead e completion_percentage > 0, é lead do quiz - EXCLUIR
-        if (lead && lead.completion_percentage > 0) {
+        // ✅ Incluir apenas leads do WhatsApp ou sem lead
+        if (lead && lead.lead_source !== 'whatsapp' && lead.completion_percentage > 0) {
           continue;
         }
 
-        // ✅ Incluir: conversa SEM lead ou com lead completion_percentage = 0
+        // ✅ Incluir: conversa SEM lead ou com lead do WhatsApp
         whatsappContacts.push({
           id: conv.id,
           phone: conv.contact_phone,
@@ -184,9 +184,10 @@ export function WhatsAppLeadsList({ onStartConversation }: WhatsAppLeadsListProp
           consultant_id: currentUser.id,
           pipeline_stage_id: firstStageId,
           stage: 'novo',
-          temperature: 'cold', // ✅ Lead WhatsApp = Frio
+          temperature: 'cold',
           completion_percentage: 0,
-          lead_score: 0, // Score inicial
+          lead_score: 0,
+          lead_source: 'whatsapp',
         })
         .select()
         .single();

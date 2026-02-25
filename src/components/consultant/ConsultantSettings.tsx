@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from 'next-themes';
 import { supabase } from '@/integrations/supabase/client';
-import { getCurrentConsultant, getQuizUrl } from '@/lib/consultant-context';
+import { getCurrentConsultant, getQuizUrl, getCaptureUrl } from '@/lib/consultant-context';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,6 +29,179 @@ function ThemeSelector() {
           <SelectItem value="light">☀️ Modo Claro</SelectItem>
         </SelectContent>
       </Select>
+    </div>
+  );
+}
+
+function CaptureSettingsTab({ consultant }: { consultant: any }) {
+  const queryClient = useQueryClient();
+  const [saving, setSaving] = useState(false);
+  const [captureForm, setCaptureForm] = useState({
+    title: 'Quer uma renda extra ou mudar de vida?',
+    subtitle: 'Preencha seus dados e descubra como fazer parte do nosso time de sucesso.',
+    button_text: 'Quero saber mais!',
+    button_color: '#EB6608',
+    hero_image: '',
+    redirect_type: 'whatsapp',
+    redirect_url: '',
+    whatsapp_message: 'Olá! Vim pela página de captura e quero saber mais.',
+  });
+
+  const { data: existingConfig } = useQuery({
+    queryKey: ['capture-config', consultant?.id],
+    queryFn: async () => {
+      if (!consultant?.id) return null;
+      const { data } = await supabase
+        .from('capture_page_configs')
+        .select('*')
+        .eq('consultant_id', consultant.id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!consultant?.id,
+  });
+
+  useEffect(() => {
+    if (existingConfig) {
+      setCaptureForm({
+        title: existingConfig.title || captureForm.title,
+        subtitle: existingConfig.subtitle || captureForm.subtitle,
+        button_text: existingConfig.button_text || captureForm.button_text,
+        button_color: existingConfig.button_color || '#EB6608',
+        hero_image: existingConfig.hero_image || '',
+        redirect_type: existingConfig.redirect_type || 'whatsapp',
+        redirect_url: existingConfig.redirect_url || '',
+        whatsapp_message: existingConfig.whatsapp_message || captureForm.whatsapp_message,
+      });
+    }
+  }, [existingConfig]);
+
+  const handleSave = async () => {
+    if (!consultant) return;
+    setSaving(true);
+    try {
+      const payload = {
+        consultant_id: consultant.id,
+        organization_id: consultant.organization_id,
+        title: captureForm.title,
+        subtitle: captureForm.subtitle,
+        button_text: captureForm.button_text,
+        button_color: captureForm.button_color,
+        hero_image: captureForm.hero_image || null,
+        redirect_type: captureForm.redirect_type,
+        redirect_url: captureForm.redirect_url || null,
+        whatsapp_message: captureForm.whatsapp_message,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (existingConfig) {
+        const { error } = await supabase
+          .from('capture_page_configs')
+          .update(payload)
+          .eq('id', existingConfig.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('capture_page_configs')
+          .insert(payload);
+        if (error) throw error;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['capture-config'] });
+      toast.success('Configurações de captura salvas!');
+    } catch (error: any) {
+      toast.error('Erro ao salvar: ' + error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const captureUrl = getCaptureUrl(consultant?.quiz_slug || 'seu-slug');
+
+  return (
+    <div className="w-full max-w-full overflow-x-hidden space-y-6">
+      <Card className="overflow-hidden">
+        <CardHeader>
+          <CardTitle>Página de Captura</CardTitle>
+          <CardDescription>Configure sua página de captura de leads simplificada</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6 overflow-x-hidden min-w-0">
+          {/* Link da página */}
+          <div className="space-y-2">
+            <Label>Link da Página de Captura</Label>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full">
+              <code className="text-xs bg-muted px-3 py-2 rounded flex-1 min-w-0 break-all">{captureUrl}</code>
+              <div className="flex gap-2 w-full sm:w-auto">
+                <Button variant="outline" size="sm" className="w-full sm:w-auto"
+                  onClick={() => { navigator.clipboard.writeText(captureUrl); toast.success('Link copiado!'); }}>
+                  <Copy className="w-4 h-4 mr-2" />Copiar
+                </Button>
+                <Button variant="outline" size="sm" className="w-full sm:w-auto"
+                  onClick={() => window.open(captureUrl, '_blank')}>
+                  <ExternalLink className="w-4 h-4 mr-2" />Abrir
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Título</Label>
+            <Input value={captureForm.title} onChange={(e) => setCaptureForm({ ...captureForm, title: e.target.value })} maxLength={200} />
+          </div>
+          <div className="space-y-2">
+            <Label>Subtítulo</Label>
+            <Input value={captureForm.subtitle} onChange={(e) => setCaptureForm({ ...captureForm, subtitle: e.target.value })} maxLength={500} />
+          </div>
+          <div className="space-y-2">
+            <Label>Texto do Botão</Label>
+            <Input value={captureForm.button_text} onChange={(e) => setCaptureForm({ ...captureForm, button_text: e.target.value })} maxLength={50} />
+          </div>
+          <div className="space-y-2">
+            <Label>Cor do Botão</Label>
+            <div className="flex items-center gap-3">
+              <input type="color" value={captureForm.button_color} onChange={(e) => setCaptureForm({ ...captureForm, button_color: e.target.value })}
+                className="w-10 h-10 rounded cursor-pointer border border-border" />
+              <Input value={captureForm.button_color} onChange={(e) => setCaptureForm({ ...captureForm, button_color: e.target.value })}
+                className="font-mono w-32" maxLength={7} />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>URL da Imagem Hero (opcional)</Label>
+            <Input value={captureForm.hero_image} onChange={(e) => setCaptureForm({ ...captureForm, hero_image: e.target.value })}
+              placeholder="https://exemplo.com/imagem.jpg" maxLength={500} />
+          </div>
+          <div className="space-y-2">
+            <Label>Redirecionamento após envio</Label>
+            <Select value={captureForm.redirect_type} onValueChange={(v) => setCaptureForm({ ...captureForm, redirect_type: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="whatsapp">WhatsApp do consultor</SelectItem>
+                <SelectItem value="url">URL externa</SelectItem>
+                <SelectItem value="thank_you">Página de obrigado</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {captureForm.redirect_type === 'url' && (
+            <div className="space-y-2">
+              <Label>URL de Redirecionamento</Label>
+              <Input value={captureForm.redirect_url} onChange={(e) => setCaptureForm({ ...captureForm, redirect_url: e.target.value })}
+                placeholder="https://exemplo.com" maxLength={500} />
+            </div>
+          )}
+          {captureForm.redirect_type === 'whatsapp' && (
+            <div className="space-y-2">
+              <Label>Mensagem do WhatsApp</Label>
+              <Input value={captureForm.whatsapp_message} onChange={(e) => setCaptureForm({ ...captureForm, whatsapp_message: e.target.value })}
+                placeholder="Olá! Vim pela página de captura..." maxLength={500} />
+            </div>
+          )}
+
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+            Salvar Configurações de Captura
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -372,6 +545,7 @@ export function ConsultantSettings() {
         <Tabs defaultValue="quiz" className="flex-1 flex flex-col w-full overflow-hidden">
           <TabsList className="w-full overflow-x-auto flex flex-nowrap gap-1 flex-shrink-0">
             <TabsTrigger value="quiz" className="text-xs sm:text-sm px-3 whitespace-nowrap">Quiz</TabsTrigger>
+            <TabsTrigger value="capture" className="text-xs sm:text-sm px-3 whitespace-nowrap">Captura</TabsTrigger>
             <TabsTrigger value="tracking" className="text-xs sm:text-sm px-3 whitespace-nowrap">Tracking</TabsTrigger>
             <TabsTrigger value="whatsapp" className="text-xs sm:text-sm px-3 whitespace-nowrap">WhatsApp</TabsTrigger>
             <TabsTrigger value="account" className="text-xs sm:text-sm px-3 whitespace-nowrap">Conta</TabsTrigger>
@@ -749,6 +923,11 @@ export function ConsultantSettings() {
 
           {/* Editor de Perguntas */}
           <QuizQuestionsEditor />
+        </TabsContent>
+
+        {/* Tab: Captura */}
+        <TabsContent value="capture" className="flex-1 overflow-y-auto overflow-x-hidden">
+          <CaptureSettingsTab consultant={consultant} />
         </TabsContent>
 
         {/* Tab: Tracking */}
