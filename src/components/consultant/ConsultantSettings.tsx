@@ -33,25 +33,40 @@ function ThemeSelector() {
   );
 }
 
-function CapturePagePreview({ config }: { config: { title: string; subtitle: string; button_text: string; button_color: string; hero_image: string } }) {
+function CapturePagePreview({ config }: { config: { title: string; subtitle: string; button_text: string; button_color: string; hero_image: string; hero_image_size: string; hero_image_position: string; hero_image_shape: string } }) {
+  const sizeMap: Record<string, number> = { small: 48, medium: 80, large: 120, full: 999 };
+  const imgSize = sizeMap[config.hero_image_size] || 80;
+  const shapeClass = config.hero_image_shape === 'circle' ? 'rounded-full' : config.hero_image_shape === 'square' ? 'rounded-none' : 'rounded-xl';
+  const isBackground = config.hero_image_position === 'background';
+  const isLeft = config.hero_image_position === 'left';
+
   return (
     <div className="relative w-full rounded-xl overflow-hidden border border-border shadow-lg" style={{ background: '#0D0D0D' }}>
-      <div className="absolute inset-0 bg-gradient-to-br from-[#EB6608]/10 via-transparent to-[#EB6608]/5 pointer-events-none" />
-      <div className="relative p-4 flex flex-col items-center gap-3" style={{ minHeight: 320 }}>
-        {config.hero_image && (
-          <img src={config.hero_image} alt="Hero" className="w-16 h-16 object-cover rounded-xl border border-[#EB6608]/30" />
-        )}
-        <h3 className="text-sm font-bold text-white text-center leading-tight">{config.title || 'Título'}</h3>
-        <p className="text-[11px] text-gray-400 text-center">{config.subtitle || 'Subtítulo'}</p>
-        <div className="w-full space-y-2 px-2">
-          <div className="bg-white/10 rounded-lg h-8 flex items-center px-3"><span className="text-[10px] text-gray-500">Nome completo</span></div>
-          <div className="bg-white/10 rounded-lg h-8 flex items-center px-3"><span className="text-[10px] text-gray-500">Seu melhor email</span></div>
-          <div className="bg-white/10 rounded-lg h-8 flex items-center px-3"><span className="text-[10px] text-gray-500">(00) 00000-0000</span></div>
+      {isBackground && config.hero_image && (
+        <div className="absolute inset-0">
+          <img src={config.hero_image} alt="" className="w-full h-full object-cover opacity-20" />
+          <div className="absolute inset-0 bg-black/60" />
         </div>
-        <button className="w-full mx-2 h-9 rounded-lg text-white text-xs font-bold" style={{ backgroundColor: config.button_color || '#EB6608' }}>
-          {config.button_text || 'Enviar'}
-        </button>
-        <p className="text-[9px] text-gray-600 text-center">Seus dados estão protegidos.</p>
+      )}
+      <div className="absolute inset-0 bg-gradient-to-br from-[#EB6608]/10 via-transparent to-[#EB6608]/5 pointer-events-none" />
+      <div className={cn("relative p-4 flex flex-col items-center gap-3", isLeft && config.hero_image && "flex-row items-start")} style={{ minHeight: 320 }}>
+        {config.hero_image && !isBackground && (
+          <img src={config.hero_image} alt="Hero" className={cn("object-cover border border-[#EB6608]/30", shapeClass)}
+            style={{ width: config.hero_image_size === 'full' ? '100%' : imgSize, height: config.hero_image_size === 'full' ? 'auto' : imgSize }} />
+        )}
+        <div className={cn("flex flex-col items-center gap-3 w-full", isLeft && "items-start")}>
+          <h3 className={cn("text-sm font-bold text-white leading-tight", !isLeft && "text-center")}>{config.title || 'Título'}</h3>
+          <p className={cn("text-[11px] text-gray-400", !isLeft && "text-center")}>{config.subtitle || 'Subtítulo'}</p>
+          <div className="w-full space-y-2 px-2">
+            <div className="bg-white/10 rounded-lg h-8 flex items-center px-3"><span className="text-[10px] text-gray-500">Nome completo</span></div>
+            <div className="bg-white/10 rounded-lg h-8 flex items-center px-3"><span className="text-[10px] text-gray-500">Seu melhor email</span></div>
+            <div className="bg-white/10 rounded-lg h-8 flex items-center px-3"><span className="text-[10px] text-gray-500">(00) 00000-0000</span></div>
+          </div>
+          <button className="w-full mx-2 h-9 rounded-lg text-white text-xs font-bold" style={{ backgroundColor: config.button_color || '#EB6608' }}>
+            {config.button_text || 'Enviar'}
+          </button>
+          <p className="text-[9px] text-gray-600 text-center">Seus dados estão protegidos.</p>
+        </div>
       </div>
     </div>
   );
@@ -62,16 +77,21 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
   const heroInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [uploadingHero, setUploadingHero] = useState(false);
-  const [editableLink, setEditableLink] = useState('');
+  const [linkSuffix, setLinkSuffix] = useState('');
+  const linkPrefix = `${window.location.origin}/c/`;
   const [captureForm, setCaptureForm] = useState({
     title: 'Descubra uma oportunidade única!',
     subtitle: 'Preencha seus dados e saiba como começar.',
     button_text: 'Quero saber mais!',
     button_color: '#EB6608',
     hero_image: '',
-    redirect_type: 'whatsapp',
+    hero_image_size: 'medium',
+    hero_image_position: 'top',
+    hero_image_shape: 'rounded',
+    redirect_type: 'thank_you',
     redirect_url: '',
     whatsapp_message: 'Olá! Vim pela página de captura e quero saber mais.',
+    whatsapp_number: '',
   });
 
   const { data: existingConfig } = useQuery({
@@ -96,15 +116,19 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
         button_text: existingConfig.button_text || captureForm.button_text,
         button_color: existingConfig.button_color || '#EB6608',
         hero_image: existingConfig.hero_image || '',
-        redirect_type: existingConfig.redirect_type || 'whatsapp',
+        hero_image_size: (existingConfig as any).hero_image_size || 'medium',
+        hero_image_position: (existingConfig as any).hero_image_position || 'top',
+        hero_image_shape: (existingConfig as any).hero_image_shape || 'rounded',
+        redirect_type: existingConfig.redirect_type || 'thank_you',
         redirect_url: existingConfig.redirect_url || '',
         whatsapp_message: existingConfig.whatsapp_message || captureForm.whatsapp_message,
+        whatsapp_number: (existingConfig as any).whatsapp_number || '',
       });
     }
   }, [existingConfig]);
 
   useEffect(() => {
-    setEditableLink(getCaptureUrl(consultant?.quiz_slug || 'seu-slug'));
+    setLinkSuffix(consultant?.quiz_slug || 'seu-slug');
   }, [consultant?.quiz_slug]);
 
   const handleHeroUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -141,9 +165,13 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
         button_text: captureForm.button_text,
         button_color: captureForm.button_color,
         hero_image: captureForm.hero_image || null,
+        hero_image_size: captureForm.hero_image_size,
+        hero_image_position: captureForm.hero_image_position,
+        hero_image_shape: captureForm.hero_image_shape,
         redirect_type: captureForm.redirect_type,
         redirect_url: captureForm.redirect_url || null,
         whatsapp_message: captureForm.whatsapp_message,
+        whatsapp_number: captureForm.whatsapp_number || null,
         updated_at: new Date().toISOString(),
       };
 
@@ -164,6 +192,8 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
     }
   };
 
+  const fullLink = linkPrefix + linkSuffix;
+
   return (
     <div className="w-full max-w-full overflow-x-hidden space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -174,18 +204,27 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
             <CardDescription>Configure sua página de captura de leads</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5 overflow-x-hidden min-w-0">
-            {/* Link editável */}
+            {/* Link editável com prefixo fixo */}
             <div className="space-y-2">
               <Label>Link da Página de Captura</Label>
-              <Input value={editableLink} onChange={(e) => setEditableLink(e.target.value)}
-                placeholder={getCaptureUrl(consultant?.quiz_slug || 'seu-slug')} className="text-xs font-mono" />
+              <div className="flex items-center rounded-md border border-input bg-background overflow-hidden">
+                <span className="px-3 py-2 text-xs text-muted-foreground bg-muted border-r border-input whitespace-nowrap select-all">
+                  {linkPrefix}
+                </span>
+                <input
+                  value={linkSuffix}
+                  onChange={(e) => setLinkSuffix(e.target.value)}
+                  className="flex-1 px-3 py-2 text-xs font-mono bg-transparent outline-none text-foreground min-w-0"
+                  placeholder="seu-slug?utm_source=facebook"
+                />
+              </div>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm"
-                  onClick={() => { navigator.clipboard.writeText(editableLink); toast.success('Link copiado!'); }}>
+                  onClick={() => { navigator.clipboard.writeText(fullLink); toast.success('Link copiado!'); }}>
                   <Copy className="w-4 h-4 mr-2" />Copiar
                 </Button>
                 <Button variant="outline" size="sm"
-                  onClick={() => window.open(editableLink, '_blank')}>
+                  onClick={() => window.open(fullLink, '_blank')}>
                   <ExternalLink className="w-4 h-4 mr-2" />Abrir
                 </Button>
               </div>
@@ -218,15 +257,54 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
               <Label>Imagem Hero (opcional)</Label>
               <input ref={heroInputRef} type="file" accept="image/*" onChange={handleHeroUpload} className="hidden" />
               {captureForm.hero_image ? (
-                <div className="flex items-center gap-3">
-                  <img src={captureForm.hero_image} alt="Hero" className="w-16 h-16 object-cover rounded-lg border border-border" />
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => heroInputRef.current?.click()} disabled={uploadingHero}>
-                      {uploadingHero ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => setCaptureForm({ ...captureForm, hero_image: '' })}>
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <img src={captureForm.hero_image} alt="Hero" className="w-16 h-16 object-cover rounded-lg border border-border" />
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => heroInputRef.current?.click()} disabled={uploadingHero}>
+                        {uploadingHero ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => setCaptureForm({ ...captureForm, hero_image: '' })}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  {/* Image config selects */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Tamanho</Label>
+                      <Select value={captureForm.hero_image_size} onValueChange={(v) => setCaptureForm({ ...captureForm, hero_image_size: v })}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="small">Pequeno</SelectItem>
+                          <SelectItem value="medium">Médio</SelectItem>
+                          <SelectItem value="large">Grande</SelectItem>
+                          <SelectItem value="full">Largura total</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Posição</Label>
+                      <Select value={captureForm.hero_image_position} onValueChange={(v) => setCaptureForm({ ...captureForm, hero_image_position: v })}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="top">Topo</SelectItem>
+                          <SelectItem value="left">Lateral</SelectItem>
+                          <SelectItem value="background">Fundo</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Formato</Label>
+                      <Select value={captureForm.hero_image_shape} onValueChange={(v) => setCaptureForm({ ...captureForm, hero_image_shape: v })}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="rounded">Arredondado</SelectItem>
+                          <SelectItem value="circle">Circular</SelectItem>
+                          <SelectItem value="square">Quadrado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -237,30 +315,42 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
               )}
             </div>
 
+            {/* Redirect type */}
             <div className="space-y-2">
               <Label>Redirecionamento após envio</Label>
               <Select value={captureForm.redirect_type} onValueChange={(v) => setCaptureForm({ ...captureForm, redirect_type: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="thank_you">Página de obrigado (padrão)</SelectItem>
+                  <SelectItem value="url">Link personalizado</SelectItem>
                   <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                  <SelectItem value="url">URL externa</SelectItem>
-                  <SelectItem value="thank_you">Página de obrigado</SelectItem>
                 </SelectContent>
               </Select>
+              {captureForm.redirect_type === 'thank_you' && (
+                <p className="text-xs text-muted-foreground">Mostra uma página de obrigado informando que a equipe entrará em contato.</p>
+              )}
             </div>
             {captureForm.redirect_type === 'url' && (
               <div className="space-y-2">
                 <Label>URL de Redirecionamento</Label>
                 <Input value={captureForm.redirect_url} onChange={(e) => setCaptureForm({ ...captureForm, redirect_url: e.target.value })}
                   placeholder="https://exemplo.com" maxLength={500} />
+                <p className="text-xs text-muted-foreground">A página de obrigado mostrará um botão incentivando o lead a clicar neste link.</p>
               </div>
             )}
             {captureForm.redirect_type === 'whatsapp' && (
-              <div className="space-y-2">
-                <Label>Mensagem do WhatsApp</Label>
-                <Input value={captureForm.whatsapp_message} onChange={(e) => setCaptureForm({ ...captureForm, whatsapp_message: e.target.value })}
-                  placeholder="Olá! Vim pela página de captura..." maxLength={500} />
-                <p className="text-xs text-muted-foreground">O número do WhatsApp é o configurado na aba "Conta".</p>
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label>Número do WhatsApp</Label>
+                  <Input value={captureForm.whatsapp_number} onChange={(e) => setCaptureForm({ ...captureForm, whatsapp_number: e.target.value })}
+                    placeholder="5511999999999" maxLength={20} />
+                  <p className="text-xs text-muted-foreground">Número com código do país (ex: 5511999999999)</p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Mensagem padrão</Label>
+                  <Input value={captureForm.whatsapp_message} onChange={(e) => setCaptureForm({ ...captureForm, whatsapp_message: e.target.value })}
+                    placeholder="Olá! Vim pela página de captura..." maxLength={500} />
+                </div>
               </div>
             )}
 

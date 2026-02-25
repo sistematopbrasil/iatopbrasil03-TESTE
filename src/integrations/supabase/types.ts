@@ -346,6 +346,9 @@ export type Database = {
           created_at: string | null
           custom_slug: string | null
           hero_image: string | null
+          hero_image_position: string | null
+          hero_image_shape: string | null
+          hero_image_size: string | null
           id: string
           is_active: boolean
           organization_id: string
@@ -355,6 +358,7 @@ export type Database = {
           title: string | null
           updated_at: string | null
           whatsapp_message: string | null
+          whatsapp_number: string | null
         }
         Insert: {
           button_color?: string | null
@@ -363,6 +367,9 @@ export type Database = {
           created_at?: string | null
           custom_slug?: string | null
           hero_image?: string | null
+          hero_image_position?: string | null
+          hero_image_shape?: string | null
+          hero_image_size?: string | null
           id?: string
           is_active?: boolean
           organization_id: string
@@ -372,6 +379,7 @@ export type Database = {
           title?: string | null
           updated_at?: string | null
           whatsapp_message?: string | null
+          whatsapp_number?: string | null
         }
         Update: {
           button_color?: string | null
@@ -380,6 +388,9 @@ export type Database = {
           created_at?: string | null
           custom_slug?: string | null
           hero_image?: string | null
+          hero_image_position?: string | null
+          hero_image_shape?: string | null
+          hero_image_size?: string | null
           id?: string
           is_active?: boolean
           organization_id?: string
@@ -389,6 +400,7 @@ export type Database = {
           title?: string | null
           updated_at?: string | null
           whatsapp_message?: string | null
+          whatsapp_number?: string | null
         }
         Relationships: [
           {
