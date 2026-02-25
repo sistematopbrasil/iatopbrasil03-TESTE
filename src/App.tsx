@@ -22,6 +22,7 @@ import AdminCRM from "./pages/AdminCRM";
 import AdminAIConfig from "./pages/AdminAIConfig";
 import AdminInstagram from "./pages/AdminInstagram";
 import AdminTraffic from "./pages/AdminTraffic";
+import CapturePage from "./pages/CapturePage";
 import { ProtectedRoute } from "./components/admin/ProtectedRoute";
 
 // QueryClient com cache otimizado para evitar recarregamentos desnecessários
@@ -51,6 +52,7 @@ const App = () => {
             <Routes>
               <Route path="/" element={<LandingPage />} />
               <Route path="/quiz/:slug" element={<QuizPage />} />
+              <Route path="/c/:slug" element={<CapturePage />} />
               <Route path="/login" element={<AdminLogin />} />
               <Route
                 path="/admin/dashboard"

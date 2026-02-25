@@ -64,7 +64,9 @@ export function canViewAllData(role: string): boolean {
 }
 
 export function getQuizUrl(slug: string): string {
-  // Usar sempre o domínio atual (funciona em qualquer deploy)
-  // Isso garante que o quiz use o mesmo domínio do painel (topbrasil.app, lovable.app, etc.)
   return `${window.location.origin}/quiz/${slug}`;
+}
+
+export function getCaptureUrl(slug: string): string {
+  return `${window.location.origin}/c/${slug}`;
 }

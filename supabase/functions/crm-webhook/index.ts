@@ -538,9 +538,10 @@ serve(async (req) => {
                 consultant_id: instance.user_id,
                 pipeline_stage_id: firstStageId,
                 stage: 'novo',
-                temperature: 'cold', // ✅ Lead WhatsApp = Frio
-                completion_percentage: 0, // Lead veio do WhatsApp, não do quiz
+                temperature: 'cold',
+                completion_percentage: 0,
                 lead_score: 0,
+                lead_source: 'whatsapp',
               })
               .select('id, name, organization_id, pipeline_stage_id, phone, consultant_id')
               .single();

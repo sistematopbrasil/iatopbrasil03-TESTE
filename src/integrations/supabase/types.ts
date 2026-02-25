@@ -338,6 +338,68 @@ export type Database = {
         }
         Relationships: []
       }
+      capture_page_configs: {
+        Row: {
+          button_color: string | null
+          button_text: string | null
+          consultant_id: string
+          created_at: string | null
+          custom_slug: string | null
+          hero_image: string | null
+          id: string
+          is_active: boolean
+          organization_id: string
+          redirect_type: string | null
+          redirect_url: string | null
+          subtitle: string | null
+          title: string | null
+          updated_at: string | null
+          whatsapp_message: string | null
+        }
+        Insert: {
+          button_color?: string | null
+          button_text?: string | null
+          consultant_id: string
+          created_at?: string | null
+          custom_slug?: string | null
+          hero_image?: string | null
+          id?: string
+          is_active?: boolean
+          organization_id: string
+          redirect_type?: string | null
+          redirect_url?: string | null
+          subtitle?: string | null
+          title?: string | null
+          updated_at?: string | null
+          whatsapp_message?: string | null
+        }
+        Update: {
+          button_color?: string | null
+          button_text?: string | null
+          consultant_id?: string
+          created_at?: string | null
+          custom_slug?: string | null
+          hero_image?: string | null
+          id?: string
+          is_active?: boolean
+          organization_id?: string
+          redirect_type?: string | null
+          redirect_url?: string | null
+          subtitle?: string | null
+          title?: string | null
+          updated_at?: string | null
+          whatsapp_message?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "capture_page_configs_consultant_id_fkey"
+            columns: ["consultant_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       consultant_recruits: {
         Row: {
           activated_at: string | null
@@ -1326,6 +1388,7 @@ export type Database = {
           landing_page: string | null
           last_contact_at: string | null
           lead_score: number | null
+          lead_source: string
           location: string | null
           motivation: string | null
           name: string | null
@@ -1371,6 +1434,7 @@ export type Database = {
           landing_page?: string | null
           last_contact_at?: string | null
           lead_score?: number | null
+          lead_source?: string
           location?: string | null
           motivation?: string | null
           name?: string | null
@@ -1416,6 +1480,7 @@ export type Database = {
           landing_page?: string | null
           last_contact_at?: string | null
           lead_score?: number | null
+          lead_source?: string
           location?: string | null
           motivation?: string | null
           name?: string | null

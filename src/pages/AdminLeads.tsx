@@ -30,6 +30,7 @@ interface Lead {
   created_at: string;
   name: string | null;
   phone: string | null;
+  email: string | null;
   age: number | null;
   relationship_status: string | null;
   location: string | null;
@@ -45,6 +46,7 @@ interface Lead {
   completion_percentage: number;
   lead_score: number | null;
   temperature: LeadTemperature | null;
+  lead_source: string;
   extra_answers?: any;
   pipeline_stage_id?: string | null;
 }
@@ -62,6 +64,7 @@ interface CrmTag {
 }
 
 type TemperatureFilter = 'all' | 'hot' | 'warm' | 'cold';
+type SourceFilter = 'all' | 'quiz' | 'capture' | 'whatsapp';
 
 export default function AdminLeads() {
   const navigate = useNavigate();
@@ -76,6 +79,7 @@ export default function AdminLeads() {
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [deletingMultiple, setDeletingMultiple] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [cnh, setCnh] = useState("all");
   const [vehicle, setVehicle] = useState("all");
   const [employmentStatus, setEmploymentStatus] = useState("all");
@@ -116,7 +120,6 @@ export default function AdminLeads() {
       let query = supabase
         .from('quiz_submissions_new')
         .select('*')
-        .gt('completion_percentage', 0) // Apenas leads que preencheram o quiz
         .order('created_at', { ascending: false });
 
       // Filtrar por consultant_id se não for super admin
@@ -196,6 +199,11 @@ export default function AdminLeads() {
       filtered = filtered.filter(lead => lead.temperature === temperatureFilter);
     }
 
+    // Source filter
+    if (sourceFilter !== "all") {
+      filtered = filtered.filter(lead => (lead as any).lead_source === sourceFilter);
+    }
+
     // Date range filter
     if (dateRange?.from) {
       filtered = filtered.filter(lead => new Date(lead.created_at) >= dateRange.from!);
@@ -263,7 +271,7 @@ export default function AdminLeads() {
     }
 
     return filtered;
-  }, [leads, searchQuery, statusFilter, temperatureFilter, dateRange, cnh, vehicle, employmentStatus, salesExperience, incomeRange, pipelineStageFilter]);
+  }, [leads, searchQuery, statusFilter, temperatureFilter, sourceFilter, dateRange, cnh, vehicle, employmentStatus, salesExperience, incomeRange, pipelineStageFilter]);
 
   const setPreset = (days: number) => {
     if (days === 0) {
@@ -403,6 +411,8 @@ export default function AdminLeads() {
     const headers = [
       'Nome',
       'Telefone',
+      'Email',
+      'Origem',
       'Idade',
       'Estado Civil',
       'Localização',
@@ -424,6 +434,8 @@ export default function AdminLeads() {
     const rows = filteredLeads.map(lead => [
       lead.name || '',
       lead.phone || '',
+      (lead as any).email || '',
+      (lead as any).lead_source === 'capture' ? 'Captura' : (lead as any).lead_source === 'whatsapp' ? 'WhatsApp' : 'Quiz',
       lead.age || '',
       lead.relationship_status || '',
       lead.location || '',
@@ -465,7 +477,7 @@ export default function AdminLeads() {
         <div>
           <h1 className="text-3xl font-bold text-foreground">Leads</h1>
           <p className="text-muted-foreground mt-1">
-            Gerencie todos os leads do quiz
+            Gerencie todos os seus leads
           </p>
         </div>
 
@@ -506,6 +518,25 @@ export default function AdminLeads() {
               <Snowflake className="w-4 h-4 mr-1" />
               Frios ({tempCounts.cold})
           </Button>
+          </div>
+
+          {/* Source filter */}
+          <div className="flex flex-wrap gap-2 border-l border-border pl-3 ml-1">
+            <Button variant={sourceFilter === 'all' ? 'default' : 'outline'} size="sm" onClick={() => setSourceFilter('all')}>
+              Todas Origens
+            </Button>
+            <Button variant={sourceFilter === 'quiz' ? 'default' : 'outline'} size="sm" onClick={() => setSourceFilter('quiz')}
+              className={sourceFilter === 'quiz' ? 'bg-purple-500 hover:bg-purple-600' : ''}>
+              Quiz
+            </Button>
+            <Button variant={sourceFilter === 'capture' ? 'default' : 'outline'} size="sm" onClick={() => setSourceFilter('capture')}
+              className={sourceFilter === 'capture' ? 'bg-[#EB6608] hover:bg-[#d45a07]' : ''}>
+              Captura
+            </Button>
+            <Button variant={sourceFilter === 'whatsapp' ? 'default' : 'outline'} size="sm" onClick={() => setSourceFilter('whatsapp')}
+              className={sourceFilter === 'whatsapp' ? 'bg-green-500 hover:bg-green-600' : ''}>
+              WhatsApp
+            </Button>
           </div>
 
           {/* Botão de exclusão em massa */}
@@ -760,6 +791,13 @@ export default function AdminLeads() {
                     {lead.temperature && (
                       <TemperatureBadge temperature={lead.temperature} size="sm" />
                     )}
+                    <Badge variant="outline" className={`text-[10px] ${
+                      (lead as any).lead_source === 'capture' ? 'border-[#EB6608]/40 text-[#EB6608]' :
+                      (lead as any).lead_source === 'whatsapp' ? 'border-green-500/40 text-green-500' :
+                      'border-purple-500/40 text-purple-500'
+                    }`}>
+                      {(lead as any).lead_source === 'capture' ? 'Captura' : (lead as any).lead_source === 'whatsapp' ? 'WhatsApp' : 'Quiz'}
+                    </Badge>
                   </div>
                 </div>
                 
@@ -810,6 +848,7 @@ export default function AdminLeads() {
                   </TableHead>
                   <TableHead className="px-4">Nome</TableHead>
                   <TableHead className="px-4">Telefone</TableHead>
+                  <TableHead className="text-center px-4">Origem</TableHead>
                   <TableHead className="text-center px-4">Temp.</TableHead>
                   <TableHead className="text-center px-4">% Conclusão</TableHead>
                   <TableHead className="px-4">Data</TableHead>
@@ -820,13 +859,13 @@ export default function AdminLeads() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
+                    <TableCell colSpan={9} className="text-center py-8">
                       Carregando...
                     </TableCell>
                   </TableRow>
                 ) : filteredLeads.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                       Nenhum lead encontrado
                     </TableCell>
                   </TableRow>
@@ -848,6 +887,15 @@ export default function AdminLeads() {
                       </TableCell>
                       <TableCell className="px-4 text-sm">
                         {lead.phone || '-'}
+                      </TableCell>
+                      <TableCell className="text-center px-4">
+                        <Badge variant="outline" className={`text-[10px] ${
+                          (lead as any).lead_source === 'capture' ? 'border-[#EB6608]/40 text-[#EB6608]' :
+                          (lead as any).lead_source === 'whatsapp' ? 'border-green-500/40 text-green-500' :
+                          'border-purple-500/40 text-purple-500'
+                        }`}>
+                          {(lead as any).lead_source === 'capture' ? 'Captura' : (lead as any).lead_source === 'whatsapp' ? 'WhatsApp' : 'Quiz'}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-center px-4">
                         {lead.temperature ? (
@@ -907,6 +955,20 @@ export default function AdminLeads() {
             </DialogHeader>
             {selectedLead && (
               <div className="space-y-4">
+                {/* Lead Source & Email */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="outline" className={`${
+                    (selectedLead as any).lead_source === 'capture' ? 'border-[#EB6608]/40 text-[#EB6608]' :
+                    (selectedLead as any).lead_source === 'whatsapp' ? 'border-green-500/40 text-green-500' :
+                    'border-purple-500/40 text-purple-500'
+                  }`}>
+                    Origem: {(selectedLead as any).lead_source === 'capture' ? 'Captura' : (selectedLead as any).lead_source === 'whatsapp' ? 'WhatsApp' : 'Quiz'}
+                  </Badge>
+                  {(selectedLead as any).email && (
+                    <span className="text-sm text-muted-foreground">📧 {(selectedLead as any).email}</span>
+                  )}
+                </div>
+
                 {/* Pipeline Stage Badge */}
                 {selectedLead.pipeline_stage_id && (
                   <div className="flex items-center gap-2">

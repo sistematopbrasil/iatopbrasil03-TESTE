@@ -1,4 +1,5 @@
-import { Phone, Calendar, MessageCircle, Flame, TrendingUp, Snowflake, GripVertical, Car, CreditCard, Briefcase, Shield } from 'lucide-react';
+import { Phone, Calendar, MessageCircle, Flame, TrendingUp, Snowflake, GripVertical, Car, CreditCard, Briefcase, Shield, FileText, Globe, MessageSquare } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,7 @@ interface LeadCardProps {
     temperature: LeadTemperature | null;
     created_at: string;
     utm_source: string | null;
+    lead_source?: string;
     has_vehicle?: string | null;
     has_driver_license?: string | null;
     sales_experience?: string | null;
@@ -87,10 +89,20 @@ export function LeadCard({ lead, onWhatsAppClick, onOpenConversation, onClick }:
                 </p>
               </div>
               
-              {/* Temperature badge compacto */}
-              <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-gradient-to-r ${getTemperatureColor(lead.temperature)} text-white text-[10px] font-medium`}>
-                {getTemperatureIcon(lead.temperature)}
-                <span>{getTemperatureLabel(lead.temperature)}</span>
+              <div className="flex items-center gap-1">
+                {/* Source badge */}
+                {lead.lead_source && lead.lead_source !== 'quiz' && (
+                  <span className={`text-[9px] px-1 py-0.5 rounded ${
+                    lead.lead_source === 'capture' ? 'bg-[#EB6608]/20 text-[#EB6608]' : 'bg-green-500/20 text-green-500'
+                  }`}>
+                    {lead.lead_source === 'capture' ? 'Cap' : 'WA'}
+                  </span>
+                )}
+                {/* Temperature badge compacto */}
+                <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-gradient-to-r ${getTemperatureColor(lead.temperature)} text-white text-[10px] font-medium`}>
+                  {getTemperatureIcon(lead.temperature)}
+                  <span>{getTemperatureLabel(lead.temperature)}</span>
+                </div>
               </div>
             </div>
           </div>

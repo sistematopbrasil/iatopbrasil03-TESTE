@@ -191,6 +191,9 @@ export function PipelineBoard() {
         toast.success('Lead movido com sucesso!');
       }
       
+      // Invalidar também leads gerais para refletir mudanças de temperatura
+      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      
       // Invalidar após sucesso para sincronizar com o servidor
       queryClient.invalidateQueries({ queryKey: ['pipeline-leads'] });
     },

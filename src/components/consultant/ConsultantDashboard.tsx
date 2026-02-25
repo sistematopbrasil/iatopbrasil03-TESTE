@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { getCurrentConsultant, getQuizUrl } from '@/lib/consultant-context';
+import { getCurrentConsultant, getQuizUrl, getCaptureUrl } from '@/lib/consultant-context';
 import { StatCard } from '@/components/ui/stat-card';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -265,32 +265,51 @@ export function ConsultantDashboard() {
 
   return (
     <div className="space-y-6 overflow-x-hidden max-w-full">
-      {/* Link do Quiz */}
-      <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
-        <CardContent className="py-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <h3 className="font-semibold text-foreground">Seu Link do Quiz</h3>
-              <p className="text-sm text-muted-foreground">Compartilhe para capturar leads</p>
-              {currentUser?.quiz_slug && (
-                <code className="text-xs bg-background px-2 py-1 rounded mt-1 inline-block max-w-full overflow-hidden text-ellipsis">
-                  {getQuizUrl(currentUser.quiz_slug)}
-                </code>
-              )}
+      {/* Links do Quiz e Captura */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
+          <CardContent className="py-4">
+            <div className="flex flex-col gap-3">
+              <div className="min-w-0">
+                <h3 className="font-semibold text-foreground">Link do Quiz</h3>
+                <p className="text-sm text-muted-foreground">Compartilhe para capturar leads</p>
+                {currentUser?.quiz_slug && (
+                  <code className="text-xs bg-background px-2 py-1 rounded mt-1 inline-block max-w-full overflow-hidden text-ellipsis">
+                    {getQuizUrl(currentUser.quiz_slug)}
+                  </code>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={copyQuizLink}><Copy className="w-4 h-4 mr-2" />Copiar</Button>
+                <Button size="sm" variant="outline" onClick={openQuizLink}><ExternalLink className="w-4 h-4 mr-2" />Abrir</Button>
+              </div>
             </div>
-            <div className="flex gap-2 flex-shrink-0">
-              <Button size="sm" onClick={copyQuizLink}>
-                <Copy className="w-4 h-4 mr-2" />
-                Copiar
-              </Button>
-              <Button size="sm" variant="outline" onClick={openQuizLink}>
-                <ExternalLink className="w-4 h-4 mr-2" />
-                Abrir
-              </Button>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-r from-[#EB6608]/10 to-[#EB6608]/5 border-[#EB6608]/20">
+          <CardContent className="py-4">
+            <div className="flex flex-col gap-3">
+              <div className="min-w-0">
+                <h3 className="font-semibold text-foreground">Página de Captura</h3>
+                <p className="text-sm text-muted-foreground">Formulário simplificado de leads</p>
+                {currentUser?.quiz_slug && (
+                  <code className="text-xs bg-background px-2 py-1 rounded mt-1 inline-block max-w-full overflow-hidden text-ellipsis">
+                    {getCaptureUrl(currentUser.quiz_slug)}
+                  </code>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" className="bg-[#EB6608] hover:bg-[#d45a07]" onClick={() => {
+                  if (currentUser?.quiz_slug) { navigator.clipboard.writeText(getCaptureUrl(currentUser.quiz_slug)); toast.success('Link copiado!'); }
+                }}><Copy className="w-4 h-4 mr-2" />Copiar</Button>
+                <Button size="sm" variant="outline" onClick={() => {
+                  if (currentUser?.quiz_slug) window.open(getCaptureUrl(currentUser.quiz_slug), '_blank');
+                }}><ExternalLink className="w-4 h-4 mr-2" />Abrir</Button>
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Métricas em grid responsivo - 2 linhas */}
       <div className="space-y-3">
