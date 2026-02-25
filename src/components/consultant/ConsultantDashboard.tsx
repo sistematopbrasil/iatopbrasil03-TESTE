@@ -91,11 +91,10 @@ export function ConsultantDashboard() {
           event: '*',
           schema: 'public',
           table: 'quiz_submissions_new',
-          filter: `consultant_id=eq.${currentUser.id}`,
         },
         () => {
-          // Invalidar cache quando houver mudanças
           queryClient.invalidateQueries({ queryKey: ['all-leads-consultant', currentUser.id] });
+          queryClient.invalidateQueries({ queryKey: ['ranking'] });
         }
       )
       .subscribe();
