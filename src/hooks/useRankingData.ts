@@ -74,7 +74,7 @@ export function useRankingData(options: UseRankingDataOptions = {}) {
       return data;
     },
     enabled,
-    staleTime: 10 * 1000, // Cache por 10 segundos - garante dados frescos ao navegar
+    staleTime: 30 * 1000, // Cache por 30 segundos - dados de ranking não mudam rápido
     gcTime: 5 * 60 * 1000,
     retry: 2,
   });

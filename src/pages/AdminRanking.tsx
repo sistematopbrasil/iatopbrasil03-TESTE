@@ -18,25 +18,32 @@ export default function AdminRanking() {
   const { periodStart, periodEnd } = useMemo(() => {
     const now = new Date();
     let start: string | null = null;
+    let end: string | null = null;
 
     if (period === 'today') {
       const s = new Date(now);
       s.setHours(0, 0, 0, 0);
       start = s.toISOString();
+      const e = new Date(now);
+      e.setHours(23, 59, 59, 999);
+      end = e.toISOString();
     } else if (period === 'week') {
       const s = new Date(now);
       s.setDate(s.getDate() - 7);
       start = s.toISOString();
+      const e = new Date(now);
+      e.setHours(23, 59, 59, 999);
+      end = e.toISOString();
     } else if (period === 'month') {
       const s = new Date(now);
       s.setMonth(s.getMonth() - 1);
       start = s.toISOString();
+      const e = new Date(now);
+      e.setHours(23, 59, 59, 999);
+      end = e.toISOString();
     }
-
-    // Usar fim do dia atual como periodEnd estável
-    const end = new Date(now);
-    end.setHours(23, 59, 59, 999);
-    return { periodStart: start, periodEnd: end.toISOString() };
+    // period === 'all' → both null → queryKey matches prefetch
+    return { periodStart: start, periodEnd: end };
   }, [period]);
 
   // Usar hook centralizado com queryKey estável (dados pré-carregados em usePrefetchAdminData)
@@ -47,10 +54,7 @@ export default function AdminRanking() {
 
   const queryClient = useQueryClient();
 
-  // ✅ Forçar refetch ao montar a página invalidando o cache
-  useEffect(() => {
-    queryClient.invalidateQueries({ queryKey: ['unified-ranking'] });
-  }, [queryClient]);
+  // Dados já são pré-carregados pelo usePrefetchAdminData com a mesma queryKey
 
   // ✅ Se já tem dados no cache, não mostrar loading
   const showLoading = isLoading && !ranking;
