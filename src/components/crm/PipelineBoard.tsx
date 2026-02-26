@@ -60,7 +60,7 @@ export function PipelineBoard() {
   });
 
   // Buscar stages customizados do banco - SOMENTE após ter usuário e organização
-  const { data: customStages } = useQuery({
+  const { data: customStages, isLoading: stagesLoading } = useQuery({
     queryKey: ['pipeline-stages', currentUser?.organization_id],
     queryFn: async () => {
       if (!currentUser?.organization_id) return null;
@@ -242,7 +242,7 @@ export function PipelineBoard() {
     });
   };
 
-  if (isLoading) {
+  if (isLoading || stagesLoading) {
     return (
       <div className="flex items-center justify-center h-[500px]">
         <div className="text-center space-y-4">
