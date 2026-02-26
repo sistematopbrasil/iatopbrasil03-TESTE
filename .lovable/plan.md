@@ -1,45 +1,41 @@
 
 
-## Plano: Renomear Stage, Melhorar Captura e Adicionar Seletor de País
+## Plano: Fix Pipeline Flash + Fix Captura (layout e dropdown)
 
-### 1. Pipeline - Renomear "Convertidos" para "Consultor" + Ajustar Lógica de Pontuação
+### 1. Pipeline - Remover tela "Nenhum quadro configurado" que aparece brevemente
 
-**Migração SQL:**
-- Renomear stage "Convertidos" para "Consultor" em todas as organizações
-- Atualizar a função `get_novos_consultores_stage_id` para detectar stages com nome "consultor" (sem exigir "novos")
-- A lógica fica: `lower(name) LIKE '%consultor%'` (remove a exigência de conter "novos")
+**Causa**: A query `customStages` carrega depois de `currentUser`. Enquanto carrega, `stages.length === 0` mostra a tela vazia. Precisa incluir o estado de loading dos stages.
 
-**PipelineBoard.tsx:**
-- Atualizar `isNovosConsultoresStage` para detectar simplesmente `consultor` no nome (sem exigir "novo")
-- Ajustar mensagem de feedback: "Lead se tornou consultor!" em vez de "convertido em consultor"
+**Fix em `PipelineBoard.tsx`**:
+- Extrair `isLoading` da query de `customStages` (renomear para `stagesLoading`)
+- No bloco de loading (linha 245), incluir `stagesLoading` na condição: `if (isLoading || stagesLoading)`
+- Assim, o spinner aparece enquanto stages carregam, e a tela "Nenhum quadro" só aparece se realmente não existem stages
 
-### 2. Página de Captura - Campos maiores + Seletor de País no telefone
+### 2. Captura - Dropdown de país não abre
 
-**CapturePage.tsx - Campos maiores e mais espaço:**
-- Aumentar `h-14` para `h-[60px]` nos inputs (mais altura)
-- Aumentar `space-y-6` para `space-y-7` dentro do form card (mais espaço entre campos)
-- Aumentar padding do card de `p-8` para `p-8 sm:p-10`
-- Ajustar `text-base` para `text-[17px]` nos inputs
-- Mobile: garantir `px-5` no container principal, inputs responsivos
+**Causa**: O container do telefone (linha 499) tem `overflow-hidden` no `rounded-xl`, que corta o dropdown absoluto do `CountrySelector`.
 
-**Seletor de País no campo telefone:**
-- Adicionar dropdown com bandeira do país ao lado esquerdo do campo de telefone
-- Brasil 🇧🇷 (+55) por padrão
-- Lista de países mais comuns: Brasil, EUA, Portugal, Argentina, Paraguai, Uruguai, Colômbia, México, Chile
-- Ao trocar país, ajusta a máscara de formatação do telefone
-- Bandeirinha clicável que abre um dropdown compacto
-- Salvar o código do país junto com o número ao enviar
+**Fix em `CapturePage.tsx`**:
+- Remover `overflow-hidden` do container do telefone (linha 499)
+- Mover o `CountrySelector` para fora do container flex, usando posicionamento relativo no wrapper pai (o `div.relative` já existe na linha 491)
+- Ou: remover `overflow-hidden` e manter `rounded-xl` com border-radius via CSS sem clip
+
+### 3. Captura - Layout sobreposto e cortado
+
+**Problemas visíveis no print**:
+- Step numbers (`-left-2 -top-2 w-7 h-7`) sobrepõem o texto do placeholder
+- `pl-13` não é classe padrão do Tailwind (deveria ser `pl-12` ou custom)
+- Campos muito colados ao step number
+
+**Fix**:
+- Mudar step numbers de `absolute -left-2 -top-2` para `absolute -left-3 -top-3` (ficam mais fora do campo)
+- Corrigir padding dos inputs de `pl-13` para `pl-12`
+- Garantir que ícones (`left-4`) não conflitem com o step number
 
 ### Arquivos a editar
 
 | Arquivo | Mudança |
 |---|---|
-| Migração SQL | Renomear "Convertidos" → "Consultor", atualizar função de detecção |
-| `src/components/crm/PipelineBoard.tsx` | Ajustar `isNovosConsultoresStage` para detectar "consultor" |
-| `src/pages/CapturePage.tsx` | Campos maiores, mais espaço, seletor de país com bandeiras |
-
-### Ordem
-1. Migração SQL
-2. PipelineBoard (lógica de detecção)
-3. CapturePage (visual + seletor de país)
+| `src/components/crm/PipelineBoard.tsx` | Adicionar `stagesLoading` na condição de loading |
+| `src/pages/CapturePage.tsx` | Fix overflow-hidden no phone, ajustar step numbers e paddings |
 
