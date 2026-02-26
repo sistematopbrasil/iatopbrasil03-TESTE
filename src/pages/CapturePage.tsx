@@ -321,7 +321,7 @@ export default function CapturePage() {
       <div className="absolute inset-0 bg-gradient-to-br from-[#EB6608]/5 via-transparent to-[#EB6608]/3" />
 
       <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4 py-12">
-        <div className={cn("w-full max-w-md space-y-8", isLeft && "max-w-xl")}>
+        <div className={cn("w-full max-w-lg space-y-8", isLeft && "max-w-xl")}>
           
           {isLeft ? (
             <div className="flex gap-6 items-start">
@@ -353,13 +353,15 @@ export default function CapturePage() {
               <span className="text-xs text-gray-500 font-medium">Progresso</span>
               <span className="text-xs font-semibold" style={{ color: config.button_color }}>{validCount}/3 campos</span>
             </div>
-            <Progress value={(validCount / 3) * 100} className="h-1.5 bg-white/[0.06]" indicatorClassName="transition-all duration-500" style={{ '--progress-color': config.button_color } as any} />
+            <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+              <div className="h-full rounded-full transition-all duration-500" style={{ width: `${(validCount / 3) * 100}%`, backgroundColor: config.button_color }} />
+            </div>
           </div>
 
           {/* Form Card */}
-          <form onSubmit={handleSubmit} className="space-y-5 animate-[fade-in_0.6s_0.4s_ease-out_both]">
-            <div className="bg-white/[0.03] backdrop-blur-2xl border border-white/[0.08] rounded-3xl p-7 space-y-5 shadow-2xl"
-              style={{ boxShadow: `0 25px 60px -12px ${config.button_color}10, 0 0 0 1px ${config.button_color}08` }}>
+          <form onSubmit={handleSubmit} className="space-y-6 animate-[fade-in_0.6s_0.4s_ease-out_both]">
+            <div className="bg-white/[0.04] backdrop-blur-2xl border border-white/[0.10] rounded-3xl p-8 space-y-6 shadow-2xl"
+              style={{ boxShadow: `0 25px 60px -12px ${config.button_color}15, 0 0 0 1px ${config.button_color}10` }}>
               
               {fields.map((field, i) => {
                 const Icon = field.icon;
@@ -367,14 +369,14 @@ export default function CapturePage() {
                   <div key={field.key} className="space-y-1.5" style={{ animationDelay: `${0.5 + i * 0.1}s`, animation: 'fade-in 0.5s ease-out both' }}>
                     <div className="relative">
                       {/* Step number */}
-                      <div className="absolute -left-1 -top-1 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center z-10 transition-colors duration-300"
+                      <div className="absolute -left-1.5 -top-1.5 w-6 h-6 rounded-full text-[11px] font-bold flex items-center justify-center z-10 transition-colors duration-300"
                         style={{
                           backgroundColor: isFieldValid(field.key) ? '#22c55e' : `${config.button_color}30`,
                           color: isFieldValid(field.key) ? 'white' : config.button_color,
                         }}>
                         {isFieldValid(field.key) ? <Check className="w-3 h-3" /> : field.step}
                       </div>
-                      <Icon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-500 transition-colors duration-300" />
+                      <Icon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 transition-colors duration-300" />
                       <input
                         type={field.type}
                         placeholder={field.placeholder}
@@ -384,7 +386,7 @@ export default function CapturePage() {
                           setForm({ ...form, [field.key]: val });
                           setTouched(t => ({ ...t, [field.key]: true }));
                         }}
-                        className="w-full h-13 pl-11 pr-10 bg-white/[0.05] border border-white/[0.08] rounded-xl text-white placeholder:text-gray-500/70 focus:outline-none transition-all duration-300 text-[15px]"
+                        className="w-full h-14 pl-12 pr-10 bg-white/[0.05] border border-white/[0.08] rounded-xl text-white placeholder:text-gray-500/70 focus:outline-none transition-all duration-300 text-base"
                         style={{ boxShadow: 'none' }}
                         onFocus={(e) => {
                           e.target.style.boxShadow = `0 0 0 2px ${focusRingColor}40, 0 0 30px ${focusRingColor}10`;
@@ -410,7 +412,7 @@ export default function CapturePage() {
 
             {/* CTA Button with shimmer */}
             <button type="submit" disabled={submitting}
-              className="relative w-full h-14 rounded-xl text-white font-bold text-lg shadow-lg transition-all duration-300 hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 overflow-hidden"
+              className="relative w-full h-16 rounded-2xl text-white font-bold text-xl shadow-lg transition-all duration-300 hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 overflow-hidden"
               style={{ backgroundColor: config.button_color, boxShadow: `0 8px 30px ${config.button_color}40` }}>
               {/* Shimmer effect */}
               <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -429,9 +431,9 @@ export default function CapturePage() {
 
           {/* Security badge */}
           <div className="flex items-center justify-center gap-2.5 animate-[fade-in_0.6s_0.6s_ease-out_both]">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.06]">
-              <Lock className="w-3 h-3 text-gray-500" />
-              <p className="text-[11px] text-gray-500 font-medium">
+            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.05] border border-white/[0.08]">
+              <Shield className="w-3.5 h-3.5 text-green-500/70" />
+              <p className="text-[11px] text-gray-400 font-medium">
                 Seus dados estão protegidos e não serão compartilhados.
               </p>
             </div>

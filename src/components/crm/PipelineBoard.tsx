@@ -15,14 +15,7 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-// Stages padrão (fallback caso não existam no banco)
-const DEFAULT_STAGES = [
-  { id: 'default-novo', name: 'Novos Leads', color: '#3B82F6', icon: 'trending-up' },
-  { id: 'default-contatado', name: 'Contato Inicial', color: '#8B5CF6', icon: 'phone' },
-  { id: 'default-qualificado', name: 'Qualificados', color: '#F59E0B', icon: 'sparkles' },
-  { id: 'default-convertido', name: 'Convertidos', color: '#10B981', icon: 'check-circle' },
-  { id: 'default-descartado', name: 'Descartados', color: '#EF4444', icon: 'x-circle' },
-];
+// Sem fallback com IDs falsos - stages DEVEM existir no banco
 
 const getIconComponent = (iconName: string | null) => {
   switch (iconName) {
@@ -84,15 +77,13 @@ export function PipelineBoard() {
     enabled: !!currentUser?.organization_id,
   });
 
-  // Usar stages customizados ou padrão - AGORA USA UUID DIRETAMENTE
-  const stages = customStages && customStages.length > 0 
-    ? customStages.map(s => ({ 
-        id: s.id, // ✅ UUID direto
-        name: s.name, 
-        color: s.color, 
-        icon: s.icon 
-      }))
-    : DEFAULT_STAGES;
+  // Usar stages do banco - sem fallback com IDs falsos
+  const stages = (customStages || []).map(s => ({ 
+    id: s.id,
+    name: s.name, 
+    color: s.color, 
+    icon: s.icon 
+  }));
 
   // ✅ Busca TODOS os leads - incluindo os sem pipeline_stage_id
   const { data: leads, isLoading, error } = useQuery({
@@ -268,6 +259,20 @@ export function PipelineBoard() {
     return (
       <div className="text-center py-12 text-destructive">
         Erro ao carregar leads. Tente novamente.
+      </div>
+    );
+  }
+
+  if (stages.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-[400px]">
+        <div className="text-center space-y-3 max-w-sm">
+          <TrendingUp className="w-12 h-12 text-muted-foreground mx-auto" />
+          <h3 className="text-lg font-semibold text-foreground">Nenhum quadro configurado</h3>
+          <p className="text-sm text-muted-foreground">
+            Clique em "Gerenciar Quadros" para criar as colunas do seu pipeline.
+          </p>
+        </div>
       </div>
     );
   }
