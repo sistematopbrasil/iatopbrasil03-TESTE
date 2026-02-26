@@ -1,16 +1,19 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrentConsultant, isSuperAdmin } from '@/lib/consultant-context';
 
 /**
  * Hook para pré-carregar dados das páginas de admin em background
- * Isso garante que Settings, Ranking, Analytics e CRM abram instantaneamente
+ * Executa apenas UMA VEZ por sessão para evitar chamadas repetidas
  */
 export function usePrefetchAdminData() {
   const queryClient = useQueryClient();
+  const hasRun = useRef(false);
 
   useEffect(() => {
+    if (hasRun.current) return;
+    hasRun.current = true;
     const prefetchData = async () => {
       try {
         const currentUser = await getCurrentConsultant();
@@ -236,6 +239,42 @@ export function usePrefetchAdminData() {
               }
             });
         }
+
+        // =============================================
+        // PREFETCH EVENTS
+        // =============================================
+        supabase
+          .from('events')
+          .select('*, event_attendees(count)')
+          .eq('organization_id', orgId)
+          .order('event_date', { ascending: false })
+          .then(({ data }) => {
+            if (data) {
+              queryClient.setQueryData(['events', orgId], data);
+            }
+          });
+
+        // =============================================
+        // PREFETCH DASHBOARD STATS
+        // =============================================
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+        let dashQuery = supabase
+          .from('quiz_submissions_new')
+          .select('id, created_at, temperature, completion_percentage, lead_source')
+          .eq('organization_id', orgId)
+          .gte('created_at', sevenDaysAgo.toISOString());
+
+        if (!isSuperAdminUser) {
+          dashQuery = dashQuery.eq('consultant_id', userId);
+        }
+
+        dashQuery.then(({ data }) => {
+          if (data) {
+            queryClient.setQueryData(['dashboard-stats', userId], data);
+          }
+        });
 
       } catch (error) {
         console.error('Erro ao pré-carregar dados:', error);
