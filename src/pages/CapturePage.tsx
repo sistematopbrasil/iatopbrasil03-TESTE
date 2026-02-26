@@ -180,15 +180,45 @@ function CountrySelector({
   buttonColor: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [customDDI, setCustomDDI] = useState('');
+  const [showCustom, setShowCustom] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setSearch('');
+        setShowCustom(false);
+      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  useEffect(() => {
+    if (open && searchRef.current) {
+      searchRef.current.focus();
+    }
+  }, [open]);
+
+  const filtered = COUNTRIES.filter(c => 
+    c.name.toLowerCase().includes(search.toLowerCase()) || 
+    c.dial.includes(search.replace('+', ''))
+  );
+
+  const handleCustomDDI = () => {
+    const digits = customDDI.replace(/\D/g, '');
+    if (digits.length >= 1 && digits.length <= 4) {
+      onSelect({ code: 'OTHER', dial: digits, flag: '🌍', name: `+${digits}`, mask: '### ### #### ####', maxDigits: 15 });
+      setOpen(false);
+      setSearch('');
+      setCustomDDI('');
+      setShowCustom(false);
+    }
+  };
 
   return (
     <div ref={ref} className="relative">
@@ -202,23 +232,75 @@ function CountrySelector({
       </button>
       
       {open && (
-        <div className="absolute top-full left-0 mt-2 w-52 bg-[#1a1a1a] border border-white/[0.12] rounded-xl shadow-2xl z-50 overflow-hidden animate-[fade-in_0.15s_ease-out]"
-          style={{ boxShadow: `0 20px 40px rgba(0,0,0,0.5), 0 0 0 1px ${buttonColor}15` }}>
-          {COUNTRIES.map((country) => (
-            <button
-              key={country.code}
-              type="button"
-              onClick={() => { onSelect(country); setOpen(false); }}
-              className={cn(
-                "w-full flex items-center gap-3 px-4 py-3 text-sm text-left transition-colors hover:bg-white/[0.08]",
-                selected.code === country.code && "bg-white/[0.06]"
-              )}
-            >
-              <span className="text-lg">{country.flag}</span>
-              <span className="text-white/80 flex-1">{country.name}</span>
-              <span className="text-gray-500 text-xs">+{country.dial}</span>
-            </button>
-          ))}
+        <div className="absolute top-full left-0 mt-2 w-60 bg-[#1a1a1a] border border-white/[0.12] rounded-xl shadow-2xl z-[100] animate-[fade-in_0.15s_ease-out]"
+          style={{ boxShadow: `0 20px 40px rgba(0,0,0,0.7), 0 0 0 1px ${buttonColor}15` }}>
+          {/* Search */}
+          <div className="p-2 border-b border-white/[0.08]">
+            <input
+              ref={searchRef}
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar país ou DDI..."
+              className="w-full px-3 py-2 bg-white/[0.06] border border-white/[0.1] rounded-lg text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-white/[0.2]"
+            />
+          </div>
+          
+          {/* Country list */}
+          <div className="max-h-[250px] overflow-y-auto">
+            {filtered.map((country) => (
+              <button
+                key={country.code}
+                type="button"
+                onClick={() => { onSelect(country); setOpen(false); setSearch(''); }}
+                className={cn(
+                  "w-full flex items-center gap-3 px-4 py-3 text-sm text-left transition-colors hover:bg-white/[0.08]",
+                  selected.code === country.code && "bg-white/[0.06]"
+                )}
+              >
+                <span className="text-lg">{country.flag}</span>
+                <span className="text-white/80 flex-1">{country.name}</span>
+                <span className="text-gray-500 text-xs">+{country.dial}</span>
+              </button>
+            ))}
+            {filtered.length === 0 && !showCustom && (
+              <p className="px-4 py-3 text-sm text-gray-500">Nenhum país encontrado</p>
+            )}
+          </div>
+
+          {/* Custom DDI */}
+          <div className="border-t border-white/[0.08] p-2">
+            {!showCustom ? (
+              <button
+                type="button"
+                onClick={() => setShowCustom(true)}
+                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-white/[0.06] rounded-lg transition-colors"
+              >
+                <span className="text-lg">🌍</span>
+                <span>Outro DDI...</span>
+              </button>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={customDDI}
+                  onChange={(e) => setCustomDDI(e.target.value.replace(/[^\d+]/g, '').slice(0, 5))}
+                  placeholder="+DDI"
+                  className="flex-1 px-3 py-2 bg-white/[0.06] border border-white/[0.1] rounded-lg text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-white/[0.2]"
+                  autoFocus
+                  onKeyDown={(e) => e.key === 'Enter' && handleCustomDDI()}
+                />
+                <button
+                  type="button"
+                  onClick={handleCustomDDI}
+                  className="px-3 py-2 rounded-lg text-sm font-medium text-white transition-colors"
+                  style={{ backgroundColor: buttonColor }}
+                >
+                  OK
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
