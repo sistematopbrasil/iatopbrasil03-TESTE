@@ -1,41 +1,32 @@
 
 
-## Plano: Fix Pipeline Flash + Fix Captura (layout e dropdown)
+## Plano: Fix Pipeline Flash + Country Selector
 
-### 1. Pipeline - Remover tela "Nenhum quadro configurado" que aparece brevemente
+### 1. Pipeline - Flash "Nenhum quadro configurado"
 
-**Causa**: A query `customStages` carrega depois de `currentUser`. Enquanto carrega, `stages.length === 0` mostra a tela vazia. Precisa incluir o estado de loading dos stages.
+**Causa real**: A query `currentUser` não rastreia `isLoading`. Quando `currentUser` está carregando, as queries de stages e leads estão **desabilitadas** (`enabled: false`), então `stagesLoading` e `isLoading` são `false`. O código cai direto no `stages.length === 0`.
 
 **Fix em `PipelineBoard.tsx`**:
-- Extrair `isLoading` da query de `customStages` (renomear para `stagesLoading`)
-- No bloco de loading (linha 245), incluir `stagesLoading` na condição: `if (isLoading || stagesLoading)`
-- Assim, o spinner aparece enquanto stages carregam, e a tela "Nenhum quadro" só aparece se realmente não existem stages
+- Extrair `isLoading: userLoading` da query `current-user-pipeline` (linha 57)
+- Na condição de loading (linha 245): `if (userLoading || isLoading || stagesLoading)`
 
-### 2. Captura - Dropdown de país não abre
+### 2. Country Selector - Dropdown transparente e sem scroll
 
-**Causa**: O container do telefone (linha 499) tem `overflow-hidden` no `rounded-xl`, que corta o dropdown absoluto do `CountrySelector`.
+**Problemas**:
+- O dropdown tem `bg-[#1a1a1a]` mas pode estar cortado pelo container pai
+- Não tem `max-height` nem `overflow-y: auto` para scroll quando há muitos países
+- Não tem campo de busca nem opção de digitar DDI manual
 
-**Fix em `CapturePage.tsx`**:
-- Remover `overflow-hidden` do container do telefone (linha 499)
-- Mover o `CountrySelector` para fora do container flex, usando posicionamento relativo no wrapper pai (o `div.relative` já existe na linha 491)
-- Ou: remover `overflow-hidden` e manter `rounded-xl` com border-radius via CSS sem clip
-
-### 3. Captura - Layout sobreposto e cortado
-
-**Problemas visíveis no print**:
-- Step numbers (`-left-2 -top-2 w-7 h-7`) sobrepõem o texto do placeholder
-- `pl-13` não é classe padrão do Tailwind (deveria ser `pl-12` ou custom)
-- Campos muito colados ao step number
-
-**Fix**:
-- Mudar step numbers de `absolute -left-2 -top-2` para `absolute -left-3 -top-3` (ficam mais fora do campo)
-- Corrigir padding dos inputs de `pl-13` para `pl-12`
-- Garantir que ícones (`left-4`) não conflitem com o step number
+**Fix em `CapturePage.tsx` (CountrySelector, linhas 193-225)**:
+- Adicionar `max-h-[300px] overflow-y-auto` no dropdown para permitir scroll
+- Adicionar campo de busca no topo do dropdown (input text para filtrar por nome ou DDI)
+- Adicionar opção "Outro" no final da lista que permite digitar DDI manualmente
+- Garantir `z-50` e `bg-[#1a1a1a]` sólido (já está, mas verificar se não é sobrescrito)
 
 ### Arquivos a editar
 
 | Arquivo | Mudança |
 |---|---|
-| `src/components/crm/PipelineBoard.tsx` | Adicionar `stagesLoading` na condição de loading |
-| `src/pages/CapturePage.tsx` | Fix overflow-hidden no phone, ajustar step numbers e paddings |
+| `src/components/crm/PipelineBoard.tsx` | Adicionar `userLoading` na condição de loading |
+| `src/pages/CapturePage.tsx` | Scroll no dropdown, campo de busca, opção DDI manual |
 
