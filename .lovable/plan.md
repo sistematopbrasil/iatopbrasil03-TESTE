@@ -1,70 +1,45 @@
 
-## Plano: Fix Pipeline, Melhorar Captura e Otimizar Pre-carregamento
 
-### 1. Pipeline - Causa raiz do erro
+## Plano: Renomear Stage, Melhorar Captura e Adicionar Seletor de País
 
-**Problema encontrado**: A tabela `pipeline_stages` esta **VAZIA**. O codigo `PipelineBoard.tsx` usa DEFAULT_STAGES com IDs como `'default-novo'`, `'default-contatado'` - que **nao sao UUIDs validos**. A coluna `pipeline_stage_id` e do tipo UUID com FK para `pipeline_stages(id)`. Ao arrastar um lead, o UPDATE tenta setar um valor invalido e o PostgreSQL rejeita.
+### 1. Pipeline - Renomear "Convertidos" para "Consultor" + Ajustar Lógica de Pontuação
 
-**Solucao**: Migracao SQL para inserir os stages padrao na tabela `pipeline_stages` para cada organizacao existente. Isso garante que os IDs sejam UUIDs validos e o drag-and-drop funcione. Tambem atualizar `PipelineBoard.tsx` para nunca usar DEFAULT_STAGES com IDs falsos - em vez disso, criar os stages no banco se nao existirem.
+**Migração SQL:**
+- Renomear stage "Convertidos" para "Consultor" em todas as organizações
+- Atualizar a função `get_novos_consultores_stage_id` para detectar stages com nome "consultor" (sem exigir "novos")
+- A lógica fica: `lower(name) LIKE '%consultor%'` (remove a exigência de conter "novos")
 
-**Migracao:**
-```sql
-INSERT INTO pipeline_stages (organization_id, name, color, icon, order_index)
-SELECT o.id, s.name, s.color, s.icon, s.order_index
-FROM organizations o
-CROSS JOIN (VALUES
-  ('Novos Leads', '#3B82F6', 'trending-up', 0),
-  ('Contato Inicial', '#8B5CF6', 'phone', 1),
-  ('Qualificados', '#F59E0B', 'sparkles', 2),
-  ('Convertidos', '#10B981', 'check-circle', 3),
-  ('Descartados', '#EF4444', 'x-circle', 4)
-) AS s(name, color, icon, order_index)
-WHERE NOT EXISTS (
-  SELECT 1 FROM pipeline_stages ps WHERE ps.organization_id = o.id
-);
-```
+**PipelineBoard.tsx:**
+- Atualizar `isNovosConsultoresStage` para detectar simplesmente `consultor` no nome (sem exigir "novo")
+- Ajustar mensagem de feedback: "Lead se tornou consultor!" em vez de "convertido em consultor"
 
-**PipelineBoard.tsx**: Remover fallback DEFAULT_STAGES. Se `customStages` estiver vazio, mostrar mensagem orientando o usuario a configurar os quadros. Nao permitir drag com IDs invalidos.
+### 2. Página de Captura - Campos maiores + Seletor de País no telefone
 
----
+**CapturePage.tsx - Campos maiores e mais espaço:**
+- Aumentar `h-14` para `h-[60px]` nos inputs (mais altura)
+- Aumentar `space-y-6` para `space-y-7` dentro do form card (mais espaço entre campos)
+- Aumentar padding do card de `p-8` para `p-8 sm:p-10`
+- Ajustar `text-base` para `text-[17px]` nos inputs
+- Mobile: garantir `px-5` no container principal, inputs responsivos
 
-### 2. Pagina de Captura - Campos maiores e visual melhorado
-
-**Mudancas em `CapturePage.tsx`:**
-- Aumentar altura dos inputs de `h-13` para `h-14` (56px) - campos mais confortaveis
-- Aumentar tamanho do texto dos inputs de `text-[15px]` para `text-base`
-- Aumentar `max-w-md` para `max-w-lg` para o container principal ter mais largura
-- Aumentar padding do form card de `p-7` para `p-8`
-- Espacamento entre campos de `space-y-5` para `space-y-6`
-- Icones dos campos de `w-4.5 h-4.5` para `w-5 h-5`
-- Step numbers de `w-5 h-5` para `w-6 h-6` com texto maior
-- Botao CTA de `h-14` para `h-16` com fonte maior
-- Progress bar com cor dinamica usando style inline (nao depender de CSS variable)
-- Badge de seguranca mais elegante com borda mais visivel
-
----
-
-### 3. Pre-carregamento otimizado
-
-O `usePrefetchAdminData.ts` ja existe e pre-carrega bastante dados. Melhorias:
-- Adicionar prefetch de **eventos** (tabela events)
-- Adicionar prefetch de **dashboard stats** (contagens de leads por periodo)
-- Garantir que o `staleTime` das queries individuais nas paginas seja compativel com o cache do prefetch (nao refetch se dados ja estao no cache)
-- Mover o hook para executar apenas UMA VEZ (nao em cada render do AdminLayout) usando um ref de controle
-
----
+**Seletor de País no campo telefone:**
+- Adicionar dropdown com bandeira do país ao lado esquerdo do campo de telefone
+- Brasil 🇧🇷 (+55) por padrão
+- Lista de países mais comuns: Brasil, EUA, Portugal, Argentina, Paraguai, Uruguai, Colômbia, México, Chile
+- Ao trocar país, ajusta a máscara de formatação do telefone
+- Bandeirinha clicável que abre um dropdown compacto
+- Salvar o código do país junto com o número ao enviar
 
 ### Arquivos a editar
 
-| Arquivo | Mudanca |
+| Arquivo | Mudança |
 |---|---|
-| Migracao SQL | Inserir pipeline_stages padrao para organizacoes existentes |
-| `src/components/crm/PipelineBoard.tsx` | Remover DEFAULT_STAGES falsos, tratar estado vazio |
-| `src/pages/CapturePage.tsx` | Campos maiores, visual refinado |
-| `src/hooks/usePrefetchAdminData.ts` | Adicionar prefetch de eventos e dashboard, controle de execucao unica |
+| Migração SQL | Renomear "Convertidos" → "Consultor", atualizar função de detecção |
+| `src/components/crm/PipelineBoard.tsx` | Ajustar `isNovosConsultoresStage` para detectar "consultor" |
+| `src/pages/CapturePage.tsx` | Campos maiores, mais espaço, seletor de país com bandeiras |
 
 ### Ordem
-1. Migracao SQL (criar stages reais)
-2. PipelineBoard (remover IDs falsos)
-3. CapturePage (visual)
-4. Prefetch (otimizar)
+1. Migração SQL
+2. PipelineBoard (lógica de detecção)
+3. CapturePage (visual + seletor de país)
+
