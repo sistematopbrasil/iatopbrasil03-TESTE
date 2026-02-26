@@ -1,22 +1,20 @@
 
 
-## Plano: Fix Country Selector Background + OK Button
+## Plano: Fix Country Selector com Portal
 
-### Problemas identificados
+### Problema raiz
 
-1. **Fundo transparente nos itens**: Cada botão de país tem `style={{ backgroundColor: 'transparent' }}` nos itens não selecionados, o que em certas situações pode causar transparência visual. Solução: remover o `style` inline dos botões e usar apenas classes CSS com cores sólidas.
+O dropdown do seletor de países é renderizado **dentro** do form card que tem `backdrop-blur-2xl` e `bg-white/[0.04]`. Mesmo com `backgroundColor: '#1a1a1a'` inline no dropdown, o `backdrop-filter` do pai afeta todos os filhos, causando a transparência visível no screenshot. O botão OK também fica cortado porque o dropdown abre para baixo e colide com o botão "Quero saber mais!".
 
-2. **Botão OK cortado**: O container do dropdown tem `overflow-hidden` na classe, que corta o botão OK na área inferior. Remover `overflow-hidden` do container principal e manter apenas no scroll da lista.
+### Solução: React Portal
+
+Renderizar o dropdown usando `ReactDOM.createPortal` no `document.body`, posicionando-o absolutamente com base nas coordenadas do botão trigger. Isso remove o dropdown da hierarquia do form card, eliminando a herança de `backdrop-filter`.
 
 ### Mudanças em `src/pages/CapturePage.tsx`
 
-**Container do dropdown (linha 266)**:
-- Remover `overflow-hidden` da classe do container principal
-
-**Botões de país (linhas 289-302)**:
-- Remover o `style={{ backgroundColor: ... }}` inline
-- Usar classes com cores sólidas: `bg-[#1a1a1a]` para normal, `bg-[#252525]` para selecionado, `hover:bg-[#222222]` para hover
-
-**Botão OK (linhas 322-329)**:
-- Adicionar `shrink-0` e `min-w-[44px]` para garantir que não seja comprimido/cortado
+1. **Importar** `createPortal` de `react-dom`
+2. **No `CountrySelector`**: usar `getBoundingClientRect()` do botão ref para calcular a posição do dropdown
+3. **Renderizar o dropdown via portal** no `document.body` com `position: fixed`, usando as coordenadas calculadas
+4. **Abrir para cima** se estiver perto do fundo da tela (verificar espaço disponível abaixo)
+5. **Manter** todo o estilo sólido existente (`#1a1a1a`, `#252525`, etc.)
 
