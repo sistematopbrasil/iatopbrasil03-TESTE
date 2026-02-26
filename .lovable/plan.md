@@ -1,93 +1,59 @@
 
 
-## Plano: Melhorias na Pagina de Captura - Imagem Configuravel, Link Seguro, Redirecionamento e Design
+## Plano: Corrigir Pipeline + Melhorar Quiz Welcome + Redesign Captura
 
-### Mudancas
+### 1. Corrigir erro "Erro ao mover lead" no Pipeline
 
----
+**Causa raiz**: O trigger `update_temperature_on_pipeline_move` define `NEW.temperature := 'cold'` sem fazer cast para o tipo enum `lead_temperature`. O PostgreSQL nao consegue converter implicitamente e o UPDATE falha.
 
-### 1. Banco de Dados - Novos campos para imagem
-
-A tabela `capture_page_configs` precisa de campos para controlar tamanho, posicao e formato da imagem hero (similar ao que ja existe no quiz com `quiz_image_position`, `quiz_image_size`, `quiz_image_shape`).
-
-**Migracao SQL:**
+**Correcao**: Migracao SQL para recriar o trigger com cast explicito:
 ```sql
-ALTER TABLE capture_page_configs
-  ADD COLUMN IF NOT EXISTS hero_image_size text DEFAULT 'medium',
-  ADD COLUMN IF NOT EXISTS hero_image_position text DEFAULT 'top',
-  ADD COLUMN IF NOT EXISTS hero_image_shape text DEFAULT 'rounded';
+NEW.temperature := 'cold'::lead_temperature;
+NEW.temperature := 'warm'::lead_temperature;
+NEW.temperature := 'hot'::lead_temperature;
 ```
 
-Valores possiveis:
-- `hero_image_size`: `small` (80px), `medium` (160px), `large` (240px), `full` (100% width)
-- `hero_image_position`: `top` (acima do titulo), `left` (ao lado esquerdo), `background` (fundo com overlay)
-- `hero_image_shape`: `rounded` (cantos arredondados), `circle` (circular), `square` (quadrado)
+Tambem aplicar o mesmo fix no `calculate_lead_score` trigger que ja tem o cast correto (confirmar consistencia).
 
 ---
 
-### 2. ConsultantSettings.tsx - Configuracoes da Imagem e Link
+### 2. Quiz Welcome Screen sem foto
 
-**Imagem Hero - Novos controles:**
-- Select para Tamanho: Pequeno / Medio / Grande / Largura total
-- Select para Posicao: Topo / Lateral / Fundo
-- Select para Formato: Arredondado / Circular / Quadrado
-- Preview atualiza em tempo real com essas configuracoes
+**Problema**: Quando o consultor nao configura foto, aparece um placeholder cinza com icone generico que prejudica a aparencia.
 
-**Link editavel - Corrigir:**
-- O campo de link mostra o prefixo `{dominio}/c/` como texto fixo (nao editavel)
-- So a parte apos `/c/` e editavel (slug + parametros UTM)
-- Ex: `[https://top-consultant-pathfinder.lovable.app/c/]` fixo + `[joao-silva?utm_source=facebook]` editavel
+**Solucao**: Remover o placeholder visual quando nao ha foto. A pagina deve fluir naturalmente sem a imagem - titulo, subtitulo e botao ficam centralizados sem o bloco de imagem vazio. O componente `ConsultantImage` retorna `null` quando `quiz_cover_image` e null/vazio.
 
-**Redirecionamento - 3 opcoes claras:**
-1. **Pagina de obrigado (padrao)** - Mostra thank you page simples dizendo que a equipe entrara em contato. Sem botao, sem link. Este e o padrao quando nenhuma configuracao e feita.
-2. **Link personalizado** - Mostra thank you page com botao incentivando a clicar no link configurado. A mensagem muda para "Enquanto isso, clique abaixo para saber mais" com botao estilizado.
-3. **WhatsApp** - Campo para numero de WhatsApp + campo para mensagem padrao. Mostra thank you page com botao verde do WhatsApp.
+**Mudanca em `QuizContainer.tsx` (linhas ~670-711)**:
+- Se `consultant?.quiz_cover_image` for falsy, `ConsultantImage` retorna `null`
+- Sem placeholder, sem bloco vazio - a pagina fica limpa com logo + titulo + subtitulo + botao
 
 ---
 
-### 3. CapturePage.tsx - Design e Thank You Pages
+### 3. Pagina de Captura - Design mais moderno e interativo
 
-**Design da pagina publica:**
-- Animacoes suaves de entrada (fade-in nos elementos)
-- Efeito de foco nos inputs com glow na cor do botao
-- Micro-interacoes: icone de check ao lado dos campos preenchidos
-- Badge de seguranca mais visivel com icone de cadeado
-- Imagem hero respeita as configuracoes de tamanho/posicao/formato
+**Mudancas em `CapturePage.tsx`**:
 
-**Thank You Pages (3 variantes):**
-
-1. `redirect_type = 'thank_you'` (padrao):
-   - Icone de check animado
-   - "Obrigado, {nome}!"
-   - "Seus dados foram enviados com sucesso. Nossa equipe entrara em contato em breve!"
-   - Sem botao
-
-2. `redirect_type = 'url'`:
-   - Mesmo icone e titulo
-   - "Enquanto aguarda nosso contato, confira o link abaixo:"
-   - Botao estilizado com a cor do botao configurada que abre o `redirect_url`
-
-3. `redirect_type = 'whatsapp'`:
-   - Mesmo icone e titulo
-   - "Fale diretamente conosco pelo WhatsApp:"
-   - Botao verde do WhatsApp que abre `wa.me/{numero}?text={mensagem}`
-
-**Preview do CapturePagePreview:**
-- Atualizar para refletir tamanho/posicao/formato da imagem
-- Mostrar preview da thank you page tambem (toggle "Ver pagina de obrigado")
+- **Particulas/orbs animados no fundo**: Adicionar 2-3 orbs com animacao CSS de flutuacao lenta (keyframes float) para dar vida ao background
+- **Glassmorphism mais forte no card do form**: Aumentar o blur, adicionar borda com gradiente sutil
+- **Animacao de entrada escalonada**: Cada campo do form aparece com delay progressivo (0.1s, 0.2s, 0.3s)
+- **Efeito de hover no botao CTA**: Adicionar shimmer/brilho animado que passa pelo botao
+- **Indicador de progresso nos campos**: Barra fina abaixo do form que preenche conforme campos sao validados (0/3, 1/3, 2/3, 3/3)
+- **Step numbers nos campos**: Numeracao sutil (1, 2, 3) ao lado de cada campo para guiar o usuario
+- **Tipografia melhorada**: Titulo com gradient text (branco para cinza claro), peso mais forte
+- **Footer com selo de seguranca mais elegante**: Icone de cadeado com borda e fundo sutil
 
 ---
 
-### 4. Arquivos a Editar
+### Arquivos a editar
 
 | Arquivo | Mudanca |
 |---|---|
-| Migracao SQL | 3 colunas novas em `capture_page_configs` |
-| `src/components/consultant/ConsultantSettings.tsx` | Controles imagem (size/position/shape), link fixo+editavel, redirecionamento com campo WhatsApp numero |
-| `src/pages/CapturePage.tsx` | Design melhorado, animacoes, 3 variantes de thank you, imagem configuravel |
+| Migracao SQL | Fix cast enum no trigger `update_temperature_on_pipeline_move` |
+| `src/components/quiz/QuizContainer.tsx` | Remover placeholder de imagem, retornar null quando sem foto |
+| `src/pages/CapturePage.tsx` | Redesign com animacoes, orbs, glassmorphism, progress bar, shimmer |
 
 ### Ordem
-1. Migracao SQL (campos de imagem)
-2. ConsultantSettings (controles + link + redirecionamento)
-3. CapturePage (design + thank you + imagem)
+1. Migracao SQL (fix pipeline)
+2. QuizContainer (welcome sem foto)
+3. CapturePage (redesign visual)
 
