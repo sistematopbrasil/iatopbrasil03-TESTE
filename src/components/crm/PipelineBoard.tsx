@@ -54,7 +54,7 @@ export function PipelineBoard() {
     };
   }, [queryClient]);
 
-  const { data: currentUser } = useQuery({
+  const { data: currentUser, isLoading: userLoading } = useQuery({
     queryKey: ['current-user-pipeline'],
     queryFn: getCurrentConsultant,
   });
@@ -242,7 +242,7 @@ export function PipelineBoard() {
     });
   };
 
-  if (isLoading || stagesLoading) {
+  if (userLoading || isLoading || stagesLoading) {
     return (
       <div className="flex items-center justify-center h-[500px]">
         <div className="text-center space-y-4">
