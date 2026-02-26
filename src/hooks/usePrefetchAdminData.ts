@@ -55,15 +55,18 @@ export function usePrefetchAdminData() {
           });
 
         // =============================================
-        // PREFETCH PIPELINE STAGES
+        // PREFETCH PIPELINE STAGES (multiple keys used across pages)
         // =============================================
         supabase
           .from('pipeline_stages')
           .select('*')
+          .eq('organization_id', orgId)
           .order('order_index')
           .then(({ data }) => {
             if (data) {
+              queryClient.setQueryData(['pipeline-stages', orgId], data);
               queryClient.setQueryData(['pipeline-stages'], data);
+              queryClient.setQueryData(['pipeline-stages-filter'], data);
             }
           });
 
@@ -84,6 +87,8 @@ export function usePrefetchAdminData() {
         leadsQuery.then(({ data }) => {
           if (data) {
             queryClient.setQueryData(['pipeline-leads', userId], data);
+            // Also set for Dashboard (ConsultantDashboard uses this key)
+            queryClient.setQueryData(['all-leads-consultant', userId], data);
           }
         });
 
