@@ -1,20 +1,39 @@
 
 
-## Plano: Fix Country Selector com Portal
+## Plano: 4 Correções
 
-### Problema raiz
+### 1. Redirect URL relativo na página de captura
+**Problema**: Quando o usuário configura `instagram.com` como URL de redirecionamento, o browser interpreta como caminho relativo (`/c/instagram.com`). Falta o prefixo `https://`.
 
-O dropdown do seletor de países é renderizado **dentro** do form card que tem `backdrop-blur-2xl` e `bg-white/[0.04]`. Mesmo com `backgroundColor: '#1a1a1a'` inline no dropdown, o `backdrop-filter` do pai afeta todos os filhos, causando a transparência visível no screenshot. O botão OK também fica cortado porque o dropdown abre para baixo e colide com o botão "Quero saber mais!".
+**Fix em `src/pages/CapturePage.tsx`** (linha ~118):
+- Criar uma função `ensureAbsoluteUrl(url)` que adiciona `https://` se a URL não começar com `http://` ou `https://`
+- Aplicar na `href` do link de redirecionamento (linha 118)
 
-### Solução: React Portal
+### 2. Dashboard não atualiza leads em tempo real
+**Problema**: `AdminDashboard.tsx` (linha 28) invalida `['all-leads-consultant']`, mas a query real em `ConsultantDashboard.tsx` (linha 55) usa `['all-leads-consultant', currentUser.id]`. As keys não batem.
 
-Renderizar o dropdown usando `ReactDOM.createPortal` no `document.body`, posicionando-o absolutamente com base nas coordenadas do botão trigger. Isso remove o dropdown da hierarquia do form card, eliminando a herança de `backdrop-filter`.
+**Fix em `src/pages/AdminDashboard.tsx`**:
+- Alterar a invalidação para usar `queryKey: ['all-leads-consultant']` com `exact: false` para invalidar todas as queries que começam com esse prefixo
+- Alternativa mais simples: já funciona sem `exact` por padrão no React Query v5 - o problema é que o `currentUser` pode não estar disponível quando o channel é criado. Verificar e adicionar `currentUser?.id` como dependência
 
-### Mudanças em `src/pages/CapturePage.tsx`
+### 3. Página do Agente IA lenta para carregar
+**Problema**: A query `['ai-agent-config']` não é prefetchada no `usePrefetchAdminData`.
 
-1. **Importar** `createPortal` de `react-dom`
-2. **No `CountrySelector`**: usar `getBoundingClientRect()` do botão ref para calcular a posição do dropdown
-3. **Renderizar o dropdown via portal** no `document.body` com `position: fixed`, usando as coordenadas calculadas
-4. **Abrir para cima** se estiver perto do fundo da tela (verificar espaço disponível abaixo)
-5. **Manter** todo o estilo sólido existente (`#1a1a1a`, `#252525`, etc.)
+**Fix em `src/hooks/usePrefetchAdminData.ts`**:
+- Adicionar prefetch da config do AI Agent: buscar `ai_agent_configs` por `user_id` e salvar no cache com key `['ai-agent-config']`
+
+### 4. Agente IA deve vir desativado por padrão
+**Problema**: O `DEFAULT_CONFIG` em `useAIConfig.ts` (linha 49) tem `auto_reply: true`.
+
+**Fix em `src/hooks/useAIConfig.ts`**:
+- Alterar `auto_reply: true` para `auto_reply: false` no `DEFAULT_CONFIG` (linha 49)
+
+### Arquivos a editar
+
+| Arquivo | Mudança |
+|---|---|
+| `src/pages/CapturePage.tsx` | Adicionar `ensureAbsoluteUrl()` no href do redirect |
+| `src/pages/AdminDashboard.tsx` | Corrigir query key da invalidação realtime |
+| `src/hooks/usePrefetchAdminData.ts` | Adicionar prefetch do AI config |
+| `src/hooks/useAIConfig.ts` | Mudar `auto_reply` default para `false` |
 
