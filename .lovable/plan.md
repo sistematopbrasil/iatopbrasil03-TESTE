@@ -1,61 +1,57 @@
 
 
-## Plano: Instagram Data Import + Cron + Prefetch Pages
+## Plan: Fix Instagram Data, Fix CRM Messages, Add Capture Leads Tab
 
-### 1. Inserir 9 perfis Instagram + métricas históricas no banco
+### 1. Fix Instagram Historical Metrics (9 profiles)
 
-Usar a ferramenta de insert SQL para:
-- Primeiro buscar o `organization_id` do usuário atual
-- Inserir 9 perfis na tabela `insta_profiles` com os dados fornecidos (username, display_name, category)
-- Inserir todas as métricas históricas na tabela `insta_follower_metrics` (aproximadamente 220 registros)
+**Problem**: The previously inserted data has incorrect values.
 
-**Perfis:**
-| Username | Display Name | Categoria |
-|---|---|---|
-| brenonogueiraferraz | Breno Nogueira \| Top Brasil ✱ | Líder |
-| davidfernandesaz | David Fernandes \| Proteção Veicular | Gerente |
-| dioleno.topbrasil | Dioleno \| Top Brasil | Consultor |
-| gabrielquinteiroo | Gabriel Quinteiro | Consultor |
-| cris.topbrasil | Cris \| Top Brasil | Consultor |
-| danilo.embaixador | Danilo Embaixador | Embaixador |
-| loysegurgel | Loyse Gurgel | Gerente |
-| paulinho.topbrasil | Paulinho \| Top Brasil | Consultor |
-| thiagopinheiro.oficial | Thiago Pinheiro | Diretor |
+**Approach**: 
+- Delete ALL existing records from `insta_follower_metrics` for all 9 profiles
+- Re-insert correct data for each profile using the data provided by the user
+- 9 separate SQL operations (one DELETE-all, then 9 INSERTs with correct data)
 
-### 2. Configurar cron job para atualização automática diária
+Profile IDs mapping:
+- `2ad3d597` = brenonogueiraferraz (44 rows)
+- `0c4c7120` = davidfernandesaz (40 rows)  
+- `b892102c` = dioleno.topbrasil (43 rows)
+- `dbf19347` = rodrigo.topbrasil (43 rows)
+- `19b67c78` = cris.topbrasil (43 rows)
+- `65ede526` = loysegurgel (43 rows)
+- `6906b0b9` = danilo.embaixador (43 rows)
+- `70ce42b9` = gabrielquinteiroo (43 rows)
+- `5bdbd1a2` = o_rei_da_protecao (6 rows)
 
-Usar SQL insert para criar um cron job via `pg_cron` + `pg_net` que chama a edge function `insta-scheduled-update` uma vez por dia (ex: às 06:00 UTC). A edge function já existe e chama `insta-update-profiles` internamente.
+Total: ~348 records to insert.
 
-### 3. Sobre o QR Code do CRM
+### 2. Fix CRM Messages Not Appearing
 
-Preciso investigar os logs da edge function `crm-get-qrcode` para entender a falha. O código parece correto — o problema pode ser na Evolution API (URL/KEY incorretas, instância não criada, etc.). Vou verificar os logs e, se necessário, ajustar a edge function.
+**Problem**: The `crm-sync-recent` function calls Evolution API's `/chat/findChats` which returns 0 chats. The webhook receives `messages_update` events but not `messages_upsert` for new messages. Result: `crm_messages` table has 0 rows despite WhatsApp being connected.
 
-### 4. Prefetch de páginas (já parcialmente implementado)
+**Root Cause Analysis**:
+- The Evolution API `/chat/findChats` endpoint uses POST with empty body `{}` which may not work with all Evolution API versions
+- The webhook event normalization converts dots to underscores (`messages.upsert` -> `messages_upsert`), which should work, but the webhook only received `messages_update` (status updates), not actual new messages
 
-O `usePrefetchAdminData` já faz prefetch de quase todas as páginas. Porém, as query keys do prefetch nem sempre batem com as keys usadas nas páginas. Vou alinhar:
+**Fix approach**:
+1. In `crm-sync-recent/index.ts`: Try GET method for `/chat/findChats` as a fallback, and also try the alternative endpoint `/chat/findContacts`
+2. In `crm-webhook/index.ts`: Add handling for `messages_set` event (Evolution API v2 sends bulk messages under this event) and add more event normalization patterns
+3. Add a manual "force sync" that fetches messages directly from known conversations
 
-| Página | Query Key usada | Prefetch atual | Fix necessário |
-|---|---|---|---|
-| Dashboard | `['all-leads-consultant', userId]` | `['pipeline-leads', userId]` (diferente!) | Adicionar prefetch com key correta |
-| Leads | `['pipeline-stages', orgId]` | `['pipeline-stages']` (sem orgId!) | Corrigir key no prefetch |
-| Pipeline | `['pipeline-stages', orgId]`, `['pipeline-leads', userId]` | Parcial | Alinhar keys |
-| CRM | `['conversations', 'all', '']` | OK | — |
-| Analytics | `['quiz-submissions-analytics', '30', userId]` | OK | — |
-| Ranking | `['unified-ranking', 'all', 'now']` | OK | — |
-| Settings | `['current-user-settings']`, `['quiz-questions', userId]` | OK | — |
+### 3. Add Capture Page Leads Tab in CRM
 
-**Mudanças em `src/hooks/usePrefetchAdminData.ts`:**
-- Adicionar prefetch com key `['all-leads-consultant', userId]` para o Dashboard
-- Corrigir prefetch de pipeline-stages para usar key `['pipeline-stages', orgId]`
-- Adicionar prefetch de `['pipeline-stages-filter']` para ConversationList do CRM
+**Problem**: The CRM Leads section only has "Leads do Quiz" and "Leads do WhatsApp" sub-tabs. Capture page leads (`lead_source = 'capture'`) exist in the database but aren't shown.
 
-### Arquivos a editar
-| Arquivo | Mudança |
-|---|---|
-| `src/hooks/usePrefetchAdminData.ts` | Alinhar query keys do prefetch com as páginas |
-| SQL (insert tool) | Inserir perfis + métricas Instagram |
-| SQL (insert tool) | Criar cron job diário para `insta-scheduled-update` |
+**Approach**:
+- Create a new `CaptureLeadsList` component (similar to `QuizLeadsList` but filtered by `lead_source = 'capture'`)
+- Add a third sub-tab "Leads da Captura" in `AdminCRM.tsx` with a distinct icon/color (e.g., `FileText` icon, blue theme)
+- The component will show: name, phone, email, location, temperature, and a "Conversar" button
 
-### Sobre o QR Code
-Vou verificar os edge function logs para diagnosticar a falha no escaneamento do QR Code antes de propor uma correção.
+### Implementation Steps
+
+1. **Delete all existing Instagram metrics** (single SQL DELETE)
+2. **Insert correct data for all 9 profiles** (9 SQL INSERT operations, executed sequentially with user approval)
+3. **Fix `crm-sync-recent` edge function** to handle different Evolution API response formats for chat listing
+4. **Fix `crm-webhook` edge function** to handle additional event types
+5. **Create `CaptureLeadsList` component** based on existing `QuizLeadsList`
+6. **Update `AdminCRM.tsx`** to add the third "Leads da Captura" sub-tab
 
