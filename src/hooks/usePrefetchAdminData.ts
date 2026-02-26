@@ -251,6 +251,20 @@ export function usePrefetchAdminData() {
           });
 
         // =============================================
+        // PREFETCH AI AGENT CONFIG
+        // =============================================
+        supabase
+          .from('ai_agent_configs')
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle()
+          .then(({ data }) => {
+            if (data) {
+              queryClient.setQueryData(['ai-agent-config'], data);
+            }
+          });
+
+        // =============================================
         // PREFETCH DASHBOARD STATS
         // =============================================
         const sevenDaysAgo = new Date();

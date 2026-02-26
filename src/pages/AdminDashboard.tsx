@@ -25,8 +25,9 @@ export default function AdminDashboard() {
         schema: 'public',
         table: 'quiz_submissions_new',
       }, () => {
-        queryClient.invalidateQueries({ queryKey: ['all-leads-consultant'] });
-        queryClient.invalidateQueries({ queryKey: ['ranking'] });
+        queryClient.invalidateQueries({ queryKey: ['all-leads-consultant'], exact: false });
+        queryClient.invalidateQueries({ queryKey: ['ranking'], exact: false });
+        queryClient.invalidateQueries({ queryKey: ['dashboard-stats'], exact: false });
       })
       .subscribe();
 
