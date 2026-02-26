@@ -59,6 +59,37 @@ const COUNTRIES = [
   { code: 'CO', dial: '57', flag: '🇨🇴', name: 'Colômbia', mask: '### ### ####', maxDigits: 10 },
   { code: 'MX', dial: '52', flag: '🇲🇽', name: 'México', mask: '## #### ####', maxDigits: 10 },
   { code: 'CL', dial: '56', flag: '🇨🇱', name: 'Chile', mask: '# #### ####', maxDigits: 9 },
+  { code: 'PE', dial: '51', flag: '🇵🇪', name: 'Peru', mask: '### ### ###', maxDigits: 9 },
+  { code: 'VE', dial: '58', flag: '🇻🇪', name: 'Venezuela', mask: '### ### ####', maxDigits: 10 },
+  { code: 'EC', dial: '593', flag: '🇪🇨', name: 'Equador', mask: '## ### ####', maxDigits: 9 },
+  { code: 'BO', dial: '591', flag: '🇧🇴', name: 'Bolívia', mask: '#### ####', maxDigits: 8 },
+  { code: 'CR', dial: '506', flag: '🇨🇷', name: 'Costa Rica', mask: '#### ####', maxDigits: 8 },
+  { code: 'PA', dial: '507', flag: '🇵🇦', name: 'Panamá', mask: '#### ####', maxDigits: 8 },
+  { code: 'DO', dial: '1', flag: '🇩🇴', name: 'Rep. Dominicana', mask: '(###) ###-####', maxDigits: 10 },
+  { code: 'GT', dial: '502', flag: '🇬🇹', name: 'Guatemala', mask: '#### ####', maxDigits: 8 },
+  { code: 'HN', dial: '504', flag: '🇭🇳', name: 'Honduras', mask: '#### ####', maxDigits: 8 },
+  { code: 'SV', dial: '503', flag: '🇸🇻', name: 'El Salvador', mask: '#### ####', maxDigits: 8 },
+  { code: 'NI', dial: '505', flag: '🇳🇮', name: 'Nicarágua', mask: '#### ####', maxDigits: 8 },
+  { code: 'CU', dial: '53', flag: '🇨🇺', name: 'Cuba', mask: '# ### ####', maxDigits: 8 },
+  { code: 'ES', dial: '34', flag: '🇪🇸', name: 'Espanha', mask: '### ## ## ##', maxDigits: 9 },
+  { code: 'FR', dial: '33', flag: '🇫🇷', name: 'França', mask: '# ## ## ## ##', maxDigits: 9 },
+  { code: 'DE', dial: '49', flag: '🇩🇪', name: 'Alemanha', mask: '### ### ####', maxDigits: 11 },
+  { code: 'IT', dial: '39', flag: '🇮🇹', name: 'Itália', mask: '### ### ####', maxDigits: 10 },
+  { code: 'GB', dial: '44', flag: '🇬🇧', name: 'Reino Unido', mask: '#### ######', maxDigits: 10 },
+  { code: 'JP', dial: '81', flag: '🇯🇵', name: 'Japão', mask: '##-####-####', maxDigits: 10 },
+  { code: 'CN', dial: '86', flag: '🇨🇳', name: 'China', mask: '### #### ####', maxDigits: 11 },
+  { code: 'IN', dial: '91', flag: '🇮🇳', name: 'Índia', mask: '##### #####', maxDigits: 10 },
+  { code: 'AO', dial: '244', flag: '🇦🇴', name: 'Angola', mask: '### ### ###', maxDigits: 9 },
+  { code: 'MZ', dial: '258', flag: '🇲🇿', name: 'Moçambique', mask: '## ### ####', maxDigits: 9 },
+  { code: 'CV', dial: '238', flag: '🇨🇻', name: 'Cabo Verde', mask: '### ## ##', maxDigits: 7 },
+  { code: 'GW', dial: '245', flag: '🇬🇼', name: 'Guiné-Bissau', mask: '### ####', maxDigits: 7 },
+  { code: 'ST', dial: '239', flag: '🇸🇹', name: 'São Tomé e Príncipe', mask: '### ####', maxDigits: 7 },
+  { code: 'TL', dial: '670', flag: '🇹🇱', name: 'Timor-Leste', mask: '#### ####', maxDigits: 8 },
+  { code: 'AU', dial: '61', flag: '🇦🇺', name: 'Austrália', mask: '### ### ###', maxDigits: 9 },
+  { code: 'CA', dial: '1', flag: '🇨🇦', name: 'Canadá', mask: '(###) ###-####', maxDigits: 10 },
+  { code: 'ZA', dial: '27', flag: '🇿🇦', name: 'África do Sul', mask: '## ### ####', maxDigits: 9 },
+  { code: 'IL', dial: '972', flag: '🇮🇱', name: 'Israel', mask: '##-### ####', maxDigits: 9 },
+  { code: 'AE', dial: '971', flag: '🇦🇪', name: 'Emirados Árabes', mask: '## ### ####', maxDigits: 9 },
 ];
 
 /* ─── Animated Check ─── */
@@ -182,7 +213,6 @@ function CountrySelector({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [customDDI, setCustomDDI] = useState('');
-  const [showCustom, setShowCustom] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -191,7 +221,7 @@ function CountrySelector({
       if (ref.current && !ref.current.contains(e.target as Node)) {
         setOpen(false);
         setSearch('');
-        setShowCustom(false);
+        
       }
     };
     document.addEventListener('mousedown', handler);
@@ -216,7 +246,7 @@ function CountrySelector({
       setOpen(false);
       setSearch('');
       setCustomDDI('');
-      setShowCustom(false);
+      
     }
   };
 
@@ -232,74 +262,72 @@ function CountrySelector({
       </button>
       
       {open && (
-        <div className="absolute top-full left-0 mt-2 w-60 bg-[#1a1a1a] border border-white/[0.12] rounded-xl shadow-2xl z-[100] animate-[fade-in_0.15s_ease-out]"
-          style={{ boxShadow: `0 20px 40px rgba(0,0,0,0.7), 0 0 0 1px ${buttonColor}15` }}>
+        <div 
+          className="absolute top-full left-0 mt-2 w-64 rounded-xl shadow-2xl z-[100] animate-[fade-in_0.15s_ease-out] overflow-hidden"
+          style={{ 
+            backgroundColor: '#1a1a1a', 
+            border: '1px solid rgba(255,255,255,0.12)',
+            boxShadow: `0 20px 40px rgba(0,0,0,0.8)`,
+            backdropFilter: 'none',
+          }}>
           {/* Search */}
-          <div className="p-2 border-b border-white/[0.08]">
+          <div className="p-2 border-b border-white/[0.08]" style={{ backgroundColor: '#1a1a1a' }}>
             <input
               ref={searchRef}
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar país ou DDI..."
-              className="w-full px-3 py-2 bg-white/[0.06] border border-white/[0.1] rounded-lg text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-white/[0.2]"
+              placeholder="Buscar país ou digitar DDI..."
+              className="w-full px-3 py-2 rounded-lg text-sm text-white placeholder:text-gray-500 focus:outline-none"
+              style={{ backgroundColor: '#252525', border: '1px solid rgba(255,255,255,0.1)' }}
             />
           </div>
           
           {/* Country list */}
-          <div className="max-h-[250px] overflow-y-auto">
+          <div className="max-h-[250px] overflow-y-auto overscroll-contain" style={{ backgroundColor: '#1a1a1a' }}>
             {filtered.map((country) => (
               <button
                 key={country.code}
                 type="button"
                 onClick={() => { onSelect(country); setOpen(false); setSearch(''); }}
                 className={cn(
-                  "w-full flex items-center gap-3 px-4 py-3 text-sm text-left transition-colors hover:bg-white/[0.08]",
-                  selected.code === country.code && "bg-white/[0.06]"
+                  "w-full flex items-center gap-3 px-4 py-3 text-sm text-left transition-colors",
+                  selected.code === country.code ? "bg-white/[0.1]" : "hover:bg-white/[0.06]"
                 )}
+                style={{ backgroundColor: selected.code === country.code ? 'rgba(255,255,255,0.08)' : 'transparent' }}
               >
                 <span className="text-lg">{country.flag}</span>
-                <span className="text-white/80 flex-1">{country.name}</span>
+                <span className="text-white/90 flex-1">{country.name}</span>
                 <span className="text-gray-500 text-xs">+{country.dial}</span>
               </button>
             ))}
-            {filtered.length === 0 && !showCustom && (
-              <p className="px-4 py-3 text-sm text-gray-500">Nenhum país encontrado</p>
+            {filtered.length === 0 && (
+              <p className="px-4 py-3 text-sm text-gray-500">Nenhum país encontrado. Use o campo abaixo para digitar o DDI.</p>
             )}
           </div>
 
-          {/* Custom DDI */}
-          <div className="border-t border-white/[0.08] p-2">
-            {!showCustom ? (
+          {/* Custom DDI - always visible */}
+          <div className="border-t border-white/[0.08] p-2" style={{ backgroundColor: '#1a1a1a' }}>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={customDDI}
+                onChange={(e) => setCustomDDI(e.target.value.replace(/[^\d+]/g, '').slice(0, 5))}
+                placeholder="DDI manual (ex: 351)"
+                className="flex-1 px-3 py-2 rounded-lg text-sm text-white placeholder:text-gray-500 focus:outline-none"
+                style={{ backgroundColor: '#252525', border: '1px solid rgba(255,255,255,0.1)' }}
+                autoFocus={filtered.length === 0}
+                onKeyDown={(e) => e.key === 'Enter' && handleCustomDDI()}
+              />
               <button
                 type="button"
-                onClick={() => setShowCustom(true)}
-                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-white/[0.06] rounded-lg transition-colors"
+                onClick={handleCustomDDI}
+                className="px-3 py-2 rounded-lg text-sm font-medium text-white transition-colors"
+                style={{ backgroundColor: buttonColor }}
               >
-                <span className="text-lg">🌍</span>
-                <span>Outro DDI...</span>
+                OK
               </button>
-            ) : (
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={customDDI}
-                  onChange={(e) => setCustomDDI(e.target.value.replace(/[^\d+]/g, '').slice(0, 5))}
-                  placeholder="+DDI"
-                  className="flex-1 px-3 py-2 bg-white/[0.06] border border-white/[0.1] rounded-lg text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-white/[0.2]"
-                  autoFocus
-                  onKeyDown={(e) => e.key === 'Enter' && handleCustomDDI()}
-                />
-                <button
-                  type="button"
-                  onClick={handleCustomDDI}
-                  className="px-3 py-2 rounded-lg text-sm font-medium text-white transition-colors"
-                  style={{ backgroundColor: buttonColor }}
-                >
-                  OK
-                </button>
-              </div>
-            )}
+            </div>
           </div>
         </div>
       )}

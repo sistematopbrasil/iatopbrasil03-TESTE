@@ -26,17 +26,13 @@ export function usePrefetchAdminData() {
         // =============================================
         // PREFETCH RANKING - com query key correta
         // =============================================
-        const now = new Date();
-        const periodEnd = new Date(now);
-        periodEnd.setHours(23, 59, 59, 999);
-        const periodEndStr = periodEnd.toISOString();
-
+        // Prefetch ranking com query key estável: ['unified-ranking', 'all', 'now']
+        // Bate com AdminRanking period='all' que passa periodStart=null, periodEnd=null
         supabase.functions.invoke('ranking-get', {
-          body: { periodStart: null, periodEnd: periodEndStr }
+          body: { periodStart: null, periodEnd: new Date().toISOString() }
         }).then(({ data }) => {
           if (data?.success) {
-            // Query key do useRankingData: ['unified-ranking', periodStart, periodEnd]
-            queryClient.setQueryData(['unified-ranking', null, periodEndStr], data);
+            queryClient.setQueryData(['unified-ranking', 'all', 'now'], data);
           }
         });
 
