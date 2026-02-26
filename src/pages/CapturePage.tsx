@@ -263,7 +263,7 @@ function CountrySelector({
       
       {open && (
         <div 
-          className="absolute top-full left-0 mt-2 w-64 rounded-xl shadow-2xl z-[100] animate-[fade-in_0.15s_ease-out] overflow-hidden"
+          className="absolute top-full left-0 mt-2 w-64 rounded-xl shadow-2xl z-[100] animate-[fade-in_0.15s_ease-out]"
           style={{ 
             backgroundColor: '#1a1a1a', 
             border: '1px solid rgba(255,255,255,0.12)',
@@ -292,9 +292,8 @@ function CountrySelector({
                 onClick={() => { onSelect(country); setOpen(false); setSearch(''); }}
                 className={cn(
                   "w-full flex items-center gap-3 px-4 py-3 text-sm text-left transition-colors",
-                  selected.code === country.code ? "bg-white/[0.1]" : "hover:bg-white/[0.06]"
+                  selected.code === country.code ? "bg-[#252525]" : "bg-[#1a1a1a] hover:bg-[#222222]"
                 )}
-                style={{ backgroundColor: selected.code === country.code ? 'rgba(255,255,255,0.08)' : 'transparent' }}
               >
                 <span className="text-lg">{country.flag}</span>
                 <span className="text-white/90 flex-1">{country.name}</span>
@@ -322,7 +321,7 @@ function CountrySelector({
               <button
                 type="button"
                 onClick={handleCustomDDI}
-                className="px-3 py-2 rounded-lg text-sm font-medium text-white transition-colors"
+                className="shrink-0 min-w-[44px] px-3 py-2 rounded-lg text-sm font-medium text-white transition-colors"
                 style={{ backgroundColor: buttonColor }}
               >
                 OK
