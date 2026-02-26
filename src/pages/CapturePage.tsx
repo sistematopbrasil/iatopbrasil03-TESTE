@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, CheckCircle, User, Mail, Phone, Shield, Check, Lock, ChevronDown } from 'lucide-react';
@@ -213,25 +214,46 @@ function CountrySelector({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [customDDI, setCustomDDI] = useState('');
-  const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0, openUp: false });
 
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-        setSearch('');
-        
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+  // Calculate position when opening
+  const updatePosition = useCallback(() => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const dropdownHeight = 420; // approximate max height
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUp = spaceBelow < dropdownHeight && rect.top > dropdownHeight;
+    setPos({
+      top: openUp ? rect.top : rect.bottom + 4,
+      left: rect.left,
+      openUp,
+    });
   }, []);
 
   useEffect(() => {
-    if (open && searchRef.current) {
-      searchRef.current.focus();
+    if (open) {
+      updatePosition();
+      searchRef.current?.focus();
     }
+  }, [open, updatePosition]);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        triggerRef.current?.contains(target) ||
+        dropdownRef.current?.contains(target)
+      ) return;
+      setOpen(false);
+      setSearch('');
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
   const filtered = COUNTRIES.filter(c => 
@@ -246,13 +268,88 @@ function CountrySelector({
       setOpen(false);
       setSearch('');
       setCustomDDI('');
-      
     }
   };
 
+  const dropdown = open ? createPortal(
+    <div
+      ref={dropdownRef}
+      className="fixed w-72 rounded-xl shadow-2xl z-[9999] animate-[fade-in_0.15s_ease-out] flex flex-col"
+      style={{
+        top: pos.openUp ? undefined : pos.top,
+        bottom: pos.openUp ? window.innerHeight - pos.top + 4 : undefined,
+        left: pos.left,
+        maxHeight: 'min(420px, 70vh)',
+        backgroundColor: '#1a1a1a',
+        border: '1px solid rgba(255,255,255,0.15)',
+        boxShadow: '0 25px 60px rgba(0,0,0,0.9)',
+      }}
+    >
+      {/* Search */}
+      <div className="p-2.5 border-b border-white/10 shrink-0" style={{ backgroundColor: '#1a1a1a' }}>
+        <input
+          ref={searchRef}
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar país ou DDI..."
+          className="w-full px-3 py-2 rounded-lg text-sm text-white placeholder:text-gray-500 focus:outline-none"
+          style={{ backgroundColor: '#252525', border: '1px solid rgba(255,255,255,0.1)' }}
+        />
+      </div>
+      
+      {/* Country list */}
+      <div className="flex-1 overflow-y-auto overscroll-contain" style={{ backgroundColor: '#1a1a1a' }}>
+        {filtered.map((country) => (
+          <button
+            key={country.code}
+            type="button"
+            onClick={() => { onSelect(country); setOpen(false); setSearch(''); }}
+            className={cn(
+              "w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors",
+              selected.code === country.code ? "bg-[#2a2a2a]" : "bg-[#1a1a1a] hover:bg-[#222222]"
+            )}
+          >
+            <span className="text-lg">{country.flag}</span>
+            <span className="text-white/90 flex-1 truncate">{country.name}</span>
+            <span className="text-gray-500 text-xs font-mono">+{country.dial}</span>
+          </button>
+        ))}
+        {filtered.length === 0 && (
+          <p className="px-4 py-3 text-sm text-gray-500">Nenhum país encontrado.</p>
+        )}
+      </div>
+
+      {/* Custom DDI */}
+      <div className="border-t border-white/10 p-2.5 shrink-0" style={{ backgroundColor: '#1a1a1a' }}>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={customDDI}
+            onChange={(e) => setCustomDDI(e.target.value.replace(/[^\d+]/g, '').slice(0, 5))}
+            placeholder="DDI manual (ex: 351)"
+            className="flex-1 px-3 py-2 rounded-lg text-sm text-white placeholder:text-gray-500 focus:outline-none"
+            style={{ backgroundColor: '#252525', border: '1px solid rgba(255,255,255,0.1)' }}
+            onKeyDown={(e) => e.key === 'Enter' && handleCustomDDI()}
+          />
+          <button
+            type="button"
+            onClick={handleCustomDDI}
+            className="shrink-0 min-w-[44px] px-3 py-2 rounded-lg text-sm font-medium text-white transition-colors"
+            style={{ backgroundColor: buttonColor }}
+          >
+            OK
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  ) : null;
+
   return (
-    <div ref={ref} className="relative">
+    <div className="relative">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen(!open)}
         className="flex items-center gap-1 h-full px-3 rounded-l-xl border-r border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.07] transition-colors"
@@ -260,76 +357,7 @@ function CountrySelector({
         <span className="text-lg leading-none">{selected.flag}</span>
         <ChevronDown className="w-3 h-3 text-gray-500" />
       </button>
-      
-      {open && (
-        <div 
-          className="absolute top-full left-0 mt-2 w-64 rounded-xl shadow-2xl z-[100] animate-[fade-in_0.15s_ease-out]"
-          style={{ 
-            backgroundColor: '#1a1a1a', 
-            border: '1px solid rgba(255,255,255,0.12)',
-            boxShadow: `0 20px 40px rgba(0,0,0,0.8)`,
-            backdropFilter: 'none',
-          }}>
-          {/* Search */}
-          <div className="p-2 border-b border-white/[0.08]" style={{ backgroundColor: '#1a1a1a' }}>
-            <input
-              ref={searchRef}
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar país ou digitar DDI..."
-              className="w-full px-3 py-2 rounded-lg text-sm text-white placeholder:text-gray-500 focus:outline-none"
-              style={{ backgroundColor: '#252525', border: '1px solid rgba(255,255,255,0.1)' }}
-            />
-          </div>
-          
-          {/* Country list */}
-          <div className="max-h-[250px] overflow-y-auto overscroll-contain" style={{ backgroundColor: '#1a1a1a' }}>
-            {filtered.map((country) => (
-              <button
-                key={country.code}
-                type="button"
-                onClick={() => { onSelect(country); setOpen(false); setSearch(''); }}
-                className={cn(
-                  "w-full flex items-center gap-3 px-4 py-3 text-sm text-left transition-colors",
-                  selected.code === country.code ? "bg-[#252525]" : "bg-[#1a1a1a] hover:bg-[#222222]"
-                )}
-              >
-                <span className="text-lg">{country.flag}</span>
-                <span className="text-white/90 flex-1">{country.name}</span>
-                <span className="text-gray-500 text-xs">+{country.dial}</span>
-              </button>
-            ))}
-            {filtered.length === 0 && (
-              <p className="px-4 py-3 text-sm text-gray-500">Nenhum país encontrado. Use o campo abaixo para digitar o DDI.</p>
-            )}
-          </div>
-
-          {/* Custom DDI - always visible */}
-          <div className="border-t border-white/[0.08] p-2" style={{ backgroundColor: '#1a1a1a' }}>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={customDDI}
-                onChange={(e) => setCustomDDI(e.target.value.replace(/[^\d+]/g, '').slice(0, 5))}
-                placeholder="DDI manual (ex: 351)"
-                className="flex-1 px-3 py-2 rounded-lg text-sm text-white placeholder:text-gray-500 focus:outline-none"
-                style={{ backgroundColor: '#252525', border: '1px solid rgba(255,255,255,0.1)' }}
-                autoFocus={filtered.length === 0}
-                onKeyDown={(e) => e.key === 'Enter' && handleCustomDDI()}
-              />
-              <button
-                type="button"
-                onClick={handleCustomDDI}
-                className="shrink-0 min-w-[44px] px-3 py-2 rounded-lg text-sm font-medium text-white transition-colors"
-                style={{ backgroundColor: buttonColor }}
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {dropdown}
     </div>
   );
 }
