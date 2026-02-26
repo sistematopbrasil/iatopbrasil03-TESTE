@@ -1,10 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, CheckCircle, User, Mail, Phone, Shield, Check, Lock } from 'lucide-react';
+import { Loader2, CheckCircle, User, Mail, Phone, Shield, Check, Lock, ChevronDown } from 'lucide-react';
 import { z } from 'zod';
 import { cn } from '@/lib/utils';
-import { Progress } from '@/components/ui/progress';
 
 const captureSchema = z.object({
   name: z.string().trim().min(2, 'Nome deve ter pelo menos 2 caracteres').max(100),
@@ -48,6 +47,19 @@ const DEFAULT_CONFIG: CaptureConfig = {
   whatsapp_message: 'Olá! Vim pela página de captura e quero saber mais.',
   whatsapp_number: null,
 };
+
+/* ─── Country data ─── */
+const COUNTRIES = [
+  { code: 'BR', dial: '55', flag: '🇧🇷', name: 'Brasil', mask: '(##) #####-####', maxDigits: 11 },
+  { code: 'US', dial: '1', flag: '🇺🇸', name: 'EUA', mask: '(###) ###-####', maxDigits: 10 },
+  { code: 'PT', dial: '351', flag: '🇵🇹', name: 'Portugal', mask: '### ### ###', maxDigits: 9 },
+  { code: 'AR', dial: '54', flag: '🇦🇷', name: 'Argentina', mask: '## ####-####', maxDigits: 10 },
+  { code: 'PY', dial: '595', flag: '🇵🇾', name: 'Paraguai', mask: '### ### ###', maxDigits: 9 },
+  { code: 'UY', dial: '598', flag: '🇺🇾', name: 'Uruguai', mask: '## ### ###', maxDigits: 8 },
+  { code: 'CO', dial: '57', flag: '🇨🇴', name: 'Colômbia', mask: '### ### ####', maxDigits: 10 },
+  { code: 'MX', dial: '52', flag: '🇲🇽', name: 'México', mask: '## #### ####', maxDigits: 10 },
+  { code: 'CL', dial: '56', flag: '🇨🇱', name: 'Chile', mask: '# #### ####', maxDigits: 9 },
+];
 
 /* ─── Animated Check ─── */
 function AnimatedCheck() {
@@ -157,6 +169,62 @@ function FloatingOrb({ color, size, top, left, delay }: { color: string; size: n
   );
 }
 
+/* ─── Country Selector ─── */
+function CountrySelector({ 
+  selected, 
+  onSelect, 
+  buttonColor 
+}: { 
+  selected: typeof COUNTRIES[0]; 
+  onSelect: (country: typeof COUNTRIES[0]) => void;
+  buttonColor: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1 h-full px-3 rounded-l-xl border-r border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.07] transition-colors"
+      >
+        <span className="text-lg leading-none">{selected.flag}</span>
+        <ChevronDown className="w-3 h-3 text-gray-500" />
+      </button>
+      
+      {open && (
+        <div className="absolute top-full left-0 mt-2 w-52 bg-[#1a1a1a] border border-white/[0.12] rounded-xl shadow-2xl z-50 overflow-hidden animate-[fade-in_0.15s_ease-out]"
+          style={{ boxShadow: `0 20px 40px rgba(0,0,0,0.5), 0 0 0 1px ${buttonColor}15` }}>
+          {COUNTRIES.map((country) => (
+            <button
+              key={country.code}
+              type="button"
+              onClick={() => { onSelect(country); setOpen(false); }}
+              className={cn(
+                "w-full flex items-center gap-3 px-4 py-3 text-sm text-left transition-colors hover:bg-white/[0.08]",
+                selected.code === country.code && "bg-white/[0.06]"
+              )}
+            >
+              <span className="text-lg">{country.flag}</span>
+              <span className="text-white/80 flex-1">{country.name}</span>
+              <span className="text-gray-500 text-xs">+{country.dial}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── Main Page ─── */
 export default function CapturePage() {
   const { slug } = useParams<{ slug: string }>();
@@ -168,6 +236,7 @@ export default function CapturePage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({ name: '', email: '', phone: '' });
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0]); // Brasil
 
   useEffect(() => { if (slug) loadData(); }, [slug]);
 
@@ -210,24 +279,35 @@ export default function CapturePage() {
   };
 
   const formatPhone = (value: string) => {
-    const digits = value.replace(/\D/g, '').slice(0, 11);
-    if (digits.length <= 2) return digits;
-    if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
-    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+    const digits = value.replace(/\D/g, '').slice(0, selectedCountry.maxDigits);
+    // Brazil-specific formatting
+    if (selectedCountry.code === 'BR') {
+      if (digits.length <= 2) return digits;
+      if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+      return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+    }
+    // US formatting
+    if (selectedCountry.code === 'US') {
+      if (digits.length <= 3) return digits;
+      if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+      return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+    }
+    // Generic: just add spaces every 3 digits
+    return digits.replace(/(\d{3})(?=\d)/g, '$1 ').trim();
   };
 
   const isFieldValid = (field: string) => {
     if (!touched[field]) return false;
     const value = form[field as keyof typeof form];
     if (field === 'name') return value.trim().length >= 2;
-    if (field === 'email') return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-    if (field === 'phone') return value.replace(/\D/g, '').length >= 10;
+    if (field === 'email') return /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value);
+    if (field === 'phone') return value.replace(/\D/g, '').length >= (selectedCountry.maxDigits - 2);
     return false;
   };
 
   const validCount = useMemo(() =>
     ['name', 'email', 'phone'].filter(f => isFieldValid(f)).length
-  , [form, touched]);
+  , [form, touched, selectedCountry]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -243,7 +323,7 @@ export default function CapturePage() {
     setErrors({});
     setSubmitting(true);
     try {
-      const phoneDigits = form.phone.replace(/\D/g, '');
+      const phoneDigits = selectedCountry.dial + form.phone.replace(/\D/g, '');
       await supabase.from('quiz_submissions_new').insert({
         name: form.name.trim(), email: form.email.trim(), phone: phoneDigits,
         organization_id: consultant.organization_id, consultant_id: consultant.id,
@@ -286,12 +366,10 @@ export default function CapturePage() {
   const fields = [
     { key: 'name', icon: User, placeholder: 'Seu nome completo', type: 'text', maxLength: 100, step: 1 },
     { key: 'email', icon: Mail, placeholder: 'Seu melhor email', type: 'email', maxLength: 255, step: 2 },
-    { key: 'phone', icon: Phone, placeholder: '(00) 00000-0000', type: 'tel', maxLength: 16, step: 3 },
   ];
 
   return (
     <div className="min-h-screen bg-[#0D0D0D] relative overflow-hidden">
-      {/* CSS for float animation */}
       <style>{`
         @keyframes float {
           0% { transform: translateY(0px) translateX(0px); }
@@ -304,7 +382,6 @@ export default function CapturePage() {
         }
       `}</style>
 
-      {/* Background image mode */}
       {isBackground && (
         <div className="absolute inset-0">
           <img src={config.hero_image!} alt="" className="w-full h-full object-cover opacity-15" />
@@ -312,15 +389,13 @@ export default function CapturePage() {
         </div>
       )}
 
-      {/* Floating orbs */}
       <FloatingOrb color={config.button_color} size={500} top="-10%" left="-5%" delay="0s" />
       <FloatingOrb color={config.button_color} size={350} top="60%" left="75%" delay="2s" />
       <FloatingOrb color="#ffffff" size={200} top="30%" left="50%" delay="4s" />
 
-      {/* Background gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#EB6608]/5 via-transparent to-[#EB6608]/3" />
 
-      <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4 py-12">
+      <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-5 py-12">
         <div className={cn("w-full max-w-lg space-y-8", isLeft && "max-w-xl")}>
           
           {isLeft ? (
@@ -349,44 +424,46 @@ export default function CapturePage() {
 
           {/* Progress indicator */}
           <div className="animate-[fade-in_0.6s_0.3s_ease-out_both]">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-gray-500 font-medium">Progresso</span>
-              <span className="text-xs font-semibold" style={{ color: config.button_color }}>{validCount}/3 campos</span>
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-xs text-gray-500 font-medium tracking-wide uppercase">Progresso</span>
+              <span className="text-xs font-bold" style={{ color: config.button_color }}>{validCount}/3 campos</span>
             </div>
-            <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
-              <div className="h-full rounded-full transition-all duration-500" style={{ width: `${(validCount / 3) * 100}%`, backgroundColor: config.button_color }} />
+            <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden">
+              <div 
+                className="h-full rounded-full transition-all duration-500 ease-out" 
+                style={{ width: `${(validCount / 3) * 100}%`, backgroundColor: config.button_color }} 
+              />
             </div>
           </div>
 
           {/* Form Card */}
           <form onSubmit={handleSubmit} className="space-y-6 animate-[fade-in_0.6s_0.4s_ease-out_both]">
-            <div className="bg-white/[0.04] backdrop-blur-2xl border border-white/[0.10] rounded-3xl p-8 space-y-6 shadow-2xl"
+            <div className="bg-white/[0.04] backdrop-blur-2xl border border-white/[0.10] rounded-3xl p-8 sm:p-10 space-y-7 shadow-2xl"
               style={{ boxShadow: `0 25px 60px -12px ${config.button_color}15, 0 0 0 1px ${config.button_color}10` }}>
               
+              {/* Name & Email fields */}
               {fields.map((field, i) => {
                 const Icon = field.icon;
                 return (
                   <div key={field.key} className="space-y-1.5" style={{ animationDelay: `${0.5 + i * 0.1}s`, animation: 'fade-in 0.5s ease-out both' }}>
                     <div className="relative">
-                      {/* Step number */}
-                      <div className="absolute -left-1.5 -top-1.5 w-6 h-6 rounded-full text-[11px] font-bold flex items-center justify-center z-10 transition-colors duration-300"
+                      <div className="absolute -left-2 -top-2 w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center z-10 transition-colors duration-300"
                         style={{
                           backgroundColor: isFieldValid(field.key) ? '#22c55e' : `${config.button_color}30`,
                           color: isFieldValid(field.key) ? 'white' : config.button_color,
                         }}>
-                        {isFieldValid(field.key) ? <Check className="w-3 h-3" /> : field.step}
+                        {isFieldValid(field.key) ? <Check className="w-3.5 h-3.5" /> : field.step}
                       </div>
-                      <Icon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 transition-colors duration-300" />
+                      <Icon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 transition-colors duration-300" />
                       <input
                         type={field.type}
                         placeholder={field.placeholder}
                         value={form[field.key as keyof typeof form]}
                         onChange={(e) => {
-                          const val = field.key === 'phone' ? formatPhone(e.target.value) : e.target.value;
-                          setForm({ ...form, [field.key]: val });
+                          setForm({ ...form, [field.key]: e.target.value });
                           setTouched(t => ({ ...t, [field.key]: true }));
                         }}
-                        className="w-full h-14 pl-12 pr-10 bg-white/[0.05] border border-white/[0.08] rounded-xl text-white placeholder:text-gray-500/70 focus:outline-none transition-all duration-300 text-base"
+                        className="w-full h-[60px] pl-13 pr-10 bg-white/[0.05] border border-white/[0.08] rounded-xl text-white placeholder:text-gray-500/70 focus:outline-none transition-all duration-300 text-[17px]"
                         style={{ boxShadow: 'none' }}
                         onFocus={(e) => {
                           e.target.style.boxShadow = `0 0 0 2px ${focusRingColor}40, 0 0 30px ${focusRingColor}10`;
@@ -401,20 +478,75 @@ export default function CapturePage() {
                         maxLength={field.maxLength}
                       />
                       {isFieldValid(field.key) && (
-                        <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-400 animate-[scale-in_0.2s_ease-out]" />
+                        <Check className="absolute right-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-green-400 animate-[scale-in_0.2s_ease-out]" />
                       )}
                     </div>
                     {errors[field.key] && <p className="text-xs text-red-400 pl-1">{errors[field.key]}</p>}
                   </div>
                 );
               })}
+
+              {/* Phone field with country selector */}
+              <div className="space-y-1.5" style={{ animationDelay: '0.7s', animation: 'fade-in 0.5s ease-out both' }}>
+                <div className="relative">
+                  <div className="absolute -left-2 -top-2 w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center z-10 transition-colors duration-300"
+                    style={{
+                      backgroundColor: isFieldValid('phone') ? '#22c55e' : `${config.button_color}30`,
+                      color: isFieldValid('phone') ? 'white' : config.button_color,
+                    }}>
+                    {isFieldValid('phone') ? <Check className="w-3.5 h-3.5" /> : 3}
+                  </div>
+                  <div className="flex h-[60px] bg-white/[0.05] border border-white/[0.08] rounded-xl overflow-hidden transition-all duration-300"
+                    id="phone-container">
+                    <CountrySelector 
+                      selected={selectedCountry} 
+                      onSelect={(c) => { 
+                        setSelectedCountry(c); 
+                        setForm(f => ({ ...f, phone: '' })); 
+                      }}
+                      buttonColor={config.button_color}
+                    />
+                    <input
+                      type="tel"
+                      placeholder={selectedCountry.code === 'BR' ? '(00) 00000-0000' : selectedCountry.mask.replace(/#/g, '0')}
+                      value={form.phone}
+                      onChange={(e) => {
+                        const val = formatPhone(e.target.value);
+                        setForm({ ...form, phone: val });
+                        setTouched(t => ({ ...t, phone: true }));
+                      }}
+                      className="flex-1 h-full pl-3 pr-10 bg-transparent text-white placeholder:text-gray-500/70 focus:outline-none transition-all duration-300 text-[17px]"
+                      onFocus={() => {
+                        const el = document.getElementById('phone-container');
+                        if (el) {
+                          el.style.boxShadow = `0 0 0 2px ${focusRingColor}40, 0 0 30px ${focusRingColor}10`;
+                          el.style.borderColor = `${focusRingColor}40`;
+                          el.style.background = `rgba(255,255,255,0.07)`;
+                        }
+                      }}
+                      onBlur={() => {
+                        const el = document.getElementById('phone-container');
+                        if (el) {
+                          el.style.boxShadow = 'none';
+                          el.style.borderColor = 'rgba(255,255,255,0.08)';
+                          el.style.background = 'rgba(255,255,255,0.05)';
+                        }
+                      }}
+                      maxLength={16}
+                    />
+                    {isFieldValid('phone') && (
+                      <Check className="absolute right-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-green-400 animate-[scale-in_0.2s_ease-out]" />
+                    )}
+                  </div>
+                </div>
+                {errors.phone && <p className="text-xs text-red-400 pl-1">{errors.phone}</p>}
+              </div>
             </div>
 
             {/* CTA Button with shimmer */}
             <button type="submit" disabled={submitting}
               className="relative w-full h-16 rounded-2xl text-white font-bold text-xl shadow-lg transition-all duration-300 hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 overflow-hidden"
               style={{ backgroundColor: config.button_color, boxShadow: `0 8px 30px ${config.button_color}40` }}>
-              {/* Shimmer effect */}
               <div className="absolute inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute inset-0 opacity-20"
                   style={{
@@ -431,9 +563,9 @@ export default function CapturePage() {
 
           {/* Security badge */}
           <div className="flex items-center justify-center gap-2.5 animate-[fade-in_0.6s_0.6s_ease-out_both]">
-            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.05] border border-white/[0.08]">
-              <Shield className="w-3.5 h-3.5 text-green-500/70" />
-              <p className="text-[11px] text-gray-400 font-medium">
+            <div className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-white/[0.05] border border-white/[0.08]">
+              <Shield className="w-4 h-4 text-green-500/70" />
+              <p className="text-xs text-gray-400 font-medium">
                 Seus dados estão protegidos e não serão compartilhados.
               </p>
             </div>
@@ -443,3 +575,4 @@ export default function CapturePage() {
     </div>
   );
 }
+
