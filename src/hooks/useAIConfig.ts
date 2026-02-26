@@ -46,7 +46,7 @@ const DEFAULT_CONFIG: AIConfigFormData = {
   model: 'google/gemini-3-flash-preview',
   temperature: 0.7,
   max_tokens: 500,
-  auto_reply: true,
+  auto_reply: false,
   pause_on_human_minutes: 120,
   greeting_message: null,
   farewell_message: null,

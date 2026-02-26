@@ -115,7 +115,7 @@ function ThankYouPage({ config, form }: { config: CaptureConfig; form: { name: s
           <AnimatedCheck />
           <h1 className="text-3xl font-bold text-white">Obrigado, {firstName}!</h1>
           <p className="text-gray-400 text-lg">Enquanto aguarda nosso contato, confira o link abaixo:</p>
-          <a href={config.redirect_url} target="_blank" rel="noopener noreferrer"
+          <a href={config.redirect_url.match(/^https?:\/\//) ? config.redirect_url : `https://${config.redirect_url}`} target="_blank" rel="noopener noreferrer"
             className="inline-flex items-center gap-2 px-8 py-4 rounded-xl text-white font-bold text-lg transition-all hover:scale-[1.02] hover:shadow-xl"
             style={{ backgroundColor: config.button_color, boxShadow: `0 8px 30px ${config.button_color}40` }}>
             Acessar agora
