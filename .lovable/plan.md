@@ -1,39 +1,61 @@
 
 
-## Plano: 4 Correções
+## Plano: Instagram Data Import + Cron + Prefetch Pages
 
-### 1. Redirect URL relativo na página de captura
-**Problema**: Quando o usuário configura `instagram.com` como URL de redirecionamento, o browser interpreta como caminho relativo (`/c/instagram.com`). Falta o prefixo `https://`.
+### 1. Inserir 9 perfis Instagram + métricas históricas no banco
 
-**Fix em `src/pages/CapturePage.tsx`** (linha ~118):
-- Criar uma função `ensureAbsoluteUrl(url)` que adiciona `https://` se a URL não começar com `http://` ou `https://`
-- Aplicar na `href` do link de redirecionamento (linha 118)
+Usar a ferramenta de insert SQL para:
+- Primeiro buscar o `organization_id` do usuário atual
+- Inserir 9 perfis na tabela `insta_profiles` com os dados fornecidos (username, display_name, category)
+- Inserir todas as métricas históricas na tabela `insta_follower_metrics` (aproximadamente 220 registros)
 
-### 2. Dashboard não atualiza leads em tempo real
-**Problema**: `AdminDashboard.tsx` (linha 28) invalida `['all-leads-consultant']`, mas a query real em `ConsultantDashboard.tsx` (linha 55) usa `['all-leads-consultant', currentUser.id]`. As keys não batem.
+**Perfis:**
+| Username | Display Name | Categoria |
+|---|---|---|
+| brenonogueiraferraz | Breno Nogueira \| Top Brasil ✱ | Líder |
+| davidfernandesaz | David Fernandes \| Proteção Veicular | Gerente |
+| dioleno.topbrasil | Dioleno \| Top Brasil | Consultor |
+| gabrielquinteiroo | Gabriel Quinteiro | Consultor |
+| cris.topbrasil | Cris \| Top Brasil | Consultor |
+| danilo.embaixador | Danilo Embaixador | Embaixador |
+| loysegurgel | Loyse Gurgel | Gerente |
+| paulinho.topbrasil | Paulinho \| Top Brasil | Consultor |
+| thiagopinheiro.oficial | Thiago Pinheiro | Diretor |
 
-**Fix em `src/pages/AdminDashboard.tsx`**:
-- Alterar a invalidação para usar `queryKey: ['all-leads-consultant']` com `exact: false` para invalidar todas as queries que começam com esse prefixo
-- Alternativa mais simples: já funciona sem `exact` por padrão no React Query v5 - o problema é que o `currentUser` pode não estar disponível quando o channel é criado. Verificar e adicionar `currentUser?.id` como dependência
+### 2. Configurar cron job para atualização automática diária
 
-### 3. Página do Agente IA lenta para carregar
-**Problema**: A query `['ai-agent-config']` não é prefetchada no `usePrefetchAdminData`.
+Usar SQL insert para criar um cron job via `pg_cron` + `pg_net` que chama a edge function `insta-scheduled-update` uma vez por dia (ex: às 06:00 UTC). A edge function já existe e chama `insta-update-profiles` internamente.
 
-**Fix em `src/hooks/usePrefetchAdminData.ts`**:
-- Adicionar prefetch da config do AI Agent: buscar `ai_agent_configs` por `user_id` e salvar no cache com key `['ai-agent-config']`
+### 3. Sobre o QR Code do CRM
 
-### 4. Agente IA deve vir desativado por padrão
-**Problema**: O `DEFAULT_CONFIG` em `useAIConfig.ts` (linha 49) tem `auto_reply: true`.
+Preciso investigar os logs da edge function `crm-get-qrcode` para entender a falha. O código parece correto — o problema pode ser na Evolution API (URL/KEY incorretas, instância não criada, etc.). Vou verificar os logs e, se necessário, ajustar a edge function.
 
-**Fix em `src/hooks/useAIConfig.ts`**:
-- Alterar `auto_reply: true` para `auto_reply: false` no `DEFAULT_CONFIG` (linha 49)
+### 4. Prefetch de páginas (já parcialmente implementado)
+
+O `usePrefetchAdminData` já faz prefetch de quase todas as páginas. Porém, as query keys do prefetch nem sempre batem com as keys usadas nas páginas. Vou alinhar:
+
+| Página | Query Key usada | Prefetch atual | Fix necessário |
+|---|---|---|---|
+| Dashboard | `['all-leads-consultant', userId]` | `['pipeline-leads', userId]` (diferente!) | Adicionar prefetch com key correta |
+| Leads | `['pipeline-stages', orgId]` | `['pipeline-stages']` (sem orgId!) | Corrigir key no prefetch |
+| Pipeline | `['pipeline-stages', orgId]`, `['pipeline-leads', userId]` | Parcial | Alinhar keys |
+| CRM | `['conversations', 'all', '']` | OK | — |
+| Analytics | `['quiz-submissions-analytics', '30', userId]` | OK | — |
+| Ranking | `['unified-ranking', 'all', 'now']` | OK | — |
+| Settings | `['current-user-settings']`, `['quiz-questions', userId]` | OK | — |
+
+**Mudanças em `src/hooks/usePrefetchAdminData.ts`:**
+- Adicionar prefetch com key `['all-leads-consultant', userId]` para o Dashboard
+- Corrigir prefetch de pipeline-stages para usar key `['pipeline-stages', orgId]`
+- Adicionar prefetch de `['pipeline-stages-filter']` para ConversationList do CRM
 
 ### Arquivos a editar
-
 | Arquivo | Mudança |
 |---|---|
-| `src/pages/CapturePage.tsx` | Adicionar `ensureAbsoluteUrl()` no href do redirect |
-| `src/pages/AdminDashboard.tsx` | Corrigir query key da invalidação realtime |
-| `src/hooks/usePrefetchAdminData.ts` | Adicionar prefetch do AI config |
-| `src/hooks/useAIConfig.ts` | Mudar `auto_reply` default para `false` |
+| `src/hooks/usePrefetchAdminData.ts` | Alinhar query keys do prefetch com as páginas |
+| SQL (insert tool) | Inserir perfis + métricas Instagram |
+| SQL (insert tool) | Criar cron job diário para `insta-scheduled-update` |
+
+### Sobre o QR Code
+Vou verificar os edge function logs para diagnosticar a falha no escaneamento do QR Code antes de propor uma correção.
 
