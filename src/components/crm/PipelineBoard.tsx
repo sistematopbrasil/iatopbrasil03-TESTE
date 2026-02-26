@@ -112,22 +112,21 @@ export function PipelineBoard() {
   });
 
   // Helper para verificar se é stage "Novos Consultores"
-  const isNovosConsultoresStage = (stageName: string | null | undefined) => {
+  const isConsultorStage = (stageName: string | null | undefined) => {
     if (!stageName) return false;
-    const lower = stageName.toLowerCase();
-    return lower.includes('novo') && lower.includes('consultor');
+    return stageName.toLowerCase().includes('consultor');
   };
 
   // ⚠️ Pontuação agora é gerenciada pelo trigger no banco (sync_ranking_consultants_recruited)
   // Este helper apenas exibe feedback visual, mas a lógica real está no backend
   const showPointsFeedback = (previousStageName: string | null, newStageName: string | null) => {
-    const wasInNovosConsultores = isNovosConsultoresStage(previousStageName);
-    const isNowInNovosConsultores = isNovosConsultoresStage(newStageName);
+    const wasConsultor = isConsultorStage(previousStageName);
+    const isNowConsultor = isConsultorStage(newStageName);
 
-    if (!wasInNovosConsultores && isNowInNovosConsultores) {
-      toast.success('🎯 +100 pontos! Lead convertido em consultor!');
-    } else if (wasInNovosConsultores && !isNowInNovosConsultores) {
-      toast.info('📉 -100 pontos - Lead removido de Novos Consultores');
+    if (!wasConsultor && isNowConsultor) {
+      toast.success('🎯 +100 pontos! Lead se tornou consultor!');
+    } else if (wasConsultor && !isNowConsultor) {
+      toast.info('📉 -100 pontos - Lead removido de Consultor');
     }
     // Atualizar ranking na UI
     queryClient.invalidateQueries({ queryKey: ['ranking'] });
@@ -174,11 +173,10 @@ export function PipelineBoard() {
       // Exibir feedback visual e invalidar ranking
       showPointsFeedback(data?.previousStageName, data?.newStageName);
       
-      const wasInNovosConsultores = isNovosConsultoresStage(data?.previousStageName);
-      const isNowInNovosConsultores = isNovosConsultoresStage(data?.newStageName);
+      const wasConsultor = isConsultorStage(data?.previousStageName);
+      const isNowConsultor = isConsultorStage(data?.newStageName);
       
-      // Se não foi entrar/sair de Novos Consultores, feedback genérico
-      if (wasInNovosConsultores === isNowInNovosConsultores) {
+      if (wasConsultor === isNowConsultor) {
         toast.success('Lead movido com sucesso!');
       }
       
