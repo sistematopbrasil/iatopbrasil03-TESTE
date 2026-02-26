@@ -668,6 +668,9 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
     };
 
     const ConsultantImage = () => {
+      // Se não tem imagem configurada, não renderizar nada
+      if (!consultant?.quiz_cover_image) return null;
+
       const sizeClass = imageSizeClasses[imageSize] || imageSizeClasses.medium;
       const shapeClass = imageShapeClasses[imageShape] || imageShapeClasses.rounded;
       const shadowShapeClass = shadowShapeClasses[imageShape] || shadowShapeClasses.rounded;
@@ -675,36 +678,23 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
       return (
         <div className="mb-8 flex justify-center">
           <div className="relative group">
-            {consultant?.quiz_cover_image ? (
-              <>
-                {/* Shadow container - same shape as image */}
-                <div 
-                  className={`absolute inset-0 bg-[#EB6608] opacity-40 blur-2xl group-hover:opacity-50 transition duration-500 ${shadowShapeClass}`}
-                  style={{ transform: 'scale(1.1)' }}
-                ></div>
-                {/* Image container */}
-                <div className={`relative overflow-hidden border-2 border-[#EB6608]/30 ${sizeClass} ${shapeClass}`}>
-                  <img 
-                    src={consultant.quiz_cover_image} 
-                    alt={consultant.full_name || "Consultor TOP Brasil"} 
-                    className={`w-full h-full object-cover ${imageShape === 'circle' ? 'aspect-square' : ''}`}
-                    onError={(e) => {
-                      console.error('Erro ao carregar imagem:', consultant.quiz_cover_image);
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
-                </div>
-              </>
-            ) : (
-              <div className={`relative overflow-hidden bg-[#2A2A2A] border-2 border-[#EB6608]/30 h-48 flex items-center justify-center ${sizeClass} ${shapeClass}`}>
-                <div className="text-center">
-                  <div className="w-14 h-14 mx-auto mb-2 rounded-full bg-[#EB6608]/20 flex items-center justify-center">
-                    <span className="text-2xl">👤</span>
-                  </div>
-                  <span className="text-gray-400 text-sm">{consultant?.full_name || 'Consultor TOP Brasil'}</span>
-                </div>
-              </div>
-            )}
+            {/* Shadow container - same shape as image */}
+            <div 
+              className={`absolute inset-0 bg-[#EB6608] opacity-40 blur-2xl group-hover:opacity-50 transition duration-500 ${shadowShapeClass}`}
+              style={{ transform: 'scale(1.1)' }}
+            ></div>
+            {/* Image container */}
+            <div className={`relative overflow-hidden border-2 border-[#EB6608]/30 ${sizeClass} ${shapeClass}`}>
+              <img 
+                src={consultant.quiz_cover_image} 
+                alt={consultant.full_name || "Consultor TOP Brasil"} 
+                className={`w-full h-full object-cover ${imageShape === 'circle' ? 'aspect-square' : ''}`}
+                onError={(e) => {
+                  console.error('Erro ao carregar imagem:', consultant.quiz_cover_image);
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+            </div>
           </div>
         </div>
       );
