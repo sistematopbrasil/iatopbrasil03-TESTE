@@ -1,32 +1,38 @@
 
 
-## Plano: Fix Pipeline Flash + Country Selector
+## Plano: Fix Country Selector + Ranking Loading Speed
 
-### 1. Pipeline - Flash "Nenhum quadro configurado"
+### 1. Country Selector - Background transparente, poucos países, sem DDI manual funcional
 
-**Causa real**: A query `currentUser` não rastreia `isLoading`. Quando `currentUser` está carregando, as queries de stages e leads estão **desabilitadas** (`enabled: false`), então `stagesLoading` e `isLoading` são `false`. O código cai direto no `stages.length === 0`.
+**Problemas no screenshot:**
+- Background do dropdown ainda transparente (o `bg-[#1a1a1a]` pode estar sendo sobreposto ou o container pai ainda tem `overflow-hidden`)
+- Poucos países na lista (apenas 9)
+- Precisa de mais países e a opção de DDI manual precisa funcionar melhor
 
-**Fix em `PipelineBoard.tsx`**:
-- Extrair `isLoading: userLoading` da query `current-user-pipeline` (linha 57)
-- Na condição de loading (linha 245): `if (userLoading || isLoading || stagesLoading)`
+**Fix em `CapturePage.tsx`:**
+- Expandir lista de COUNTRIES para ~30 países (incluir todos da América Latina, Europa principais, Ásia principais, África principais)
+- Garantir background sólido no dropdown: `bg-[#1a1a1a]` com `backdrop-blur-none` explícito para evitar herança de transparência
+- Verificar se algum container pai (o campo de telefone) ainda tem `overflow-hidden` que corta o dropdown
+- Melhorar a opção de DDI manual: ao não encontrar país na busca, mostrar automaticamente o campo de DDI customizado (sem precisar clicar "Outro DDI")
+- Adicionar `overscroll-contain` no scroll do dropdown
 
-### 2. Country Selector - Dropdown transparente e sem scroll
+### 2. Ranking - Demora para carregar
 
-**Problemas**:
-- O dropdown tem `bg-[#1a1a1a]` mas pode estar cortado pelo container pai
-- Não tem `max-height` nem `overflow-y: auto` para scroll quando há muitos países
-- Não tem campo de busca nem opção de digitar DDI manual
+**Causa**: O prefetch em `usePrefetchAdminData` salva o cache com query key `['unified-ranking', null, periodEndStr]` onde `periodEndStr` é calculado no momento do prefetch. Mas `AdminRanking` calcula seu próprio `periodEnd` via `useMemo` com timestamp diferente. As keys não batem, então o prefetch é ignorado.
 
-**Fix em `CapturePage.tsx` (CountrySelector, linhas 193-225)**:
-- Adicionar `max-h-[300px] overflow-y-auto` no dropdown para permitir scroll
-- Adicionar campo de busca no topo do dropdown (input text para filtrar por nome ou DDI)
-- Adicionar opção "Outro" no final da lista que permite digitar DDI manualmente
-- Garantir `z-50` e `bg-[#1a1a1a]` sólido (já está, mas verificar se não é sobrescrito)
+**Fix em `useRankingData.ts` + `AdminRanking.tsx` + `usePrefetchAdminData.ts`:**
+- Padronizar query key: quando `period === 'all'`, usar key fixa `['unified-ranking', 'all', 'now']` (sem timestamp dinâmico)
+- No `useRankingData`, quando `periodEnd` é null, usar `'now'` na queryKey (já faz isso) mas resolver o `periodEnd` real só dentro do `queryFn`
+- No `usePrefetchAdminData`, salvar com a mesma key `['unified-ranking', 'all', 'now']`
+- No `AdminRanking`, quando period é "all", passar `periodStart: null, periodEnd: null` (para bater com a key do prefetch)
+- Aumentar `staleTime` do ranking para 30s (dados não mudam tão rápido)
 
 ### Arquivos a editar
 
 | Arquivo | Mudança |
 |---|---|
-| `src/components/crm/PipelineBoard.tsx` | Adicionar `userLoading` na condição de loading |
-| `src/pages/CapturePage.tsx` | Scroll no dropdown, campo de busca, opção DDI manual |
+| `src/pages/CapturePage.tsx` | Expandir países, fix background sólido, DDI manual automático |
+| `src/pages/AdminRanking.tsx` | Passar `periodEnd: null` quando period é "all" |
+| `src/hooks/useRankingData.ts` | Aumentar staleTime para 30s |
+| `src/hooks/usePrefetchAdminData.ts` | Usar query key `['unified-ranking', 'all', 'now']` no prefetch |
 
