@@ -447,7 +447,7 @@ export default function CapturePage() {
                 return (
                   <div key={field.key} className="space-y-1.5" style={{ animationDelay: `${0.5 + i * 0.1}s`, animation: 'fade-in 0.5s ease-out both' }}>
                     <div className="relative">
-                      <div className="absolute -left-2 -top-2 w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center z-10 transition-colors duration-300"
+                      <div className="absolute -left-3.5 -top-3.5 w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center z-10 transition-colors duration-300"
                         style={{
                           backgroundColor: isFieldValid(field.key) ? '#22c55e' : `${config.button_color}30`,
                           color: isFieldValid(field.key) ? 'white' : config.button_color,
@@ -463,7 +463,7 @@ export default function CapturePage() {
                           setForm({ ...form, [field.key]: e.target.value });
                           setTouched(t => ({ ...t, [field.key]: true }));
                         }}
-                        className="w-full h-[60px] pl-13 pr-10 bg-white/[0.05] border border-white/[0.08] rounded-xl text-white placeholder:text-gray-500/70 focus:outline-none transition-all duration-300 text-[17px]"
+                        className="w-full h-[60px] pl-12 pr-10 bg-white/[0.05] border border-white/[0.08] rounded-xl text-white placeholder:text-gray-500/70 focus:outline-none transition-all duration-300 text-[17px]"
                         style={{ boxShadow: 'none' }}
                         onFocus={(e) => {
                           e.target.style.boxShadow = `0 0 0 2px ${focusRingColor}40, 0 0 30px ${focusRingColor}10`;
@@ -489,14 +489,14 @@ export default function CapturePage() {
               {/* Phone field with country selector */}
               <div className="space-y-1.5" style={{ animationDelay: '0.7s', animation: 'fade-in 0.5s ease-out both' }}>
                 <div className="relative">
-                  <div className="absolute -left-2 -top-2 w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center z-10 transition-colors duration-300"
+                  <div className="absolute -left-3.5 -top-3.5 w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center z-10 transition-colors duration-300"
                     style={{
                       backgroundColor: isFieldValid('phone') ? '#22c55e' : `${config.button_color}30`,
                       color: isFieldValid('phone') ? 'white' : config.button_color,
                     }}>
                     {isFieldValid('phone') ? <Check className="w-3.5 h-3.5" /> : 3}
                   </div>
-                  <div className="flex h-[60px] bg-white/[0.05] border border-white/[0.08] rounded-xl overflow-hidden transition-all duration-300"
+                  <div className="flex h-[60px] bg-white/[0.05] border border-white/[0.08] rounded-xl transition-all duration-300"
                     id="phone-container">
                     <CountrySelector 
                       selected={selectedCountry} 
