@@ -1,46 +1,56 @@
 
+## Plano: Fix Pipeline, Melhorar Captura e Otimizar Pre-carregamento
 
-## Plano: Corrigir Pipeline + Melhorar Quiz Welcome + Redesign Captura
+### 1. Pipeline - Causa raiz do erro
 
-### 1. Corrigir erro "Erro ao mover lead" no Pipeline
+**Problema encontrado**: A tabela `pipeline_stages` esta **VAZIA**. O codigo `PipelineBoard.tsx` usa DEFAULT_STAGES com IDs como `'default-novo'`, `'default-contatado'` - que **nao sao UUIDs validos**. A coluna `pipeline_stage_id` e do tipo UUID com FK para `pipeline_stages(id)`. Ao arrastar um lead, o UPDATE tenta setar um valor invalido e o PostgreSQL rejeita.
 
-**Causa raiz**: O trigger `update_temperature_on_pipeline_move` define `NEW.temperature := 'cold'` sem fazer cast para o tipo enum `lead_temperature`. O PostgreSQL nao consegue converter implicitamente e o UPDATE falha.
+**Solucao**: Migracao SQL para inserir os stages padrao na tabela `pipeline_stages` para cada organizacao existente. Isso garante que os IDs sejam UUIDs validos e o drag-and-drop funcione. Tambem atualizar `PipelineBoard.tsx` para nunca usar DEFAULT_STAGES com IDs falsos - em vez disso, criar os stages no banco se nao existirem.
 
-**Correcao**: Migracao SQL para recriar o trigger com cast explicito:
+**Migracao:**
 ```sql
-NEW.temperature := 'cold'::lead_temperature;
-NEW.temperature := 'warm'::lead_temperature;
-NEW.temperature := 'hot'::lead_temperature;
+INSERT INTO pipeline_stages (organization_id, name, color, icon, order_index)
+SELECT o.id, s.name, s.color, s.icon, s.order_index
+FROM organizations o
+CROSS JOIN (VALUES
+  ('Novos Leads', '#3B82F6', 'trending-up', 0),
+  ('Contato Inicial', '#8B5CF6', 'phone', 1),
+  ('Qualificados', '#F59E0B', 'sparkles', 2),
+  ('Convertidos', '#10B981', 'check-circle', 3),
+  ('Descartados', '#EF4444', 'x-circle', 4)
+) AS s(name, color, icon, order_index)
+WHERE NOT EXISTS (
+  SELECT 1 FROM pipeline_stages ps WHERE ps.organization_id = o.id
+);
 ```
 
-Tambem aplicar o mesmo fix no `calculate_lead_score` trigger que ja tem o cast correto (confirmar consistencia).
+**PipelineBoard.tsx**: Remover fallback DEFAULT_STAGES. Se `customStages` estiver vazio, mostrar mensagem orientando o usuario a configurar os quadros. Nao permitir drag com IDs invalidos.
 
 ---
 
-### 2. Quiz Welcome Screen sem foto
+### 2. Pagina de Captura - Campos maiores e visual melhorado
 
-**Problema**: Quando o consultor nao configura foto, aparece um placeholder cinza com icone generico que prejudica a aparencia.
-
-**Solucao**: Remover o placeholder visual quando nao ha foto. A pagina deve fluir naturalmente sem a imagem - titulo, subtitulo e botao ficam centralizados sem o bloco de imagem vazio. O componente `ConsultantImage` retorna `null` quando `quiz_cover_image` e null/vazio.
-
-**Mudanca em `QuizContainer.tsx` (linhas ~670-711)**:
-- Se `consultant?.quiz_cover_image` for falsy, `ConsultantImage` retorna `null`
-- Sem placeholder, sem bloco vazio - a pagina fica limpa com logo + titulo + subtitulo + botao
+**Mudancas em `CapturePage.tsx`:**
+- Aumentar altura dos inputs de `h-13` para `h-14` (56px) - campos mais confortaveis
+- Aumentar tamanho do texto dos inputs de `text-[15px]` para `text-base`
+- Aumentar `max-w-md` para `max-w-lg` para o container principal ter mais largura
+- Aumentar padding do form card de `p-7` para `p-8`
+- Espacamento entre campos de `space-y-5` para `space-y-6`
+- Icones dos campos de `w-4.5 h-4.5` para `w-5 h-5`
+- Step numbers de `w-5 h-5` para `w-6 h-6` com texto maior
+- Botao CTA de `h-14` para `h-16` com fonte maior
+- Progress bar com cor dinamica usando style inline (nao depender de CSS variable)
+- Badge de seguranca mais elegante com borda mais visivel
 
 ---
 
-### 3. Pagina de Captura - Design mais moderno e interativo
+### 3. Pre-carregamento otimizado
 
-**Mudancas em `CapturePage.tsx`**:
-
-- **Particulas/orbs animados no fundo**: Adicionar 2-3 orbs com animacao CSS de flutuacao lenta (keyframes float) para dar vida ao background
-- **Glassmorphism mais forte no card do form**: Aumentar o blur, adicionar borda com gradiente sutil
-- **Animacao de entrada escalonada**: Cada campo do form aparece com delay progressivo (0.1s, 0.2s, 0.3s)
-- **Efeito de hover no botao CTA**: Adicionar shimmer/brilho animado que passa pelo botao
-- **Indicador de progresso nos campos**: Barra fina abaixo do form que preenche conforme campos sao validados (0/3, 1/3, 2/3, 3/3)
-- **Step numbers nos campos**: Numeracao sutil (1, 2, 3) ao lado de cada campo para guiar o usuario
-- **Tipografia melhorada**: Titulo com gradient text (branco para cinza claro), peso mais forte
-- **Footer com selo de seguranca mais elegante**: Icone de cadeado com borda e fundo sutil
+O `usePrefetchAdminData.ts` ja existe e pre-carrega bastante dados. Melhorias:
+- Adicionar prefetch de **eventos** (tabela events)
+- Adicionar prefetch de **dashboard stats** (contagens de leads por periodo)
+- Garantir que o `staleTime` das queries individuais nas paginas seja compativel com o cache do prefetch (nao refetch se dados ja estao no cache)
+- Mover o hook para executar apenas UMA VEZ (nao em cada render do AdminLayout) usando um ref de controle
 
 ---
 
@@ -48,12 +58,13 @@ Tambem aplicar o mesmo fix no `calculate_lead_score` trigger que ja tem o cast c
 
 | Arquivo | Mudanca |
 |---|---|
-| Migracao SQL | Fix cast enum no trigger `update_temperature_on_pipeline_move` |
-| `src/components/quiz/QuizContainer.tsx` | Remover placeholder de imagem, retornar null quando sem foto |
-| `src/pages/CapturePage.tsx` | Redesign com animacoes, orbs, glassmorphism, progress bar, shimmer |
+| Migracao SQL | Inserir pipeline_stages padrao para organizacoes existentes |
+| `src/components/crm/PipelineBoard.tsx` | Remover DEFAULT_STAGES falsos, tratar estado vazio |
+| `src/pages/CapturePage.tsx` | Campos maiores, visual refinado |
+| `src/hooks/usePrefetchAdminData.ts` | Adicionar prefetch de eventos e dashboard, controle de execucao unica |
 
 ### Ordem
-1. Migracao SQL (fix pipeline)
-2. QuizContainer (welcome sem foto)
-3. CapturePage (redesign visual)
-
+1. Migracao SQL (criar stages reais)
+2. PipelineBoard (remover IDs falsos)
+3. CapturePage (visual)
+4. Prefetch (otimizar)
