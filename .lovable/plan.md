@@ -1,51 +1,48 @@
 
 
-## Diagnóstico Real (baseado nos logs)
+## Diagnóstico REAL dos bugs (encontrados no código)
 
-Identifiquei **dois problemas concretos** que se complementam para impedir as mensagens de aparecerem:
+### Bug 1: `chat.id` vs `chat.remoteJid` (CAUSA PRINCIPAL do sync falhando)
 
-### Problema 1: `webhook_by_events` NUNCA persiste como `false`
-
-Os logs do `crm-check-connection` mostram que **a cada 15 segundos** o sistema reconfigura o webhook:
-```text
-🔧 Reconfigurando webhook... { missingEvents: [], currentWebhookByEvents: true }
-✅ Webhook reconfigurado com webhook_by_events: false
+No `crm-sync-recent`, linha 239:
+```js
+const remoteJid = chat.id || chat.remoteJid;
 ```
-Mas na próxima verificação, `currentWebhookByEvents` volta a ser `true`. A Evolution API **não está persistindo** essa configuração. Quando `webhook_by_events = true`, a Evolution envia mensagens para `{url}/MESSAGES_UPSERT` em vez de `{url}` - o que resulta em 404, pois a Edge Function só escuta no path base. Eventos de conexão chegam (provavelmente vão sempre pro path base), mas **mensagens individuais nunca chegam**.
 
-### Problema 2: Sync encontra apenas números inválidos
+Os logs mostram que `chat.id` retorna um **CUID do banco** (`cmm573nlh4xifmf4jab2vidbm`), NÃO um JID WhatsApp. Enquanto `chat.remoteJid` tem o valor correto (`553399437134@s.whatsapp.net`).
 
-O `crm-sync-recent` encontra 3 chats, mas todos têm números de 6-7 dígitos (`573442`, `573449`, `5749442`). São provavelmente status broadcasts ou JIDs internos do WhatsApp, não conversas reais. Resultado: 0 conversas, 0 mensagens sincronizadas.
+Como `chat.id` vem primeiro e existe, o código usa o CUID, faz `.replace('@s.whatsapp.net', '')` que não altera nada, e `normalizePhone("cmm573nlh4xifmf4jab2vidbm")` retorna um hash inválido → filtrado como "número inválido". **Todos os 3 chats são descartados.**
 
-### Solução Definitiva (3 partes)
+**Fix**: Trocar `chat.id || chat.remoteJid` por `chat.remoteJid || chat.id` em TODOS os lugares do sync, e adicionar validação para só usar valores que contenham `@s.whatsapp.net`.
 
-#### Parte 1: Forçar `webhook_by_events: false` via endpoint correto
-O `/webhook/set` não está persistindo. Vamos usar o endpoint `/instance/update` que configura o webhook a nível de instância (mais persistente em algumas versões da Evolution API). Também vamos tentar deletar o webhook e recriar (`DELETE /webhook/delete` + `POST /webhook/set`).
+### Bug 2: Parsing errado do `webhookByEvents` (causa reconfigurações infinitas)
 
-Em `crm-check-connection/index.ts`:
-- Antes de reconfigar com `/webhook/set`, tentar `DELETE /webhook/delete/{instance}` e depois recriar
-- Se ainda não persistir, usar `PUT /instance/update/{instance}` com a configuração de webhook embarcada
+No `crm-check-connection`, linha 159:
+```js
+const currentWebhookByEvents = currentWebhook?.webhook?.webhook_by_events ?? currentWebhook?.webhook_by_events ?? true;
+```
 
-Em `crm-create-instance/index.ts`:
-- Mesma abordagem: deletar + recriar webhook após criar instância
+A API retorna `webhookByEvents` (camelCase), mas o código lê `webhook_by_events` (snake_case). Como não encontra, cai no default `true`, e tenta "reconfigar" algo que já está correto.
 
-#### Parte 2: Fazer o sync funcionar como fallback real
-O sync não encontra conversas reais porque `findChats` retorna apenas JIDs internos. Precisamos:
+As 3 tentativas de reconfiguraão falham (DELETE → 404, POST → 400, PUT → 404), potencialmente corrompendo o webhook funcional.
 
-1. **Logar o raw data** de findChats para debug (JSON.stringify dos primeiros 3 itens)
-2. **Adicionar endpoint alternativo**: usar `/message/findMessages/{instance}` com body `{}` para buscar todas as mensagens recentes, extrair os remoteJids únicos delas, e criar conversas a partir disso
-3. **Fallback por contatos existentes**: buscar leads/conversas já existentes no banco e sincronizar mensagens diretamente por `remoteJid` para cada um
+**Fix**: Ler AMBOS os formatos: `webhookByEvents` E `webhook_by_events`.
 
-Em `crm-sync-recent/index.ts`:
-- Após findChats retornar apenas números inválidos, tentar buscar mensagens recentes diretamente via `/chat/findMessages/{instance}` ou `/message/findMessages/{instance}` com body vazio/geral
-- Extrair remoteJids válidos das mensagens retornadas
-- Criar conversas e sincronizar mensagens normalmente
+### Bug 3: Mesmo bug `chat.id || chat.remoteJid` na linha 330
 
-#### Parte 3: Log de diagnóstico detalhado
-Adicionar logs temporários com o conteúdo raw das respostas da Evolution API para poder diagnosticar rapidamente se algo mudar.
+Linha 330 repete o mesmo padrão. Precisa ser corrigido também.
 
-### Arquivos a editar
-1. `supabase/functions/crm-check-connection/index.ts` - delete+recreate webhook, fallback para instance/update
-2. `supabase/functions/crm-create-instance/index.ts` - mesma lógica de delete+recreate
-3. `supabase/functions/crm-sync-recent/index.ts` - fallback para buscar mensagens diretamente quando findChats retorna lixo
+---
+
+## Arquivos a editar
+
+### 1. `supabase/functions/crm-sync-recent/index.ts`
+- **Linha 239**: Trocar `chat.id || chat.remoteJid` → usar lógica que prefere o valor que contém `@s.whatsapp.net`
+- **Linha 330**: Mesmo fix
+- Todas as outras referências a `chat.id || chat.remoteJid`
+
+### 2. `supabase/functions/crm-check-connection/index.ts`
+- **Linha 159**: Adicionar `webhookByEvents` (camelCase) ao parsing
+- Remover as estratégias de delete/recreate que falham com 404/400 (o webhook já está correto)
+- Simplificar para: se config está OK, não mexer
 
