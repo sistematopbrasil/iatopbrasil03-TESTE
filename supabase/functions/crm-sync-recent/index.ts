@@ -368,29 +368,45 @@ serve(async (req) => {
               .eq('id', conversation.id);
           }
 
-          // Buscar mensagens recentes
-          const messagesResult = await evolutionRequest(`/chat/findMessages/${instance.instance_name}`, {
-            method: 'POST',
-            body: JSON.stringify({
-              where: { key: { remoteJid } },
-              limit: messagesPerChat,
-            }),
-          });
-
-          if (!messagesResult.success) continue;
-
+          // Buscar mensagens recentes - tentar múltiplos endpoints
           let messages: any[] = [];
-          if (Array.isArray(messagesResult.data)) {
-            messages = messagesResult.data;
-          } else if (messagesResult.data?.messages && Array.isArray(messagesResult.data.messages)) {
-            messages = messagesResult.data.messages;
-          } else if (messagesResult.data && typeof messagesResult.data === 'object') {
-            const possibleMessages = Object.values(messagesResult.data).filter(
-              (m: any) => m && typeof m === 'object' && m.key
-            );
-            if (possibleMessages.length > 0) {
-              messages = possibleMessages;
+          
+          const messageEndpoints = [
+            { method: 'POST', url: `/chat/findMessages/${instance.instance_name}`, body: { where: { key: { remoteJid } }, limit: messagesPerChat } },
+            { method: 'POST', url: `/message/findMessages/${instance.instance_name}`, body: { where: { key: { remoteJid } }, limit: messagesPerChat } },
+            { method: 'GET', url: `/chat/findMessages/${instance.instance_name}/${remoteJid}?limit=${messagesPerChat}`, body: null },
+          ];
+          
+          for (const ep of messageEndpoints) {
+            const result = await evolutionRequest(ep.url, {
+              method: ep.method,
+              ...(ep.body ? { body: JSON.stringify(ep.body) } : {}),
+            });
+            
+            if (result.success) {
+              if (Array.isArray(result.data) && result.data.length > 0) {
+                messages = result.data;
+                console.log(`✅ ${ep.method} ${ep.url} retornou ${messages.length} msgs`);
+                break;
+              } else if (result.data?.messages && Array.isArray(result.data.messages) && result.data.messages.length > 0) {
+                messages = result.data.messages;
+                console.log(`✅ ${ep.method} ${ep.url} retornou ${messages.length} msgs (nested)`);
+                break;
+              } else if (result.data && typeof result.data === 'object') {
+                const possibleMessages = Object.values(result.data).filter(
+                  (m: any) => m && typeof m === 'object' && m.key
+                );
+                if (possibleMessages.length > 0) {
+                  messages = possibleMessages;
+                  console.log(`✅ ${ep.method} ${ep.url} retornou ${messages.length} msgs (object values)`);
+                  break;
+                }
+              }
             }
+          }
+          
+          if (messages.length === 0) {
+            console.log(`⚠️ Nenhum endpoint retornou mensagens para ${remoteJid}`);
           }
           
           console.log(`📨 ${messages.length} mensagens para processar`);
@@ -426,9 +442,19 @@ serve(async (req) => {
                 content = '[Mensagem]';
               }
 
-              const timestamp = msg.messageTimestamp 
-                ? new Date(Number(msg.messageTimestamp) * 1000).toISOString()
-                : new Date().toISOString();
+              let timestamp: string;
+              try {
+                const ts = msg.messageTimestamp;
+                if (ts && !isNaN(Number(ts))) {
+                  const num = Number(ts);
+                  // If timestamp is in seconds (< year 2100 in seconds), convert
+                  timestamp = new Date(num > 1e12 ? num : num * 1000).toISOString();
+                } else {
+                  timestamp = new Date().toISOString();
+                }
+              } catch {
+                timestamp = new Date().toISOString();
+              }
 
               const { error: msgError } = await supabaseAdmin
                 .from('crm_messages')

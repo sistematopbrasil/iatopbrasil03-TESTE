@@ -220,6 +220,12 @@ export function ConnectionPanel({ onOpenConversations, hideOpenConversationsButt
               </div>
             )}
 
+            {/* QR Code instruction */}
+            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-xs text-amber-800 dark:text-amber-200 max-w-xs text-center">
+              <p className="font-medium mb-1">⚠️ Importante</p>
+              <p>Após escanear, <strong>feche o WhatsApp no celular</strong> imediatamente. A conexão será confirmada automaticamente aqui. Não fique na tela de carregamento do celular.</p>
+            </div>
+
             <div className="flex flex-col items-center gap-2">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />

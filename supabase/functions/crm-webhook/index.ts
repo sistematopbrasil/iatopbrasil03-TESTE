@@ -700,7 +700,16 @@ serve(async (req) => {
             media_filename: mediaFilename,
             media_size: mediaSize,
             status: direction === 'outgoing' ? 'sent' : 'delivered',
-            timestamp: new Date(message.messageTimestamp * 1000).toISOString(),
+            timestamp: (() => {
+              try {
+                const ts = message.messageTimestamp;
+                if (ts && !isNaN(Number(ts))) {
+                  const num = Number(ts);
+                  return new Date(num > 1e12 ? num : num * 1000).toISOString();
+                }
+                return new Date().toISOString();
+              } catch { return new Date().toISOString(); }
+            })(),
             metadata: finalMetadata,
           };
           
