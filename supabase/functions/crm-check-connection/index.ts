@@ -156,7 +156,13 @@ serve(async (req) => {
         const configuredEvents = currentWebhook?.webhook?.events || currentWebhook?.events || [];
         const missingEvents = requiredEvents.filter(e => !configuredEvents.includes(e));
         
-        const currentWebhookByEvents = currentWebhook?.webhook?.webhook_by_events ?? currentWebhook?.webhook_by_events ?? true;
+        // ✅ FIX: Check BOTH camelCase (webhookByEvents) AND snake_case (webhook_by_events)
+        const currentWebhookByEvents = 
+          currentWebhook?.webhook?.webhookByEvents ?? 
+          currentWebhook?.webhookByEvents ?? 
+          currentWebhook?.webhook?.webhook_by_events ?? 
+          currentWebhook?.webhook_by_events ?? 
+          true;
         const currentHeaders = currentWebhook?.webhook?.headers || currentWebhook?.headers || {};
         const hasSecretHeader = !!currentHeaders['x-webhook-secret'];
         const webhookSecretConfigured = !!webhookSecret;

@@ -104,8 +104,8 @@ async function findChats(instanceName: string): Promise<any[]> {
       console.log(`✅ findContacts retornou ${contacts.length} contatos`);
       // Converter formato de contatos para formato de chats
       return contacts.map((c: any) => ({
-        id: c.id || c.remoteJid,
-        remoteJid: c.id || c.remoteJid,
+        id: c.remoteJid || c.id,
+        remoteJid: c.remoteJid || c.id,
         name: c.pushName || c.name || c.profilePictureUrl,
         pushName: c.pushName || c.name,
       }));
@@ -123,8 +123,8 @@ async function findChats(instanceName: string): Promise<any[]> {
     if (contacts.length > 0) {
       console.log(`✅ findContacts GET retornou ${contacts.length} contatos`);
       return contacts.map((c: any) => ({
-        id: c.id || c.remoteJid,
-        remoteJid: c.id || c.remoteJid,
+        id: c.remoteJid || c.id,
+        remoteJid: c.remoteJid || c.id,
         name: c.pushName || c.name,
         pushName: c.pushName || c.name,
       }));
@@ -236,7 +236,10 @@ serve(async (req) => {
 
       // Filtrar chats válidos primeiro
       const validChats = chats.filter(chat => {
-        const remoteJid = chat.id || chat.remoteJid;
+        // ✅ CRITICAL FIX: Prefer remoteJid (contains @s.whatsapp.net) over id (which can be a CUID)
+        const remoteJid = (chat.remoteJid && chat.remoteJid.includes('@s.whatsapp.net')) 
+          ? chat.remoteJid 
+          : (chat.id && chat.id.includes('@s.whatsapp.net') ? chat.id : null);
         if (!remoteJid || remoteJid.endsWith('@g.us')) return false;
         const rawPhone = remoteJid.replace('@s.whatsapp.net', '');
         const normalizedPhone = normalizePhone(rawPhone);
@@ -327,7 +330,10 @@ serve(async (req) => {
 
       for (const chat of validChats) {
         try {
-          const remoteJid = chat.id || chat.remoteJid;
+          // ✅ CRITICAL FIX: Prefer remoteJid (contains @s.whatsapp.net) over id (which can be a CUID)
+          const remoteJid = (chat.remoteJid && chat.remoteJid.includes('@s.whatsapp.net')) 
+            ? chat.remoteJid 
+            : (chat.id && chat.id.includes('@s.whatsapp.net') ? chat.id : null);
           if (!remoteJid || remoteJid.endsWith('@g.us')) continue;
 
           const rawPhone = remoteJid.replace('@s.whatsapp.net', '');
