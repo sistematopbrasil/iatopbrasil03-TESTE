@@ -131,33 +131,50 @@ serve(async (req) => {
     if (existingInstance) {
       console.log('✅ Instância já existe:', existingInstance.instance_name);
       
-      // SEMPRE reconfigurar webhook para garantir eventos corretos
-    const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/crm-webhook`;
+      // SEMPRE reconfigurar webhook com delete+recreate para garantir persistência
+      const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/crm-webhook`;
       const webhookSecret = Deno.env.get('EVOLUTION_WEBHOOK_SECRET') || '';
-      console.log('🔧 Reconfigurando webhook para instância existente...');
+      console.log('🔧 Reconfigurando webhook (delete+recreate) para instância existente...');
       try {
+        const webhookPayload = {
+          enabled: true,
+          url: webhookUrl,
+          webhook_by_events: false,
+          webhookByEvents: false,
+          webhook_base64: true,
+          headers: webhookSecret ? { 'x-webhook-secret': webhookSecret } : undefined,
+          events: [
+            'QRCODE_UPDATED',
+            'CONNECTION_UPDATE',
+            'MESSAGES_UPSERT',
+            'MESSAGES_UPDATE',
+            'MESSAGES_SET',
+            'MESSAGES_DELETE',
+            'MESSAGE_ACK',
+            'SEND_MESSAGE',
+          ],
+        };
+
+        // Delete existing webhook first
+        try {
+          await evolutionRequest(`/webhook/set/${existingInstance.instance_name}`, { method: 'DELETE' });
+          console.log('🗑️ Webhook deletado');
+        } catch (e) { console.warn('⚠️ Delete webhook falhou (ok)'); }
+
+        // Recreate webhook
         await evolutionRequest(`/webhook/set/${existingInstance.instance_name}`, {
           method: 'POST',
-          body: JSON.stringify({
-            enabled: true,
-            url: webhookUrl,
-            webhook_by_events: false,
-            webhookByEvents: false,
-            webhook_base64: true,
-            headers: webhookSecret ? { 'x-webhook-secret': webhookSecret } : undefined,
-            events: [
-              'QRCODE_UPDATED',
-              'CONNECTION_UPDATE',
-              'MESSAGES_UPSERT',
-              'MESSAGES_UPDATE',
-              'MESSAGES_SET',
-              'MESSAGES_DELETE',
-              'MESSAGE_ACK',
-              'SEND_MESSAGE',
-            ],
-          }),
+          body: JSON.stringify(webhookPayload),
         });
-        console.log('✅ Webhook reconfigurado para:', existingInstance.instance_name);
+
+        // Also try instance/update for persistence
+        try {
+          await evolutionRequest(`/instance/update/${existingInstance.instance_name}`, {
+            method: 'PUT',
+            body: JSON.stringify({ webhook: webhookPayload }),
+          });
+          console.log('✅ Webhook reconfigurado via instance/update para:', existingInstance.instance_name);
+        } catch (e) { console.warn('⚠️ instance/update falhou (ok)'); }
       } catch (webhookError) {
         console.warn('⚠️ Erro ao reconfigurar webhook:', webhookError);
       }

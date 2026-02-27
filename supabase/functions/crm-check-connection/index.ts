@@ -139,6 +139,7 @@ serve(async (req) => {
     if (reallyConnected) {
       try {
         const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/crm-webhook`;
+        const webhookSecret = Deno.env.get('EVOLUTION_WEBHOOK_SECRET') || '';
         
         // Verificar webhook atual
         const webhookCheckResponse = await fetch(`${EVOLUTION_API_URL}/webhook/find/${instance.instance_name}`, {
@@ -148,49 +149,90 @@ serve(async (req) => {
           },
         });
         const currentWebhook = await webhookCheckResponse.json();
+        console.log('📋 Webhook atual (raw):', JSON.stringify(currentWebhook).substring(0, 500));
         
         // Eventos obrigatórios para receber mensagens
         const requiredEvents = ['MESSAGES_UPSERT', 'MESSAGES_UPDATE', 'CONNECTION_UPDATE', 'QRCODE_UPDATED'];
         const configuredEvents = currentWebhook?.webhook?.events || currentWebhook?.events || [];
         const missingEvents = requiredEvents.filter(e => !configuredEvents.includes(e));
         
-        // ✅ SEMPRE reconfigurar webhook (garante webhook_by_events: false + secret header)
         const currentWebhookByEvents = currentWebhook?.webhook?.webhook_by_events ?? currentWebhook?.webhook_by_events ?? true;
         const currentHeaders = currentWebhook?.webhook?.headers || currentWebhook?.headers || {};
         const hasSecretHeader = !!currentHeaders['x-webhook-secret'];
-        const webhookSecretConfigured = !!Deno.env.get('EVOLUTION_WEBHOOK_SECRET');
+        const webhookSecretConfigured = !!webhookSecret;
         const needsReconfigure = missingEvents.length > 0 || currentWebhookByEvents === true || (webhookSecretConfigured && !hasSecretHeader);
         
         if (needsReconfigure) {
-          console.log('🔧 Reconfigurando webhook...', { missingEvents, currentWebhookByEvents });
+          console.log('🔧 Reconfigurando webhook (delete+recreate)...', { missingEvents, currentWebhookByEvents });
           
-          const webhookSecret = Deno.env.get('EVOLUTION_WEBHOOK_SECRET') || '';
-          await fetch(`${EVOLUTION_API_URL}/webhook/set/${instance.instance_name}`, {
+          const webhookPayload = {
+            enabled: true,
+            url: webhookUrl,
+            webhook_by_events: false,
+            webhookByEvents: false,
+            webhook_base64: true,
+            headers: webhookSecret ? { 'x-webhook-secret': webhookSecret } : undefined,
+            events: [
+              'QRCODE_UPDATED',
+              'CONNECTION_UPDATE',
+              'MESSAGES_UPSERT',
+              'MESSAGES_UPDATE',
+              'MESSAGES_SET',
+              'MESSAGES_DELETE',
+              'SEND_MESSAGE',
+              'MESSAGE_ACK',
+            ],
+          };
+
+          // Estratégia 1: DELETE webhook + POST recreate
+          try {
+            console.log('🗑️ Deletando webhook existente...');
+            const delResponse = await fetch(`${EVOLUTION_API_URL}/webhook/set/${instance.instance_name}`, {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json', 'apikey': EVOLUTION_API_KEY },
+            });
+            const delText = await delResponse.text();
+            console.log('🗑️ Delete webhook response:', delResponse.status, delText.substring(0, 200));
+          } catch (delErr: any) {
+            console.warn('⚠️ Delete webhook falhou (ok, continuando):', delErr?.message);
+          }
+          
+          // Recriar webhook
+          const setResponse = await fetch(`${EVOLUTION_API_URL}/webhook/set/${instance.instance_name}`, {
             method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              'apikey': EVOLUTION_API_KEY 
-            },
-            body: JSON.stringify({
-              enabled: true,
-              url: webhookUrl,
-              webhook_by_events: false,
-              webhookByEvents: false,
-              webhook_base64: true,
-              headers: webhookSecret ? { 'x-webhook-secret': webhookSecret } : undefined,
-              events: [
-                'QRCODE_UPDATED',
-                'CONNECTION_UPDATE',
-                'MESSAGES_UPSERT',
-                'MESSAGES_UPDATE',
-                'MESSAGES_SET',
-                'MESSAGES_DELETE',
-                'SEND_MESSAGE',
-                'MESSAGE_ACK',
-              ],
-            }),
+            headers: { 'Content-Type': 'application/json', 'apikey': EVOLUTION_API_KEY },
+            body: JSON.stringify(webhookPayload),
           });
-          console.log('✅ Webhook reconfigurado com webhook_by_events: false');
+          const setResult = await setResponse.text();
+          console.log('📝 Set webhook response:', setResponse.status, setResult.substring(0, 300));
+
+          // Estratégia 2: PUT /instance/update com webhook embarcado (mais persistente)
+          try {
+            console.log('🔄 Tentando PUT /instance/update com webhook embarcado...');
+            const updateResponse = await fetch(`${EVOLUTION_API_URL}/instance/update/${instance.instance_name}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', 'apikey': EVOLUTION_API_KEY },
+              body: JSON.stringify({
+                webhook: webhookPayload,
+              }),
+            });
+            const updateText = await updateResponse.text();
+            console.log('🔄 Instance update response:', updateResponse.status, updateText.substring(0, 300));
+          } catch (updateErr: any) {
+            console.warn('⚠️ Instance update falhou:', updateErr?.message);
+          }
+
+          // Verificar se persistiu
+          try {
+            const verifyResponse = await fetch(`${EVOLUTION_API_URL}/webhook/find/${instance.instance_name}`, {
+              headers: { 'Content-Type': 'application/json', 'apikey': EVOLUTION_API_KEY },
+            });
+            const verifyData = await verifyResponse.json();
+            const verifiedByEvents = verifyData?.webhook?.webhook_by_events ?? verifyData?.webhook_by_events ?? 'unknown';
+            console.log('✅ Webhook verificado após reconfig: webhook_by_events =', verifiedByEvents);
+          } catch (verifyErr: any) {
+            console.warn('⚠️ Verificação pós-reconfig falhou:', verifyErr?.message);
+          }
         } else {
           console.log('✅ Webhook OK, nenhuma reconfiguração necessária');
         }
