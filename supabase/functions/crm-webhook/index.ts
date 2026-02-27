@@ -95,6 +95,19 @@ serve(async (req) => {
   }
 
   try {
+    // ✅ WEBHOOK SECRET VALIDATION
+    const webhookSecret = Deno.env.get('EVOLUTION_WEBHOOK_SECRET');
+    if (webhookSecret) {
+      const receivedSecret = req.headers.get('x-webhook-secret') || req.headers.get('authorization')?.replace('Bearer ', '');
+      if (receivedSecret !== webhookSecret) {
+        console.warn('⛔ Webhook request com secret inválido');
+        return new Response(
+          JSON.stringify({ success: false, error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     const body = await req.json();
     
     // ✅ INPUT VALIDATION

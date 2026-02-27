@@ -43,7 +43,7 @@ export function useConversations(options?: UseConversationsOptions) {
 
     const doSync = async () => {
       try {
-        const result = await crmService.syncRecentMessages({ limit: 20, messagesPerChat: 15 });
+        const result = await crmService.syncRecentMessages({ limit: 30, messagesPerChat: 30 });
         if (result.success && (result.synced?.conversations || result.synced?.messages)) {
           console.log('✅ Auto-sync concluído:', result.synced);
           queryClient.invalidateQueries({ queryKey: ['conversations'] });
@@ -59,8 +59,8 @@ export function useConversations(options?: UseConversationsOptions) {
       doSync();
     }
 
-    // Sync periódico a cada 60s
-    const intervalId = setInterval(doSync, 60000);
+    // Sync periódico a cada 15s (primário - webhook não funciona)
+    const intervalId = setInterval(doSync, 15000);
 
     return () => clearInterval(intervalId);
   }, [options?.autoSync, queryClient]);

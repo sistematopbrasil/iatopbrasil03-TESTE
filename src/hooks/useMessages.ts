@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { crmService, Message } from '@/lib/crm-service';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -10,12 +11,14 @@ if (typeof window !== 'undefined' && 'Notification' in window && Notification.pe
 }
 
 export function useMessages(conversationId: string | null) {
+  const queryClient = useQueryClient();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const channelRef = useRef<any>(null);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const realtimeActiveRef = useRef(false);
+  const prevMessageCountRef = useRef(0);
 
   // Cleanup polling
   const stopPolling = useCallback(() => {
@@ -41,9 +44,15 @@ export function useMessages(conversationId: string | null) {
                 merged.push(temp);
               }
             });
-            return merged.sort((a, b) => 
+            const sorted = merged.sort((a, b) => 
               new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
             );
+            // If message count changed, also refresh conversations list
+            if (sorted.length !== prevMessageCountRef.current) {
+              prevMessageCountRef.current = sorted.length;
+              queryClient.invalidateQueries({ queryKey: ['conversations'] });
+            }
+            return sorted;
           });
         }).catch(console.error);
       }
