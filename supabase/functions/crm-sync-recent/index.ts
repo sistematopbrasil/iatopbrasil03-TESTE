@@ -186,7 +186,7 @@ serve(async (req) => {
       body = await req.json();
     } catch { /* empty body is fine */ }
     
-    const { limit = 30, messagesPerChat = 20, instanceId } = body;
+    const { limit = 30, messagesPerChat = 50, instanceId } = body;
     const isAdmin = userData.role === 'admin' || userData.role === 'super_admin';
 
     // Buscar instâncias
@@ -260,28 +260,8 @@ serve(async (req) => {
             }
           }
 
-          // Se não tem conversa, verificar se tem mensagens ANTES de criar
-          if (!conversation) {
-            const checkMessages = await evolutionRequest(`/chat/findMessages/${instance.instance_name}`, {
-              method: 'POST',
-              body: JSON.stringify({
-                where: { key: { remoteJid } },
-                limit: 1,
-              }),
-            });
-            
-            let hasMessages = false;
-            if (checkMessages.success) {
-              const msgData = checkMessages.data;
-              if (Array.isArray(msgData) && msgData.length > 0) hasMessages = true;
-              else if (msgData?.messages?.length > 0) hasMessages = true;
-            }
-            
-            if (!hasMessages) {
-              console.log(`⏭️ Ignorando chat sem mensagens: ${normalizedPhone}`);
-              continue;
-            }
-          }
+          // ✅ REMOVIDO: check-messages-before-creating-conversation
+          // Agora SEMPRE cria a conversa para chats válidos, depois busca mensagens
 
           // Buscar lead
           let lead = null;
@@ -384,15 +364,42 @@ serve(async (req) => {
             });
             
             if (result.success) {
+              // Log raw response structure for debugging
+              const dataKeys = result.data ? (Array.isArray(result.data) ? `Array[${result.data.length}]` : Object.keys(result.data).join(',')) : 'null';
+              console.log(`🔍 ${ep.method} ${ep.url} raw structure: ${dataKeys}`);
+              
               if (Array.isArray(result.data) && result.data.length > 0) {
                 messages = result.data;
                 console.log(`✅ ${ep.method} ${ep.url} retornou ${messages.length} msgs`);
                 break;
               } else if (result.data?.messages && Array.isArray(result.data.messages) && result.data.messages.length > 0) {
                 messages = result.data.messages;
-                console.log(`✅ ${ep.method} ${ep.url} retornou ${messages.length} msgs (nested)`);
+                console.log(`✅ ${ep.method} ${ep.url} retornou ${messages.length} msgs (nested .messages)`);
                 break;
-              } else if (result.data && typeof result.data === 'object') {
+              } else if (result.data?.messages?.records && Array.isArray(result.data.messages.records)) {
+                messages = result.data.messages.records;
+                console.log(`✅ ${ep.method} ${ep.url} retornou ${messages.length} msgs (nested .messages.records)`);
+                break;
+              } else if (result.data?.records && Array.isArray(result.data.records)) {
+                messages = result.data.records;
+                console.log(`✅ ${ep.method} ${ep.url} retornou ${messages.length} msgs (nested .records)`);
+                break;
+              } else if (result.data?.data && Array.isArray(result.data.data)) {
+                messages = result.data.data;
+                console.log(`✅ ${ep.method} ${ep.url} retornou ${messages.length} msgs (nested .data)`);
+                break;
+              } else if (result.data && typeof result.data === 'object' && !Array.isArray(result.data)) {
+                // Try extracting messages from any array property
+                for (const [k, v] of Object.entries(result.data)) {
+                  if (Array.isArray(v) && v.length > 0 && v[0]?.key) {
+                    messages = v;
+                    console.log(`✅ ${ep.method} ${ep.url} retornou ${messages.length} msgs (property .${k})`);
+                    break;
+                  }
+                }
+                if (messages.length > 0) break;
+                
+                // Last resort: object values with key property
                 const possibleMessages = Object.values(result.data).filter(
                   (m: any) => m && typeof m === 'object' && m.key
                 );
@@ -402,6 +409,8 @@ serve(async (req) => {
                   break;
                 }
               }
+            } else {
+              console.log(`⚠️ ${ep.method} ${ep.url} falhou:`, result.error?.message || result.status);
             }
           }
           

@@ -248,7 +248,12 @@ serve(async (req) => {
 
       // ✅ TRATAR messages_set (Evolution API v2 envia mensagens em lote neste evento)
       case 'messages_set':
-      case 'messages_upsert': {
+      case 'messages_upsert':
+      case 'message_upsert':
+      case 'message':
+      case 'messages':
+      case 'new_message':
+      case 'message_create': {
         console.log('💬 Nova mensagem recebida (evento:', normalizedEvent, ')');
         const messages = data?.messages || [data];
         console.log(`📨 Total de mensagens no payload: ${messages.length}`);
@@ -904,7 +909,7 @@ serve(async (req) => {
       }
 
       default:
-        console.log('ℹ️ Evento não tratado:', event);
+        console.log('ℹ️ Evento não tratado:', event, '| Payload keys:', data ? Object.keys(data).join(',') : 'null');
     }
 
     return new Response(
