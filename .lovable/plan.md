@@ -1,62 +1,51 @@
 
 
-## Plan: Fix CRM Messages, QR Code, and New Account Issues
+## Diagnóstico Real (baseado nos logs)
 
-### Root Cause Analysis
+Identifiquei **dois problemas concretos** que se complementam para impedir as mensagens de aparecerem:
 
-**Messages not appearing**: Two problems compound:
-1. The webhook is rejecting ALL incoming messages (`⛔ Webhook request com secret inválido`) because the Evolution API was configured before the secret was added. Even though `crm-check-connection` reconfigures the webhook every 15s, it keeps reverting to `webhook_by_events: true`.
-2. The `crm-sync-recent` function finds 3 chats but skips ALL of them because they have invalid phone numbers (6-7 digits). The sync returns `0 conversas, 0 mensagens` every time. This means neither webhook NOR sync is delivering messages.
+### Problema 1: `webhook_by_events` NUNCA persiste como `false`
 
-**QR Code issues**: No expiration timer. QR codes display indefinitely even after expiring (~45-60s). No auto-refresh on expiration.
-
-**New account showing reconnect**: When a new user opens CRM, `loadInstance()` calls `crmService.getInstance()` which queries `whatsapp_instances` filtered by user. If a previous instance record exists (status = `disconnected`), it shows the reconnect screen instead of the fresh "create instance" screen.
-
-### Implementation Steps
-
-#### Step 1: Make webhook secret validation graceful during transition
-In `supabase/functions/crm-webhook/index.ts`:
-- Change the secret validation to **log a warning but still process the request** if the secret is missing from the request headers (not reject with 401)
-- Only reject if a secret IS provided but doesn't match
-- This allows the transition period where Evolution API hasn't been reconfigured yet
-
+Os logs do `crm-check-connection` mostram que **a cada 15 segundos** o sistema reconfigura o webhook:
+```text
+🔧 Reconfigurando webhook... { missingEvents: [], currentWebhookByEvents: true }
+✅ Webhook reconfigurado com webhook_by_events: false
 ```
-// If secret is configured but request has NO secret header -> allow (transition period)  
-// If secret is configured and request HAS wrong secret -> reject
-```
+Mas na próxima verificação, `currentWebhookByEvents` volta a ser `true`. A Evolution API **não está persistindo** essa configuração. Quando `webhook_by_events = true`, a Evolution envia mensagens para `{url}/MESSAGES_UPSERT` em vez de `{url}` - o que resulta em 404, pois a Edge Function só escuta no path base. Eventos de conexão chegam (provavelmente vão sempre pro path base), mas **mensagens individuais nunca chegam**.
 
-#### Step 2: Fix crm-sync-recent to handle short phone numbers
-In `supabase/functions/crm-sync-recent/index.ts`:
-- The current filter rejects phones with < 12 digits. But the Evolution API sometimes returns short JIDs for status broadcasts or service numbers
-- Lower the minimum to 10 digits (DDD + 8-digit number without country code)
-- Add `55` prefix for 10-11 digit numbers before validation
+### Problema 2: Sync encontra apenas números inválidos
 
-#### Step 3: Add QR Code expiration timer
-In `src/contexts/WhatsAppConnectionContext.tsx`:
-- Add a `qrCodeTimestamp` state that records when the QR was set
-- Add a 45-second timer that auto-calls `refreshQRCode()` when the QR expires
-- Clear the timer when QR changes or connection succeeds
+O `crm-sync-recent` encontra 3 chats, mas todos têm números de 6-7 dígitos (`573442`, `573449`, `5749442`). São provavelmente status broadcasts ou JIDs internos do WhatsApp, não conversas reais. Resultado: 0 conversas, 0 mensagens sincronizadas.
 
-In `src/components/crm/DisconnectedOverlay.tsx` and `src/components/crm/ConnectionPanel.tsx`:
-- Show a countdown timer next to QR code ("Expira em Xs")
-- When expired, show "QR Expirado" with auto-refresh animation
+### Solução Definitiva (3 partes)
 
-#### Step 4: Fix new account showing reconnect screen
-In `src/components/crm/ConnectionPanel.tsx`:
-- The component already handles `!instance` (no instance) correctly with the "Iniciar Conexão" button
-- The issue is that a new user may inherit an old disconnected instance. Fix `loadInstance` in the context to treat a `disconnected` instance that was NEVER connected (no `last_connected_at`) as equivalent to no instance — show the create flow
+#### Parte 1: Forçar `webhook_by_events: false` via endpoint correto
+O `/webhook/set` não está persistindo. Vamos usar o endpoint `/instance/update` que configura o webhook a nível de instância (mais persistente em algumas versões da Evolution API). Também vamos tentar deletar o webhook e recriar (`DELETE /webhook/delete` + `POST /webhook/set`).
 
-In `src/contexts/WhatsAppConnectionContext.tsx`:
-- In `loadInstance`, if instance exists with status `disconnected` and `last_connected_at` is null, treat it as a fresh setup: auto-call `connectInstance()` instead of showing the disconnected overlay
+Em `crm-check-connection/index.ts`:
+- Antes de reconfigar com `/webhook/set`, tentar `DELETE /webhook/delete/{instance}` e depois recriar
+- Se ainda não persistir, usar `PUT /instance/update/{instance}` com a configuração de webhook embarcada
 
-#### Step 5: Force webhook reconfiguration with secret on next health check
-In `supabase/functions/crm-check-connection/index.ts`:
-- Always include the webhook secret in reconfiguration (already done)
-- Add a check: if the current webhook config doesn't have the `x-webhook-secret` header, force reconfigure even if events are correct
-- This ensures the secret propagates after first health check
+Em `crm-create-instance/index.ts`:
+- Mesma abordagem: deletar + recriar webhook após criar instância
 
-### Technical Notes
-- The most critical fix is Step 1 (webhook grace period). Without it, ALL webhook messages are rejected. The sync alone can't compensate because it's finding only invalid short numbers.
-- QR codes from Evolution API typically expire in 45-60 seconds. The 45s auto-refresh gives a buffer.
-- The new account issue likely happens because `crm-create-instance` creates a record before the QR flow completes, leaving an orphaned `disconnected` instance.
+#### Parte 2: Fazer o sync funcionar como fallback real
+O sync não encontra conversas reais porque `findChats` retorna apenas JIDs internos. Precisamos:
+
+1. **Logar o raw data** de findChats para debug (JSON.stringify dos primeiros 3 itens)
+2. **Adicionar endpoint alternativo**: usar `/message/findMessages/{instance}` com body `{}` para buscar todas as mensagens recentes, extrair os remoteJids únicos delas, e criar conversas a partir disso
+3. **Fallback por contatos existentes**: buscar leads/conversas já existentes no banco e sincronizar mensagens diretamente por `remoteJid` para cada um
+
+Em `crm-sync-recent/index.ts`:
+- Após findChats retornar apenas números inválidos, tentar buscar mensagens recentes diretamente via `/chat/findMessages/{instance}` ou `/message/findMessages/{instance}` com body vazio/geral
+- Extrair remoteJids válidos das mensagens retornadas
+- Criar conversas e sincronizar mensagens normalmente
+
+#### Parte 3: Log de diagnóstico detalhado
+Adicionar logs temporários com o conteúdo raw das respostas da Evolution API para poder diagnosticar rapidamente se algo mudar.
+
+### Arquivos a editar
+1. `supabase/functions/crm-check-connection/index.ts` - delete+recreate webhook, fallback para instance/update
+2. `supabase/functions/crm-create-instance/index.ts` - mesma lógica de delete+recreate
+3. `supabase/functions/crm-sync-recent/index.ts` - fallback para buscar mensagens diretamente quando findChats retorna lixo
 
