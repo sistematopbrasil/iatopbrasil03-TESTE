@@ -102,7 +102,7 @@ export function DatePeriodFilter({ value, onChange, className }: Props) {
           <PopoverContent className="w-auto p-0" align="start">
             <Calendar
               mode="range"
-              selected={value.from && value.to ? { from: value.from, to: value.to } : undefined}
+              selected={value.from ? { from: value.from, to: value.to ?? undefined } : undefined}
               onSelect={handleRangeSelect}
               numberOfMonths={2}
               locale={ptBR}

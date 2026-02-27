@@ -168,8 +168,10 @@ serve(async (req) => {
               'apikey': EVOLUTION_API_KEY 
             },
             body: JSON.stringify({
+              enabled: true,
               url: webhookUrl,
               webhook_by_events: false,
+              webhookByEvents: false,
               webhook_base64: true,
               events: [
                 'QRCODE_UPDATED',

@@ -25,10 +25,10 @@ export function useMessages(conversationId: string | null) {
     }
   }, []);
 
-  // Start polling as fallback
-  const startPolling = useCallback(() => {
+  // Start polling as safety net (always runs)
+  const startPolling = useCallback((intervalMs = 5000) => {
     if (pollingRef.current || !conversationId) return;
-    console.log('📡 Iniciando polling como fallback (3s)');
+    console.log(`📡 Iniciando polling de segurança (${intervalMs / 1000}s)`);
     pollingRef.current = setInterval(() => {
       if (conversationId) {
         crmService.getMessages(conversationId).then(data => {
@@ -54,6 +54,7 @@ export function useMessages(conversationId: string | null) {
     if (conversationId) {
       loadMessages();
       subscribeToMessages();
+      startPolling(5000); // Always poll as safety net
       crmService.markConversationAsRead(conversationId);
     } else {
       setMessages([]);
@@ -72,7 +73,7 @@ export function useMessages(conversationId: string | null) {
       stopPolling();
       window.removeEventListener('focus', handleFocus);
     };
-  }, [conversationId, stopPolling]);
+  }, [conversationId, stopPolling, startPolling]);
 
   const loadMessages = useCallback(async () => {
     if (!conversationId) return;
@@ -106,7 +107,7 @@ export function useMessages(conversationId: string | null) {
         (payload) => {
           console.log('🔔 Mensagem realtime recebida:', payload.eventType, payload);
           realtimeActiveRef.current = true;
-          stopPolling(); // Realtime funcionando, parar polling
+          realtimeActiveRef.current = true;
           
           if (payload.eventType === 'INSERT') {
             const newMessage = payload.new as Message;
@@ -141,21 +142,13 @@ export function useMessages(conversationId: string | null) {
         if (status === 'SUBSCRIBED') {
           console.log('✅ Realtime conectado com sucesso');
           realtimeActiveRef.current = true;
-          stopPolling();
         } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
           console.warn('⚠️ Realtime desconectado, iniciando polling fallback');
           realtimeActiveRef.current = false;
-          startPolling();
         }
       });
 
-    // Iniciar polling como fallback após 3s se realtime não conectar
-    setTimeout(() => {
-      if (!realtimeActiveRef.current) {
-        console.log('⏰ Realtime não conectou em 3s, iniciando polling');
-        startPolling();
-      }
-    }, 3000);
+    // Polling já está rodando como safety net via useEffect
   }
 
   function playNotificationSound() {
