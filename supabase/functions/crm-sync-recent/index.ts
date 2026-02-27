@@ -57,13 +57,88 @@ async function evolutionRequest(endpoint: string, options: RequestInit = {}) {
     const data = await response.json();
     
     if (!response.ok) {
-      return { success: false, error: data };
+      return { success: false, error: data, status: response.status };
     }
     
     return { success: true, data };
   } catch (error: any) {
     return { success: false, error: { message: error.message } };
   }
+}
+
+// ✅ Tentar múltiplos endpoints para buscar chats
+async function findChats(instanceName: string): Promise<any[]> {
+  // Tentativa 1: POST /chat/findChats (Evolution API v1)
+  console.log('🔍 Tentativa 1: POST /chat/findChats');
+  const result1 = await evolutionRequest(`/chat/findChats/${instanceName}`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+  
+  if (result1.success && Array.isArray(result1.data) && result1.data.length > 0) {
+    console.log(`✅ findChats POST retornou ${result1.data.length} chats`);
+    return result1.data;
+  }
+  
+  // Tentativa 2: GET /chat/findChats (algumas versões usam GET)
+  console.log('🔍 Tentativa 2: GET /chat/findChats');
+  const result2 = await evolutionRequest(`/chat/findChats/${instanceName}`, {
+    method: 'GET',
+  });
+  
+  if (result2.success && Array.isArray(result2.data) && result2.data.length > 0) {
+    console.log(`✅ findChats GET retornou ${result2.data.length} chats`);
+    return result2.data;
+  }
+
+  // Tentativa 3: POST /chat/findContacts (Evolution API v2)
+  console.log('🔍 Tentativa 3: POST /chat/findContacts');
+  const result3 = await evolutionRequest(`/chat/findContacts/${instanceName}`, {
+    method: 'POST',
+    body: JSON.stringify({ where: {} }),
+  });
+  
+  if (result3.success) {
+    const contacts = Array.isArray(result3.data) ? result3.data : [];
+    if (contacts.length > 0) {
+      console.log(`✅ findContacts retornou ${contacts.length} contatos`);
+      // Converter formato de contatos para formato de chats
+      return contacts.map((c: any) => ({
+        id: c.id || c.remoteJid,
+        remoteJid: c.id || c.remoteJid,
+        name: c.pushName || c.name || c.profilePictureUrl,
+        pushName: c.pushName || c.name,
+      }));
+    }
+  }
+
+  // Tentativa 4: GET /chat/findContacts
+  console.log('🔍 Tentativa 4: GET /chat/findContacts');
+  const result4 = await evolutionRequest(`/chat/findContacts/${instanceName}`, {
+    method: 'GET',
+  });
+  
+  if (result4.success) {
+    const contacts = Array.isArray(result4.data) ? result4.data : [];
+    if (contacts.length > 0) {
+      console.log(`✅ findContacts GET retornou ${contacts.length} contatos`);
+      return contacts.map((c: any) => ({
+        id: c.id || c.remoteJid,
+        remoteJid: c.id || c.remoteJid,
+        name: c.pushName || c.name,
+        pushName: c.pushName || c.name,
+      }));
+    }
+  }
+
+  console.log('⚠️ Nenhum endpoint retornou chats. Erros:', {
+    post_findChats: result1.error,
+    get_findChats: result2.error,
+    post_findContacts: result3.error,
+    get_findContacts: result4.error,
+  });
+  
+  return [];
 }
 
 serve(async (req) => {
@@ -114,7 +189,7 @@ serve(async (req) => {
     const { limit = 30, messagesPerChat = 20, instanceId } = body;
     const isAdmin = userData.role === 'admin' || userData.role === 'super_admin';
 
-    // Buscar instâncias - admin pode ver todas da org, consultor só a sua
+    // Buscar instâncias
     let instancesQuery = supabaseAdmin
       .from('whatsapp_instances')
       .select('*')
@@ -149,35 +224,19 @@ serve(async (req) => {
     for (const instance of instances) {
       console.log(`🔄 Sincronizando instância: ${instance.instance_name}`);
       
-      // 1. Buscar chats recentes do provedor
-      const chatsResult = await evolutionRequest(`/chat/findChats/${instance.instance_name}`, {
-        method: 'POST',
-        body: JSON.stringify({}),
-      });
-
-      if (!chatsResult.success) {
-        console.error(`❌ Erro ao buscar chats de ${instance.instance_name}:`, chatsResult.error);
-        errors.push(`${instance.instance_name}: Erro ao buscar chats`);
-        continue;
-      }
-
-      const chats = Array.isArray(chatsResult.data) 
-        ? chatsResult.data.slice(0, limit) 
-        : [];
+      // ✅ Usar função que tenta múltiplos endpoints
+      const chats = (await findChats(instance.instance_name)).slice(0, limit);
       
       console.log(`📬 ${chats.length} chats encontrados`);
 
       for (const chat of chats) {
         try {
-          // Ignorar grupos e IDs inválidos
           const remoteJid = chat.id || chat.remoteJid;
           if (!remoteJid || remoteJid.endsWith('@g.us')) continue;
 
           const rawPhone = remoteJid.replace('@s.whatsapp.net', '');
           const normalizedPhone = normalizePhone(rawPhone);
           
-          // ✅ Validar telefone brasileiro (12-13 dígitos: 55 + DDD + número)
-          // Ignorar números muito curtos, muito longos ou IDs de grupo/broadcast
           if (normalizedPhone.length < 12 || normalizedPhone.length > 13) {
             console.log(`⏭️ Ignorando número inválido: ${normalizedPhone} (${normalizedPhone.length} dígitos)`);
             continue;
@@ -185,7 +244,7 @@ serve(async (req) => {
           
           const phoneVariants = getPhoneVariants(rawPhone);
 
-          // 2. Buscar conversa existente
+          // Buscar conversa existente
           let conversation = null;
           for (const variant of phoneVariants) {
             const { data: foundConv } = await supabaseAdmin
@@ -201,7 +260,7 @@ serve(async (req) => {
             }
           }
 
-          // ✅ Se não tem conversa, verificar se tem mensagens ANTES de criar
+          // Se não tem conversa, verificar se tem mensagens ANTES de criar
           if (!conversation) {
             const checkMessages = await evolutionRequest(`/chat/findMessages/${instance.instance_name}`, {
               method: 'POST',
@@ -224,7 +283,7 @@ serve(async (req) => {
             }
           }
 
-          // Buscar lead - PRIORIDADE: mesmo consultor
+          // Buscar lead
           let lead = null;
           for (const variant of phoneVariants) {
             const { data: foundLead } = await supabaseAdmin
@@ -232,7 +291,7 @@ serve(async (req) => {
               .select('id, name, consultant_id')
               .eq('phone', variant)
               .eq('organization_id', instance.organization_id)
-              .eq('consultant_id', instance.user_id) // ✅ Priorizar lead do mesmo consultor
+              .eq('consultant_id', instance.user_id)
               .order('created_at', { ascending: false })
               .limit(1)
               .maybeSingle();
@@ -243,11 +302,9 @@ serve(async (req) => {
             }
           }
           
-          // ✅ Se não encontrou lead do consultor, criar um novo
           if (!lead) {
             console.log(`🆕 Criando lead automaticamente para: ${normalizedPhone}`);
             
-            // Buscar primeiro quadro do pipeline
             const { data: stages } = await supabaseAdmin
               .from('pipeline_stages')
               .select('id')
@@ -266,9 +323,10 @@ serve(async (req) => {
                 consultant_id: instance.user_id,
                 pipeline_stage_id: firstStageId,
                 stage: 'novo',
-                temperature: 'cold', // ✅ Lead WhatsApp = Frio
+                temperature: 'cold',
                 completion_percentage: 0,
                 lead_score: 0,
+                lead_source: 'whatsapp',
               })
               .select('id, name, consultant_id')
               .single();
@@ -282,7 +340,6 @@ serve(async (req) => {
           }
 
           if (!conversation) {
-            // Criar conversa (já validamos que tem mensagens)
             const { data: newConv, error: convError } = await supabaseAdmin
               .from('crm_conversations')
               .insert({
@@ -305,14 +362,13 @@ serve(async (req) => {
             conversation = newConv;
             totalConversations++;
           } else if (lead && !conversation.lead_id) {
-            // Vincular lead
             await supabaseAdmin
               .from('crm_conversations')
               .update({ lead_id: lead.id, contact_name: lead.name || conversation.contact_name })
               .eq('id', conversation.id);
           }
 
-          // 3. Buscar mensagens recentes do chat
+          // Buscar mensagens recentes
           const messagesResult = await evolutionRequest(`/chat/findMessages/${instance.instance_name}`, {
             method: 'POST',
             body: JSON.stringify({
@@ -323,14 +379,12 @@ serve(async (req) => {
 
           if (!messagesResult.success) continue;
 
-          // ✅ Tratar todos os formatos de resposta possíveis
           let messages: any[] = [];
           if (Array.isArray(messagesResult.data)) {
             messages = messagesResult.data;
           } else if (messagesResult.data?.messages && Array.isArray(messagesResult.data.messages)) {
             messages = messagesResult.data.messages;
           } else if (messagesResult.data && typeof messagesResult.data === 'object') {
-            // Tentar extrair de objeto
             const possibleMessages = Object.values(messagesResult.data).filter(
               (m: any) => m && typeof m === 'object' && m.key
             );
@@ -348,7 +402,6 @@ serve(async (req) => {
 
               const direction = key.fromMe ? 'outgoing' : 'incoming';
               
-              // Determinar tipo e conteúdo
               let type = 'text';
               let content = '';
               const messageContent = msg.message || {};
@@ -377,7 +430,6 @@ serve(async (req) => {
                 ? new Date(Number(msg.messageTimestamp) * 1000).toISOString()
                 : new Date().toISOString();
 
-              // Upsert mensagem
               const { error: msgError } = await supabaseAdmin
                 .from('crm_messages')
                 .upsert({
@@ -400,7 +452,7 @@ serve(async (req) => {
             }
           }
 
-          // 4. Atualizar last_message_at da conversa
+          // Atualizar last_message_at
           const { data: lastMsg } = await supabaseAdmin
             .from('crm_messages')
             .select('timestamp, content, type')

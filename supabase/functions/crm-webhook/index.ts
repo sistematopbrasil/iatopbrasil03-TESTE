@@ -148,8 +148,9 @@ serve(async (req) => {
     }
 
     // Normalizar evento para lowercase (Evolution API envia em diferentes formatos)
-    const normalizedEvent = event?.toLowerCase()?.replace('.', '_');
-    console.log('📌 Evento:', normalizedEvent);
+    // Suportar múltiplos formatos: messages.upsert, MESSAGES_UPSERT, messages-upsert, etc.
+    const normalizedEvent = event?.toLowerCase()?.replace(/[.\-]/g, '_');
+    console.log('📌 Evento:', normalizedEvent, '(original:', event, ')');
 
     // ✅ TELEMETRIA: Atualizar última atividade do webhook
     const telemetryUpdate: any = {
@@ -157,8 +158,8 @@ serve(async (req) => {
       last_webhook_event: normalizedEvent,
     };
     
-    // Se for mensagem, salvar ID da última mensagem
-    if (normalizedEvent === 'messages_upsert') {
+    // Se for mensagem (upsert ou set), salvar ID da última mensagem
+    if (normalizedEvent === 'messages_upsert' || normalizedEvent === 'messages_set') {
       const messages = data?.messages || [data];
       const firstMessage = messages[0];
       if (firstMessage?.key?.id) {
@@ -245,9 +246,10 @@ serve(async (req) => {
         // Continuar para o case messages_upsert (fall-through)
       }
 
+      // ✅ TRATAR messages_set (Evolution API v2 envia mensagens em lote neste evento)
+      case 'messages_set':
       case 'messages_upsert': {
-        console.log('💬 Nova mensagem recebida');
-        
+        console.log('💬 Nova mensagem recebida (evento:', normalizedEvent, ')');
         const messages = data?.messages || [data];
         console.log(`📨 Total de mensagens no payload: ${messages.length}`);
         
