@@ -132,7 +132,8 @@ serve(async (req) => {
       console.log('✅ Instância já existe:', existingInstance.instance_name);
       
       // SEMPRE reconfigurar webhook para garantir eventos corretos
-      const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/crm-webhook`;
+    const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/crm-webhook`;
+      const webhookSecret = Deno.env.get('EVOLUTION_WEBHOOK_SECRET') || '';
       console.log('🔧 Reconfigurando webhook para instância existente...');
       try {
         await evolutionRequest(`/webhook/set/${existingInstance.instance_name}`, {
@@ -143,6 +144,7 @@ serve(async (req) => {
             webhook_by_events: false,
             webhookByEvents: false,
             webhook_base64: true,
+            headers: webhookSecret ? { 'x-webhook-secret': webhookSecret } : undefined,
             events: [
               'QRCODE_UPDATED',
               'CONNECTION_UPDATE',
@@ -246,6 +248,7 @@ serve(async (req) => {
     console.log('🔵 Nome da instância:', instanceName);
 
     const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/crm-webhook`;
+    const webhookSecret = Deno.env.get('EVOLUTION_WEBHOOK_SECRET') || '';
     console.log('🔵 Webhook URL:', webhookUrl);
 
     // Criar instância na Evolution - incluir TODOS os eventos relevantes
@@ -270,8 +273,9 @@ serve(async (req) => {
         webhook: {
           url: webhookUrl,
           enabled: true,
-              webhookByEvents: false,
+          webhookByEvents: false,
           webhookBase64: true,
+          headers: webhookSecret ? { 'x-webhook-secret': webhookSecret } : undefined,
           events: webhookEvents,
         },
       }),
@@ -301,6 +305,7 @@ serve(async (req) => {
               enabled: true,
               webhookByEvents: false,
               webhookBase64: true,
+              headers: webhookSecret ? { 'x-webhook-secret': webhookSecret } : undefined,
               events: webhookEvents,
             },
           }),

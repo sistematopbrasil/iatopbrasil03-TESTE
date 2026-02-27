@@ -161,6 +161,7 @@ serve(async (req) => {
         if (needsReconfigure) {
           console.log('🔧 Reconfigurando webhook...', { missingEvents, currentWebhookByEvents });
           
+          const webhookSecret = Deno.env.get('EVOLUTION_WEBHOOK_SECRET') || '';
           await fetch(`${EVOLUTION_API_URL}/webhook/set/${instance.instance_name}`, {
             method: 'POST',
             headers: { 
@@ -173,6 +174,7 @@ serve(async (req) => {
               webhook_by_events: false,
               webhookByEvents: false,
               webhook_base64: true,
+              headers: webhookSecret ? { 'x-webhook-secret': webhookSecret } : undefined,
               events: [
                 'QRCODE_UPDATED',
                 'CONNECTION_UPDATE',
