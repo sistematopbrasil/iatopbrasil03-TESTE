@@ -1,57 +1,62 @@
 
 
-## Plan: Fix Instagram Data, Fix CRM Messages, Add Capture Leads Tab
+## Plan: Fix CRM Messages, Realtime, and QR Code Connection
 
-### 1. Fix Instagram Historical Metrics (9 profiles)
+### Problem Analysis
 
-**Problem**: The previously inserted data has incorrect values.
+1. **Instagram data**: All 357 records are present in the database across 9 profiles. The data is there and should display correctly once logged in. No code changes needed for this.
 
-**Approach**: 
-- Delete ALL existing records from `insta_follower_metrics` for all 9 profiles
-- Re-insert correct data for each profile using the data provided by the user
-- 9 separate SQL operations (one DELETE-all, then 9 INSERTs with correct data)
+2. **CRM messages not appearing**: The `crm_messages` and `crm_conversations` tables are NOT in the Supabase realtime publication. Only `capture_page_configs` is. This means all the realtime subscriptions in the code are silently failing - no messages are pushed to the UI in real-time.
 
-Profile IDs mapping:
-- `2ad3d597` = brenonogueiraferraz (44 rows)
-- `0c4c7120` = davidfernandesaz (40 rows)  
-- `b892102c` = dioleno.topbrasil (43 rows)
-- `dbf19347` = rodrigo.topbrasil (43 rows)
-- `19b67c78` = cris.topbrasil (43 rows)
-- `65ede526` = loysegurgel (43 rows)
-- `6906b0b9` = danilo.embaixador (43 rows)
-- `70ce42b9` = gabrielquinteiroo (43 rows)
-- `5bdbd1a2` = o_rei_da_protecao (6 rows)
+3. **Zero messages in database**: The sync found 20 chats via `findContacts` but stored 0 messages. The `findMessages` endpoint likely isn't returning data in the expected format for the Evolution API version being used. The webhook may also be failing silently.
 
-Total: ~348 records to insert.
+4. **QR Code phone stays loading**: When connection succeeds, the browser updates via realtime/polling, but there's no mechanism to tell the phone's WhatsApp that the pairing completed - this is controlled by the Evolution API/WhatsApp protocol itself and cannot be fixed from the app side. However, we can add a clearer UX message telling users to close WhatsApp on the phone after scanning.
 
-### 2. Fix CRM Messages Not Appearing
-
-**Problem**: The `crm-sync-recent` function calls Evolution API's `/chat/findChats` which returns 0 chats. The webhook receives `messages_update` events but not `messages_upsert` for new messages. Result: `crm_messages` table has 0 rows despite WhatsApp being connected.
-
-**Root Cause Analysis**:
-- The Evolution API `/chat/findChats` endpoint uses POST with empty body `{}` which may not work with all Evolution API versions
-- The webhook event normalization converts dots to underscores (`messages.upsert` -> `messages_upsert`), which should work, but the webhook only received `messages_update` (status updates), not actual new messages
-
-**Fix approach**:
-1. In `crm-sync-recent/index.ts`: Try GET method for `/chat/findChats` as a fallback, and also try the alternative endpoint `/chat/findContacts`
-2. In `crm-webhook/index.ts`: Add handling for `messages_set` event (Evolution API v2 sends bulk messages under this event) and add more event normalization patterns
-3. Add a manual "force sync" that fetches messages directly from known conversations
-
-### 3. Add Capture Page Leads Tab in CRM
-
-**Problem**: The CRM Leads section only has "Leads do Quiz" and "Leads do WhatsApp" sub-tabs. Capture page leads (`lead_source = 'capture'`) exist in the database but aren't shown.
-
-**Approach**:
-- Create a new `CaptureLeadsList` component (similar to `QuizLeadsList` but filtered by `lead_source = 'capture'`)
-- Add a third sub-tab "Leads da Captura" in `AdminCRM.tsx` with a distinct icon/color (e.g., `FileText` icon, blue theme)
-- The component will show: name, phone, email, location, temperature, and a "Conversar" button
+---
 
 ### Implementation Steps
 
-1. **Delete all existing Instagram metrics** (single SQL DELETE)
-2. **Insert correct data for all 9 profiles** (9 SQL INSERT operations, executed sequentially with user approval)
-3. **Fix `crm-sync-recent` edge function** to handle different Evolution API response formats for chat listing
-4. **Fix `crm-webhook` edge function** to handle additional event types
-5. **Create `CaptureLeadsList` component** based on existing `QuizLeadsList`
-6. **Update `AdminCRM.tsx`** to add the third "Leads da Captura" sub-tab
+#### Step 1: Enable Realtime for CRM tables
+Database migration to add `crm_messages` and `crm_conversations` to the `supabase_realtime` publication:
+```sql
+ALTER PUBLICATION supabase_realtime ADD TABLE public.crm_messages;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.crm_conversations;
+```
+This is the single most critical fix - without this, no realtime message updates work at all.
+
+#### Step 2: Fix message sync - try additional Evolution API endpoints
+Update `crm-sync-recent/index.ts` to try multiple message-fetching endpoints:
+- `POST /chat/findMessages/{instance}` (current)
+- `GET /chat/findMessages/{instance}/{remoteJid}` (alternative)
+- `POST /message/findMessages/{instance}` (Evolution API v2 alternate path)
+
+Also add detailed error logging for each failed attempt to understand which endpoints the API version supports.
+
+#### Step 3: Fix webhook message processing robustness
+Update `crm-webhook/index.ts` to:
+- Add more fallback patterns for extracting messages from different payload shapes
+- Log the raw payload structure when message parsing fails
+- Handle cases where `messageTimestamp` might be a string or BigInt
+
+#### Step 4: Improve useMessages hook reliability
+Update `src/hooks/useMessages.ts`:
+- After sending a message, immediately refetch messages (don't rely solely on realtime)
+- Reduce polling interval from 5s to 3s as fallback
+- Add a forced refetch when the conversation becomes visible/focused
+
+#### Step 5: Improve useConversations hook
+Update `src/hooks/useConversations.ts`:
+- Refetch conversations immediately after sync completes
+- Add window focus listener to refetch on tab return
+
+#### Step 6: QR Code UX improvement
+Update `src/components/crm/ConnectionPanel.tsx`:
+- Add instruction text: "Após escanear, feche o WhatsApp no celular. A conexão será confirmada automaticamente aqui."
+- This addresses the user's concern about people waiting on the loading screen on the phone
+
+### Technical Details
+
+The core issue is that Supabase Realtime requires tables to be explicitly added to the `supabase_realtime` publication. Without this, all `postgres_changes` subscriptions receive nothing. The current code has proper subscription logic but it was never receiving events.
+
+The secondary issue is the Evolution API message sync - the `findMessages` endpoint format varies between API versions, and the current implementation may not be hitting the right endpoint for the installed version.
 
