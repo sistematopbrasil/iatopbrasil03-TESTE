@@ -28,7 +28,7 @@ export function useMessages(conversationId: string | null) {
   // Start polling as fallback
   const startPolling = useCallback(() => {
     if (pollingRef.current || !conversationId) return;
-    console.log('📡 Iniciando polling como fallback (5s)');
+    console.log('📡 Iniciando polling como fallback (3s)');
     pollingRef.current = setInterval(() => {
       if (conversationId) {
         crmService.getMessages(conversationId).then(data => {
@@ -47,7 +47,7 @@ export function useMessages(conversationId: string | null) {
           });
         }).catch(console.error);
       }
-    }, 5000);
+    }, 3000);
   }, [conversationId]);
 
   useEffect(() => {
@@ -59,11 +59,18 @@ export function useMessages(conversationId: string | null) {
       setMessages([]);
     }
 
+    // Refetch on window focus
+    const handleFocus = () => {
+      if (conversationId) loadMessages();
+    };
+    window.addEventListener('focus', handleFocus);
+
     return () => {
       if (channelRef.current) {
         channelRef.current.unsubscribe();
       }
       stopPolling();
+      window.removeEventListener('focus', handleFocus);
     };
   }, [conversationId, stopPolling]);
 
@@ -252,7 +259,8 @@ export function useMessages(conversationId: string | null) {
         )
       );
 
-      // Não mostrar toast de sucesso para ser mais rápido - a mensagem aparecendo é feedback suficiente
+      // Refetch messages after sending to ensure we have the latest
+      setTimeout(() => loadMessages(), 1500);
       return { success: true };
     } catch (error: any) {
       // Update temp message to error state

@@ -65,7 +65,7 @@ export function useConversations(options?: UseConversationsOptions) {
     return () => clearInterval(intervalId);
   }, [options?.autoSync, queryClient]);
 
-  // Real-time subscriptions
+  // Real-time subscriptions + window focus listener
   useEffect(() => {
     const conversationChannel = supabase
       .channel('crm-conversations-realtime')
@@ -91,9 +91,16 @@ export function useConversations(options?: UseConversationsOptions) {
       )
       .subscribe();
 
+    // Refetch on window focus
+    const handleFocus = () => {
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    };
+    window.addEventListener('focus', handleFocus);
+
     return () => {
       supabase.removeChannel(conversationChannel);
       supabase.removeChannel(messageChannel);
+      window.removeEventListener('focus', handleFocus);
     };
   }, [queryClient]);
 
