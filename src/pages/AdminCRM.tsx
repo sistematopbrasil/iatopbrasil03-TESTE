@@ -7,11 +7,12 @@ import { ChatWindow } from '@/components/crm/ChatWindow';
 import { DisconnectedOverlay } from '@/components/crm/DisconnectedOverlay';
 import { QuizLeadsList } from '@/components/crm/QuizLeadsList';
 import { WhatsAppLeadsList } from '@/components/crm/WhatsAppLeadsList';
+import { CaptureLeadsList } from '@/components/crm/CaptureLeadsList';
 import { CRMSettings } from '@/components/crm/CRMSettings';
 import { Conversation } from '@/lib/crm-service';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { MessageSquare, Users, Settings, WifiOff, Wifi, MessageCircle } from 'lucide-react';
+import { MessageSquare, Users, Settings, WifiOff, Wifi, MessageCircle, FileText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { normalizePhone, getPhoneVariants } from '@/lib/phone-utils';
@@ -22,7 +23,7 @@ function AdminCRMContent() {
   const { isConnected, isLoading, instance, isConnecting, qrCode, connectionVerified } = useWhatsAppConnectionContext();
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [activeTab, setActiveTab] = useState<'conversations' | 'leads' | 'settings'>('conversations');
-  const [leadsSubTab, setLeadsSubTab] = useState<'quiz' | 'whatsapp'>('quiz');
+  const [leadsSubTab, setLeadsSubTab] = useState<'quiz' | 'whatsapp' | 'capture'>('quiz');
   const [wasConnected, setWasConnected] = useState(false);
 
   // Quando conectar com sucesso, ir automaticamente para aba de conversas
@@ -252,7 +253,11 @@ function AdminCRMContent() {
                   </TabsTrigger>
                   <TabsTrigger value="whatsapp" className="text-xs gap-1.5 data-[state=active]:bg-green-600 data-[state=active]:text-white">
                     <MessageCircle className="w-3.5 h-3.5" />
-                    Leads do WhatsApp
+                    WhatsApp
+                  </TabsTrigger>
+                  <TabsTrigger value="capture" className="text-xs gap-1.5 data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+                    <FileText className="w-3.5 h-3.5" />
+                    Captura
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
@@ -265,6 +270,9 @@ function AdminCRMContent() {
               )}
               {leadsSubTab === 'whatsapp' && (
                 <WhatsAppLeadsList onStartConversation={handleStartConversationFromLead} />
+              )}
+              {leadsSubTab === 'capture' && (
+                <CaptureLeadsList onStartConversation={handleStartConversationFromLead} />
               )}
             </div>
           </div>
