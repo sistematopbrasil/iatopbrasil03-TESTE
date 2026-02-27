@@ -908,8 +908,34 @@ serve(async (req) => {
         break;
       }
 
-      default:
+      default: {
         console.log('ℹ️ Evento não tratado:', event, '| Payload keys:', data ? Object.keys(data).join(',') : 'null');
+        
+        // ✅ CATCH-ALL: Se o payload contém key + message, processar como mensagem
+        // Isso garante resiliência contra variações de nomes de eventos
+        const fallbackMessages = data?.messages || (data?.key && data?.message ? [data] : null);
+        if (fallbackMessages && fallbackMessages.length > 0) {
+          console.log('🔄 Evento desconhecido contém dados de mensagem, reprocessando como messages_upsert...');
+          // Reenviar para o mesmo webhook com evento corrigido
+          const supabaseUrl = Deno.env.get('SUPABASE_URL');
+          if (supabaseUrl) {
+            try {
+              await fetch(`${supabaseUrl}/functions/v1/crm-webhook`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  event: 'messages.upsert',
+                  instance: instanceName,
+                  data: data,
+                }),
+              });
+              console.log('✅ Reprocessado como messages.upsert');
+            } catch (reprocessError) {
+              console.warn('⚠️ Erro ao reprocessar:', reprocessError);
+            }
+          }
+        }
+      }
     }
 
     return new Response(

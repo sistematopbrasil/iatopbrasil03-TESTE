@@ -154,10 +154,12 @@ serve(async (req) => {
         const configuredEvents = currentWebhook?.webhook?.events || currentWebhook?.events || [];
         const missingEvents = requiredEvents.filter(e => !configuredEvents.includes(e));
         
-        // Se faltam eventos críticos, reconfigurar webhook
-        if (missingEvents.length > 0) {
-          console.log('⚠️ Eventos faltando no webhook:', missingEvents);
-          console.log('🔧 Reconfigurando webhook automaticamente...');
+        // ✅ SEMPRE reconfigurar webhook (garante webhook_by_events: false)
+        const currentWebhookByEvents = currentWebhook?.webhook?.webhook_by_events ?? currentWebhook?.webhook_by_events ?? true;
+        const needsReconfigure = missingEvents.length > 0 || currentWebhookByEvents === true;
+        
+        if (needsReconfigure) {
+          console.log('🔧 Reconfigurando webhook...', { missingEvents, currentWebhookByEvents });
           
           await fetch(`${EVOLUTION_API_URL}/webhook/set/${instance.instance_name}`, {
             method: 'POST',
@@ -167,7 +169,7 @@ serve(async (req) => {
             },
             body: JSON.stringify({
               url: webhookUrl,
-              webhook_by_events: true,
+              webhook_by_events: false,
               webhook_base64: true,
               events: [
                 'QRCODE_UPDATED',
@@ -181,7 +183,9 @@ serve(async (req) => {
               ],
             }),
           });
-          console.log('✅ Webhook reconfigurado com sucesso!');
+          console.log('✅ Webhook reconfigurado com webhook_by_events: false');
+        } else {
+          console.log('✅ Webhook OK, nenhuma reconfiguração necessária');
         }
       } catch (e: any) {
         console.warn('⚠️ Erro ao verificar/reconfigurar webhook:', e?.message);
