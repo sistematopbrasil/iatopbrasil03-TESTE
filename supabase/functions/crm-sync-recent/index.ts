@@ -225,23 +225,113 @@ serve(async (req) => {
       console.log(`🔄 Sincronizando instância: ${instance.instance_name}`);
       
       // ✅ Usar função que tenta múltiplos endpoints
-      const chats = (await findChats(instance.instance_name)).slice(0, limit);
+      let chats = (await findChats(instance.instance_name)).slice(0, limit);
+      
+      // Log raw data dos primeiros 3 chats para diagnóstico
+      if (chats.length > 0) {
+        console.log('📋 Raw chats (primeiros 3):', JSON.stringify(chats.slice(0, 3)).substring(0, 800));
+      }
       
       console.log(`📬 ${chats.length} chats encontrados`);
 
-      for (const chat of chats) {
+      // Filtrar chats válidos primeiro
+      const validChats = chats.filter(chat => {
+        const remoteJid = chat.id || chat.remoteJid;
+        if (!remoteJid || remoteJid.endsWith('@g.us')) return false;
+        const rawPhone = remoteJid.replace('@s.whatsapp.net', '');
+        const normalizedPhone = normalizePhone(rawPhone);
+        return normalizedPhone.length >= 10 && normalizedPhone.length <= 15;
+      });
+
+      console.log(`✅ ${validChats.length} chats válidos de ${chats.length} total`);
+
+      // ✅ FALLBACK: Se findChats não retornou chats válidos, buscar mensagens diretamente
+      if (validChats.length === 0) {
+        console.log('🔄 Fallback: buscando mensagens recentes diretamente via /chat/findMessages...');
+        
+        const fallbackEndpoints = [
+          { method: 'POST', url: `/chat/findMessages/${instance.instance_name}`, body: { where: {}, limit: 100 } },
+          { method: 'POST', url: `/message/findMessages/${instance.instance_name}`, body: { where: {}, limit: 100 } },
+          { method: 'POST', url: `/chat/findMessages/${instance.instance_name}`, body: {} },
+        ];
+
+        let allMessages: any[] = [];
+        for (const ep of fallbackEndpoints) {
+          try {
+            const result = await evolutionRequest(ep.url, {
+              method: ep.method,
+              body: JSON.stringify(ep.body),
+            });
+            
+            if (result.success) {
+              const rawData = result.data;
+              console.log(`📋 Fallback ${ep.url} raw structure:`, 
+                Array.isArray(rawData) ? `Array[${rawData.length}]` : (rawData ? Object.keys(rawData).join(',') : 'null'));
+              
+              if (Array.isArray(rawData) && rawData.length > 0) {
+                allMessages = rawData;
+              } else if (rawData?.messages && Array.isArray(rawData.messages)) {
+                allMessages = rawData.messages;
+              } else if (rawData?.data && Array.isArray(rawData.data)) {
+                allMessages = rawData.data;
+              } else if (rawData?.records && Array.isArray(rawData.records)) {
+                allMessages = rawData.records;
+              }
+              
+              if (allMessages.length > 0) {
+                console.log(`✅ Fallback encontrou ${allMessages.length} mensagens`);
+                console.log('📋 Primeira mensagem (raw):', JSON.stringify(allMessages[0]).substring(0, 500));
+                break;
+              }
+            } else {
+              console.log(`⚠️ Fallback ${ep.url} falhou:`, result.error?.message || result.status);
+            }
+          } catch (fallbackErr: any) {
+            console.warn(`⚠️ Fallback ${ep.url} erro:`, fallbackErr?.message);
+          }
+        }
+
+        // Extrair remoteJids únicos das mensagens
+        if (allMessages.length > 0) {
+          const jidSet = new Set<string>();
+          for (const msg of allMessages) {
+            const jid = msg?.key?.remoteJid || msg?.remoteJid;
+            if (jid && jid.endsWith('@s.whatsapp.net') && !jid.startsWith('status@')) {
+              jidSet.add(jid);
+            }
+          }
+          
+          console.log(`📱 ${jidSet.size} remoteJids únicos extraídos das mensagens`);
+          
+          // Converter JIDs em chats sintéticos
+          for (const jid of jidSet) {
+            const rawPhone = jid.replace('@s.whatsapp.net', '');
+            const normalizedPhone = normalizePhone(rawPhone);
+            if (normalizedPhone.length >= 10 && normalizedPhone.length <= 15) {
+              // Buscar nome do contato a partir das mensagens
+              const contactMsg = allMessages.find((m: any) => 
+                (m?.key?.remoteJid === jid || m?.remoteJid === jid) && m?.pushName
+              );
+              validChats.push({
+                id: jid,
+                remoteJid: jid,
+                name: contactMsg?.pushName || rawPhone,
+                pushName: contactMsg?.pushName || rawPhone,
+              });
+            }
+          }
+          
+          console.log(`📱 ${validChats.length} chats válidos após fallback`);
+        }
+      }
+
+      for (const chat of validChats) {
         try {
           const remoteJid = chat.id || chat.remoteJid;
           if (!remoteJid || remoteJid.endsWith('@g.us')) continue;
 
           const rawPhone = remoteJid.replace('@s.whatsapp.net', '');
           const normalizedPhone = normalizePhone(rawPhone);
-          
-          // Permitir números com 10+ dígitos (DDD + 8 dígitos sem código de país)
-          if (normalizedPhone.length < 10 || normalizedPhone.length > 15) {
-            console.log(`⏭️ Ignorando número inválido: ${normalizedPhone} (${normalizedPhone.length} dígitos)`);
-            continue;
-          }
           
           // Garantir que tem código de país para números de 10-11 dígitos
           const phoneForStorage = normalizedPhone.length <= 11 ? `55${normalizedPhone}` : normalizedPhone;
