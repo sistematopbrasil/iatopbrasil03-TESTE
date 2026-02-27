@@ -17,7 +17,14 @@ serve(async (req) => {
     const { email, password, full_name, secret_key } = await req.json();
 
     // Validar secret key para segurança (evita criação não autorizada)
-    const expectedSecret = Deno.env.get('ADMIN_CREATION_SECRET') || 'topbrasil2025';
+    const expectedSecret = Deno.env.get('ADMIN_CREATION_SECRET');
+    if (!expectedSecret) {
+      console.error('ADMIN_CREATION_SECRET não configurado');
+      return new Response(
+        JSON.stringify({ error: 'Configuração de segurança ausente no servidor' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     if (secret_key !== expectedSecret) {
       return new Response(
         JSON.stringify({ error: 'Chave secreta inválida' }),
@@ -33,9 +40,9 @@ serve(async (req) => {
       );
     }
 
-    if (password.length < 6) {
+    if (password.length < 8) {
       return new Response(
-        JSON.stringify({ error: 'Senha deve ter pelo menos 6 caracteres' }),
+        JSON.stringify({ error: 'Senha deve ter pelo menos 8 caracteres' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
