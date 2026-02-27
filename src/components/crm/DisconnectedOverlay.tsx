@@ -9,6 +9,7 @@ export function DisconnectedOverlay() {
     connectInstance, 
     isConnecting, 
     qrCode, 
+    qrSecondsLeft,
     refreshQRCode,
     repairConnection,
     evolutionState 
@@ -69,7 +70,12 @@ export function DisconnectedOverlay() {
             <div className="flex flex-col items-center gap-3 w-full">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                Verificando conexão... ({connectingTime}s)
+                {qrSecondsLeft !== null && qrSecondsLeft > 0 
+                  ? `Expira em ${qrSecondsLeft}s` 
+                  : qrSecondsLeft === 0 
+                    ? 'Atualizando QR...'
+                    : `Verificando conexão... (${connectingTime}s)`
+                }
               </div>
               
               <div className="flex gap-2">

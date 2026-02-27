@@ -237,10 +237,14 @@ serve(async (req) => {
           const rawPhone = remoteJid.replace('@s.whatsapp.net', '');
           const normalizedPhone = normalizePhone(rawPhone);
           
-          if (normalizedPhone.length < 12 || normalizedPhone.length > 13) {
+          // Permitir números com 10+ dígitos (DDD + 8 dígitos sem código de país)
+          if (normalizedPhone.length < 10 || normalizedPhone.length > 15) {
             console.log(`⏭️ Ignorando número inválido: ${normalizedPhone} (${normalizedPhone.length} dígitos)`);
             continue;
           }
+          
+          // Garantir que tem código de país para números de 10-11 dígitos
+          const phoneForStorage = normalizedPhone.length <= 11 ? `55${normalizedPhone}` : normalizedPhone;
           
           const phoneVariants = getPhoneVariants(rawPhone);
 
@@ -283,7 +287,7 @@ serve(async (req) => {
           }
           
           if (!lead) {
-            console.log(`🆕 Criando lead automaticamente para: ${normalizedPhone}`);
+            console.log(`🆕 Criando lead automaticamente para: ${phoneForStorage}`);
             
             const { data: stages } = await supabaseAdmin
               .from('pipeline_stages')
@@ -297,8 +301,8 @@ serve(async (req) => {
             const { data: newLead, error: leadError } = await supabaseAdmin
               .from('quiz_submissions_new')
               .insert({
-                name: chat.name || chat.pushName || normalizedPhone,
-                phone: normalizedPhone,
+                name: chat.name || chat.pushName || phoneForStorage,
+                phone: phoneForStorage,
                 organization_id: instance.organization_id,
                 consultant_id: instance.user_id,
                 pipeline_stage_id: firstStageId,
@@ -326,8 +330,8 @@ serve(async (req) => {
                 instance_id: instance.id,
                 user_id: instance.user_id,
                 organization_id: instance.organization_id,
-                contact_phone: normalizedPhone,
-                contact_name: chat.name || chat.pushName || lead?.name || normalizedPhone,
+                contact_phone: phoneForStorage,
+                contact_name: chat.name || chat.pushName || lead?.name || phoneForStorage,
                 lead_id: lead?.id || null,
                 status: 'open',
               })

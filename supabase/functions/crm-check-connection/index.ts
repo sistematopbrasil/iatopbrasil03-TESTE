@@ -154,9 +154,12 @@ serve(async (req) => {
         const configuredEvents = currentWebhook?.webhook?.events || currentWebhook?.events || [];
         const missingEvents = requiredEvents.filter(e => !configuredEvents.includes(e));
         
-        // ✅ SEMPRE reconfigurar webhook (garante webhook_by_events: false)
+        // ✅ SEMPRE reconfigurar webhook (garante webhook_by_events: false + secret header)
         const currentWebhookByEvents = currentWebhook?.webhook?.webhook_by_events ?? currentWebhook?.webhook_by_events ?? true;
-        const needsReconfigure = missingEvents.length > 0 || currentWebhookByEvents === true;
+        const currentHeaders = currentWebhook?.webhook?.headers || currentWebhook?.headers || {};
+        const hasSecretHeader = !!currentHeaders['x-webhook-secret'];
+        const webhookSecretConfigured = !!Deno.env.get('EVOLUTION_WEBHOOK_SECRET');
+        const needsReconfigure = missingEvents.length > 0 || currentWebhookByEvents === true || (webhookSecretConfigured && !hasSecretHeader);
         
         if (needsReconfigure) {
           console.log('🔧 Reconfigurando webhook...', { missingEvents, currentWebhookByEvents });
