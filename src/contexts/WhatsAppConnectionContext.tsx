@@ -7,6 +7,7 @@ import { useQueryClient } from '@tanstack/react-query';
 interface WhatsAppConnectionContextType {
   instance: WhatsAppInstance | null;
   qrCode: string | null;
+  qrSecondsLeft: number | null;
   isLoading: boolean;
   isConnecting: boolean;
   isConnected: boolean;
@@ -29,6 +30,7 @@ const ACTIVE_CHECK_INTERVAL_MS = 500;
 const MAX_FAILED_CHECKS = 2;
 const QR_FAST_POLL_ATTEMPTS = 40;
 const QR_FAST_POLL_DELAY = 150;
+const QR_EXPIRATION_SECONDS = 45;
 
 export function WhatsAppConnectionProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
@@ -38,6 +40,8 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionVerified, setConnectionVerified] = useState(false);
   const [evolutionState, setEvolutionState] = useState<string | null>(null);
+  const [qrTimestamp, setQrTimestamp] = useState<number | null>(null);
+  const [qrSecondsLeft, setQrSecondsLeft] = useState<number | null>(null);
   
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const healthCheckRef = useRef<NodeJS.Timeout | null>(null);
@@ -51,6 +55,17 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
   // Locks separados para create e connect
   const isCreatingRef = useRef(false);
   const isConnectingRef = useRef(false);
+
+  // Helper: set QR code with timestamp tracking
+  const updateQrCode = useCallback((qr: string | null) => {
+    setQrCode(qr);
+    if (qr) {
+      setQrTimestamp(Date.now());
+    } else {
+      setQrTimestamp(null);
+      setQrSecondsLeft(null);
+    }
+  }, []);
 
   // Função centralizada para mostrar toast de conexão (apenas uma vez por ciclo)
   const showConnectedToast = useCallback(() => {
@@ -164,7 +179,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
           // Atualizar QR code instantaneamente
           if (newData.qr_code && newData.qr_code !== qrCode) {
             console.log('✅ QR Code recebido via realtime!');
-            setQrCode(newData.qr_code);
+            updateQrCode(newData.qr_code);
           }
           
           if (newData.status === 'connected') {
@@ -240,6 +255,29 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
     return () => window.removeEventListener('focus', handleFocus);
   }, [instance?.status]);
 
+  // ✅ QR Code expiration timer - auto-refresh after 45s
+  useEffect(() => {
+    if (!qrCode || !qrTimestamp) {
+      setQrSecondsLeft(null);
+      return;
+    }
+
+    const updateCountdown = () => {
+      const elapsed = Math.floor((Date.now() - qrTimestamp) / 1000);
+      const remaining = QR_EXPIRATION_SECONDS - elapsed;
+      setQrSecondsLeft(Math.max(0, remaining));
+      
+      if (remaining <= 0 && mountedRef.current) {
+        console.log('⏰ QR Code expirado, atualizando automaticamente...');
+        refreshQRCode();
+      }
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [qrCode, qrTimestamp]);
+
   const loadInstance = useCallback(async () => {
     if (!mountedRef.current) return;
     
@@ -255,7 +293,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
         checkConnectionHealth();
         return;
       } else if (cachedInstance.status === 'connecting' && cachedInstance.qr_code) {
-        setQrCode(cachedInstance.qr_code);
+        updateQrCode(cachedInstance.qr_code);
         setIsConnecting(true);
         setIsLoading(false);
         return;
@@ -279,13 +317,19 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
       if (data?.status === 'connecting') {
         setIsConnecting(true);
         if (data.qr_code) {
-          setQrCode(data.qr_code);
+          updateQrCode(data.qr_code);
         }
       } else if (data?.status === 'connected') {
         // Verificar saúde sem bloquear
         checkConnectionHealth().then(isReallyConnected => {
           setConnectionVerified(isReallyConnected);
         });
+      } else if (data?.status === 'disconnected' && !data.last_connected_at) {
+        // ✅ Nova conta: instância existe mas nunca conectou - auto-iniciar conexão
+        console.log('🆕 Instância nunca conectada, iniciando conexão automática...');
+        setIsLoading(false);
+        connectInstance();
+        return;
       }
     } catch (error) {
       console.error('Erro ao carregar instância:', error);
@@ -316,7 +360,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
         stopActiveCheck();
         clearConnectTimeout();
       } else if (instanceData.qr_code && instanceData.qr_code !== qrCode) {
-        setQrCode(instanceData.qr_code);
+        updateQrCode(instanceData.qr_code);
       }
     } catch (error) {
       console.error('Erro ao ler banco:', error);
@@ -473,7 +517,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
         // Usar resultado do retry
         if (retryResult.data?.data?.qr_code) {
           console.log('✅ [connectInstance] QR obtido no retry!');
-          setQrCode(retryResult.data.data.qr_code);
+          updateQrCode(retryResult.data.data.qr_code);
           setInstance((prev) => prev ? { ...prev, status: 'connecting' } : prev);
           return;
         }
@@ -492,7 +536,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
         clearConnectTimeout();
       } else if (data?.data?.qr_code) {
         console.log('✅ [connectInstance] QR Code recebido!');
-        setQrCode(data.data.qr_code);
+        updateQrCode(data.data.qr_code);
         setInstance((prev) => prev ? { ...prev, status: 'connecting' } : prev);
       } else {
         // QR ainda não disponível - polling rápido
@@ -514,7 +558,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
             const instanceData = await crmService.getInstance();
             if (instanceData?.qr_code) {
               console.log(`✅ QR capturado na tentativa ${attempts}!`);
-              setQrCode(instanceData.qr_code);
+              updateQrCode(instanceData.qr_code);
               setInstance(instanceData);
               clearInterval(fastPoll);
             } else if (instanceData?.status === 'connected') {
@@ -583,7 +627,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
         await loadInstance();
       } else if (data?.data?.qr_code) {
         toast.success('QR Code gerado! Escaneie para conectar.');
-        setQrCode(data.data.qr_code);
+        updateQrCode(data.data.qr_code);
       } else {
         toast.info('Gerando QR Code...');
         let attempts = 0;
@@ -598,7 +642,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
             const instanceData = await crmService.getInstance();
             if (instanceData?.qr_code) {
               console.log(`✅ QR capturado na tentativa ${attempts}!`);
-              setQrCode(instanceData.qr_code);
+              updateQrCode(instanceData.qr_code);
               setInstance(instanceData);
               clearInterval(fastPoll);
             } else if (instanceData?.status === 'connected') {
@@ -642,7 +686,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
       }
       
       if (data?.data?.qr_code) {
-        setQrCode(data.data.qr_code);
+        updateQrCode(data.data.qr_code);
         toast.success('QR Code atualizado!');
       } else if (data?.data?.status === 'connected') {
         toast.success('WhatsApp já está conectado!');
@@ -702,6 +746,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
   const value: WhatsAppConnectionContextType = {
     instance,
     qrCode,
+    qrSecondsLeft,
     isLoading,
     isConnecting,
     isConnected: instance?.status === 'connected' && connectionVerified,
