@@ -1,1 +1,4 @@
 project_id = "dmqnvpyqmyjwhgiczdpe"
+
+[functions.crm-webhook]
+verify_jwt = false
