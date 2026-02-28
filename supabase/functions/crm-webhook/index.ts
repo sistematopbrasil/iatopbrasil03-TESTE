@@ -95,17 +95,12 @@ serve(async (req) => {
   }
 
   try {
-    // ✅ WEBHOOK SECRET VALIDATION (graceful during transition)
+    // ✅ WEBHOOK SECRET VALIDATION — reject if secret is configured but missing/wrong
     const webhookSecret = Deno.env.get('EVOLUTION_WEBHOOK_SECRET');
     if (webhookSecret) {
       const receivedSecret = req.headers.get('x-webhook-secret') || req.headers.get('authorization')?.replace('Bearer ', '');
-      if (!receivedSecret) {
-        // Período de transição: secret configurado mas request não tem header
-        // Permitir mas logar warning
-        console.warn('⚠️ Webhook sem secret header (transição) - permitindo');
-      } else if (receivedSecret !== webhookSecret) {
-        // Secret fornecido mas errado - rejeitar
-        console.warn('⛔ Webhook request com secret inválido - rejeitando');
+      if (!receivedSecret || receivedSecret !== webhookSecret) {
+        console.warn('⛔ Webhook request com secret inválido ou ausente - rejeitando');
         return new Response(
           JSON.stringify({ success: false, error: 'Unauthorized' }),
           { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
