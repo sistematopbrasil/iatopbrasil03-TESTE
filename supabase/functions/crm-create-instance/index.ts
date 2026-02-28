@@ -131,16 +131,16 @@ serve(async (req) => {
     if (existingInstance) {
       console.log('✅ Instância já existe:', existingInstance.instance_name);
       
-      // SEMPRE reconfigurar webhook com delete+recreate para garantir persistência
+      // Reconfigurar webhook com webhookByEvents: true (sub-paths funcionam no Edge Functions)
       const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/crm-webhook`;
       const webhookSecret = Deno.env.get('EVOLUTION_WEBHOOK_SECRET') || '';
-      console.log('🔧 Reconfigurando webhook (delete+recreate) para instância existente...');
+      console.log('🔧 Reconfigurando webhook para instância existente...');
       try {
         const webhookPayload = {
           enabled: true,
           url: webhookUrl,
-          webhook_by_events: false,
-          webhookByEvents: false,
+          webhookByEvents: true,
+          webhook_by_events: true,
           webhook_base64: true,
           headers: webhookSecret ? { 'x-webhook-secret': webhookSecret } : undefined,
           events: [
@@ -155,28 +155,14 @@ serve(async (req) => {
           ],
         };
 
-        // Delete existing webhook first
-        try {
-          await evolutionRequest(`/webhook/set/${existingInstance.instance_name}`, { method: 'DELETE' });
-          console.log('🗑️ Webhook deletado');
-        } catch (e) { console.warn('⚠️ Delete webhook falhou (ok)'); }
-
-        // Recreate webhook
+        // Simple POST to set webhook — no delete+recreate cycle
         await evolutionRequest(`/webhook/set/${existingInstance.instance_name}`, {
           method: 'POST',
           body: JSON.stringify(webhookPayload),
         });
-
-        // Also try instance/update for persistence
-        try {
-          await evolutionRequest(`/instance/update/${existingInstance.instance_name}`, {
-            method: 'PUT',
-            body: JSON.stringify({ webhook: webhookPayload }),
-          });
-          console.log('✅ Webhook reconfigurado via instance/update para:', existingInstance.instance_name);
-        } catch (e) { console.warn('⚠️ instance/update falhou (ok)'); }
+        console.log('✅ Webhook configurado para:', existingInstance.instance_name);
       } catch (webhookError) {
-        console.warn('⚠️ Erro ao reconfigurar webhook:', webhookError);
+        console.warn('⚠️ Erro ao configurar webhook:', webhookError);
       }
       
       // Tentar conectar e obter QR
@@ -290,7 +276,7 @@ serve(async (req) => {
         webhook: {
           url: webhookUrl,
           enabled: true,
-          webhookByEvents: false,
+          webhookByEvents: true,
           webhookBase64: true,
           headers: webhookSecret ? { 'x-webhook-secret': webhookSecret } : undefined,
           events: webhookEvents,
@@ -320,7 +306,7 @@ serve(async (req) => {
             webhook: {
               url: webhookUrl,
               enabled: true,
-              webhookByEvents: false,
+              webhookByEvents: true,
               webhookBase64: true,
               headers: webhookSecret ? { 'x-webhook-secret': webhookSecret } : undefined,
               events: webhookEvents,

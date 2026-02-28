@@ -21,8 +21,8 @@ serve(async (req) => {
     if (!expectedSecret) {
       console.error('ADMIN_CREATION_SECRET não configurado');
       return new Response(
-        JSON.stringify({ error: 'Configuração de segurança ausente no servidor' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Endpoint bloqueado: chave de segurança não configurada' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     if (secret_key !== expectedSecret) {
