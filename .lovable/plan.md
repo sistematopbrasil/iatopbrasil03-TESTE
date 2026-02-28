@@ -1,25 +1,22 @@
 
 
-## Diagnóstico
+## Correções Mobile no CRM
 
-O problema é que `getConversations()` no `crm-service.ts` **não filtra por `instance_id`**. Quando você desconecta um número e conecta outro, uma nova instância é criada, mas as conversas antigas (vinculadas à instância anterior) continuam aparecendo porque o RLS só filtra por `user_id`.
+### 1. `src/components/crm/MessageItem.tsx` — Imagens e vídeos saindo do bloco
+- Imagens usam `style={{ maxWidth: '300px' }}` fixo que ultrapassa o container `max-w-[70%]` em telas pequenas
+- Vídeos usam `style={{ maxWidth: '400px' }}` — mesmo problema
+- **Fix**: Trocar os `style` fixos por `className="max-w-full w-full"` para que respeitem o container pai. Manter `max-h` via classe.
 
-O `ConversationList` recebe `instanceId` como prop mas **nunca o passa** para `useConversations`, que por sua vez nunca o passa para `crmService.getConversations()`.
+### 2. `src/components/crm/MessageList.tsx` — Scroll horizontal indesejado
+- O container de mensagens pode permitir scroll lateral quando mídia ultrapassa
+- **Fix**: Adicionar `overflow-x-hidden` ao container de scroll
 
-## Correções
+### 3. `src/components/ui/sheet.tsx` — Remover botão X do Sheet no mobile
+- O `SheetContent` tem um `SheetPrimitive.Close` com ícone X sempre visível
+- **Fix**: Esconder o botão X com `hidden` (o usuário fecha arrastando ou tocando fora)
 
-### 1. `src/lib/crm-service.ts` — Adicionar filtro `instance_id` em `getConversations`
-- Adicionar parâmetro `instance_id` ao objeto `filters`
-- Quando fornecido, adicionar `.eq('instance_id', filters.instance_id)` na query
-
-### 2. `src/hooks/useConversations.ts` — Aceitar e propagar `instanceId`
-- Adicionar `instanceId?: string` ao `UseConversationsOptions`
-- Incluir no `getFilters()` como `instance_id`
-- Incluir na `queryKey` para cache correto
-
-### 3. `src/components/crm/ConversationList.tsx` — Passar `instanceId` para `useConversations`
-- Passar `{ instanceId }` como opção do hook (já recebe `instanceId` como prop)
-
-### 4. Limpeza opcional — Oferecer exclusão de conversas órfãs
-- Ao reconectar, o sistema poderia detectar conversas de instâncias antigas e avisar o usuário, mas isso é secundário. O filtro por `instance_id` resolve o problema imediato.
+### Arquivos a editar
+- `src/components/crm/MessageItem.tsx` (linhas 43-48, 59-63)
+- `src/components/crm/MessageList.tsx` (linha 89)
+- `src/components/ui/sheet.tsx` (linha 63)
 
