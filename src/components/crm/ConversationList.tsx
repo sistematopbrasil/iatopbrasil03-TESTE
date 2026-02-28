@@ -76,7 +76,7 @@ export function ConversationList({
     updateStatus,
     togglePin,
     refresh,
-  } = useConversations();
+  } = useConversations({ instanceId });
   
   const [showNewContactDialog, setShowNewContactDialog] = useState(false);
   const [stageFilter, setStageFilter] = useState<string | null>(null);

@@ -159,6 +159,7 @@ class CRMService {
     unread_only?: boolean;
     search?: string;
     orgWide?: boolean; // ✅ Admin vê todas da organização
+    instance_id?: string; // ✅ Filtrar por instância ativa
   }): Promise<Conversation[]> {
     try {
       // Se orgWide, buscar sem filtro de instance_id (RLS já garante organização)
@@ -170,6 +171,10 @@ class CRMService {
         `)
         .order('is_pinned', { ascending: false })
         .order('last_message_at', { ascending: false, nullsFirst: false });
+
+      if (filters?.instance_id) {
+        query = query.eq('instance_id', filters.instance_id);
+      }
 
       if (filters?.status) {
         query = query.eq('status', filters.status);
