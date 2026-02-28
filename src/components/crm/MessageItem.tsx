@@ -43,8 +43,7 @@ export function MessageItem({ message }: MessageItemProps) {
               <img
                 src={message.media_url}
                 alt="Imagem"
-                className="rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                style={{ maxWidth: '300px', maxHeight: '300px', objectFit: 'cover' }}
+                className="rounded-lg cursor-pointer hover:opacity-90 transition-opacity max-w-full w-full max-h-[300px] object-cover"
                 onClick={() => handleImageClick(message.media_url!)}
               />
               {message.content && (
@@ -59,8 +58,7 @@ export function MessageItem({ message }: MessageItemProps) {
               <video
                 src={message.media_url}
                 controls
-                className="rounded-lg"
-                style={{ maxWidth: '400px', maxHeight: '300px' }}
+                className="rounded-lg max-w-full w-full max-h-[300px]"
               />
               {message.content && (
                 <p className="text-sm">{message.content}</p>
