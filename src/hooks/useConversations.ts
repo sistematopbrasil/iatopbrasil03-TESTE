@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 interface UseConversationsOptions {
   orgWide?: boolean; // Admin vê todas conversas da organização
   autoSync?: boolean; // Sincronizar automaticamente ao carregar
+  instanceId?: string; // Filtrar por instância ativa
 }
 
 export function useConversations(options?: UseConversationsOptions) {
@@ -22,12 +23,13 @@ export function useConversations(options?: UseConversationsOptions) {
     if (filter === 'unread') filters.unread_only = true;
     if (searchQuery) filters.search = searchQuery;
     if (options?.orgWide) filters.orgWide = true;
+    if (options?.instanceId) filters.instance_id = options.instanceId;
     return filters;
-  }, [filter, searchQuery, options?.orgWide]);
+  }, [filter, searchQuery, options?.orgWide, options?.instanceId]);
 
   // Use React Query with caching
   const { data: conversations = [], isLoading, refetch } = useQuery({
-    queryKey: ['conversations', filter, searchQuery, options?.orgWide],
+    queryKey: ['conversations', filter, searchQuery, options?.orgWide, options?.instanceId],
     queryFn: () => crmService.getConversations(getFilters()),
     staleTime: 30 * 1000,
     gcTime: 10 * 60 * 1000,
