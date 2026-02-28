@@ -1,48 +1,55 @@
 
 
-## Diagnóstico REAL dos bugs (encontrados no código)
+## Plan: Fix CRM Messages + Resolve All Security Issues
 
-### Bug 1: `chat.id` vs `chat.remoteJid` (CAUSA PRINCIPAL do sync falhando)
+### Part 1: CRM Messages — Root Cause Found
 
-No `crm-sync-recent`, linha 239:
-```js
-const remoteJid = chat.id || chat.remoteJid;
-```
+**Evidence from logs and database:**
+- The webhook IS receiving `messages_update` events (status changes) — last one at `2026-02-28 00:23:24`
+- But NO `messages_upsert` events (new messages) are arriving since Feb 27
+- The `crm-check-connection` function runs every 15s and detects `webhookByEvents === true`, then tries to delete+recreate the webhook. This constant 15-second churn is disrupting message delivery.
 
-Os logs mostram que `chat.id` retorna um **CUID do banco** (`cmm573nlh4xifmf4jab2vidbm`), NÃO um JID WhatsApp. Enquanto `chat.remoteJid` tem o valor correto (`553399437134@s.whatsapp.net`).
+**The old working project used `webhookByEvents: true`** — meaning events go to sub-paths like `/crm-webhook/MESSAGES_UPSERT`. Supabase Edge Functions handle sub-paths natively. This worked perfectly.
 
-Como `chat.id` vem primeiro e existe, o código usa o CUID, faz `.replace('@s.whatsapp.net', '')` que não altera nada, e `normalizePhone("cmm573nlh4xifmf4jab2vidbm")` retorna um hash inválido → filtrado como "número inválido". **Todos os 3 chats são descartados.**
+Our code fights the Evolution API by setting `webhookByEvents: false`, which the API keeps reverting to `true`. The constant delete+recreate cycle every 15 seconds is the destructive factor.
 
-**Fix**: Trocar `chat.id || chat.remoteJid` por `chat.remoteJid || chat.id` em TODOS os lugares do sync, e adicionar validação para só usar valores que contenham `@s.whatsapp.net`.
+**Fix (3 files):**
 
-### Bug 2: Parsing errado do `webhookByEvents` (causa reconfigurações infinitas)
+1. **`crm-create-instance/index.ts`** — Change all 3 occurrences of `webhookByEvents: false` to `webhookByEvents: true`. Remove the delete+recreate webhook strategy. Use simple POST.
 
-No `crm-check-connection`, linha 159:
-```js
-const currentWebhookByEvents = currentWebhook?.webhook?.webhook_by_events ?? currentWebhook?.webhook_by_events ?? true;
-```
+2. **`crm-check-connection/index.ts`** — Remove `currentWebhookByEvents === true` from the `needsReconfigure` condition (since `true` is now correct). Remove the delete+recreate strategy. Only reconfigure if events are missing or secret header is needed. Change webhook payload to `webhookByEvents: true`.
 
-A API retorna `webhookByEvents` (camelCase), mas o código lê `webhook_by_events` (snake_case). Como não encontra, cai no default `true`, e tenta "reconfigar" algo que já está correto.
+3. **`crm-sync-recent/index.ts`** — No changes needed (already fixed in previous iteration).
 
-As 3 tentativas de reconfiguraão falham (DELETE → 404, POST → 400, PUT → 404), potencialmente corrompendo o webhook funcional.
+### Part 2: Security Fixes
 
-**Fix**: Ler AMBOS os formatos: `webhookByEvents` E `webhook_by_events`.
+**Migration (1 SQL migration):**
 
-### Bug 3: Mesmo bug `chat.id || chat.remoteJid` na linha 330
+1. Add authentication-required RLS policies for 7 tables:
+   - `users` — require `auth.uid() IS NOT NULL` for SELECT
+   - `quiz_submissions_new` — require auth for SELECT (public INSERT stays)  
+   - `consultant_recruits` — require auth for SELECT
+   - `organizations` — require auth for SELECT
+   - `crm_conversations` — require auth for SELECT
+   - `crm_messages` — require auth for SELECT
+   - `tracking_sessions` — require auth for SELECT
 
-Linha 330 repete o mesmo padrão. Precisa ser corrigido também.
+2. Fix hardcoded encryption key fallback — change `encrypt_api_key` and `decrypt_api_key` to raise an exception instead of using hardcoded key
 
----
+**Edge function fixes:**
 
-## Arquivos a editar
+3. **`supabase/functions/create-admin/index.ts`** — Return 401 instead of 500 when `ADMIN_CREATION_SECRET` is not configured
 
-### 1. `supabase/functions/crm-sync-recent/index.ts`
-- **Linha 239**: Trocar `chat.id || chat.remoteJid` → usar lógica que prefere o valor que contém `@s.whatsapp.net`
-- **Linha 330**: Mesmo fix
-- Todas as outras referências a `chat.id || chat.remoteJid`
+4. **`supabase/functions/crm-webhook/index.ts`** — Remove transition mode: reject requests without secret header when `EVOLUTION_WEBHOOK_SECRET` is configured
 
-### 2. `supabase/functions/crm-check-connection/index.ts`
-- **Linha 159**: Adicionar `webhookByEvents` (camelCase) ao parsing
-- Remover as estratégias de delete/recreate que falham com 404/400 (o webhook já está correto)
-- Simplificar para: se config está OK, não mexer
+**Auth config:**
+
+5. Enable leaked password protection via configure-auth tool
+
+### Files to Edit
+- `supabase/functions/crm-create-instance/index.ts`
+- `supabase/functions/crm-check-connection/index.ts`
+- `supabase/functions/create-admin/index.ts`
+- `supabase/functions/crm-webhook/index.ts`
+- 1 SQL migration for RLS policies + encryption key fix
 
