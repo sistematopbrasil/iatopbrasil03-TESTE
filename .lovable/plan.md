@@ -1,51 +1,24 @@
 
 
-## Plan: Fix Multiple UI and Data Issues
+## Atualização automática do Instagram 2x ao dia
 
-### 1. CRM — Scroll to bottom on conversation open
-**File:** `src/components/crm/MessageList.tsx`
-- The `scrollToBottom('auto')` fires in `useEffect` on `conversationId` change, but messages may not be rendered yet at that point
-- Fix: Add a `requestAnimationFrame` + small `setTimeout` to ensure DOM is painted before scrolling
+### Situação atual
+Existe **1 cron job** configurado para rodar às 06:00 UTC (03:00 horário de Brasília), que não corresponde aos horários desejados.
 
-### 2. AI Agent — Buttons overlapping form fields
-**File:** `src/pages/AdminAIConfig.tsx`
-- The sticky buttons at the bottom (line 613) overlap the last form fields because there's no bottom padding
-- Fix: Add `pb-24` to the main content container (line 178) so the sticky buttons don't cover inputs
+### Plano
+Remover o cron atual e criar **2 novos cron jobs**:
 
-### 3. Instagram — Yesterday data precision + default filter
-**File:** `supabase/functions/insta-update-profiles/index.ts`
-- The daily_change logic looks correct (uses São Paulo timezone). The issue may be that the function hasn't been triggered for yesterday, or the data is stale.
-- No backend change needed if the scheduled function runs correctly.
+- **08:00 BRT** = 11:00 UTC → `0 11 * * *`
+- **23:50 BRT** = 02:50 UTC → `50 2 * * *`
 
-**File:** `src/components/instagram/InstagramAnalytics.tsx`
-- Change default period from `"7d"` to `"yesterday"` (lines 16-20)
+### Execução
+Será feito via SQL direto no banco (não migration, pois contém dados sensíveis):
 
-### 4. Instagram Analytics — Match screenshot style
-**File:** `src/components/instagram/InstagramAnalytics.tsx`
-- The screenshot shows period filter as horizontal button chips (Hoje, Ontem, 7 Dias, 30 Dias, Total, Data) inline with the ranking title, rather than a separate dropdown
-- Refactor to use inline button group matching the reference design, integrated into the ranking section header
+1. `SELECT cron.unschedule(1);` — remove o job atual
+2. Criar job `insta-update-morning` com schedule `0 11 * * *`
+3. Criar job `insta-update-night` com schedule `50 2 * * *`
 
-### 5. Traffic — Auto-update data
-**File:** `src/hooks/useTrafficMetrics.ts`
-- Add `refetchInterval: 5 * 60 * 1000` (5 minutes) to the query options so data refreshes automatically
+Ambos chamam a mesma edge function `insta-scheduled-update` que já existe e funciona.
 
-### 6. Traffic Accounts — Spend by period filter
-**File:** `src/components/traffic/TrafficAccounts.tsx`
-- Add a period selector (Hoje, Ontem, 7d, 14d, 30d, Total) at the top of the accounts table
-- Pass the selected period to `useTrafficMetrics` so the `byAccount` aggregation respects the date range
-- The spend column will then show spend for the selected period
-
-### 7. Admin Dashboard — Temperature chart missing warm leads
-**File:** `src/components/super-admin/SuperAdminCharts.tsx`
-- All 3 queries filter `.eq('completion_percentage', 100)` which excludes leads from Capture Page and WhatsApp (which may have different completion values)
-- Fix: Remove `.eq('completion_percentage', 100)` from the temperature distribution query (line 117) and top consultants query (line 75), matching ConsultantDashboard behavior
-- Also remove from leads-per-day query (line 37) for consistency
-
-### Files to edit
-1. `src/components/crm/MessageList.tsx` — scroll fix
-2. `src/pages/AdminAIConfig.tsx` — bottom padding for sticky buttons
-3. `src/components/instagram/InstagramAnalytics.tsx` — default "yesterday" + button-style period filter
-4. `src/hooks/useTrafficMetrics.ts` — auto-refresh interval
-5. `src/components/traffic/TrafficAccounts.tsx` — period filter for spend
-6. `src/components/super-admin/SuperAdminCharts.tsx` — remove completion_percentage filter
+Nenhuma alteração de código é necessária — apenas configuração de cron no banco.
 
