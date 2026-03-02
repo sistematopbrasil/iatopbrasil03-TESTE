@@ -10,8 +10,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Download, RefreshCw, Clock, Eye } from "lucide-react";
 import { ImportAccountsDialog } from "./ImportAccountsDialog";
 import { TrafficAccountDetail } from "./TrafficAccountDetail";
-import { formatDistanceToNow } from "date-fns";
+import { TrafficPeriodFilter } from "./TrafficPeriodFilter";
+import { formatDistanceToNow, startOfDay, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { DatePeriodValue } from "@/components/instagram/DatePeriodFilter";
 
 interface Props {
   organizationId: string;
@@ -27,8 +29,13 @@ function formatNumber(n: number) {
 export function TrafficAccounts({ organizationId }: Props) {
   const [importOpen, setImportOpen] = useState(false);
   const [detailAccount, setDetailAccount] = useState<string | null>(null);
+  const [period, setPeriod] = useState<DatePeriodValue>({
+    preset: "30d",
+    from: subDays(startOfDay(new Date()), 29),
+    to: startOfDay(new Date()),
+  });
   const { accounts, isLoading, toggleMonitoring, syncHistory } = useAdAccounts(organizationId);
-  const { data: metrics, isLoading: metricsLoading } = useTrafficMetrics(organizationId);
+  const { data: metrics, isLoading: metricsLoading } = useTrafficMetrics(organizationId, period);
 
   const detailAccountInfo = accounts.find(a => a.ad_account_id === detailAccount) || null;
 
@@ -53,13 +60,16 @@ export function TrafficAccounts({ organizationId }: Props) {
 
   return (
     <div className="space-y-4 min-w-0">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <h3 className="text-lg font-semibold text-foreground">Contas de Anúncios</h3>
-        <Button onClick={() => setImportOpen(true)} size="sm">
-          <Download className="h-4 w-4 mr-1.5" />
-          Importar Contas
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => setImportOpen(true)} size="sm">
+            <Download className="h-4 w-4 mr-1.5" />
+            Importar Contas
+          </Button>
+        </div>
       </div>
+      <TrafficPeriodFilter value={period} onChange={setPeriod} />
 
       {isLoading ? (
         <div className="space-y-3">

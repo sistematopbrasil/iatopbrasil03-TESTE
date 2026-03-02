@@ -34,7 +34,6 @@ export function SuperAdminCharts() {
         .from('quiz_submissions_new')
         .select('created_at')
         .eq('organization_id', currentUser.organization_id)
-        .eq('completion_percentage', 100)
         .gte('created_at', thirtyDaysAgo.toISOString());
 
       // Agrupar por dia
@@ -72,7 +71,6 @@ export function SuperAdminCharts() {
         .from('quiz_submissions_new')
         .select('consultant_id')
         .eq('organization_id', currentUser.organization_id)
-        .eq('completion_percentage', 100)
         .not('consultant_id', 'is', null);
 
       // Contar por consultant
@@ -113,8 +111,7 @@ export function SuperAdminCharts() {
       const { data } = await supabase
         .from('quiz_submissions_new')
         .select('temperature')
-        .eq('organization_id', currentUser.organization_id)
-        .eq('completion_percentage', 100);
+        .eq('organization_id', currentUser.organization_id);
 
       const grouped: Record<string, number> = { hot: 0, warm: 0, cold: 0 };
       data?.forEach(item => {

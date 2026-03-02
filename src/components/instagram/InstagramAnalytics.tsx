@@ -7,16 +7,17 @@ import { ArrowUp, ArrowDown, Trophy, TrendingUp, Users, BarChart3 } from "lucide
 import { formatNumber, formatChange, getLatestMetric } from "@/lib/instagram-utils";
 import { MiniSparkline } from "./MiniSparkline";
 import { InstagramProfileDetail } from "./InstagramProfileDetail";
-import { DatePeriodFilter, filterMetricsByDatePeriod, type DatePeriodValue } from "./DatePeriodFilter";
-import { startOfDay, subDays } from "date-fns";
+import { filterMetricsByDatePeriod, type DatePeriodValue } from "./DatePeriodFilter";
+import { startOfDay, subDays, startOfYesterday, endOfYesterday } from "date-fns";
+import { Button } from "@/components/ui/button";
 
 export function InstagramAnalytics() {
   const { data: profiles } = useInstagramProfiles();
   const { data: allMetrics } = useInstagramMetrics();
   const [datePeriod, setDatePeriod] = useState<DatePeriodValue>({
-    preset: "7d",
-    from: subDays(startOfDay(new Date()), 6),
-    to: startOfDay(new Date()),
+    preset: "yesterday" as any,
+    from: startOfYesterday(),
+    to: endOfYesterday(),
   });
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
 
@@ -52,7 +53,7 @@ export function InstagramAnalytics() {
 
   return (
     <div className="space-y-6">
-      <DatePeriodFilter value={datePeriod} onChange={setDatePeriod} />
+      {/* Period filter is now integrated into the ranking header below */}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -99,10 +100,31 @@ export function InstagramAnalytics() {
       {/* Ranking */}
       <div className="rounded-2xl border border-border/50 overflow-hidden bg-card">
         <div className="p-6 pb-4 border-b border-border/30 bg-gradient-to-r from-amber-500/5 to-orange-500/5">
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            <Trophy className="h-5 w-5 text-amber-500" />
-            Ranking de Crescimento
-          </h3>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-amber-500" />
+              Ranking de Crescimento
+            </h3>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[
+                { label: "Hoje", preset: "1d", from: startOfDay(new Date()), to: new Date() },
+                { label: "Ontem", preset: "yesterday", from: startOfYesterday(), to: endOfYesterday() },
+                { label: "7 Dias", preset: "7d", from: subDays(startOfDay(new Date()), 6), to: startOfDay(new Date()) },
+                { label: "30 Dias", preset: "30d", from: subDays(startOfDay(new Date()), 29), to: startOfDay(new Date()) },
+                { label: "Total", preset: "total", from: undefined, to: undefined },
+              ].map((p) => (
+                <Button
+                  key={p.preset}
+                  size="sm"
+                  variant={datePeriod.preset === p.preset ? "default" : "outline"}
+                  className={`h-7 px-3 text-xs font-medium ${datePeriod.preset === p.preset ? "shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                  onClick={() => setDatePeriod({ preset: p.preset as any, from: p.from, to: p.to })}
+                >
+                  {p.label}
+                </Button>
+              ))}
+            </div>
+          </div>
         </div>
         <div className="p-4">
           {ranking.length === 0 ? (
