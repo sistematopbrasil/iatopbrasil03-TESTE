@@ -1,24 +1,42 @@
 
 
-## Atualização automática do Instagram 2x ao dia
+## Plano de Melhorias — 5 itens
 
-### Situação atual
-Existe **1 cron job** configurado para rodar às 06:00 UTC (03:00 horário de Brasília), que não corresponde aos horários desejados.
+### 1. Botão de voltar no detalhe do perfil Instagram
+O detalhe do perfil abre em um `Sheet` (painel lateral). Falta um botão de voltar/fechar visível no topo.
 
-### Plano
-Remover o cron atual e criar **2 novos cron jobs**:
+**Ação**: Adicionar um header no `InstagramProfileDetail.tsx` com botão `ArrowLeft` + "Voltar" que chama `onClose()`, posicionado antes do avatar.
 
-- **08:00 BRT** = 11:00 UTC → `0 11 * * *`
-- **23:50 BRT** = 02:50 UTC → `50 2 * * *`
+---
 
-### Execução
-Será feito via SQL direto no banco (não migration, pois contém dados sensíveis):
+### 2. Barra de seleção dos consultores saindo da tela (mobile)
+A barra de ações em massa (linha 292-319 de `ConsultantsManagement.tsx`) usa `flex items-center justify-between` sem controle de overflow. Em telas pequenas, os botões "Limpar" e "Excluir Selecionados" extrapolam.
 
-1. `SELECT cron.unschedule(1);` — remove o job atual
-2. Criar job `insta-update-morning` com schedule `0 11 * * *`
-3. Criar job `insta-update-night` com schedule `50 2 * * *`
+**Ação**: Mudar o layout da barra de ações para empilhar em mobile (`flex-col sm:flex-row`), com botões usando `w-full sm:w-auto` e textos menores em mobile. Garantir `overflow-hidden` no container.
 
-Ambos chamam a mesma edge function `insta-scheduled-update` que já existe e funciona.
+---
 
-Nenhuma alteração de código é necessária — apenas configuração de cron no banco.
+### 3. Barra preta na parte inferior do painel consultor
+O `AdminLayout` tem um container com `h-[calc(100dvh-64px)]` (linha 197). Em alguns dispositivos/navegadores, o cálculo de `dvh` pode gerar uma faixa preta visível. Isso acontece especialmente em iOS Safari quando a barra de endereço aparece/desaparece.
+
+**Ação**: Adicionar `bg-background` ao container de conteúdo (linha 196-204) para que qualquer espaço residual tenha a cor correta em vez de preto.
+
+---
+
+### 4. Botões do Agente IA — remover sticky, colocar inline
+Atualmente os botões "Testar Configuração" e "Salvar Configurações" estão com `sticky bottom-4` (linha 613), ficando visíveis o tempo todo. O usuário quer que apareçam apenas no final da página, após o conteúdo.
+
+**Ação**: Remover `sticky bottom-4` e a `shadow-lg bg-background` dos botões. Colocá-los como um bloco normal no fluxo do documento, após o `Tabs` e o resultado do teste. Remover o `pb-24` do container principal que existia para compensar o sticky.
+
+---
+
+### 5. Melhorar carregamento — pré-carregar dados de Consultores e Agente IA
+O `usePrefetchAdminData` já pré-carrega muitos dados, mas falta:
+- **Consultores** (`ConsultantsManagement`): Não está pré-carregado. Essa página faz queries pesadas (N+1 por consultor). Vamos pré-carregar via a query key `all-consultants-management`.
+- **Agente IA** (`AdminAIConfig`): O `ai-agent-config` já é pré-carregado, mas o `current-user-ai` e `ai-usage-stats` não. Vamos adicionar essas query keys ao prefetch.
+
+**Ação**: No `usePrefetchAdminData.ts`, adicionar prefetch para:
+- `current-user-ai` → reutilizar `currentUser` já disponível
+- `ai-usage-stats` → buscar `ai_conversation_state` em background
+- Dados de consultores (para super admins) com métricas básicas
 
