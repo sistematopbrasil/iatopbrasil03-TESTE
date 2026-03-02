@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowUp, ArrowDown, ExternalLink, RefreshCw, Trash2, Archive, Pencil } from "lucide-react";
+import { ArrowUp, ArrowDown, ArrowLeft, ExternalLink, RefreshCw, Trash2, Archive, Pencil } from "lucide-react";
 import { formatNumber, formatChange, formatPercentage, getLatestMetric, calculateAverage, filterMetricsByPeriod, type InstaProfile } from "@/lib/instagram-utils";
 import { GrowthAreaChart } from "./GrowthAreaChart";
 import { DailyChangeBarChart } from "./DailyChangeBarChart";
@@ -47,6 +47,12 @@ export function InstagramProfileDetail({ profile, onClose }: Props) {
 
   return (
     <div className="p-6 space-y-6">
+      {/* Back Button */}
+      <Button variant="ghost" size="sm" onClick={onClose} className="-ml-2 -mt-2 mb-2">
+        <ArrowLeft className="h-4 w-4 mr-1" />
+        Voltar
+      </Button>
+
       {/* Header */}
       <div className="flex items-start gap-4">
         <Avatar className="h-16 w-16">

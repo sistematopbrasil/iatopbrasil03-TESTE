@@ -256,8 +256,10 @@ export function usePrefetchAdminData() {
           });
 
         // =============================================
-        // PREFETCH AI AGENT CONFIG
+        // PREFETCH AI AGENT CONFIG + USER + USAGE STATS
         // =============================================
+        queryClient.setQueryData(['current-user-ai'], currentUser);
+
         supabase
           .from('ai_agent_configs')
           .select('*')
@@ -268,6 +270,23 @@ export function usePrefetchAdminData() {
               queryClient.setQueryData(['ai-agent-config'], data);
             }
           });
+
+        supabase
+          .from('ai_conversation_state')
+          .select('id, messages_sent, total_tokens_used, is_active')
+          .eq('user_id', userId)
+          .then(({ data }) => {
+            if (data) {
+              queryClient.setQueryData(['ai-usage-stats', userId], data);
+            }
+          });
+
+        // =============================================
+        // PREFETCH CONSULTANTS MANAGEMENT (super admin)
+        // =============================================
+        if (isSuperAdminUser && orgId) {
+          queryClient.setQueryData(['current-user-consultants'], currentUser);
+        }
 
         // =============================================
         // PREFETCH DASHBOARD STATS

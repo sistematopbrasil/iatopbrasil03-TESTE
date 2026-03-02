@@ -290,29 +290,32 @@ export default function ConsultantsManagement() {
 
         {/* Bulk Action Bar */}
         {hasSelection && (
-          <div className="flex items-center justify-between bg-muted/50 border border-border rounded-lg p-3 animate-in fade-in slide-in-from-top-2">
-            <div className="flex items-center gap-3">
-              <CheckSquare className="w-5 h-5 text-primary" />
-              <span className="font-medium">
-                {selectedIds.size} consultor{selectedIds.size > 1 ? 'es' : ''} selecionado{selectedIds.size > 1 ? 's' : ''}
+           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-muted/50 border border-border rounded-lg p-3 animate-in fade-in slide-in-from-top-2 overflow-hidden">
+            <div className="flex items-center gap-3 min-w-0">
+              <CheckSquare className="w-5 h-5 text-primary shrink-0" />
+              <span className="font-medium text-sm sm:text-base truncate">
+                {selectedIds.size} selecionado{selectedIds.size > 1 ? 's' : ''}
               </span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               <Button
                 variant="outline"
                 size="sm"
+                className="w-full sm:w-auto"
                 onClick={() => setSelectedIds(new Set())}
               >
-                <XSquare className="w-4 h-4 mr-2" />
+                <XSquare className="w-4 h-4 mr-1" />
                 Limpar
               </Button>
               <Button
                 variant="destructive"
                 size="sm"
+                className="w-full sm:w-auto"
                 onClick={() => setBulkDeleteDialogOpen(true)}
               >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Excluir Selecionados
+                <Trash2 className="w-4 h-4 mr-1" />
+                <span className="hidden sm:inline">Excluir Selecionados</span>
+                <span className="sm:hidden">Excluir</span>
               </Button>
             </div>
           </div>
