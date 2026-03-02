@@ -161,5 +161,6 @@ export function useTrafficMetrics(
       };
     },
     enabled: !!organizationId,
+    refetchInterval: 5 * 60 * 1000,
   });
 }

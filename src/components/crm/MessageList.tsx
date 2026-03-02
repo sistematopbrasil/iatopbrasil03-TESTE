@@ -38,8 +38,14 @@ export function MessageList({ messages, conversationId, isTyping = false }: Mess
   }, [messages, shouldAutoScroll]);
 
   useEffect(() => {
-    scrollToBottom('auto');
     setShouldAutoScroll(true);
+    // Wait for messages to render before scrolling
+    const raf = requestAnimationFrame(() => {
+      setTimeout(() => {
+        bottomRef.current?.scrollIntoView({ behavior: 'auto' });
+      }, 50);
+    });
+    return () => cancelAnimationFrame(raf);
   }, [conversationId]);
 
   // Parse timestamp correctly considering it might be UTC
