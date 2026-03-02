@@ -694,7 +694,7 @@ serve(async (req) => {
             const currentStage = stages.find((s: any) => s.id === lead?.pipeline_stage_id);
 
             // Filtrar quadros bloqueados para movimentação automática
-            const blockedKeywords = ['novos consultores', 'convertido', 'convertidos'];
+            const blockedKeywords = ['consultor', 'convertido', 'convertidos'];
             const allowedStages = stages.filter((s: any) => 
               !blockedKeywords.some(keyword => s.name.toLowerCase().includes(keyword))
             );
@@ -713,11 +713,12 @@ serve(async (req) => {
               s.name.toLowerCase().includes('descartado') || s.name.toLowerCase().includes('descartados')
             );
             if (descartadoStage && currentStage?.id !== descartadoStage.id) {
-              const recentUserMessages = conversationHistory
+              // Pegar últimas 5 mensagens do lead INDIVIDUALMENTE (não concatenadas)
+              const recentUserMessageTexts = conversationHistory
                 .filter((m: any) => m.role === 'user')
                 .slice(-5)
-                .map((m: any) => (m.content || '').toLowerCase())
-                .join(' ');
+                .map((m: any) => (m.content || '').toLowerCase());
+
               const rejectionKeywords = [
                 'não tenho interesse', 'nao tenho interesse',
                 'não quero', 'nao quero',
@@ -729,13 +730,19 @@ serve(async (req) => {
                 'não quero mais', 'nao quero mais',
                 'me tire', 'me tira', 'sai fora',
               ];
-              const hasRejection = rejectionKeywords.some(kw => recentUserMessages.includes(kw));
-              if (hasRejection) {
+
+              // Contar em quantas mensagens DISTINTAS aparecem keywords de rejeição
+              const messagesWithRejection = recentUserMessageTexts.filter(msgText =>
+                rejectionKeywords.some(kw => msgText.includes(kw))
+              ).length;
+
+              // Exigir rejeição em 2+ mensagens distintas para descartar
+              if (messagesWithRejection >= 2) {
                 await supabaseAdmin
                   .from('quiz_submissions_new')
                   .update({ pipeline_stage_id: descartadoStage.id })
                   .eq('id', conv.lead_id);
-                console.log(`🚫 Auto-pipeline DETERMINÍSTICO: Lead descartado por palavras-chave de desinteresse`);
+                console.log(`🚫 Auto-pipeline DETERMINÍSTICO: Lead descartado (rejeição em ${messagesWithRejection} mensagens distintas)`);
                 skipRemainingPipeline = true;
               }
             }
@@ -770,13 +777,14 @@ serve(async (req) => {
                     content: `Voce e um classificador de leads. Analise o historico abaixo e responda SOMENTE com o nome exato de um dos quadros permitidos. Nenhuma outra palavra.
 
 QUADROS PERMITIDOS: ${allowedStageNames}
-${blockedStageNames ? `QUADROS BLOQUEADOS (NUNCA usar): ${blockedStageNames}` : ''}
+${blockedStageNames ? `QUADROS BLOQUEADOS (NUNCA usar estes quadros, incluindo qualquer quadro com "consultor" no nome): ${blockedStageNames}` : ''}
 QUADRO ATUAL: ${currentStage ? `"${currentStage.name}"` : 'nenhum'}
 
-REGRAS:
-1. Para "Qualificado" ou equivalente: o lead demonstrou interesse real (motivacao, agendou conversa, pediu detalhes) E tem pelo menos UM requisito (veiculo, experiencia profissional, disponibilidade).
-2. Para "Descartado" ou equivalente: o lead disse explicitamente que nao quer.
-3. Na duvida, responda com o quadro atual: "${currentStage?.name || 'Contato Inicial'}".
+REGRAS IMPORTANTES:
+1. NUNCA mova para quadros que contenham "consultor" no nome. Isso e responsabilidade EXCLUSIVA do atendente humano.
+2. Para "Qualificado" ou equivalente: o lead demonstrou interesse REAL e ATIVO — pediu detalhes, agendou conversa, mostrou motivacao genuina. Apenas responder perguntas NAO e suficiente para qualificar.
+3. Para "Descartado" ou equivalente: o lead deve ter deixado MUITO CLARO em MAIS DE UMA mensagem que nao quer participar. Uma unica objecao, hesitacao ou duvida NAO e motivo para descartar.
+4. Na duvida, SEMPRE responda com o quadro atual: "${currentStage?.name || 'Contato Inicial'}". E melhor manter do que mover erroneamente.
 
 HISTORICO DA CONVERSA:
 ${historyText}
