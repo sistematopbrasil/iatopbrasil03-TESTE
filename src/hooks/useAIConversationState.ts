@@ -103,14 +103,48 @@ export function useAIConversationState(conversationId: string | null) {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // Activate AI on a conversation and trigger immediate response
+  // Helper to get conversation details and invoke AI
+  const invokeAI = async (conversationId: string, consultantId: string) => {
+    const { data: conv } = await supabase
+      .from('crm_conversations')
+      .select('instance_id, contact_phone')
+      .eq('id', conversationId)
+      .single();
+
+    if (!conv) throw new Error('Conversa não encontrada');
+
+    const { data: instance } = await supabase
+      .from('whatsapp_instances')
+      .select('instance_name')
+      .eq('id', conv.instance_id)
+      .single();
+
+    const { error } = await supabase.functions.invoke('ai-agent-respond', {
+      body: {
+        conversation_id: conversationId,
+        instance_id: conv.instance_id,
+        user_id: consultantId,
+        message: '',
+        message_type: 'text',
+        contact_phone: conv.contact_phone,
+        instance_name: instance?.instance_name || '',
+        force_respond: true,
+      },
+    });
+
+    if (error) {
+      console.error('Erro ao invocar IA:', error);
+    }
+  };
+
+  // Activate AI and send immediate message
   const activateMutation = useMutation({
     mutationFn: async () => {
       if (!conversationId) throw new Error('No conversation');
       const consultant = await getCurrentConsultant();
       if (!consultant) throw new Error('Not authenticated');
 
-      // Create active state
+      // Create/update active state
       if (state) {
         await supabase
           .from('ai_conversation_state')
@@ -122,46 +156,38 @@ export function useAIConversationState(conversationId: string | null) {
           .insert({ conversation_id: conversationId, user_id: consultant.id, is_active: true });
       }
 
-      // Get conversation details to invoke AI
-      const { data: conv } = await supabase
-        .from('crm_conversations')
-        .select('instance_id, contact_phone')
-        .eq('id', conversationId)
-        .single();
-
-      if (!conv) throw new Error('Conversa não encontrada');
-
-      // Get instance name
-      const { data: instance } = await supabase
-        .from('whatsapp_instances')
-        .select('instance_name')
-        .eq('id', conv.instance_id)
-        .single();
-
-      // Invoke AI agent with force_respond=true
-      const { error } = await supabase.functions.invoke('ai-agent-respond', {
-        body: {
-          conversation_id: conversationId,
-          instance_id: conv.instance_id,
-          user_id: consultant.id,
-          message: '',
-          message_type: 'text',
-          contact_phone: conv.contact_phone,
-          instance_name: instance?.instance_name || '',
-          force_respond: true,
-        },
-      });
-
-      if (error) {
-        console.error('Erro ao ativar IA:', error);
-        // Don't throw - state was created, AI will try on next message
-      }
+      await invokeAI(conversationId, consultant.id);
     },
     onSuccess: () => {
       invalidate();
       queryClient.invalidateQueries({ queryKey: ['messages'] });
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
-      toast.success('IA ativada! Gerando resposta...');
+      toast.success('IA disparada! Gerando resposta...');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Activate AI silently (no immediate message)
+  const activateSilentMutation = useMutation({
+    mutationFn: async () => {
+      if (!conversationId) throw new Error('No conversation');
+      const consultant = await getCurrentConsultant();
+      if (!consultant) throw new Error('Not authenticated');
+
+      if (state) {
+        await supabase
+          .from('ai_conversation_state')
+          .update({ is_active: true, permanently_disabled: false, paused_until: null, paused_by: 'manual' })
+          .eq('conversation_id', conversationId);
+      } else {
+        await supabase
+          .from('ai_conversation_state')
+          .insert({ conversation_id: conversationId, user_id: consultant.id, is_active: true });
+      }
+    },
+    onSuccess: () => {
+      invalidate();
+      toast.success('IA ativada! Responderá na próxima mensagem.');
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -186,6 +212,7 @@ export function useAIConversationState(conversationId: string | null) {
     resume: () => resumeMutation.mutate(),
     disable: () => disableMutation.mutate(),
     activate: () => activateMutation.mutate(),
-    isPending: pauseMutation.isPending || resumeMutation.isPending || disableMutation.isPending || activateMutation.isPending,
+    activateSilent: () => activateSilentMutation.mutate(),
+    isPending: pauseMutation.isPending || resumeMutation.isPending || disableMutation.isPending || activateMutation.isPending || activateSilentMutation.isPending,
   };
 }

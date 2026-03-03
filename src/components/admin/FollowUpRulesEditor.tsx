@@ -37,8 +37,12 @@ const DELAY_OPTIONS = [
   { label: '2 horas', value: 120 },
   { label: '4 horas', value: 240 },
   { label: '8 horas', value: 480 },
+  { label: '12 horas', value: 720 },
   { label: '24 horas', value: 1440 },
   { label: '48 horas', value: 2880 },
+  { label: '3 dias', value: 4320 },
+  { label: '5 dias', value: 7200 },
+  { label: '7 dias', value: 10080 },
 ];
 
 export function FollowUpRulesEditor({ userId, organizationId }: Props) {

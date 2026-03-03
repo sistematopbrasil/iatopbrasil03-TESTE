@@ -4,8 +4,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Loader2, Save, Zap } from 'lucide-react';
+import { Loader2, Save, Zap, Settings2 } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 
 const DEFAULT_PROMPTS: Record<string, string> = {
   'novos leads': 'Lead acabou de chegar, ainda sem interação significativa. Não mova leads para este quadro, é apenas o estado inicial.',
@@ -30,6 +38,7 @@ interface Props {
 export function PipelineStagePromptsEditor({ userId, organizationId }: Props) {
   const queryClient = useQueryClient();
   const [prompts, setPrompts] = useState<Record<string, string>>({});
+  const [open, setOpen] = useState(false);
 
   const { data: stages } = useQuery({
     queryKey: ['pipeline-stages-prompts', organizationId],
@@ -94,45 +103,81 @@ export function PipelineStagePromptsEditor({ userId, organizationId }: Props) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pipeline-stage-prompts'] });
       toast.success('Prompts do pipeline salvos!');
+      setOpen(false);
     },
     onError: () => toast.error('Erro ao salvar prompts'),
   });
 
   if (isLoading) return <Loader2 className="w-5 h-5 animate-spin text-primary" />;
 
+  const configuredCount = stages?.filter((s: any) => {
+    const val = prompts[s.id];
+    return val && val.trim().length > 0;
+  }).length || 0;
+
   return (
-    <div className="space-y-4">
-      <div className="p-3 bg-primary/5 rounded-lg border border-primary/20 space-y-2">
-        <p className="text-sm font-medium text-foreground flex items-center gap-2">
-          <Zap className="w-4 h-4 text-primary" />
-          Configuração dos Quadros do Pipeline
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Explique para a IA o que cada quadro significa e quando deve mover um lead para lá.
-        </p>
-      </div>
-
-      {stages?.map((stage: any) => (
-        <div key={stage.id} className="space-y-1.5">
-          <Label className="text-sm font-medium">{stage.name}</Label>
-          <Textarea
-            value={prompts[stage.id] || ''}
-            onChange={e => setPrompts(prev => ({ ...prev, [stage.id]: e.target.value }))}
-            placeholder={`Descreva quando um lead deve ser movido para "${stage.name}"...`}
-            rows={2}
-            className="text-sm"
-          />
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <Label className="text-base font-semibold flex items-center gap-2">
+            <Zap className="w-4 h-4 text-primary" />
+            Configuração dos Quadros do Pipeline
+          </Label>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Explique para a IA o que cada quadro significa e quando mover um lead.
+            {stages && stages.length > 0 && (
+              <span className="ml-1 text-primary font-medium">
+                ({configuredCount}/{stages.length} configurados)
+              </span>
+            )}
+          </p>
         </div>
-      ))}
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm" variant="outline">
+              <Settings2 className="w-4 h-4 mr-1" />
+              Configurar Quadros
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Zap className="w-5 h-5 text-primary" />
+                Configuração dos Quadros do Pipeline
+              </DialogTitle>
+              <DialogDescription>
+                Explique para a IA o que cada quadro significa e quando deve mover um lead para lá.
+              </DialogDescription>
+            </DialogHeader>
 
-      <Button
-        size="sm"
-        onClick={() => saveMutation.mutate()}
-        disabled={saveMutation.isPending}
-      >
-        {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
-        Salvar Prompts
-      </Button>
+            <div className="space-y-4 py-4">
+              {stages?.map((stage: any) => (
+                <div key={stage.id} className="space-y-1.5">
+                  <Label className="text-sm font-medium">{stage.name}</Label>
+                  <Textarea
+                    value={prompts[stage.id] || ''}
+                    onChange={e => setPrompts(prev => ({ ...prev, [stage.id]: e.target.value }))}
+                    placeholder={`Descreva quando um lead deve ser movido para "${stage.name}"...`}
+                    rows={2}
+                    className="text-sm"
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                onClick={() => saveMutation.mutate()}
+                disabled={saveMutation.isPending}
+              >
+                {saveMutation.isPending ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
+                Salvar Prompts
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 }

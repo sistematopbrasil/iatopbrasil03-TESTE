@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Bot, Pause, Play, XCircle, Clock, Zap } from 'lucide-react';
+import { Bot, Pause, Play, XCircle, Clock, Zap, Send } from 'lucide-react';
 import { useAIConversationState } from '@/hooks/useAIConversationState';
 import { useState, useEffect } from 'react';
 import {
@@ -9,6 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 
 interface AIStatusBadgeProps {
@@ -28,10 +29,9 @@ function formatTimeRemaining(pausedUntil: string | null): string | null {
 }
 
 export function AIStatusBadge({ conversationId, aiEnabled }: AIStatusBadgeProps) {
-  const { state, status, pause, resume, disable, activate, isPending } = useAIConversationState(conversationId);
+  const { state, status, pause, resume, disable, activate, activateSilent, isPending } = useAIConversationState(conversationId);
   const [timeLeft, setTimeLeft] = useState<string | null>(null);
 
-  // Update countdown every 30s
   useEffect(() => {
     if (status !== 'paused' || !state?.paused_until) {
       setTimeLeft(null);
@@ -43,34 +43,10 @@ export function AIStatusBadge({ conversationId, aiEnabled }: AIStatusBadgeProps)
     return () => clearInterval(interval);
   }, [status, state?.paused_until]);
 
-  // If AI not enabled globally, don't show anything
   if (!aiEnabled) return null;
 
-  // If no state yet (AI never activated on this conversation), show "Ativar IA" button
-  if (status === 'none') {
-    return (
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-6 px-0"
-        disabled={isPending}
-        onClick={activate}
-      >
-        <Badge variant="outline" className="text-[10px] cursor-pointer border-primary/50 text-primary hover:bg-primary/10">
-          <Zap className="w-3 h-3 mr-1" />
-          {isPending ? 'Ativando...' : 'Ativar IA'}
-        </Badge>
-      </Button>
-    );
-  }
-
-  const statusConfig = {
-    active: { label: 'IA Ativa', variant: 'default' as const, className: 'bg-green-600 hover:bg-green-700 text-white border-0' },
-    paused: { label: timeLeft ? `IA Pausada (${timeLeft})` : 'IA Pausada', variant: 'secondary' as const, className: 'bg-yellow-600 hover:bg-yellow-700 text-white border-0' },
-    disabled: { label: 'IA Off', variant: 'outline' as const, className: 'text-muted-foreground' },
-  };
-
-  const cfg = statusConfig[status];
+  // Determine effective status: when AI is globally enabled and no per-conversation state exists, treat as active
+  const effectiveStatus = status === 'none' ? 'active' : status;
 
   const pauseOptions = [
     { label: '30 minutos', minutes: 30 },
@@ -81,46 +57,71 @@ export function AIStatusBadge({ conversationId, aiEnabled }: AIStatusBadgeProps)
     { label: '24 horas', minutes: 1440 },
   ];
 
+  const statusConfig = {
+    active: { label: 'IA Ativa', variant: 'default' as const, className: 'bg-green-600 hover:bg-green-700 text-white border-0' },
+    paused: { label: timeLeft ? `IA Pausada (${timeLeft})` : 'IA Pausada', variant: 'secondary' as const, className: 'bg-yellow-600 hover:bg-yellow-700 text-white border-0' },
+    disabled: { label: 'IA Off', variant: 'outline' as const, className: 'text-muted-foreground' },
+  };
+
+  const cfg = statusConfig[effectiveStatus];
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="sm" className="h-6 px-0" disabled={isPending}>
           <Badge variant={cfg.variant} className={`text-[10px] cursor-pointer ${cfg.className}`}>
-            {status === 'paused' ? <Clock className="w-3 h-3 mr-1" /> : <Bot className="w-3 h-3 mr-1" />}
+            {effectiveStatus === 'paused' ? <Clock className="w-3 h-3 mr-1" /> : <Bot className="w-3 h-3 mr-1" />}
             {cfg.label}
           </Badge>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
-        {status !== 'active' && (
-          <DropdownMenuItem onClick={resume}>
-            <Play className="w-4 h-4 mr-2" />
-            Reativar IA
-          </DropdownMenuItem>
-        )}
-        {status === 'active' && (
+      <DropdownMenuContent align="end" className="w-52">
+        {/* Trigger AI now - always available when active or globally enabled */}
+        {effectiveStatus === 'active' && (
           <>
+            <DropdownMenuItem onClick={activate}>
+              <Send className="w-4 h-4 mr-2" />
+              Disparar IA agora
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-[10px] text-muted-foreground">Pausar IA</DropdownMenuLabel>
             {pauseOptions.map((opt) => (
               <DropdownMenuItem key={opt.minutes} onClick={() => pause(opt.minutes)}>
                 <Pause className="w-4 h-4 mr-2" />
-                Pausar {opt.label}
+                {opt.label}
               </DropdownMenuItem>
             ))}
           </>
         )}
-        {status === 'paused' && (
+
+        {effectiveStatus !== 'active' && (
+          <>
+            <DropdownMenuItem onClick={activate}>
+              <Send className="w-4 h-4 mr-2" />
+              Ativar e enviar mensagem
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={activateSilent}>
+              <Play className="w-4 h-4 mr-2" />
+              Ativar sem enviar
+            </DropdownMenuItem>
+          </>
+        )}
+
+        {effectiveStatus === 'paused' && (
           <>
             <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-[10px] text-muted-foreground">Alterar pausa</DropdownMenuLabel>
             {pauseOptions.map((opt) => (
               <DropdownMenuItem key={opt.minutes} onClick={() => pause(opt.minutes)}>
                 <Pause className="w-4 h-4 mr-2" />
-                Alterar para {opt.label}
+                {opt.label}
               </DropdownMenuItem>
             ))}
           </>
         )}
+
         <DropdownMenuSeparator />
-        {status !== 'disabled' && (
+        {effectiveStatus !== 'disabled' && (
           <DropdownMenuItem onClick={disable} className="text-destructive focus:text-destructive">
             <XCircle className="w-4 h-4 mr-2" />
             Desativar nesta conversa
