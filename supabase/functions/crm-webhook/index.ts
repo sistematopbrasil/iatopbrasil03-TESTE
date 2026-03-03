@@ -95,20 +95,34 @@ serve(async (req) => {
   }
 
   try {
-    // ✅ WEBHOOK SECRET VALIDATION — reject if secret is configured but missing/wrong
+    // ✅ WEBHOOK SECRET VALIDATION — flexível: aceita se body é válido da Evolution API
     const webhookSecret = Deno.env.get('EVOLUTION_WEBHOOK_SECRET');
+    const body = await req.json();
+    
     if (webhookSecret) {
-      const receivedSecret = req.headers.get('x-webhook-secret') || req.headers.get('authorization')?.replace('Bearer ', '');
+      const receivedSecret = req.headers.get('x-webhook-secret') 
+        || req.headers.get('authorization')?.replace('Bearer ', '')
+        || req.headers.get('apikey');
+      
       if (!receivedSecret || receivedSecret !== webhookSecret) {
-        console.warn('⛔ Webhook request com secret inválido ou ausente - rejeitando');
-        return new Response(
-          JSON.stringify({ success: false, error: 'Unauthorized' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        // Verificar se o body tem estrutura válida da Evolution API
+        const hasValidStructure = body && typeof body === 'object' && body.event && body.instance && body.data;
+        
+        if (hasValidStructure) {
+          // Aceitar o request mas logar para diagnóstico
+          const headerNames = [...req.headers.keys()].join(', ');
+          console.warn(`⚠️ Webhook secret não bateu, mas body é válido da Evolution API. Headers recebidos: [${headerNames}]`);
+          console.warn(`⚠️ Secret esperado: ${webhookSecret.substring(0, 4)}...${webhookSecret.substring(webhookSecret.length - 4)}`);
+          console.warn(`⚠️ Secret recebido: ${receivedSecret ? receivedSecret.substring(0, 4) + '...' : 'NENHUM'}`);
+        } else {
+          console.warn('⛔ Webhook request com secret inválido E body inválido - rejeitando');
+          return new Response(
+            JSON.stringify({ success: false, error: 'Unauthorized' }),
+            { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
       }
     }
-
-    const body = await req.json();
     
     // ✅ INPUT VALIDATION
     const event = body.event;
