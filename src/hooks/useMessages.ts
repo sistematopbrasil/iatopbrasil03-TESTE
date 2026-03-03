@@ -261,8 +261,6 @@ export function useMessages(conversationId: string | null) {
         )
       );
 
-      // Refetch messages after sending to ensure we have the latest
-      setTimeout(() => loadMessages(), 1500);
       return { success: true };
     } catch (error: any) {
       // Update temp message to error state
