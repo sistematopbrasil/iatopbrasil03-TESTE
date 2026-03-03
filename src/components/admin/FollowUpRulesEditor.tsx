@@ -31,19 +31,30 @@ interface FollowUpRule {
   respect_working_hours: boolean;
 }
 
-const DELAY_OPTIONS = [
-  { label: '30 minutos', value: 30 },
-  { label: '1 hora', value: 60 },
-  { label: '2 horas', value: 120 },
-  { label: '4 horas', value: 240 },
-  { label: '8 horas', value: 480 },
-  { label: '12 horas', value: 720 },
-  { label: '24 horas', value: 1440 },
-  { label: '48 horas', value: 2880 },
-  { label: '3 dias', value: 4320 },
-  { label: '5 dias', value: 7200 },
-  { label: '7 dias', value: 10080 },
-];
+type DelayUnit = 'minutes' | 'hours' | 'days';
+
+const UNIT_MULTIPLIERS: Record<DelayUnit, number> = {
+  minutes: 1,
+  hours: 60,
+  days: 1440,
+};
+
+function minutesToValueUnit(totalMinutes: number): { value: number; unit: DelayUnit } {
+  if (totalMinutes >= 1440 && totalMinutes % 1440 === 0) return { value: totalMinutes / 1440, unit: 'days' };
+  if (totalMinutes >= 60 && totalMinutes % 60 === 0) return { value: totalMinutes / 60, unit: 'hours' };
+  return { value: totalMinutes, unit: 'minutes' };
+}
+
+function formatDelay(totalMinutes: number): string {
+  const { value, unit } = minutesToValueUnit(totalMinutes);
+  const labels: Record<DelayUnit, [string, string]> = {
+    minutes: ['minuto', 'minutos'],
+    hours: ['hora', 'horas'],
+    days: ['dia', 'dias'],
+  };
+  const [singular, plural] = labels[unit];
+  return `${value} ${value === 1 ? singular : plural}`;
+}
 
 export function FollowUpRulesEditor({ userId, organizationId }: Props) {
   const queryClient = useQueryClient();
@@ -196,7 +207,7 @@ export function FollowUpRulesEditor({ userId, organizationId }: Props) {
             {expandedRule !== rule.id && (
               <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                 <Badge variant="outline" className="text-[10px]">
-                  ⏱ {DELAY_OPTIONS.find(o => o.value === rule.delay_minutes)?.label || `${rule.delay_minutes}min`}
+                  ⏱ {formatDelay(rule.delay_minutes)}
                 </Badge>
                 <Badge variant="outline" className="text-[10px]">
                   {rule.message_type === 'fixed' ? '📝 Fixa' : '🤖 IA'}
@@ -213,17 +224,33 @@ export function FollowUpRulesEditor({ userId, organizationId }: Props) {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="space-y-1.5">
                     <Label className="text-xs">Tempo sem resposta</Label>
-                    <Select
-                      value={String(rule.delay_minutes)}
-                      onValueChange={v => updateMutation.mutate({ id: rule.id, updates: { delay_minutes: Number(v) } })}
-                    >
-                      <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {DELAY_OPTIONS.map(o => (
-                          <SelectItem key={o.value} value={String(o.value)}>{o.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="flex gap-2">
+                      <Input
+                        type="number"
+                        min={1}
+                        value={minutesToValueUnit(rule.delay_minutes).value}
+                        onChange={e => {
+                          const val = Number(e.target.value) || 1;
+                          const unit = minutesToValueUnit(rule.delay_minutes).unit;
+                          updateMutation.mutate({ id: rule.id, updates: { delay_minutes: val * UNIT_MULTIPLIERS[unit] } });
+                        }}
+                        className="h-8 text-sm w-20"
+                      />
+                      <Select
+                        value={minutesToValueUnit(rule.delay_minutes).unit}
+                        onValueChange={(v: DelayUnit) => {
+                          const val = minutesToValueUnit(rule.delay_minutes).value;
+                          updateMutation.mutate({ id: rule.id, updates: { delay_minutes: val * UNIT_MULTIPLIERS[v] } });
+                        }}
+                      >
+                        <SelectTrigger className="h-8 text-sm w-28"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="minutes">Minutos</SelectItem>
+                          <SelectItem value="hours">Horas</SelectItem>
+                          <SelectItem value="days">Dias</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">Tipo de mensagem</Label>
