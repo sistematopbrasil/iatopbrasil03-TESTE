@@ -13,6 +13,7 @@ interface WhatsAppConnectionContextType {
   isConnected: boolean;
   connectionVerified: boolean;
   evolutionState: string | null;
+  isNewConnection: boolean;
   createInstance: () => Promise<void>;
   connectInstance: () => Promise<void>;
   disconnectInstance: () => Promise<void>;
@@ -42,6 +43,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
   const [evolutionState, setEvolutionState] = useState<string | null>(null);
   const [qrTimestamp, setQrTimestamp] = useState<number | null>(null);
   const [qrSecondsLeft, setQrSecondsLeft] = useState<number | null>(null);
+  const [isNewConnection, setIsNewConnection] = useState(false);
   
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const healthCheckRef = useRef<NodeJS.Timeout | null>(null);
@@ -190,6 +192,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
             setInstance((prev) => prev ? { ...prev, ...newData } : prev);
             setQrCode(null);
             setIsConnecting(false);
+            setIsNewConnection(false);
             isConnectingRef.current = false;
             isCreatingRef.current = false;
             setConnectionVerified(true);
@@ -327,6 +330,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
       } else if (data?.status === 'disconnected' && !data.last_connected_at) {
         // ✅ Nova conta: instância existe mas nunca conectou - auto-iniciar conexão
         console.log('🆕 Instância nunca conectada, iniciando conexão automática...');
+        setIsNewConnection(true);
         setIsConnecting(true);
         setIsLoading(false);
         connectInstance();
@@ -357,6 +361,10 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
         isConnectingRef.current = false;
         isCreatingRef.current = false;
         setConnectionVerified(true);
+        // ✅ Limpar flag de nova conexão após 60s para permitir sync
+        if (isNewConnection) {
+          setTimeout(() => setIsNewConnection(false), 60000);
+        }
         stopPolling();
         stopActiveCheck();
         clearConnectTimeout();
@@ -753,6 +761,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
     isConnected: instance?.status === 'connected' && connectionVerified,
     connectionVerified,
     evolutionState,
+    isNewConnection,
     createInstance,
     connectInstance,
     disconnectInstance,

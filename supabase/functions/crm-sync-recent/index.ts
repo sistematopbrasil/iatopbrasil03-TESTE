@@ -222,6 +222,17 @@ serve(async (req) => {
     const errors: string[] = [];
 
     for (const instance of instances) {
+      // ✅ Guard: pular sync se instância conectou há menos de 60 segundos (primeira conexão)
+      if (instance.last_connected_at) {
+        const connectedAt = new Date(instance.last_connected_at).getTime();
+        const now = Date.now();
+        const secondsSinceConnection = (now - connectedAt) / 1000;
+        if (secondsSinceConnection < 60) {
+          console.log(`⏭️ Pulando sync da instância ${instance.instance_name} - conectada há apenas ${Math.round(secondsSinceConnection)}s (< 60s)`);
+          continue;
+        }
+      }
+      
       console.log(`🔄 Sincronizando instância: ${instance.instance_name}`);
       
       // ✅ Usar função que tenta múltiplos endpoints
