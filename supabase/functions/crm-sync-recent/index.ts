@@ -557,10 +557,20 @@ serve(async (req) => {
           
           console.log(`📨 ${messages.length} mensagens para processar`);
           
+          // Filter messages by instance created_at to avoid importing old history
+          const instanceCreatedAt = new Date(instance.created_at || '2020-01-01').getTime();
+          
           for (const msg of messages) {
             try {
               const key = msg.key;
               if (!key?.id) continue;
+              
+              // Skip messages older than instance creation
+              const msgTs = msg.messageTimestamp ? Number(msg.messageTimestamp) : 0;
+              const msgTime = msgTs > 1e12 ? msgTs : msgTs * 1000;
+              if (msgTime > 0 && msgTime < instanceCreatedAt) {
+                continue;
+              }
 
               const direction = key.fromMe ? 'outgoing' : 'incoming';
               

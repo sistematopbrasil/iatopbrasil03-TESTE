@@ -76,7 +76,6 @@ export function usePrefetchAdminData() {
         let leadsQuery = supabase
           .from('quiz_submissions_new')
           .select('*')
-          .eq('lead_source', 'quiz')
           .order('created_at', { ascending: false });
 
         if (!isSuperAdminUser) {
