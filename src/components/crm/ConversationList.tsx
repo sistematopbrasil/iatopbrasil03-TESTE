@@ -339,7 +339,7 @@ export function ConversationList({
       </div>
 
       {/* Conversation List */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 [&>[data-radix-scroll-area-viewport]]:overflow-x-visible">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-6 h-6 animate-spin text-primary" />
@@ -481,7 +481,7 @@ export function ConversationList({
                     </div>
 
                     {(conversation.unread_count || 0) > 0 && (
-                      <Badge className="bg-primary text-primary-foreground h-5 min-w-5 flex items-center justify-center p-0 px-1.5 text-xs animate-pulse flex-shrink-0">
+                      <Badge className="bg-primary text-primary-foreground h-5 min-w-[20px] flex items-center justify-center p-0 px-1.5 text-xs animate-pulse flex-shrink-0 ml-1">
                         {conversation.unread_count}
                       </Badge>
                     )}

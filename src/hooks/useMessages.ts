@@ -56,7 +56,7 @@ export function useMessages(conversationId: string | null) {
           });
         }).catch(console.error);
       }
-    }, 3000);
+    }, 1500);
   }, [conversationId]);
 
   useEffect(() => {
@@ -260,6 +260,10 @@ export function useMessages(conversationId: string | null) {
             : m
         )
       );
+
+      // Force quick refreshes after sending to pick up server-confirmed message faster
+      setTimeout(() => loadMessages(), 500);
+      setTimeout(() => loadMessages(), 1500);
 
       return { success: true };
     } catch (error: any) {
