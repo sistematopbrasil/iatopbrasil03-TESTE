@@ -1,104 +1,42 @@
 
 
-## Plano de Implementação — 6 Itens
+## Plano: Ajustes no Analytics, IA nas Conversas, Follow-up e Pipeline Prompts
 
-### 1. Melhorar tela de carregamento do Pipeline
-O loading atual mostra um spinner no canto inferior esquerdo. Vamos centralizar com skeleton columns que simulam os quadros do pipeline.
+### 1. Analytics — filtrar corretamente leads do quiz
 
-**Arquivo**: `src/components/crm/PipelineBoard.tsx` (linhas 245-254)
-- Substituir o loading simples por um skeleton que renderiza 5 colunas fantasma com cards placeholder
-- Usar componente `Skeleton` existente para manter consistência visual
-- As colunas terão a mesma largura (260px mobile / 300px desktop) e headers com skeleton
+O filtro `.eq('lead_source', 'quiz')` já está no código (linha 96), mas o problema pode estar na query principal ou em outra query na mesma página que não filtra. Vou verificar todas as queries do `AdminAnalytics.tsx` e garantir que **todas** filtrem por `lead_source = 'quiz'`. Pode haver queries adicionais (como a de consultores ou a de funil) que buscam dados sem esse filtro.
 
-### 2. Analytics — filtrar apenas leads do quiz
-A query atual busca TODOS os leads da organização. Precisa filtrar por `lead_source = 'quiz'`.
+**Arquivo**: `src/pages/AdminAnalytics.tsx` — revisar todas as queries para incluir `.eq('lead_source', 'quiz')`.
 
-**Arquivo**: `src/pages/AdminAnalytics.tsx` (linhas 87-116)
-- Adicionar `.eq('lead_source', 'quiz')` na query `quiz-submissions-analytics`
-- Atualizar descrição do header para deixar claro que são dados do quiz
-- Ajustar query key para incluir o filtro (evitar cache compartilhado)
+### 2. Botão "Disparar IA" visível a qualquer momento
 
-### 3. Botão "Ativar IA" em todas as conversas do CRM
-Quando `auto_reply` está ativado nas configurações, mostrar um botão para ativar/iniciar a IA em qualquer conversa (inclusive as que não têm estado de IA). Ao ativar, a IA envia uma mensagem imediatamente baseada no contexto da conversa.
+Atualmente o botão "Ativar IA" só aparece quando `status === 'none'`. O usuário quer um botão de **disparo** que funcione sempre — mesmo quando a IA já está ativa — para forçar uma resposta imediata.
+
+Além disso, ao ativar a IA deve haver **duas opções**:
+- **Ativar e enviar mensagem**: IA gera e envia uma mensagem imediata
+- **Ativar sem enviar**: IA fica ativa mas só responde quando o lead mandar mensagem
 
 **Arquivos**:
-- `src/components/crm/AIStatusBadge.tsx`: Modificar para que quando `aiEnabled=true` e `status='none'`, exibir um botão "Ativar IA" em vez de retornar `null`
-- `src/hooks/useAIConversationState.ts`: Adicionar mutation `activate` que cria o estado ativo e invoca a edge function `ai-agent-respond` para gerar primeira mensagem
-- `supabase/functions/ai-agent-respond/index.ts`: Adicionar suporte a um parâmetro `force_respond: true` que pula checagens de "mensagem incoming" e gera resposta com base no histórico existente ou greeting message
+- `src/components/crm/AIStatusBadge.tsx`: Adicionar opção "Disparar IA agora" no dropdown quando `status === 'active'`. Quando `status === 'none'`, mostrar dropdown com 2 opções (ativar com/sem mensagem).
+- `src/hooks/useAIConversationState.ts`: Adicionar mutation `activateSilent` (cria estado ativo sem invocar a edge function).
 
-### 4. Configurações de Pipeline com IA — prompts por quadro
-Quando `auto_pipeline` está ativado, exibir seção para configurar descrição/prompt de cada quadro do pipeline.
+### 3. IA ativa em todas as conversas ao ligar nas configurações
 
-**Mudanças de banco**:
-- Nova tabela `pipeline_stage_prompts` com: `id`, `stage_id` (FK pipeline_stages), `user_id`, `description` (text), `created_at`, `updated_at`
-- RLS: usuários autenticados podem gerenciar seus próprios prompts
+Quando o usuário ativa `auto_reply` nas configurações, a IA deve ficar ativa em **todas** as conversas automaticamente (sem precisar ativar uma por uma). Isso já funciona via a edge function (webhook), mas o `AIStatusBadge` retorna `null` quando `status === 'none'`. 
 
-**Arquivos de frontend**:
-- `src/pages/AdminAIConfig.tsx`: Na seção "Pipeline Automático" (quando ativado), buscar stages da organização e mostrar um textarea para cada um. Salvar na tabela `pipeline_stage_prompts`. Criar prompts padrão automaticamente para stages existentes
-- **Prompts padrão**: "Novos Leads" → "Lead acabou de chegar, ainda sem interação"; "Contato Inicial" → "Lead respondeu mas ainda não demonstrou interesse claro"; "Qualificados" → "Lead demonstrou interesse real e ativo"; "Descartados" → "Lead deixou muito claro que não quer participar"
+**Mudança**: Quando `aiEnabled=true` e `status === 'none'`, em vez de mostrar "Ativar IA", tratar como se a IA estivesse ativa (já que o webhook vai responder). Mostrar badge "IA Ativa" e permitir desativar/pausar naquela conversa específica.
 
-**Edge function**:
-- `supabase/functions/ai-agent-respond/index.ts`: Na seção de classificação (linha 774+), buscar prompts configurados e incluí-los no prompt de classificação para que a IA entenda o contexto de cada quadro
+### 4. Follow-up — opções de minutos, horas e dias
 
-### 5. Sistema de Follow-up automático
-Sistema de mensagens automáticas quando o lead não responde após X tempo, com condicionais baseadas no pipeline.
+Atualmente as opções são fixas em minutos/horas (30min a 48h). Adicionar opções com **dias** e melhor formatação.
 
-**Mudanças de banco**:
-- Nova tabela `followup_rules` com campos:
-  - `id`, `user_id`, `organization_id`
-  - `name` (text) — nome da regra
-  - `is_active` (boolean)
-  - `delay_minutes` (integer) — tempo de espera sem resposta
-  - `max_followups` (integer, default 3) — máximo de follow-ups por conversa
-  - `message_type` ('fixed' | 'ai_generated') — mensagem fixa ou gerada pela IA
-  - `fixed_message` (text, nullable) — mensagem fixa se `message_type = 'fixed'`
-  - `ai_prompt` (text, nullable) — prompt para IA se `message_type = 'ai_generated'`
-  - `apply_to_stages` (uuid[], nullable) — quadros onde a regra se aplica (null = todos exceto bloqueados)
-  - `exclude_stages` (uuid[], nullable) — quadros onde NÃO se aplica (ex: Descartados, Consultor)
-  - `only_open_conversations` (boolean, default true) — só conversas abertas
-  - `respect_working_hours` (boolean, default true) — respeitar horário comercial
-  - `created_at`, `updated_at`
+**Arquivo**: `src/components/admin/FollowUpRulesEditor.tsx` — expandir `DELAY_OPTIONS` para incluir:
+- 30 minutos, 1h, 2h, 4h, 8h, 12h, 24h, 48h, 3 dias, 5 dias, 7 dias
 
-- Nova tabela `followup_logs` para rastrear envios:
-  - `id`, `conversation_id`, `rule_id`, `sent_at`, `message_content`
+### 5. Pipeline Prompts — abrir em Dialog em vez de inline
 
-**Nova Edge Function**: `followup-check`
-  - Executada via cron a cada 15 minutos
-  - Para cada regra ativa: busca conversas onde a última mensagem incoming foi há mais de `delay_minutes`
-  - Verifica condicionais: stage do lead, conversa aberta/fechada, horário comercial, max_followups não atingido
-  - Se `message_type = 'fixed'`: envia mensagem fixa via `crm-send-message`
-  - Se `message_type = 'ai_generated'`: chama Lovable AI com o histórico + `ai_prompt` e envia resultado
-  - Registra em `followup_logs` para controle
+Atualmente o `PipelineStagePromptsEditor` mostra todos os textareas inline, o que alonga a página. Mudar para um botão "Configurar Quadros" que abre um **Dialog** com os campos.
 
-**Frontend**:
-- Nova aba "Follow-up" na página `AdminAIConfig.tsx` (ou seção dentro de Comportamento)
-- Interface para criar/editar regras de follow-up:
-  - Nome da regra
-  - Tempo de espera (select com opções: 30min, 1h, 2h, 4h, 8h, 24h, 48h)
-  - Tipo de mensagem (fixa ou IA)
-  - Campo de mensagem ou prompt
-  - Multi-select de quadros onde se aplica / não se aplica
-  - Toggles: só conversas abertas, respeitar horário comercial
-  - Máximo de follow-ups por conversa
-
-**Condicionais importantes**:
-- Não enviar se conversa está fechada (status = 'closed')
-- Não enviar se lead está no quadro "Descartados" ou "Consultor"
-- Não enviar se o lead já respondeu após o último follow-up
-- Não enviar mais de X follow-ups por conversa
-- Respeitar horário comercial se configurado
-- Não enviar se a IA está desativada/pausada naquela conversa
-
-### 6. Cron job para follow-up
-- Registrar cron job `followup-check` para executar a cada 15 minutos
-- `SELECT cron.schedule('followup-check', '*/15 * * * *', ...)`
-
----
-
-### Ordem de implementação sugerida
-1. Pipeline loading (rápido, UX imediata)
-2. Analytics filter (rápido)
-3. Botão ativar IA nas conversas
-4. Configuração de pipeline com prompts por quadro
-5. Sistema de follow-up (mais complexo — banco + edge function + UI + cron)
+**Arquivos**:
+- `src/components/admin/PipelineStagePromptsEditor.tsx`: Wrappear o conteúdo em um `Dialog`. O componente exportado mostra apenas um botão + descrição. Ao clicar, abre o dialog com os textareas dos quadros.
 
