@@ -103,6 +103,69 @@ export function useAIConversationState(conversationId: string | null) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Activate AI on a conversation and trigger immediate response
+  const activateMutation = useMutation({
+    mutationFn: async () => {
+      if (!conversationId) throw new Error('No conversation');
+      const consultant = await getCurrentConsultant();
+      if (!consultant) throw new Error('Not authenticated');
+
+      // Create active state
+      if (state) {
+        await supabase
+          .from('ai_conversation_state')
+          .update({ is_active: true, permanently_disabled: false, paused_until: null, paused_by: 'manual' })
+          .eq('conversation_id', conversationId);
+      } else {
+        await supabase
+          .from('ai_conversation_state')
+          .insert({ conversation_id: conversationId, user_id: consultant.id, is_active: true });
+      }
+
+      // Get conversation details to invoke AI
+      const { data: conv } = await supabase
+        .from('crm_conversations')
+        .select('instance_id, contact_phone')
+        .eq('id', conversationId)
+        .single();
+
+      if (!conv) throw new Error('Conversa não encontrada');
+
+      // Get instance name
+      const { data: instance } = await supabase
+        .from('whatsapp_instances')
+        .select('instance_name')
+        .eq('id', conv.instance_id)
+        .single();
+
+      // Invoke AI agent with force_respond=true
+      const { error } = await supabase.functions.invoke('ai-agent-respond', {
+        body: {
+          conversation_id: conversationId,
+          instance_id: conv.instance_id,
+          user_id: consultant.id,
+          message: '',
+          message_type: 'text',
+          contact_phone: conv.contact_phone,
+          instance_name: instance?.instance_name || '',
+          force_respond: true,
+        },
+      });
+
+      if (error) {
+        console.error('Erro ao ativar IA:', error);
+        // Don't throw - state was created, AI will try on next message
+      }
+    },
+    onSuccess: () => {
+      invalidate();
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      toast.success('IA ativada! Gerando resposta...');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   // Compute status
   let status: 'active' | 'paused' | 'disabled' | 'none' = 'none';
   if (state) {
@@ -122,6 +185,7 @@ export function useAIConversationState(conversationId: string | null) {
     pause: (minutes: number) => pauseMutation.mutate(minutes),
     resume: () => resumeMutation.mutate(),
     disable: () => disableMutation.mutate(),
-    isPending: pauseMutation.isPending || resumeMutation.isPending || disableMutation.isPending,
+    activate: () => activateMutation.mutate(),
+    isPending: pauseMutation.isPending || resumeMutation.isPending || disableMutation.isPending || activateMutation.isPending,
   };
 }
