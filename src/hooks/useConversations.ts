@@ -7,6 +7,7 @@ interface UseConversationsOptions {
   orgWide?: boolean; // Admin vê todas conversas da organização
   autoSync?: boolean; // Sincronizar automaticamente ao carregar
   instanceId?: string; // Filtrar por instância ativa
+  skipSync?: boolean; // Pular auto-sync (ex: nova conexão)
 }
 
 export function useConversations(options?: UseConversationsOptions) {
@@ -42,6 +43,7 @@ export function useConversations(options?: UseConversationsOptions) {
   // ✅ Auto-sync ao carregar o CRM e a cada 60s em background
   useEffect(() => {
     if (options?.autoSync === false) return;
+    if (options?.skipSync) return; // ✅ Pular sync em nova conexão
 
     const doSync = async () => {
       try {
@@ -65,7 +67,7 @@ export function useConversations(options?: UseConversationsOptions) {
     const intervalId = setInterval(doSync, 15000);
 
     return () => clearInterval(intervalId);
-  }, [options?.autoSync, queryClient]);
+  }, [options?.autoSync, options?.skipSync, queryClient]);
 
   // Real-time subscriptions + window focus listener
   useEffect(() => {

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useConversations } from '@/hooks/useConversations';
+import { useWhatsAppConnectionContext } from '@/contexts/WhatsAppConnectionContext';
 import { Conversation } from '@/lib/crm-service';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -64,6 +65,7 @@ export function ConversationList({
   userId,
   organizationId,
 }: ConversationListProps) {
+  const { isNewConnection } = useWhatsAppConnectionContext();
   const {
     conversations,
     isLoading,
@@ -76,7 +78,7 @@ export function ConversationList({
     updateStatus,
     togglePin,
     refresh,
-  } = useConversations({ instanceId });
+  } = useConversations({ instanceId, skipSync: isNewConnection });
   
   const [showNewContactDialog, setShowNewContactDialog] = useState(false);
   const [stageFilter, setStageFilter] = useState<string | null>(null);
