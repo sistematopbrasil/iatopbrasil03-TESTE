@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Bot, Pause, Play, XCircle, Clock } from 'lucide-react';
+import { Bot, Pause, Play, XCircle, Clock, Zap } from 'lucide-react';
 import { useAIConversationState } from '@/hooks/useAIConversationState';
 import { useState, useEffect } from 'react';
 import {
@@ -28,7 +28,7 @@ function formatTimeRemaining(pausedUntil: string | null): string | null {
 }
 
 export function AIStatusBadge({ conversationId, aiEnabled }: AIStatusBadgeProps) {
-  const { state, status, pause, resume, disable, isPending } = useAIConversationState(conversationId);
+  const { state, status, pause, resume, disable, activate, isPending } = useAIConversationState(conversationId);
   const [timeLeft, setTimeLeft] = useState<string | null>(null);
 
   // Update countdown every 30s
@@ -43,7 +43,26 @@ export function AIStatusBadge({ conversationId, aiEnabled }: AIStatusBadgeProps)
     return () => clearInterval(interval);
   }, [status, state?.paused_until]);
 
-  if (!aiEnabled || status === 'none') return null;
+  // If AI not enabled globally, don't show anything
+  if (!aiEnabled) return null;
+
+  // If no state yet (AI never activated on this conversation), show "Ativar IA" button
+  if (status === 'none') {
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-6 px-0"
+        disabled={isPending}
+        onClick={activate}
+      >
+        <Badge variant="outline" className="text-[10px] cursor-pointer border-primary/50 text-primary hover:bg-primary/10">
+          <Zap className="w-3 h-3 mr-1" />
+          {isPending ? 'Ativando...' : 'Ativar IA'}
+        </Badge>
+      </Button>
+    );
+  }
 
   const statusConfig = {
     active: { label: 'IA Ativa', variant: 'default' as const, className: 'bg-green-600 hover:bg-green-700 text-white border-0' },

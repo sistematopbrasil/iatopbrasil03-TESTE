@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -245,9 +246,26 @@ export function PipelineBoard() {
   if (userLoading || isLoading || stagesLoading) {
     return (
       <div className="flex items-center justify-center h-[500px]">
-        <div className="text-center space-y-4">
-          <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
-          <p className="text-muted-foreground">Carregando pipeline...</p>
+        <div className="flex gap-4 overflow-hidden px-4 w-full max-w-full">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex-shrink-0 w-[260px] md:w-[300px] space-y-3">
+              <div className="flex items-center gap-2 mb-3">
+                <Skeleton className="h-5 w-5 rounded-full" />
+                <Skeleton className="h-5 w-24" />
+                <Skeleton className="h-5 w-8 ml-auto rounded-full" />
+              </div>
+              {Array.from({ length: 3 - Math.floor(i / 2) }).map((_, j) => (
+                <div key={j} className="rounded-lg border bg-card p-3 space-y-2">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-1/2" />
+                  <div className="flex gap-2 pt-1">
+                    <Skeleton className="h-5 w-12 rounded-full" />
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
         </div>
       </div>
     );

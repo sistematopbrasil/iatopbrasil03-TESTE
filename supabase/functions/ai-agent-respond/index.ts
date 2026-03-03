@@ -254,9 +254,10 @@ serve(async (req) => {
       media_url,
       instance_name,
       contact_phone,
+      force_respond,
     } = await req.json();
 
-    console.log('🤖 AI Agent chamado:', { conversation_id, user_id, message_type });
+    console.log('🤖 AI Agent chamado:', { conversation_id, user_id, message_type, force_respond: !!force_respond });
 
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -284,7 +285,7 @@ serve(async (req) => {
       .eq('user_id', user_id)
       .single();
 
-    if (!config || !config.auto_reply) {
+    if (!config || (!config.auto_reply && !force_respond)) {
       console.log('⏭️ Sem config ou auto_reply desativado');
       return new Response(JSON.stringify({ skipped: true, reason: 'no_config_or_auto_reply_off' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -307,7 +308,7 @@ serve(async (req) => {
       aiState = newState;
     }
 
-    if (!aiState?.is_active || aiState.permanently_disabled) {
+    if (!force_respond && (!aiState?.is_active || aiState.permanently_disabled)) {
       console.log('⏭️ IA desativada nesta conversa');
       return new Response(JSON.stringify({ skipped: true, reason: 'disabled_for_conversation' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -315,7 +316,7 @@ serve(async (req) => {
     }
 
     // Verificar pausa temporária
-    if (aiState.paused_until && new Date(aiState.paused_until) > new Date()) {
+    if (!force_respond && aiState.paused_until && new Date(aiState.paused_until) > new Date()) {
       console.log('⏸️ IA pausada até:', aiState.paused_until);
       return new Response(JSON.stringify({ skipped: true, reason: 'paused' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -698,7 +699,24 @@ serve(async (req) => {
             const allowedStages = stages.filter((s: any) => 
               !blockedKeywords.some(keyword => s.name.toLowerCase().includes(keyword))
             );
-            const allowedStageNames = allowedStages.map((s: any) => `"${s.name}" (order: ${s.order_index})`).join(', ');
+            // Buscar prompts customizados dos quadros
+            const { data: stagePrompts } = await supabaseAdmin
+              .from('pipeline_stage_prompts')
+              .select('stage_id, description')
+              .eq('user_id', user_id)
+              .eq('organization_id', conv.organization_id);
+
+            const stagePromptsMap: Record<string, string> = {};
+            (stagePrompts || []).forEach((sp: any) => {
+              if (sp.description?.trim()) stagePromptsMap[sp.stage_id] = sp.description;
+            });
+
+            const allowedStageNames = allowedStages.map((s: any) => {
+              const customDesc = stagePromptsMap[s.id];
+              return customDesc
+                ? `"${s.name}" (order: ${s.order_index}) - ${customDesc}`
+                : `"${s.name}" (order: ${s.order_index})`;
+            }).join(', ');
             const blockedStageNames = stages
               .filter((s: any) => blockedKeywords.some(keyword => s.name.toLowerCase().includes(keyword)))
               .map((s: any) => `"${s.name}"`)

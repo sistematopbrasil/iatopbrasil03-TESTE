@@ -92,7 +92,8 @@ const AdminAnalytics = () => {
       let query = supabase
         .from("quiz_submissions_new")
         .select("*")
-        .eq("organization_id", currentUser.organization_id);
+        .eq("organization_id", currentUser.organization_id)
+        .eq("lead_source", "quiz");
 
       // Se não for super admin, filtrar apenas leads do consultor
       if (!isSuperAdmin(currentUser.role)) {

@@ -1012,6 +1012,134 @@ export type Database = {
           },
         ]
       }
+      followup_logs: {
+        Row: {
+          conversation_id: string
+          id: string
+          message_content: string | null
+          organization_id: string
+          rule_id: string
+          sent_at: string
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          id?: string
+          message_content?: string | null
+          organization_id: string
+          rule_id: string
+          sent_at?: string
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          id?: string
+          message_content?: string | null
+          organization_id?: string
+          rule_id?: string
+          sent_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "followup_logs_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "crm_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "followup_logs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "followup_logs_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "followup_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "followup_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      followup_rules: {
+        Row: {
+          ai_prompt: string | null
+          created_at: string
+          delay_minutes: number
+          exclude_stages: string[] | null
+          fixed_message: string | null
+          id: string
+          is_active: boolean
+          max_followups: number
+          message_type: string
+          name: string
+          only_open_conversations: boolean
+          organization_id: string
+          respect_working_hours: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_prompt?: string | null
+          created_at?: string
+          delay_minutes?: number
+          exclude_stages?: string[] | null
+          fixed_message?: string | null
+          id?: string
+          is_active?: boolean
+          max_followups?: number
+          message_type?: string
+          name?: string
+          only_open_conversations?: boolean
+          organization_id: string
+          respect_working_hours?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_prompt?: string | null
+          created_at?: string
+          delay_minutes?: number
+          exclude_stages?: string[] | null
+          fixed_message?: string | null
+          id?: string
+          is_active?: boolean
+          max_followups?: number
+          message_type?: string
+          name?: string
+          only_open_conversations?: boolean
+          organization_id?: string
+          respect_working_hours?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "followup_rules_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "followup_rules_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       insta_campaign_notes: {
         Row: {
           created_at: string
@@ -1173,6 +1301,58 @@ export type Database = {
           whatsapp_number?: string | null
         }
         Relationships: []
+      }
+      pipeline_stage_prompts: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          organization_id: string
+          stage_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          id?: string
+          organization_id: string
+          stage_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          organization_id?: string
+          stage_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_stage_prompts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pipeline_stage_prompts_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pipeline_stage_prompts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pipeline_stages: {
         Row: {
