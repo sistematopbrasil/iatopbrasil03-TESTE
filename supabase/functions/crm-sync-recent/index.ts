@@ -527,6 +527,32 @@ serve(async (req) => {
           
           if (messages.length === 0) {
             console.log(`⚠️ Nenhum endpoint retornou mensagens para ${remoteJid}`);
+            
+            // ✅ Tentar com formato @lid (WhatsApp Business API alternativo)
+            const rawPhoneForLid = remoteJid.replace('@s.whatsapp.net', '');
+            const remoteJidAlt = `${rawPhoneForLid}@lid`;
+            console.log(`🔄 Tentando formato alternativo @lid: ${remoteJidAlt}`);
+            
+            const altResult = await evolutionRequest(`/chat/findMessages/${instance.instance_name}`, {
+              method: 'POST',
+              body: JSON.stringify({ where: { key: { remoteJid: remoteJidAlt } }, limit: messagesPerChat }),
+            });
+            
+            if (altResult.success) {
+              const altData = altResult.data;
+              const altStructure = Array.isArray(altData) ? `Array[${altData.length}]` : (altData ? Object.keys(altData).join(',') : 'null');
+              console.log(`📋 @lid response structure: ${altStructure}`);
+              
+              if (Array.isArray(altData) && altData.length > 0) {
+                messages = altData;
+                console.log(`✅ @lid retornou ${messages.length} mensagens`);
+              } else if (altData?.messages && Array.isArray(altData.messages) && altData.messages.length > 0) {
+                messages = altData.messages;
+                console.log(`✅ @lid retornou ${messages.length} mensagens (nested)`);
+              }
+            } else {
+              console.log(`⚠️ @lid também falhou:`, altResult.error?.message || altResult.status);
+            }
           }
           
           console.log(`📨 ${messages.length} mensagens para processar`);
