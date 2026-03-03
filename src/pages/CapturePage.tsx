@@ -163,8 +163,8 @@ function HeroImage({ config }: { config: CaptureConfig }) {
   const sizeMap: Record<string, string> = {
     small: 'w-20 h-20',
     medium: 'w-40 h-40',
-    large: 'w-60 h-60',
-    full: 'w-full h-auto max-h-64',
+    large: 'w-full max-w-md h-auto',
+    full: 'w-full h-auto',
   };
   const shapeMap: Record<string, string> = {
     rounded: 'rounded-2xl',
@@ -176,7 +176,7 @@ function HeroImage({ config }: { config: CaptureConfig }) {
     <div className={cn("flex", config.hero_image_position === 'left' ? 'justify-start' : 'justify-center')}>
       <img src={config.hero_image} alt="Hero"
         className={cn(
-          "object-cover border-2 shadow-lg animate-[fade-in_0.8s_ease-out]",
+          "object-contain border-2 shadow-lg animate-[fade-in_0.8s_ease-out]",
           sizeMap[config.hero_image_size] || sizeMap.medium,
           shapeMap[config.hero_image_shape] || shapeMap.rounded,
         )}
@@ -437,7 +437,7 @@ export default function CapturePage() {
     if (!touched[field]) return false;
     const value = form[field as keyof typeof form];
     if (field === 'name') return value.trim().length >= 2;
-    if (field === 'email') return /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value);
+    if (field === 'email') return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
     if (field === 'phone') return value.replace(/\D/g, '').length >= (selectedCountry.maxDigits - 2);
     return false;
   };

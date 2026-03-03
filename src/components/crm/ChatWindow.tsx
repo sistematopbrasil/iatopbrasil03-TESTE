@@ -500,7 +500,12 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
       <Sheet open={showProfile} onOpenChange={setShowProfile}>
         <SheetContent side="right" className="w-full sm:w-[400px] lg:w-[450px] overflow-y-auto p-0">
           <SheetHeader className="p-4 border-b border-border">
-            <SheetTitle>Perfil do Lead</SheetTitle>
+            <div className="flex items-center justify-between">
+              <SheetTitle>Perfil do Lead</SheetTitle>
+              <Button variant="ghost" size="sm" onClick={() => setShowProfile(false)} className="hover:bg-destructive/20 hover:text-destructive">
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
           </SheetHeader>
           <LeadProfile conversation={conversation} onClose={() => setShowProfile(false)} />
         </SheetContent>

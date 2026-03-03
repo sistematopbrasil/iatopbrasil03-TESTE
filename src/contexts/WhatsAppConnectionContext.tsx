@@ -327,6 +327,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
       } else if (data?.status === 'disconnected' && !data.last_connected_at) {
         // ✅ Nova conta: instância existe mas nunca conectou - auto-iniciar conexão
         console.log('🆕 Instância nunca conectada, iniciando conexão automática...');
+        setIsConnecting(true);
         setIsLoading(false);
         connectInstance();
         return;
