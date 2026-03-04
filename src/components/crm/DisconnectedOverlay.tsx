@@ -12,8 +12,11 @@ export function DisconnectedOverlay() {
     qrSecondsLeft,
     refreshQRCode,
     repairConnection,
-    evolutionState 
+    evolutionState,
+    instance,
   } = useWhatsAppConnectionContext();
+  
+  const isFirstConnection = instance && !instance.last_connected_at;
   
   const [waitingTooLong, setWaitingTooLong] = useState(false);
   const [connectingTime, setConnectingTime] = useState(0);
@@ -163,10 +166,15 @@ export function DisconnectedOverlay() {
             </div>
           </div>
           
-          <div>
-            <h3 className="text-xl font-bold text-foreground mb-2">WhatsApp Desconectado</h3>
+           <div>
+            <h3 className="text-xl font-bold text-foreground mb-2">
+              {isFirstConnection ? 'Conectar WhatsApp' : 'WhatsApp Desconectado'}
+            </h3>
             <p className="text-muted-foreground text-sm">
-              Reconecte para enviar e receber mensagens
+              {isFirstConnection 
+                ? 'Conecte seu WhatsApp para começar a usar o CRM'
+                : 'Reconecte para enviar e receber mensagens'
+              }
             </p>
           </div>
 
@@ -177,7 +185,7 @@ export function DisconnectedOverlay() {
               className="bg-gradient-to-r from-primary to-primary-light hover:from-primary/90 hover:to-primary-light/90 shadow-glow w-full"
             >
               <QrCode className="w-5 h-5 mr-2" />
-              Reconectar Agora
+              {isFirstConnection ? 'Conectar WhatsApp' : 'Reconectar Agora'}
             </Button>
             
             <Button
