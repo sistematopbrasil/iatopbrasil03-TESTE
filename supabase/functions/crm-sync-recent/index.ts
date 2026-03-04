@@ -557,18 +557,20 @@ serve(async (req) => {
           
           console.log(`📨 ${messages.length} mensagens para processar`);
           
-          // Filter messages by instance created_at to avoid importing old history
-          const instanceCreatedAt = new Date(instance.created_at || '2020-01-01').getTime();
+          // Filter messages: only import messages AFTER the instance was connected (not created)
+          const cutoffDate = instance.last_connected_at || instance.created_at || new Date().toISOString();
+          const instanceCutoff = new Date(cutoffDate).getTime();
+          console.log(`🕐 Filtro temporal: ignorando mensagens antes de ${cutoffDate} (last_connected_at: ${instance.last_connected_at || 'null'})`);
           
           for (const msg of messages) {
             try {
               const key = msg.key;
               if (!key?.id) continue;
               
-              // Skip messages older than instance creation
+              // Skip messages older than connection time
               const msgTs = msg.messageTimestamp ? Number(msg.messageTimestamp) : 0;
               const msgTime = msgTs > 1e12 ? msgTs : msgTs * 1000;
-              if (msgTime > 0 && msgTime < instanceCreatedAt) {
+              if (msgTime > 0 && msgTime < instanceCutoff) {
                 continue;
               }
 

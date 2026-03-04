@@ -136,29 +136,27 @@ serve(async (req) => {
       const webhookSecret = Deno.env.get('EVOLUTION_WEBHOOK_SECRET') || '';
       console.log('🔧 Reconfigurando webhook para instância existente...');
       try {
-        const webhookPayload = {
-          enabled: true,
-          url: webhookUrl,
-          webhookByEvents: true,
-          webhook_by_events: true,
-          webhook_base64: true,
-          headers: webhookSecret ? { 'x-webhook-secret': webhookSecret } : undefined,
-          events: [
-            'QRCODE_UPDATED',
-            'CONNECTION_UPDATE',
-            'MESSAGES_UPSERT',
-            'MESSAGES_UPDATE',
-            'MESSAGES_SET',
-            'MESSAGES_DELETE',
-            'MESSAGE_ACK',
-            'SEND_MESSAGE',
-          ],
-        };
-
-        // Simple POST to set webhook — no delete+recreate cycle
         await evolutionRequest(`/webhook/set/${existingInstance.instance_name}`, {
           method: 'POST',
-          body: JSON.stringify(webhookPayload),
+          body: JSON.stringify({
+            webhook: {
+              enabled: true,
+              url: webhookUrl,
+              webhookByEvents: false,
+              webhookBase64: true,
+              headers: webhookSecret ? { 'x-webhook-secret': webhookSecret } : undefined,
+              events: [
+                'QRCODE_UPDATED',
+                'CONNECTION_UPDATE',
+                'MESSAGES_UPSERT',
+                'MESSAGES_UPDATE',
+                'MESSAGES_SET',
+                'MESSAGES_DELETE',
+                'MESSAGE_ACK',
+                'SEND_MESSAGE',
+              ],
+            },
+          }),
         });
         console.log('✅ Webhook configurado para:', existingInstance.instance_name);
       } catch (webhookError) {
@@ -276,7 +274,7 @@ serve(async (req) => {
         webhook: {
           url: webhookUrl,
           enabled: true,
-          webhookByEvents: true,
+          webhookByEvents: false,
           webhookBase64: true,
           headers: webhookSecret ? { 'x-webhook-secret': webhookSecret } : undefined,
           events: webhookEvents,
@@ -306,7 +304,7 @@ serve(async (req) => {
             webhook: {
               url: webhookUrl,
               enabled: true,
-              webhookByEvents: true,
+              webhookByEvents: false,
               webhookBase64: true,
               headers: webhookSecret ? { 'x-webhook-secret': webhookSecret } : undefined,
               events: webhookEvents,

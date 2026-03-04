@@ -156,33 +156,36 @@ serve(async (req) => {
         if (needsReconfigure) {
           console.log('🔧 Reconfigurando webhook (eventos faltando ou secret)...', { missingEvents });
           
-          const webhookPayload = {
-            enabled: true,
-            url: webhookUrl,
-            webhookByEvents: true,
-            webhook_by_events: true,
-            webhook_base64: true,
-            headers: webhookSecret ? { 'x-webhook-secret': webhookSecret } : undefined,
-            events: [
-              'QRCODE_UPDATED',
-              'CONNECTION_UPDATE',
-              'MESSAGES_UPSERT',
-              'MESSAGES_UPDATE',
-              'MESSAGES_SET',
-              'MESSAGES_DELETE',
-              'SEND_MESSAGE',
-              'MESSAGE_ACK',
-            ],
-          };
-
-          // Simple POST — no delete+recreate cycle
           const setResponse = await fetch(`${EVOLUTION_API_URL}/webhook/set/${instance.instance_name}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'apikey': EVOLUTION_API_KEY },
-            body: JSON.stringify(webhookPayload),
+            body: JSON.stringify({
+              webhook: {
+                enabled: true,
+                url: webhookUrl,
+                webhookByEvents: false,
+                webhookBase64: true,
+                headers: webhookSecret ? { 'x-webhook-secret': webhookSecret } : undefined,
+                events: [
+                  'QRCODE_UPDATED',
+                  'CONNECTION_UPDATE',
+                  'MESSAGES_UPSERT',
+                  'MESSAGES_UPDATE',
+                  'MESSAGES_SET',
+                  'MESSAGES_DELETE',
+                  'SEND_MESSAGE',
+                  'MESSAGE_ACK',
+                ],
+              },
+            }),
           });
           const setResult = await setResponse.text();
           console.log('📝 Set webhook response:', setResponse.status, setResult.substring(0, 300));
+          
+          // If webhook set failed, don't retry on next health check (will be fixed by repair-connection)
+          if (setResponse.status >= 400) {
+            console.log('⚠️ Webhook set falhou, não tentar novamente no health check');
+          }
         } else {
           console.log('✅ Webhook OK, nenhuma reconfiguração necessária');
         }

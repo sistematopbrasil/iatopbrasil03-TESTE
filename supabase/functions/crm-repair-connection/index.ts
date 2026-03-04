@@ -264,22 +264,27 @@ serve(async (req) => {
       // 4. Forçar configuração do webhook
       try {
         console.log('🔧 Reconfigurando webhook...');
+        const webhookSecret = Deno.env.get('EVOLUTION_WEBHOOK_SECRET') || '';
         const webhookResult = await evolutionRequest(`/webhook/set/${instance.instance_name}`, {
           method: 'POST',
           body: JSON.stringify({
-            url: webhookUrl,
-            webhook_by_events: true,
-            webhook_base64: true,
-            events: [
-              'QRCODE_UPDATED',
-              'CONNECTION_UPDATE',
-              'MESSAGES_UPSERT',
-              'MESSAGES_UPDATE',
-              'MESSAGES_SET',
-              'MESSAGES_DELETE',
-              'MESSAGE_ACK',
-              'SEND_MESSAGE',
-            ],
+            webhook: {
+              enabled: true,
+              url: webhookUrl,
+              webhookByEvents: false,
+              webhookBase64: true,
+              headers: webhookSecret ? { 'x-webhook-secret': webhookSecret } : undefined,
+              events: [
+                'QRCODE_UPDATED',
+                'CONNECTION_UPDATE',
+                'MESSAGES_UPSERT',
+                'MESSAGES_UPDATE',
+                'MESSAGES_SET',
+                'MESSAGES_DELETE',
+                'MESSAGE_ACK',
+                'SEND_MESSAGE',
+              ],
+            },
           }),
         });
         steps.push(`webhook_set: ${webhookResult.ok ? 'ok' : 'failed'}`);
@@ -329,22 +334,27 @@ serve(async (req) => {
       // SEMPRE reconfigurar webhook para garantir eventos corretos
       try {
         console.log('🔧 Reconfigurando webhook com todos os eventos...');
+        const webhookSecret2 = Deno.env.get('EVOLUTION_WEBHOOK_SECRET') || '';
         const webhookResult = await evolutionRequest(`/webhook/set/${instance.instance_name}`, {
           method: 'POST',
           body: JSON.stringify({
-            url: webhookUrl,
-            webhook_by_events: true,
-            webhook_base64: true,
-            events: [
-              'QRCODE_UPDATED',
-              'CONNECTION_UPDATE',
-              'MESSAGES_UPSERT',
-              'MESSAGES_UPDATE',
-              'MESSAGES_SET',
-              'MESSAGES_DELETE',
-              'MESSAGE_ACK',
-              'SEND_MESSAGE',
-            ],
+            webhook: {
+              enabled: true,
+              url: webhookUrl,
+              webhookByEvents: false,
+              webhookBase64: true,
+              headers: webhookSecret2 ? { 'x-webhook-secret': webhookSecret2 } : undefined,
+              events: [
+                'QRCODE_UPDATED',
+                'CONNECTION_UPDATE',
+                'MESSAGES_UPSERT',
+                'MESSAGES_UPDATE',
+                'MESSAGES_SET',
+                'MESSAGES_DELETE',
+                'MESSAGE_ACK',
+                'SEND_MESSAGE',
+              ],
+            },
           }),
         });
         steps.push(`webhook_reconfig: ${webhookResult.ok ? 'ok' : 'failed'}`);

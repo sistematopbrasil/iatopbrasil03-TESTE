@@ -353,6 +353,12 @@ serve(async (req) => {
               continue;
             }
             
+            // ✅ Handle @lid format (WhatsApp new identifier) — skip as we can't resolve phone
+            if (remoteJid?.includes('@lid')) {
+              console.log('⏭️ Pulando: formato @lid (sem número de telefone):', remoteJid?.substring(0, 30));
+              continue;
+            }
+            
             const rawPhone = remoteJid?.replace('@s.whatsapp.net', '').replace('@g.us', '');
             
             if (!rawPhone || !/^\d{8,15}$/.test(rawPhone)) {
