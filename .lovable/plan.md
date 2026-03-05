@@ -1,116 +1,39 @@
 
 
-## Plano: Corrigir CRM — Mensagens, Conversas Antigas e QR Code
+## Plano: Corrigir status do Agente IA e badge no CRM
 
-Vou ser 100% transparente: **encontrei a causa raiz real** nos logs do backend. O problema principal NÃO é o código do webhook em si — é a **configuração do webhook na Evolution API** que está quebrada.
+### Problema 1: "Agente IA Ativo" sempre visível na página Agente IA
+O card (linha 192-215 de `AdminAIConfig.tsx`) sempre mostra "Agente IA Ativo" como título fixo. O texto e o estilo devem mudar conforme o estado do `auto_reply`.
 
----
+**Correção**: Alterar o título para "Agente IA Inativo" e usar estilo neutro quando `auto_reply` é `false`.
 
-### Diagnóstico Real (o que os logs mostram)
+| Arquivo | Mudança |
+|---------|---------|
+| `src/pages/AdminAIConfig.tsx` | Título e estilo do card condicionais ao `formData.auto_reply` |
 
-1. **O webhook `/set` falha com erro 400** a cada 15 segundos:
-```text
-Set webhook response: 400
-{"message":[["instance requires property \"webhook\""]]}
-```
-O código envia as propriedades em formato "flat" (`url`, `webhook_by_events`, `events`), mas a Evolution API v2 exige tudo dentro de um objeto `webhook` aninhado.
+### Problema 2: Badge "IA Ativa" aparece no CRM mesmo com IA desativada
+O `AIStatusBadge` recebe `aiEnabled` do campo `ai_enabled` do usuário (permissão do super admin), mas não verifica se o `auto_reply` está ligado na config. Resultado: badge aparece mesmo sem a IA estar configurada/ativa.
 
-2. **O webhook ESTÁ configurado** (foi feito na criação da instância), MAS com `webhookBase64: false` e faltando os eventos `MESSAGES_SET` e `MESSAGE_ACK`. A URL e os eventos principais (MESSAGES_UPSERT, SEND_MESSAGE) estão corretos.
+**Correção**: No `ChatWindow.tsx`, além de buscar `ai_enabled` do usuário, buscar também `auto_reply` da tabela `ai_agent_configs`. Só passar `aiEnabled=true` para o `AIStatusBadge` quando ambos forem `true`.
 
-3. **ZERO eventos de mensagem chegam no webhook** — apenas `qrcode.updated` e `connection.update`. Apesar dos eventos estarem configurados, a Evolution API não está disparando MESSAGES_UPSERT para esta instância.
+| Arquivo | Mudança |
+|---------|---------|
+| `src/components/crm/ChatWindow.tsx` | Buscar `auto_reply` de `ai_agent_configs` e combinar com `ai_enabled` |
 
-4. **A instância está conectada** (state: open no check-connection), então o WhatsApp ESTÁ funcionando — o problema é só o webhook não entregar mensagens.
+### Problema 3: "Disparar IA agora" sem prompt configurado
+Quando o usuário clica "Disparar IA agora" sem ter preenchido o prompt/persona, a IA falha silenciosamente.
 
----
+**Correção**: No `useAIConversationState.ts`, antes de chamar `invokeAI`, verificar se existe uma config em `ai_agent_configs` com `persona` preenchida. Se não, mostrar toast de erro orientando a configurar o prompt primeiro.
 
-### Correções
+| Arquivo | Mudança |
+|---------|---------|
+| `src/hooks/useAIConversationState.ts` | Verificar config antes de invocar IA; toast se prompt vazio |
 
-#### 1. Corrigir formato do webhook/set em TODOS os lugares (CAUSA RAIZ PRINCIPAL)
+### Resumo
 
-**Arquivos**: `crm-repair-connection/index.ts`, `crm-check-connection/index.ts`, `crm-create-instance/index.ts`
-
-O endpoint `/webhook/set/{instance}` na Evolution API v2 espera o payload assim:
-```json
-{
-  "webhook": {
-    "enabled": true,
-    "url": "...",
-    "webhookByEvents": false,
-    "webhookBase64": true,
-    "events": [...]
-  }
-}
-```
-
-Mas o código atual envia:
-```json
-{
-  "url": "...",
-  "webhook_by_events": true,
-  "events": [...]
-}
-```
-
-**Mudanças**:
-- Em `crm-repair-connection`: linhas 266-284 e 329-355 — envolver todas as propriedades do webhook dentro de `{ webhook: { ... } }` com `webhookByEvents: false` e `webhookBase64: true`
-- Em `crm-check-connection`: linhas 159-176 — mesmo formato aninhado
-- Em `crm-create-instance`: linhas 139-162 — mesmo formato para webhook/set (a criação já usa o formato correto no body da instância)
-- Adicionar `MESSAGES_SET` e `MESSAGE_ACK` a todos os conjuntos de eventos
-- Setar `webhookByEvents: false` para garantir que TODOS os eventos vão para a mesma URL
-
-#### 2. Corrigir o sync para usar `last_connected_at` (conversas antigas)
-
-**Arquivo**: `crm-sync-recent/index.ts`
-
-- Linha 561: Trocar `instance.created_at` por `instance.last_connected_at` para filtrar mensagens
-- Se `last_connected_at` for null, usar a data atual (instância nunca conectou = não sincronizar nada antigo)
-- Adicionar log do timestamp usado para filtro
-
-#### 3. Corrigir webhook para aceitar remoteJid no formato @lid
-
-**Arquivo**: `crm-webhook/index.ts`
-
-- Linha 351-361: Além de `@s.whatsapp.net`, também aceitar `@lid` format
-- Para @lid: tentar resolver o número real via Evolution API endpoint `/chat/findContacts` ou logar e pular
-- Na prática: como @lid não contém o número do telefone, ignorar essas mensagens no webhook (o sync resolve via API)
-
-#### 4. Corrigir fluxo de QR Code para novas contas
-
-**Arquivo**: `src/contexts/WhatsAppConnectionContext.tsx`
-
-- Linha 330-337: O auto-connect para novas contas chama `connectInstance()` que usa `crm-repair-connection` → que falha no webhook/set → mas o QR funciona
-- O problema de "tela de reconexão" acontece porque `isConnecting` fica `false` brevemente entre `loadInstance` detectar `disconnected` e `connectInstance` setar `isConnecting = true`
-- **Fix**: Setar `isConnecting = true` ANTES de chamar `connectInstance()` (já faz isso na linha 334, verificar se não há gap)
-
-**Arquivo**: `src/components/crm/DisconnectedOverlay.tsx`
-
-- Quando `instance.last_connected_at` é null (nunca conectou), o overlay principal não deveria mostrar "WhatsApp Desconectado / Reconectar" — deveria mostrar "Conectar WhatsApp" ou ir direto para a tela de QR
-- Adicionar verificação: se `instance` existe mas `last_connected_at` é null, auto-iniciar conexão em vez de mostrar overlay de "reconexão"
-
-#### 5. Parar o flood de webhook/set a cada 15s no health check
-
-**Arquivo**: `crm-check-connection/index.ts`
-
-- Linhas 154-188: O health check tenta reconfigurar o webhook SEMPRE que `missingEvents.length > 0` OU `!hasSecretHeader`. Mas o /set falha com 400, e isso repete a cada 15s
-- **Fix**: Adicionar um cache/flag para não tentar reconfigurar se já falhou recentemente (ou simplesmente não reconfigurar no health check — deixar para o repair-connection)
-
----
-
-### Resumo de Arquivos
-
-| # | Arquivo | Mudança |
-|---|---------|---------|
-| 1 | `supabase/functions/crm-repair-connection/index.ts` | Formato aninhado `{ webhook: {...} }` no /set |
-| 2 | `supabase/functions/crm-check-connection/index.ts` | Mesmo formato + parar flood de 400 |
-| 3 | `supabase/functions/crm-create-instance/index.ts` | Mesmo formato no /set para instâncias existentes |
-| 4 | `supabase/functions/crm-sync-recent/index.ts` | `last_connected_at` em vez de `created_at` |
-| 5 | `supabase/functions/crm-webhook/index.ts` | Aceitar @lid (log e skip) |
-| 6 | `src/contexts/WhatsAppConnectionContext.tsx` | Eliminar flash de "reconexão" |
-| 7 | `src/components/crm/DisconnectedOverlay.tsx` | Texto correto para primeira conexão |
-
-### Prioridade
-1. **Formato do webhook/set** — resolve mensagens não aparecerem (causa raiz #1)
-2. **last_connected_at** — resolve conversas antigas
-3. **DisconnectedOverlay** — resolve UX do QR
-4. **Health check flood** — para erros desnecessários
+| # | Problema | Arquivo | Mudança |
+|---|----------|---------|---------|
+| 1 | Título "Ativo" fixo | `AdminAIConfig.tsx` | Condicional ao `auto_reply` |
+| 2 | Badge no CRM sempre visível | `ChatWindow.tsx` | Combinar `ai_enabled` + `auto_reply` |
+| 3 | Disparar sem prompt | `useAIConversationState.ts` | Validar config antes de invocar |
 
