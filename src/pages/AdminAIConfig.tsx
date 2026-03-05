@@ -189,14 +189,16 @@ export default function AdminAIConfig() {
         </div>
 
         {/* Global AI Toggle */}
-        <Card className="border-primary/30 bg-primary/5">
+        <Card className={formData.auto_reply ? "border-primary/30 bg-primary/5" : "border-muted bg-muted/30"}>
           <CardContent className="flex items-center justify-between py-4 px-5">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-primary" />
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${formData.auto_reply ? 'bg-primary/20' : 'bg-muted'}`}>
+                <Sparkles className={`w-5 h-5 ${formData.auto_reply ? 'text-primary' : 'text-muted-foreground'}`} />
               </div>
               <div>
-                <p className="font-semibold text-foreground">Agente IA Ativo</p>
+                <p className="font-semibold text-foreground">
+                  {formData.auto_reply ? 'Agente IA Ativo' : 'Agente IA Inativo'}
+                </p>
                 <p className="text-xs text-muted-foreground">
                   {formData.auto_reply
                     ? 'A IA está respondendo automaticamente'

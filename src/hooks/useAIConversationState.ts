@@ -103,8 +103,24 @@ export function useAIConversationState(conversationId: string | null) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Helper to validate AI config before invoking
+  const validateAIConfig = async (consultantId: string) => {
+    const { data: aiConfig } = await supabase
+      .from('ai_agent_configs')
+      .select('persona, auto_reply')
+      .eq('user_id', consultantId)
+      .maybeSingle();
+
+    if (!aiConfig || !aiConfig.persona || aiConfig.persona.trim() === '') {
+      throw new Error('Configure o prompt/persona do Agente IA antes de disparar. Acesse a página Agente IA e preencha o campo Persona.');
+    }
+    return aiConfig;
+  };
+
   // Helper to get conversation details and invoke AI
   const invokeAI = async (conversationId: string, consultantId: string) => {
+    await validateAIConfig(consultantId);
+
     const { data: conv } = await supabase
       .from('crm_conversations')
       .select('instance_id, contact_phone')
