@@ -50,18 +50,25 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
   const [isTyping, setIsTyping] = useState(false);
   const queryClient = useQueryClient();
 
-  // Check if current consultant has AI enabled
+  // Check if current consultant has AI enabled AND auto_reply is on
   const { data: currentUserAI } = useQuery({
-    queryKey: ['current-user-ai-enabled'],
+    queryKey: ['current-user-ai-status'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return { ai_enabled: false };
-      const { data } = await supabase
+      const { data: userData } = await supabase
         .from('users')
-        .select('ai_enabled')
+        .select('id, ai_enabled')
         .eq('auth_user_id', user.id)
         .single();
-      return data || { ai_enabled: false };
+      if (!userData?.ai_enabled) return { ai_enabled: false };
+      // Also check if auto_reply is enabled in ai_agent_configs
+      const { data: aiConfig } = await supabase
+        .from('ai_agent_configs')
+        .select('auto_reply')
+        .eq('user_id', userData.id)
+        .maybeSingle();
+      return { ai_enabled: aiConfig?.auto_reply === true };
     },
     staleTime: 5 * 60 * 1000,
   });
