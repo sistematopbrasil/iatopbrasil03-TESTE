@@ -4,7 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { getCurrentConsultant, isSuperAdmin } from '@/lib/consultant-context';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
-import { Plus, Calendar, Loader2, UserPlus, MessageSquare, CheckCircle2, X, MoreVertical, Edit, Trash2 } from 'lucide-react';
+import { Plus, Calendar, UserPlus, MessageSquare, CheckCircle2, X, MoreVertical, Edit, Trash2 } from 'lucide-react';
+import { CardGridSkeleton } from '@/components/ui/page-skeleton';
 import { EventCard } from '@/components/events/EventCard';
 import { CreateEventDialog } from '@/components/events/CreateEventDialog';
 import { InviteLeadsDialog } from '@/components/events/InviteLeadsDialog';
@@ -255,9 +256,7 @@ export default function AdminEvents() {
         </div>
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          </div>
+          <CardGridSkeleton count={4} />
         ) : (
           <>
             {/* Próximos Eventos */}

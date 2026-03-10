@@ -3,7 +3,7 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import { getCurrentConsultant, isSuperAdmin } from "@/lib/consultant-context";
 import { ConsultantSettings } from "@/components/consultant/ConsultantSettings";
 import { SuperAdminSettings } from "@/components/super-admin/SuperAdminSettings";
-import { Loader2 } from "lucide-react";
+import { FormSkeleton } from "@/components/ui/page-skeleton";
 
 export default function AdminSettings() {
   const { data: currentUser, isLoading } = useQuery({
@@ -17,9 +17,7 @@ export default function AdminSettings() {
   if (isLoading && !currentUser) {
     return (
       <AdminLayout>
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
+        <FormSkeleton />
       </AdminLayout>
     );
   }

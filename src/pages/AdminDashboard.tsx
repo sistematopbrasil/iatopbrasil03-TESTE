@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { getCurrentConsultant, isSuperAdmin } from "@/lib/consultant-context";
 import { ConsultantDashboard } from '@/components/consultant/ConsultantDashboard';
-import { Loader2 } from 'lucide-react';
+import { DashboardSkeleton } from '@/components/ui/page-skeleton';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function AdminDashboard() {
@@ -46,9 +46,7 @@ export default function AdminDashboard() {
   if (isLoading) {
     return (
       <AdminLayout>
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
+        <DashboardSkeleton />
       </AdminLayout>
     );
   }
@@ -57,9 +55,7 @@ export default function AdminDashboard() {
   if (currentUser && isSuperAdmin(currentUser.role)) {
     return (
       <AdminLayout>
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
+        <DashboardSkeleton />
       </AdminLayout>
     );
   }

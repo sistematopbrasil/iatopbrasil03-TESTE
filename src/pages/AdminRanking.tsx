@@ -4,7 +4,8 @@ import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Trophy, TrendingUp, Users, Calendar, Loader2, Star, UserPlus } from 'lucide-react';
+import { Trophy, TrendingUp, Users, Calendar, Star, UserPlus } from 'lucide-react';
+import { TableSkeleton } from '@/components/ui/page-skeleton';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -80,9 +81,7 @@ export default function AdminRanking() {
   if (showLoading) {
     return (
       <AdminLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
+        <TableSkeleton rows={8} />
       </AdminLayout>
     );
   }
