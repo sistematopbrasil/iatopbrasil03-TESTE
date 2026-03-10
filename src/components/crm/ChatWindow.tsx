@@ -71,6 +71,7 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
       return { ai_enabled: aiConfig?.auto_reply === true };
     },
     staleTime: 30_000,
+    gcTime: 0,
     refetchOnMount: 'always',
   });
 

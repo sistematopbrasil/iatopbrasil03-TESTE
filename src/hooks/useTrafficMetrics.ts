@@ -127,9 +127,7 @@ export function useTrafficMetrics(
         existing.impressions += Number(m.impressions || 0);
         existing.clicks += Number(m.clicks || 0);
         existing.reach += Number(m.reach || 0);
-        existing.profile_visits += Number((m as any).profile_visits || 0);
-        existing.ctr_sum += Number(m.ctr || 0);
-        existing.cpc_sum += Number(m.cpc || 0);
+        existing.profile_visits += Number(m.profile_visits || 0);
         existing.count += 1;
         accountMap.set(key, existing);
       }
