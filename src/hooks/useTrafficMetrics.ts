@@ -70,7 +70,7 @@ export function useTrafficMetrics(
       const totalImpressions = metrics.reduce((s, m) => s + Number(m.impressions || 0), 0);
       const totalClicks = metrics.reduce((s, m) => s + Number(m.clicks || 0), 0);
       const totalReach = metrics.reduce((s, m) => s + Number(m.reach || 0), 0);
-      const totalProfileVisits = metrics.reduce((s, m) => s + Number((m as any).profile_visits || 0), 0);
+      const totalProfileVisits = metrics.reduce((s, m) => s + Number(m.profile_visits || 0), 0);
 
       const avgCtr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
       const avgCpc = totalClicks > 0 ? totalSpend / totalClicks : 0;
