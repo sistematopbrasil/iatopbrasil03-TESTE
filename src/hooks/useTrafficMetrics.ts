@@ -70,7 +70,7 @@ export function useTrafficMetrics(
       const totalImpressions = metrics.reduce((s, m) => s + Number(m.impressions || 0), 0);
       const totalClicks = metrics.reduce((s, m) => s + Number(m.clicks || 0), 0);
       const totalReach = metrics.reduce((s, m) => s + Number(m.reach || 0), 0);
-      const totalProfileVisits = metrics.reduce((s, m) => s + Number((m as any).profile_visits || 0), 0);
+      const totalProfileVisits = metrics.reduce((s, m) => s + Number(m.profile_visits || 0), 0);
 
       const avgCtr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
       const avgCpc = totalClicks > 0 ? totalSpend / totalClicks : 0;
@@ -81,24 +81,18 @@ export function useTrafficMetrics(
       const dailyMap = new Map<string, {
         spend: number; impressions: number; clicks: number; reach: number;
         profile_visits: number;
-        ctr: number; cpc: number; frequency: number; count: number;
       }>();
       for (const m of metrics) {
         const key = m.date;
         const existing = dailyMap.get(key) || {
           spend: 0, impressions: 0, clicks: 0, reach: 0,
           profile_visits: 0,
-          ctr: 0, cpc: 0, frequency: 0, count: 0
         };
         existing.spend += Number(m.spend || 0);
         existing.impressions += Number(m.impressions || 0);
         existing.clicks += Number(m.clicks || 0);
         existing.reach += Number(m.reach || 0);
-        existing.profile_visits += Number((m as any).profile_visits || 0);
-        existing.ctr += Number(m.ctr || 0);
-        existing.cpc += Number(m.cpc || 0);
-        existing.frequency += Number(m.frequency || 0);
-        existing.count += 1;
+        existing.profile_visits += Number(m.profile_visits || 0);
         dailyMap.set(key, existing);
       }
 
@@ -110,32 +104,28 @@ export function useTrafficMetrics(
           clicks: vals.clicks,
           reach: vals.reach,
           profile_visits: vals.profile_visits,
-          ctr: vals.count > 0 ? vals.ctr / vals.count : 0,
-          cpc: vals.count > 0 ? vals.cpc / vals.count : 0,
-          frequency: vals.count > 0 ? vals.frequency / vals.count : 0,
+          ctr: vals.impressions > 0 ? (vals.clicks / vals.impressions) * 100 : 0,
+          cpc: vals.clicks > 0 ? vals.spend / vals.clicks : 0,
+          frequency: vals.reach > 0 ? vals.impressions / vals.reach : 0,
         }))
         .sort((a, b) => a.date.localeCompare(b.date));
 
       // Aggregate by account
       const accountMap = new Map<string, {
         spend: number; impressions: number; clicks: number; reach: number;
-        profile_visits: number;
-        ctr_sum: number; cpc_sum: number; count: number;
+        profile_visits: number; count: number;
       }>();
       for (const m of metrics) {
         const key = m.ad_account_id;
         const existing = accountMap.get(key) || {
           spend: 0, impressions: 0, clicks: 0, reach: 0,
-          profile_visits: 0,
-          ctr_sum: 0, cpc_sum: 0, count: 0
+          profile_visits: 0, count: 0
         };
         existing.spend += Number(m.spend || 0);
         existing.impressions += Number(m.impressions || 0);
         existing.clicks += Number(m.clicks || 0);
         existing.reach += Number(m.reach || 0);
-        existing.profile_visits += Number((m as any).profile_visits || 0);
-        existing.ctr_sum += Number(m.ctr || 0);
-        existing.cpc_sum += Number(m.cpc || 0);
+        existing.profile_visits += Number(m.profile_visits || 0);
         existing.count += 1;
         accountMap.set(key, existing);
       }

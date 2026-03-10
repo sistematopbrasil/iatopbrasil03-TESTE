@@ -1,57 +1,39 @@
 
 
-## Plano: Corrigir Métricas de Tráfego, Badge IA e Loading
+## Plano: Corrigir status do Agente IA e badge no CRM
 
-### Problema 1: Métricas de tráfego incorretas
+### Problema 1: "Agente IA Ativo" sempre visível na página Agente IA
+O card (linha 192-215 de `AdminAIConfig.tsx`) sempre mostra "Agente IA Ativo" como título fixo. O texto e o estilo devem mudar conforme o estado do `auto_reply`.
 
-**Causa raiz**: No `useTrafficMetrics.ts`, ao agregar dados diários de múltiplas contas, as métricas de ratio (CTR, CPC, Frequência) são somadas e divididas pela contagem, o que produz médias incorretas. O correto é recalcular a partir dos valores brutos.
-
-Exemplo: Conta A tem 100 impressões e 10 cliques (CTR=10%), Conta B tem 1000 impressões e 5 cliques (CTR=0.5%). A média simples dá 5.25%, mas o CTR correto é 15/1100 = 1.36%.
-
-Além disso, `(m as any).profile_visits` é usado desnecessariamente — `profile_visits` já existe no tipo.
-
-**Correções no `src/hooks/useTrafficMetrics.ts`**:
-- Linha 97: Remover `(m as any)` — usar `m.profile_visits` diretamente
-- Linhas 113-115: Recalcular CTR, CPC e Frequência a partir dos valores brutos agregados em vez de fazer média simples:
-  - `ctr = impressions > 0 ? (clicks / impressions) * 100 : 0`
-  - `cpc = clicks > 0 ? spend / clicks : 0`
-  - `frequency = reach > 0 ? impressions / reach : 0`
-- Remover campos `ctr`, `cpc`, `frequency` da acumulação no dailyMap (não precisa somar)
+**Correção**: Alterar o título para "Agente IA Inativo" e usar estilo neutro quando `auto_reply` é `false`.
 
 | Arquivo | Mudança |
 |---------|---------|
-| `src/hooks/useTrafficMetrics.ts` | Recalcular ratios; remover `as any` |
+| `src/pages/AdminAIConfig.tsx` | Título e estilo do card condicionais ao `formData.auto_reply` |
 
----
+### Problema 2: Badge "IA Ativa" aparece no CRM mesmo com IA desativada
+O `AIStatusBadge` recebe `aiEnabled` do campo `ai_enabled` do usuário (permissão do super admin), mas não verifica se o `auto_reply` está ligado na config. Resultado: badge aparece mesmo sem a IA estar configurada/ativa.
 
-### Problema 2: Badge/botão "IA Ativa" aparece no CRM com IA desativada
-
-A query `current-user-ai-status` no `ChatWindow.tsx` já verifica `auto_reply` (linha 71) e tem `staleTime: 30s`. Isso deveria funcionar. Porém, o `AIStatusBadge` trata `status === 'none'` como `'active'` (linha 49), mostrando "IA Ativa" e "Disparar IA agora" mesmo quando `aiEnabled` é corretamente `false` — **se o cache ainda não atualizou**.
-
-O problema pode ser que `refetchOnMount: 'always'` não dispara refresh quando o componente do CRM já está montado e o usuário simplesmente muda de conversa. A solução é garantir que `aiEnabled` seja tratado como source of truth absoluta.
-
-**Correção**: No `AIStatusBadge`, a linha `if (!aiEnabled) return null` já existe e é correta. O cache pode estar stale por até 30s. Para ser instantâneo, adicionar `refetchInterval: 30_000` e `gcTime: 0` para forçar invalidação.
+**Correção**: No `ChatWindow.tsx`, além de buscar `ai_enabled` do usuário, buscar também `auto_reply` da tabela `ai_agent_configs`. Só passar `aiEnabled=true` para o `AIStatusBadge` quando ambos forem `true`.
 
 | Arquivo | Mudança |
 |---------|---------|
-| `src/components/crm/ChatWindow.tsx` | Adicionar `gcTime: 0` para forçar re-fetch sem cache |
+| `src/components/crm/ChatWindow.tsx` | Buscar `auto_reply` de `ai_agent_configs` e combinar com `ai_enabled` |
 
----
+### Problema 3: "Disparar IA agora" sem prompt configurado
+Quando o usuário clica "Disparar IA agora" sem ter preenchido o prompt/persona, a IA falha silenciosamente.
 
-### Problema 3: Spinner genérico na página Agente IA e outras
+**Correção**: No `useAIConversationState.ts`, antes de chamar `invokeAI`, verificar se existe uma config em `ai_agent_configs` com `persona` preenchida. Se não, mostrar toast de erro orientando a configurar o prompt primeiro.
 
-O screenshot mostra que a página Agente IA ainda exibe o spinner circular. O código já usa `FormSkeleton`, mas pode ser que a build anterior não refletiu. Verificando: `CapturePage.tsx` e `Quiz.tsx` ainda usam `Loader2` spinners. Para páginas do admin, todas já foram migradas. A `CapturePage` é pública (não admin), então o spinner lá faz sentido contextualmente.
-
-O mais provável é que o deploy anterior ainda não tinha compilado. Porém, para garantir, vou verificar se existe algum outro local com spinner dentro do admin.
-
-Verificado: Todas as 6 páginas admin já foram migradas para skeletons. O spinner que o usuário viu pode ter sido da build anterior. Nenhuma mudança adicional necessária aqui.
-
----
+| Arquivo | Mudança |
+|---------|---------|
+| `src/hooks/useAIConversationState.ts` | Verificar config antes de invocar IA; toast se prompt vazio |
 
 ### Resumo
 
 | # | Problema | Arquivo | Mudança |
 |---|----------|---------|---------|
-| 1 | Métricas ratio incorretas | `useTrafficMetrics.ts` | Recalcular CTR/CPC/Frequência dos brutos |
-| 2 | Badge IA com cache | `ChatWindow.tsx` | `gcTime: 0` para evitar stale |
+| 1 | Título "Ativo" fixo | `AdminAIConfig.tsx` | Condicional ao `auto_reply` |
+| 2 | Badge no CRM sempre visível | `ChatWindow.tsx` | Combinar `ai_enabled` + `auto_reply` |
+| 3 | Disparar sem prompt | `useAIConversationState.ts` | Validar config antes de invocar |
 
