@@ -3,7 +3,7 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import { getCurrentConsultant, isSuperAdmin } from "@/lib/consultant-context";
 import { ConsultantSettings } from "@/components/consultant/ConsultantSettings";
 import { SuperAdminSettings } from "@/components/super-admin/SuperAdminSettings";
-import { Loader2 } from "lucide-react";
+import { FormSkeleton } from "@/components/ui/page-skeleton";
 
 export default function AdminSettings() {
   const { data: currentUser, isLoading } = useQuery({
