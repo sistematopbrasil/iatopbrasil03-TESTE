@@ -36,6 +36,7 @@ import {
 import { Target, Flame, Loader2, MoreVertical, Copy, ExternalLink, UserX, UserCheck, Trash2, Users, CheckSquare, XSquare, Bot, BotOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { calculateLeadPoints, NOVOS_CONSULTORES_BONUS } from '@/lib/ranking-service';
+import { TableSkeleton } from '@/components/ui/page-skeleton';
 
 export default function ConsultantsManagement() {
   const queryClient = useQueryClient();

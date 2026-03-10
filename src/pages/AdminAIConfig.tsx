@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, Save, Bot, Brain, Shield, Cog, Clock, Lock, Play, Sparkles, MessageSquare, Zap } from 'lucide-react';
+import { FormSkeleton } from '@/components/ui/page-skeleton';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { PipelineStagePromptsEditor } from '@/components/admin/PipelineStagePromptsEditor';
