@@ -70,7 +70,8 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
         .maybeSingle();
       return { ai_enabled: aiConfig?.auto_reply === true };
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30_000,
+    refetchOnMount: 'always',
   });
 
   // Buscar stages do pipeline FILTRADO POR ORGANIZAÇÃO
