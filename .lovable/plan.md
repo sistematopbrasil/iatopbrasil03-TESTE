@@ -1,48 +1,39 @@
 
 
-## Plano: Corrigir Métrica de Visitas ao Perfil no Tráfego
+## Plano: Corrigir status do Agente IA e badge no CRM
 
-### Problema
+### Problema 1: "Agente IA Ativo" sempre visível na página Agente IA
+O card (linha 192-215 de `AdminAIConfig.tsx`) sempre mostra "Agente IA Ativo" como título fixo. O texto e o estilo devem mudar conforme o estado do `auto_reply`.
 
-A métrica "Visitas ao Perfil" está incorreta porque o edge function `fetch-meta-ads-data` usa action types que não existem na Meta Ads API:
-
-```typescript
-// Atual — action types incorretos
-const profile_visits = findAction(
-  "onsite_conversion.profile_visit",  // NÃO EXISTE na Meta API
-  "page_engagement"                    // Fallback errado — é engajamento de página, não visitas ao perfil
-);
-```
-
-O action type `onsite_conversion.profile_visit` não é um tipo válido na Meta Ads Insights API. O fallback `page_engagement` retorna dados de engajamento geral da página (curtidas, comentários, etc.), não visitas ao perfil.
-
-### Solução
-
-A Meta Ads API não oferece "visitas ao perfil" como action type direto no endpoint de Insights de conta. No entanto, existem actions relevantes que podem ser usados:
-
-1. **`instagram_profile_visit`** — Ação de visita ao perfil do Instagram (disponível em campanhas com objetivo de tráfego/engajamento)
-2. **`onsite_conversion.instagram_profile_visit`** — Variante com prefixo onsite
-
-**Correção no `fetch-meta-ads-data/index.ts`**: Atualizar o `findAction` para usar os action types corretos da API e remover o fallback incorreto `page_engagement`:
-
-```typescript
-const profile_visits = findAction(
-  "instagram_profile_visit",
-  "onsite_conversion.instagram_profile_visit",
-  "onsite_conversion.profile_visit"
-);
-```
-
-Isso remove `page_engagement` como fallback (que inflava o número) e adiciona `instagram_profile_visit` como tipo primário.
-
-### Arquivos
+**Correção**: Alterar o título para "Agente IA Inativo" e usar estilo neutro quando `auto_reply` é `false`.
 
 | Arquivo | Mudança |
 |---------|---------|
-| `supabase/functions/fetch-meta-ads-data/index.ts` | Corrigir action types para profile_visits |
+| `src/pages/AdminAIConfig.tsx` | Título e estilo do card condicionais ao `formData.auto_reply` |
 
-### Impacto
+### Problema 2: Badge "IA Ativa" aparece no CRM mesmo com IA desativada
+O `AIStatusBadge` recebe `aiEnabled` do campo `ai_enabled` do usuário (permissão do super admin), mas não verifica se o `auto_reply` está ligado na config. Resultado: badge aparece mesmo sem a IA estar configurada/ativa.
 
-- Dados **futuros** serão salvos com o valor correto de visitas ao perfil
-- Dados **antigos** já salvos no banco continuarão com valores incorretos. Será necessário re-sincronizar (redefinir `days_synced` para 0 nas contas) para corrigir o histórico
+**Correção**: No `ChatWindow.tsx`, além de buscar `ai_enabled` do usuário, buscar também `auto_reply` da tabela `ai_agent_configs`. Só passar `aiEnabled=true` para o `AIStatusBadge` quando ambos forem `true`.
+
+| Arquivo | Mudança |
+|---------|---------|
+| `src/components/crm/ChatWindow.tsx` | Buscar `auto_reply` de `ai_agent_configs` e combinar com `ai_enabled` |
+
+### Problema 3: "Disparar IA agora" sem prompt configurado
+Quando o usuário clica "Disparar IA agora" sem ter preenchido o prompt/persona, a IA falha silenciosamente.
+
+**Correção**: No `useAIConversationState.ts`, antes de chamar `invokeAI`, verificar se existe uma config em `ai_agent_configs` com `persona` preenchida. Se não, mostrar toast de erro orientando a configurar o prompt primeiro.
+
+| Arquivo | Mudança |
+|---------|---------|
+| `src/hooks/useAIConversationState.ts` | Verificar config antes de invocar IA; toast se prompt vazio |
+
+### Resumo
+
+| # | Problema | Arquivo | Mudança |
+|---|----------|---------|---------|
+| 1 | Título "Ativo" fixo | `AdminAIConfig.tsx` | Condicional ao `auto_reply` |
+| 2 | Badge no CRM sempre visível | `ChatWindow.tsx` | Combinar `ai_enabled` + `auto_reply` |
+| 3 | Disparar sem prompt | `useAIConversationState.ts` | Validar config antes de invocar |
 

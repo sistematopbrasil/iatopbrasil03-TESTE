@@ -58,8 +58,9 @@ Deno.serve(async (req) => {
       };
 
       const profile_visits = findAction(
-        "onsite_conversion.profile_visit",
-        "page_engagement"
+        "instagram_profile_visit",
+        "onsite_conversion.instagram_profile_visit",
+        "onsite_conversion.profile_visit"
       );
       const post_engagement = findAction("post_engagement", "post");
       const conversions = findAction(
