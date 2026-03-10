@@ -320,9 +320,7 @@ export default function ConsultantsManagement() {
         )}
 
         {loadingConsultants ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          </div>
+          <TableSkeleton />
         ) : (
           <div className="rounded-lg border border-border bg-card overflow-x-auto">
             <Table>

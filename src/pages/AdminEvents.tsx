@@ -256,9 +256,7 @@ export default function AdminEvents() {
         </div>
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          </div>
+          <CardGridSkeleton count={4} />
         ) : (
           <>
             {/* Próximos Eventos */}
