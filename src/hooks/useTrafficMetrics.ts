@@ -113,15 +113,13 @@ export function useTrafficMetrics(
       // Aggregate by account
       const accountMap = new Map<string, {
         spend: number; impressions: number; clicks: number; reach: number;
-        profile_visits: number;
-        ctr_sum: number; cpc_sum: number; count: number;
+        profile_visits: number; count: number;
       }>();
       for (const m of metrics) {
         const key = m.ad_account_id;
         const existing = accountMap.get(key) || {
           spend: 0, impressions: 0, clicks: 0, reach: 0,
-          profile_visits: 0,
-          ctr_sum: 0, cpc_sum: 0, count: 0
+          profile_visits: 0, count: 0
         };
         existing.spend += Number(m.spend || 0);
         existing.impressions += Number(m.impressions || 0);
