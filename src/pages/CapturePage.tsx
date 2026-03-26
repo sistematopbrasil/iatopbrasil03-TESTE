@@ -775,7 +775,8 @@ export default function CapturePage() {
                   )}
                   {errors[`custom_${idx}`] && <p className="text-xs text-red-400 pl-1">{errors[`custom_${idx}`]}</p>}
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             <button type="submit" disabled={submitting}
