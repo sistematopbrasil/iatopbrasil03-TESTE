@@ -374,8 +374,8 @@ export function ConsultantsTable() {
                     </td>
                     <td className="px-4 py-3 text-center">
                       <Switch
-                        checked={(consultant as any).ranking_visible ?? true}
-                        onCheckedChange={() => toggleRankingMutation.mutate({ consultantId: consultant.consultant_id, rankingVisible: (consultant as any).ranking_visible ?? true })}
+                        checked={consultant.ranking_visible}
+                        onCheckedChange={() => toggleRankingMutation.mutate({ consultantId: consultant.consultant_id, rankingVisible: consultant.ranking_visible })}
                       />
                     </td>
                     <td className="px-4 py-3 text-center">
