@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 
 const captureSchema = z.object({
   name: z.string().trim().min(2, 'Nome deve ter pelo menos 2 caracteres').max(100),
-  email: z.string().trim().email('Email inválido').max(255),
+  email: z.string().trim().email('Email inválido').max(255).optional().or(z.literal('')),
   phone: z.string().trim().min(10, 'Telefone inválido').max(20),
 });
 
