@@ -344,7 +344,9 @@ export type Database = {
           button_text: string | null
           consultant_id: string
           created_at: string | null
+          custom_questions: Json | null
           custom_slug: string | null
+          email_enabled: boolean
           hero_image: string | null
           hero_image_position: string | null
           hero_image_shape: string | null
@@ -365,7 +367,9 @@ export type Database = {
           button_text?: string | null
           consultant_id: string
           created_at?: string | null
+          custom_questions?: Json | null
           custom_slug?: string | null
+          email_enabled?: boolean
           hero_image?: string | null
           hero_image_position?: string | null
           hero_image_shape?: string | null
@@ -386,7 +390,9 @@ export type Database = {
           button_text?: string | null
           consultant_id?: string
           created_at?: string | null
+          custom_questions?: Json | null
           custom_slug?: string | null
+          email_enabled?: boolean
           hero_image?: string | null
           hero_image_position?: string | null
           hero_image_shape?: string | null
@@ -1977,6 +1983,7 @@ export type Database = {
           ai_enabled: boolean
           auth_user_id: string
           created_at: string
+          crm_enabled: boolean
           email: string
           full_name: string
           id: string
@@ -1998,6 +2005,7 @@ export type Database = {
           ai_enabled?: boolean
           auth_user_id: string
           created_at?: string
+          crm_enabled?: boolean
           email: string
           full_name: string
           id?: string
@@ -2019,6 +2027,7 @@ export type Database = {
           ai_enabled?: boolean
           auth_user_id?: string
           created_at?: string
+          crm_enabled?: boolean
           email?: string
           full_name?: string
           id?: string
