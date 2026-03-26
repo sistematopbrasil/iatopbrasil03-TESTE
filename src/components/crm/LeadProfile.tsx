@@ -15,10 +15,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { 
+import {
   X, Phone, Mail, Calendar, MapPin, Briefcase, Car, TrendingUp, 
   Star, User, Target, BarChart, AlertCircle, 
-  CheckCircle, Tag, Loader2, Send, Plus, Thermometer
+  CheckCircle, Tag, Loader2, Send, Plus, Thermometer, MessageSquare
 } from 'lucide-react';
 import { Conversation } from '@/lib/crm-service';
 import { TemperatureBadge } from '@/components/ui/temperature-badge';
