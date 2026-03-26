@@ -37,7 +37,15 @@ export async function getCurrentConsultant(): Promise<ConsultantUser | null> {
       is_active, 
       profile_photo,
       ai_enabled,
+      crm_enabled,
       quiz_cover_image,
+      quiz_image_position,
+      quiz_image_size,
+      quiz_image_shape,
+      whatsapp_button_url,
+      pixel_id,
+      username
+    `)
       quiz_image_position,
       quiz_image_size,
       quiz_image_shape,
