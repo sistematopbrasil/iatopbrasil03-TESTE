@@ -150,6 +150,9 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
         whatsapp_number: (existingConfig as any).whatsapp_number || '',
         email_enabled: (existingConfig as any).email_enabled ?? true,
         custom_questions: (existingConfig as any).custom_questions || [],
+        template_type: (existingConfig as any).template_type || 'standard',
+        gallery_images: (existingConfig as any).gallery_images || [],
+        gallery_title: (existingConfig as any).gallery_title || 'Veja nossos resultados',
       });
     }
   }, [existingConfig]);
