@@ -512,7 +512,6 @@ export default function CapturePage() {
         stage: 'novo', temperature: 'cold', lead_score: 0,
         extra_answers: Object.keys(extra_answers).length > 0 ? extra_answers : null,
       } as any);
-      });
       setSubmitted(true);
     } catch (error) {
       console.error('Erro ao enviar:', error);
