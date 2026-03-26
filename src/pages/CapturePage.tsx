@@ -451,14 +451,16 @@ export default function CapturePage() {
     if (!touched[field]) return false;
     const value = form[field as keyof typeof form];
     if (field === 'name') return value.trim().length >= 2;
-    if (field === 'email') return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+    if (field === 'email') return config.email_enabled ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) : true;
     if (field === 'phone') return value.replace(/\D/g, '').length >= (selectedCountry.maxDigits - 2);
     return false;
   };
 
-  const validCount = useMemo(() =>
-    ['name', 'email', 'phone'].filter(f => isFieldValid(f)).length
-  , [form, touched, selectedCountry]);
+  const baseFields = ['name', ...(config.email_enabled ? ['email'] : []), 'phone'];
+  const totalFields = baseFields.length + config.custom_questions.filter(q => q.required).length;
+  const validBaseCount = baseFields.filter(f => isFieldValid(f)).length;
+  const validCustomCount = config.custom_questions.filter((q, i) => q.required && customAnswers[i]?.trim()).length;
+  const validCount = validBaseCount + validCustomCount;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
