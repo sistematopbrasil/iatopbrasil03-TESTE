@@ -465,23 +465,53 @@ export default function CapturePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!consultant) return;
-    const result = captureSchema.safeParse(form);
-    if (!result.success) {
-      const fieldErrors: Record<string, string> = {};
-      result.error.issues.forEach(issue => { fieldErrors[issue.path[0] as string] = issue.message; });
-      setErrors(fieldErrors);
+    
+    // Validate base fields
+    if (form.name.trim().length < 2) {
+      setErrors({ name: 'Nome deve ter pelo menos 2 caracteres' });
       setTouched({ name: true, email: true, phone: true });
       return;
     }
+    if (config.email_enabled && form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      setErrors({ email: 'Email inválido' });
+      setTouched({ name: true, email: true, phone: true });
+      return;
+    }
+    if (form.phone.replace(/\D/g, '').length < (selectedCountry.maxDigits - 2)) {
+      setErrors({ phone: 'Telefone inválido' });
+      setTouched({ name: true, email: true, phone: true });
+      return;
+    }
+
+    // Validate required custom questions
+    const missingRequired = config.custom_questions.findIndex((q, i) => q.required && !customAnswers[i]?.trim());
+    if (missingRequired >= 0) {
+      setErrors({ [`custom_${missingRequired}`]: 'Campo obrigatório' });
+      return;
+    }
+
     setErrors({});
     setSubmitting(true);
     try {
       const phoneDigits = selectedCountry.dial + form.phone.replace(/\D/g, '');
+      
+      // Build extra_answers from custom questions
+      const extra_answers: Record<string, string> = {};
+      config.custom_questions.forEach((q, i) => {
+        if (customAnswers[i]?.trim()) {
+          extra_answers[q.question] = customAnswers[i];
+        }
+      });
+
       await supabase.from('quiz_submissions_new').insert({
-        name: form.name.trim(), email: form.email.trim(), phone: phoneDigits,
+        name: form.name.trim(), 
+        email: config.email_enabled && form.email ? form.email.trim() : null, 
+        phone: phoneDigits,
         organization_id: consultant.organization_id, consultant_id: consultant.id,
         lead_source: 'capture', completion_percentage: 100,
         stage: 'novo', temperature: 'cold', lead_score: 0,
+        extra_answers: Object.keys(extra_answers).length > 0 ? extra_answers : null,
+      } as any);
       });
       setSubmitted(true);
     } catch (error) {
