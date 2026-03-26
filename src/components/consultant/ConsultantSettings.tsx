@@ -186,7 +186,7 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
         const { error } = await supabase.from('capture_page_configs').update(payload).eq('id', existingConfig.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('capture_page_configs').insert(payload);
+        const { error } = await supabase.from('capture_page_configs').insert(payload as any);
         if (error) throw error;
       }
 
