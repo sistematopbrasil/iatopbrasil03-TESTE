@@ -19,6 +19,11 @@ interface CustomQuestion {
   options: string[];
 }
 
+interface GalleryImage {
+  url: string;
+  caption?: string;
+}
+
 interface CaptureConfig {
   title: string;
   subtitle: string;
@@ -34,6 +39,9 @@ interface CaptureConfig {
   whatsapp_number: string | null;
   email_enabled: boolean;
   custom_questions: CustomQuestion[];
+  template_type: 'standard' | 'landing';
+  gallery_images: GalleryImage[];
+  gallery_title: string;
 }
 
 interface ConsultantData {
@@ -58,6 +66,9 @@ const DEFAULT_CONFIG: CaptureConfig = {
   whatsapp_number: null,
   email_enabled: true,
   custom_questions: [],
+  template_type: 'standard',
+  gallery_images: [],
+  gallery_title: 'Veja nossos resultados',
 };
 
 /* ─── Country data ─── */
@@ -420,6 +431,9 @@ export default function CapturePage() {
           whatsapp_number: captureConfig.whatsapp_number || null,
           email_enabled: (captureConfig as any).email_enabled ?? true,
           custom_questions: (captureConfig as any).custom_questions || [],
+          template_type: (captureConfig as any).template_type || 'standard',
+          gallery_images: (captureConfig as any).gallery_images || [],
+          gallery_title: (captureConfig as any).gallery_title || 'Veja nossos resultados',
         });
       }
     } catch (error) {
@@ -551,6 +565,215 @@ export default function CapturePage() {
   ];
   const phoneStep = config.email_enabled ? 3 : 2;
 
+  // ─── Landing Page Template ───
+  if (config.template_type === 'landing') {
+    return (
+      <div className="min-h-screen bg-[#0D0D0D] relative overflow-hidden">
+        <style>{`
+          @keyframes float {
+            0% { transform: translateY(0px) translateX(0px); }
+            50% { transform: translateY(-30px) translateX(15px); }
+            100% { transform: translateY(0px) translateX(0px); }
+          }
+          @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+          }
+        `}</style>
+
+        <FloatingOrb color={config.button_color} size={500} top="-10%" left="-5%" delay="0s" />
+        <FloatingOrb color={config.button_color} size={350} top="60%" left="75%" delay="2s" />
+        <FloatingOrb color="#ffffff" size={200} top="30%" left="50%" delay="4s" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#EB6608]/5 via-transparent to-[#EB6608]/3" />
+
+        <div className="relative z-10">
+          {/* Hero Section */}
+          <section className="min-h-[60vh] flex flex-col items-center justify-center px-5 py-16 text-center">
+            {config.hero_image && (
+              <div className="mb-8 animate-[fade-in_0.6s_ease-out]">
+                <HeroImage config={config} />
+              </div>
+            )}
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-400 leading-tight max-w-3xl animate-[fade-in_0.6s_0.2s_ease-out_both]">
+              {config.title}
+            </h1>
+            <p className="text-gray-400 text-lg sm:text-xl mt-4 max-w-xl animate-[fade-in_0.6s_0.4s_ease-out_both]">
+              {config.subtitle}
+            </p>
+            <button
+              type="button"
+              onClick={() => document.getElementById('landing-form')?.scrollIntoView({ behavior: 'smooth' })}
+              className="mt-8 px-8 py-4 rounded-2xl text-white font-bold text-lg transition-all duration-300 hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] animate-[fade-in_0.6s_0.6s_ease-out_both]"
+              style={{ backgroundColor: config.button_color, boxShadow: `0 8px 30px ${config.button_color}40` }}
+            >
+              {config.button_text}
+            </button>
+          </section>
+
+          {/* Gallery Section */}
+          {config.gallery_images.length > 0 && (
+            <section className="px-5 py-16 max-w-5xl mx-auto">
+              <h2 className="text-2xl sm:text-3xl font-bold text-white text-center mb-10">{config.gallery_title}</h2>
+              <div className={cn(
+                "grid gap-4",
+                config.gallery_images.length === 1 ? "grid-cols-1 max-w-lg mx-auto" :
+                config.gallery_images.length === 2 ? "grid-cols-2 max-w-2xl mx-auto" :
+                "grid-cols-2 md:grid-cols-3"
+              )}>
+                {config.gallery_images.map((img, idx) => (
+                  <div key={idx} className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] transition-all duration-300 hover:border-white/20 hover:shadow-xl hover:scale-[1.02]">
+                    <img src={img.url} alt={img.caption || `Imagem ${idx + 1}`} className="w-full aspect-square object-cover transition-transform duration-500 group-hover:scale-105" />
+                    {img.caption && (
+                      <div className="absolute bottom-0 inset-x-0 p-3 bg-gradient-to-t from-black/80 to-transparent">
+                        <p className="text-white text-sm font-medium">{img.caption}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Form Section */}
+          <section id="landing-form" className="px-5 py-16 flex justify-center">
+            <form onSubmit={handleSubmit} className="w-full max-w-lg space-y-6">
+              <div className="bg-white/[0.04] backdrop-blur-2xl border border-white/[0.10] rounded-3xl p-8 sm:p-10 space-y-7 shadow-2xl"
+                style={{ boxShadow: `0 25px 60px -12px ${config.button_color}15, 0 0 0 1px ${config.button_color}10` }}>
+                
+                <h3 className="text-xl font-bold text-white text-center">Preencha seus dados</h3>
+
+                {/* Name & Email fields */}
+                {fields.map((field, i) => {
+                  const Icon = field.icon;
+                  return (
+                    <div key={field.key} className="space-y-1.5">
+                      <div className="relative">
+                        <div className="absolute -left-3.5 -top-3.5 w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center z-10 transition-colors duration-300"
+                          style={{
+                            backgroundColor: isFieldValid(field.key) ? '#22c55e' : `${config.button_color}30`,
+                            color: isFieldValid(field.key) ? 'white' : config.button_color,
+                          }}>
+                          {isFieldValid(field.key) ? <Check className="w-3.5 h-3.5" /> : field.step}
+                        </div>
+                        <Icon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                        <input
+                          type={field.type}
+                          placeholder={field.placeholder}
+                          value={form[field.key as keyof typeof form]}
+                          onChange={(e) => { setForm({ ...form, [field.key]: e.target.value }); setTouched(t => ({ ...t, [field.key]: true })); }}
+                          className="w-full h-[60px] pl-12 pr-10 bg-white/[0.05] border border-white/[0.08] rounded-xl text-white placeholder:text-gray-500/70 focus:outline-none transition-all duration-300 text-[17px]"
+                          style={{ boxShadow: 'none' }}
+                          onFocus={(e) => { e.target.style.boxShadow = `0 0 0 2px ${focusRingColor}40`; e.target.style.borderColor = `${focusRingColor}40`; }}
+                          onBlur={(e) => { e.target.style.boxShadow = 'none'; e.target.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                          maxLength={field.maxLength}
+                        />
+                        {isFieldValid(field.key) && <Check className="absolute right-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-green-400" />}
+                      </div>
+                      {errors[field.key] && <p className="text-xs text-red-400 pl-1">{errors[field.key]}</p>}
+                    </div>
+                  );
+                })}
+
+                {/* Phone */}
+                <div className="space-y-1.5">
+                  <div className="relative">
+                    <div className="absolute -left-3.5 -top-3.5 w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center z-10 transition-colors duration-300"
+                      style={{
+                        backgroundColor: isFieldValid('phone') ? '#22c55e' : `${config.button_color}30`,
+                        color: isFieldValid('phone') ? 'white' : config.button_color,
+                      }}>
+                      {isFieldValid('phone') ? <Check className="w-3.5 h-3.5" /> : phoneStep}
+                    </div>
+                    <div className="flex h-[60px] bg-white/[0.05] border border-white/[0.08] rounded-xl">
+                      <CountrySelector selected={selectedCountry} onSelect={(c) => { setSelectedCountry(c); setForm(f => ({ ...f, phone: '' })); }} buttonColor={config.button_color} />
+                      <input type="tel" placeholder={selectedCountry.code === 'BR' ? '(00) 00000-0000' : selectedCountry.mask.replace(/#/g, '0')}
+                        value={form.phone}
+                        onChange={(e) => { setForm({ ...form, phone: formatPhone(e.target.value) }); setTouched(t => ({ ...t, phone: true })); }}
+                        className="flex-1 h-full pl-3 pr-10 bg-transparent text-white placeholder:text-gray-500/70 focus:outline-none text-[17px]"
+                        maxLength={16} />
+                      {isFieldValid('phone') && <Check className="absolute right-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-green-400" />}
+                    </div>
+                  </div>
+                  {errors.phone && <p className="text-xs text-red-400 pl-1">{errors.phone}</p>}
+                </div>
+
+                {/* Custom Questions */}
+                {config.custom_questions.map((q, idx) => {
+                  const customStep = phoneStep + 1 + idx;
+                  const isCustomValid = !!customAnswers[idx]?.trim();
+                  return (
+                    <div key={idx} className="space-y-1.5">
+                      <div className="relative">
+                        <div className="absolute -left-3.5 -top-3.5 w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center z-10 transition-colors duration-300"
+                          style={{
+                            backgroundColor: isCustomValid ? '#22c55e' : `${config.button_color}30`,
+                            color: isCustomValid ? 'white' : config.button_color,
+                          }}>
+                          {isCustomValid ? <Check className="w-3.5 h-3.5" /> : customStep}
+                        </div>
+                        <label className="text-sm text-gray-400 pl-1">{q.question}{q.required && <span className="text-red-400 ml-1">*</span>}</label>
+                      </div>
+                      {q.type === 'choice' ? (
+                        <div className="space-y-2">
+                          {q.options.filter(o => o.trim()).map((opt, optIdx) => (
+                            <label key={optIdx} className={cn(
+                              "flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all duration-200",
+                              customAnswers[idx] === opt ? "border-opacity-50 bg-white/[0.08]" : "border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06]"
+                            )} style={customAnswers[idx] === opt ? { borderColor: `${config.button_color}60` } : {}}>
+                              <input type="radio" name={`custom_${idx}`} value={opt} checked={customAnswers[idx] === opt}
+                                onChange={() => setCustomAnswers(prev => ({ ...prev, [idx]: opt }))} className="sr-only" />
+                              <div className={cn("w-4 h-4 rounded-full border-2 flex items-center justify-center",
+                                customAnswers[idx] === opt ? "border-current" : "border-gray-500"
+                              )} style={customAnswers[idx] === opt ? { borderColor: config.button_color } : {}}>
+                                {customAnswers[idx] === opt && <div className="w-2 h-2 rounded-full" style={{ backgroundColor: config.button_color }} />}
+                              </div>
+                              <span className="text-white text-sm">{opt}</span>
+                            </label>
+                          ))}
+                        </div>
+                      ) : (
+                        <input type="text" value={customAnswers[idx] || ''}
+                          onChange={(e) => setCustomAnswers(prev => ({ ...prev, [idx]: e.target.value }))}
+                          placeholder="Sua resposta"
+                          className="w-full h-[52px] px-4 bg-white/[0.05] border border-white/[0.08] rounded-xl text-white placeholder:text-gray-500/70 focus:outline-none text-[16px]"
+                          style={{ boxShadow: 'none' }}
+                          onFocus={(e) => { e.target.style.boxShadow = `0 0 0 2px ${focusRingColor}40`; e.target.style.borderColor = `${focusRingColor}40`; }}
+                          onBlur={(e) => { e.target.style.boxShadow = 'none'; e.target.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                          maxLength={300} />
+                      )}
+                      {errors[`custom_${idx}`] && <p className="text-xs text-red-400 pl-1">{errors[`custom_${idx}`]}</p>}
+                    </div>
+                  );
+                })}
+
+                <button type="submit" disabled={submitting}
+                  className="relative w-full h-16 rounded-2xl text-white font-bold text-xl shadow-lg transition-all duration-300 hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 overflow-hidden"
+                  style={{ backgroundColor: config.button_color, boxShadow: `0 8px 30px ${config.button_color}40` }}>
+                  <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                    <div className="absolute inset-0 opacity-20"
+                      style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.4) 50%, transparent 100%)', animation: 'shimmer 3s ease-in-out infinite' }} />
+                  </div>
+                  <span className="relative z-10 flex items-center gap-2">
+                    {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : config.button_text}
+                  </span>
+                </button>
+              </div>
+
+              {/* Security badge */}
+              <div className="flex items-center justify-center gap-2.5">
+                <div className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-white/[0.05] border border-white/[0.08]">
+                  <Shield className="w-4 h-4 text-green-500/70" />
+                  <p className="text-xs text-gray-400 font-medium">Seus dados estão protegidos e não serão compartilhados.</p>
+                </div>
+              </div>
+            </form>
+          </section>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Standard Template ───
   return (
     <div className="min-h-screen bg-[#0D0D0D] relative overflow-hidden">
       <style>{`
@@ -713,9 +936,21 @@ export default function CapturePage() {
               </div>
 
               {/* Custom Questions - inside the card */}
-              {config.custom_questions.length > 0 && config.custom_questions.map((q, idx) => (
+              {config.custom_questions.length > 0 && config.custom_questions.map((q, idx) => {
+                const customStep = phoneStep + 1 + idx;
+                const isCustomValid = !!customAnswers[idx]?.trim();
+                return (
                 <div key={idx} className="space-y-1.5" style={{ animation: 'fade-in 0.5s ease-out both' }}>
-                  <label className="text-sm text-gray-400 pl-1">{q.question}{q.required && <span className="text-red-400 ml-1">*</span>}</label>
+                  <div className="relative">
+                    <div className="absolute -left-3.5 -top-3.5 w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center z-10 transition-colors duration-300"
+                      style={{
+                        backgroundColor: isCustomValid ? '#22c55e' : `${config.button_color}30`,
+                        color: isCustomValid ? 'white' : config.button_color,
+                      }}>
+                      {isCustomValid ? <Check className="w-3.5 h-3.5" /> : customStep}
+                    </div>
+                    <label className="text-sm text-gray-400 pl-1">{q.question}{q.required && <span className="text-red-400 ml-1">*</span>}</label>
+                  </div>
                   {q.type === 'choice' ? (
                     <div className="space-y-2">
                       {q.options.filter(o => o.trim()).map((opt, optIdx) => (
@@ -749,7 +984,8 @@ export default function CapturePage() {
                   )}
                   {errors[`custom_${idx}`] && <p className="text-xs text-red-400 pl-1">{errors[`custom_${idx}`]}</p>}
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             <button type="submit" disabled={submitting}

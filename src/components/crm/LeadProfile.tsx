@@ -15,10 +15,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { 
+import {
   X, Phone, Mail, Calendar, MapPin, Briefcase, Car, TrendingUp, 
   Star, User, Target, BarChart, AlertCircle, 
-  CheckCircle, Tag, Loader2, Send, Plus, Thermometer
+  CheckCircle, Tag, Loader2, Send, Plus, Thermometer, MessageSquare
 } from 'lucide-react';
 import { Conversation } from '@/lib/crm-service';
 import { TemperatureBadge } from '@/components/ui/temperature-badge';
@@ -62,6 +62,7 @@ interface LeadData {
   created_at: string;
   notes: string | null;
   completion_percentage: number | null;
+  extra_answers?: Record<string, string> | null;
 }
 
 export function LeadProfile({ conversation, onClose }: LeadProfileProps) {
@@ -660,7 +661,22 @@ export function LeadProfile({ conversation, onClose }: LeadProfileProps) {
                 </div>
               </div>
 
-              {/* Goals */}
+              {/* Extra Answers (Custom Questions) */}
+              {leadData.extra_answers && Object.keys(leadData.extra_answers).length > 0 && (
+                <div className="space-y-3">
+                  <h5 className="font-semibold text-foreground text-sm border-b border-border pb-2 flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4 text-primary" />
+                    Respostas Adicionais
+                  </h5>
+                  <div className="space-y-2">
+                    {Object.entries(leadData.extra_answers).map(([question, answer]) => (
+                      <InfoRow key={question} icon={MessageSquare} label={question} value={answer} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+
               <div className="space-y-3">
                 <h5 className="font-semibold text-foreground text-sm border-b border-border pb-2 flex items-center gap-2">
                   <Target className="w-4 h-4 text-primary" />
