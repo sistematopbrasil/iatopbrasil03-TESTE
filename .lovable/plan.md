@@ -1,92 +1,60 @@
 
 
-## Plano: Toggle CRM no Super Admin + Perguntas Personalizáveis na Captura + Visual Melhorado
+## Plano: Toggle Ranking no Super Admin + Preview dinâmico + Visual da Captura
 
 ---
 
-### 1. Toggle CRM/IA por consultor no Super Admin
+### 1. Toggle Ranking por consultor no Super Admin
 
-**O que**: Adicionar um toggle na tabela de consultores (`ConsultantsTable.tsx`) para ativar/desativar o CRM para cada consultor. Quando CRM estiver desativado, o Agente IA também fica desativado automaticamente.
+Adicionar coluna `ranking_visible` (boolean, default true) na tabela `users`. No `ConsultantsTable.tsx`, adicionar um toggle ao lado do CRM toggle (mobile e desktop). No `AdminLayout.tsx`, condicionar o menu "Ranking" ao `ranking_visible` do usuário (para consultores, não para super admin).
 
-**Implementação**:
-- Adicionar coluna `crm_enabled` (boolean, default false) na tabela `users` via migration
-- No `ConsultantsTable.tsx`, adicionar uma coluna com Switch para cada consultor
-- Ao desativar CRM, também setar `ai_enabled = false` no mesmo update
-- No `AdminLayout.tsx` (linha 64), condicionar a exibição do item "CRM WhatsApp" e "Agente IA" ao `crm_enabled` do usuário
-
-**Migration SQL**:
+**Migration**:
 ```sql
-ALTER TABLE public.users ADD COLUMN crm_enabled boolean NOT NULL DEFAULT false;
+ALTER TABLE public.users ADD COLUMN ranking_visible boolean NOT NULL DEFAULT true;
 ```
 
 | Arquivo | Mudança |
 |---------|---------|
-| Migration | Adicionar `crm_enabled` na tabela `users` |
-| `ConsultantsTable.tsx` | Toggle CRM por consultor |
-| `AdminLayout.tsx` | Condicionar menu CRM e IA ao `crm_enabled` |
+| Migration | `ranking_visible` em `users` |
+| `ConsultantsTable.tsx` | Toggle Ranking + mutation |
+| `AdminLayout.tsx` | Condicionar menu Ranking ao `ranking_visible` |
+| `useRankingData.ts` | Incluir `ranking_visible` na interface |
+| `supabase/functions/ranking-get/index.ts` | Retornar `ranking_visible` |
 
 ---
 
-### 2. Perguntas personalizáveis na Página de Captura
+### 2. Preview dinâmico com perguntas customizadas
 
-**O que**: Permitir que o consultor adicione perguntas customizáveis na mesma página de captura existente, além dos campos padrão (nome, email, telefone). As perguntas aparecem após os campos padrão, antes do botão de envio.
-
-**Implementação**:
-- Adicionar coluna `custom_questions` (jsonb, default '[]') na tabela `capture_page_configs`
-  - Formato: `[{ "question": "Qual sua cidade?", "type": "text", "required": true, "options": [] }]`
-  - Types suportados: `text`, `choice` (radio/select)
-- No `ConsultantSettings.tsx` (CaptureSettingsTab), adicionar seção para gerenciar perguntas:
-  - Botão "Adicionar Pergunta"
-  - Lista de perguntas com drag ou setas para reordenar
-  - Cada pergunta: texto, tipo (texto livre ou múltipla escolha), obrigatória sim/não, opções (se choice)
-  - Botão para remover pergunta
-- No `CapturePage.tsx`, renderizar as perguntas customizadas entre o campo de telefone e o botão de envio
-  - Campos tipo `text` = input normal
-  - Campos tipo `choice` = radio buttons estilizados
-- Salvar respostas no campo `extra_answers` (jsonb) do `quiz_submissions_new` que já existe
-- Atualizar a barra de progresso para incluir as perguntas extras na contagem
-- Tornar o campo email **opcional** (pode ser removido pelo consultor) — adicionar `email_enabled` boolean na config (default true)
-
-**Migration SQL**:
-```sql
-ALTER TABLE public.capture_page_configs 
-  ADD COLUMN custom_questions jsonb DEFAULT '[]'::jsonb,
-  ADD COLUMN email_enabled boolean NOT NULL DEFAULT true;
-```
+O `CapturePagePreview` (linha 37-73 de `ConsultantSettings.tsx`) atualmente é estático — mostra sempre nome, email, telefone. Precisa:
+- Receber `email_enabled` e `custom_questions` como props
+- Esconder email se desabilitado
+- Renderizar as perguntas customizadas após telefone
+- Não mostrar barra de progresso
 
 | Arquivo | Mudança |
 |---------|---------|
-| Migration | `custom_questions` e `email_enabled` em `capture_page_configs` |
-| `ConsultantSettings.tsx` | Editor de perguntas na aba de Captura |
-| `CapturePage.tsx` | Renderizar perguntas + salvar em `extra_answers` |
+| `ConsultantSettings.tsx` | Atualizar `CapturePagePreview` props e renderização |
 
 ---
 
-### 3. Visual melhorado da Página de Captura
+### 3. Remover progresso + colocar perguntas dentro do card + visual melhorado
 
-**O que**: Melhorar a estética seguindo a paleta Top Brasil (#EB6608 laranja + preto #0D0D0D), com animações mais suaves, gradientes mais ricos e tipografia mais impactante.
-
-**Mudanças visuais no `CapturePage.tsx`**:
-- Gradiente de fundo mais rico com partículas/orbs animadas (já existem, refinar cores)
-- Cards com glassmorphism mais pronunciado (`backdrop-blur-3xl`, bordas mais sutis)
-- Inputs com transições mais suaves e indicadores de foco mais elegantes
-- Botão CTA com efeito de pulse suave além do shimmer
-- Badge de segurança com ícone de cadeado animado
-- Tipografia: usar `tracking-tight` no título para aspecto mais premium
-- Adicionar sutil grid pattern no background para textura
-- Melhorar espaçamento e responsividade mobile
+No `CapturePage.tsx`:
+- **Remover** a seção de progresso (linhas 608-620) — "Progresso 0/3 campos"
+- **Mover** as perguntas customizadas para **dentro** do card glassmorphism (após telefone, antes do fechar `</div>` do card na linha 727)
+- **Melhorar visual**: gradiente mais rico, melhor contraste, refinar orbs
 
 | Arquivo | Mudança |
 |---------|---------|
-| `CapturePage.tsx` | Refinamentos visuais (gradientes, animações, tipografia) |
+| `CapturePage.tsx` | Remover progresso, mover perguntas para dentro do card, refinamentos visuais |
 
 ---
 
 ### Resumo
 
-| # | Funcionalidade | Arquivos | Migration |
-|---|---------------|----------|-----------|
-| 1 | Toggle CRM por consultor | `ConsultantsTable.tsx`, `AdminLayout.tsx` | `crm_enabled` em `users` |
-| 2 | Perguntas personalizáveis | `ConsultantSettings.tsx`, `CapturePage.tsx` | `custom_questions`, `email_enabled` em `capture_page_configs` |
-| 3 | Visual melhorado | `CapturePage.tsx` | Nenhuma |
+| # | Funcionalidade | Arquivo(s) | Migration |
+|---|---------------|-----------|-----------|
+| 1 | Toggle Ranking | `ConsultantsTable.tsx`, `AdminLayout.tsx`, ranking-get | `ranking_visible` em `users` |
+| 2 | Preview dinâmico | `ConsultantSettings.tsx` | Nenhuma |
+| 3 | Captura: remover progresso + perguntas no card | `CapturePage.tsx` | Nenhuma |
 
