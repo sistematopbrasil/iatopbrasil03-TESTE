@@ -547,8 +547,9 @@ export default function CapturePage() {
 
   const fields = [
     { key: 'name', icon: User, placeholder: 'Seu nome completo', type: 'text', maxLength: 100, step: 1 },
-    { key: 'email', icon: Mail, placeholder: 'Seu melhor email', type: 'email', maxLength: 255, step: 2 },
+    ...(config.email_enabled ? [{ key: 'email', icon: Mail, placeholder: 'Seu melhor email', type: 'email', maxLength: 255, step: 2 }] : []),
   ];
+  const phoneStep = config.email_enabled ? 3 : 2;
 
   return (
     <div className="min-h-screen bg-[#0D0D0D] relative overflow-hidden">
