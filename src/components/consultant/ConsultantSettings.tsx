@@ -34,7 +34,7 @@ function ThemeSelector() {
   );
 }
 
-function CapturePagePreview({ config }: { config: { title: string; subtitle: string; button_text: string; button_color: string; hero_image: string; hero_image_size: string; hero_image_position: string; hero_image_shape: string } }) {
+function CapturePagePreview({ config }: { config: { title: string; subtitle: string; button_text: string; button_color: string; hero_image: string; hero_image_size: string; hero_image_position: string; hero_image_shape: string; email_enabled: boolean; custom_questions: Array<{ question: string; type: string; required: boolean; options: string[] }> } }) {
   const sizeMap: Record<string, number> = { small: 48, medium: 80, large: 120, full: 999 };
   const imgSize = sizeMap[config.hero_image_size] || 80;
   const shapeClass = config.hero_image_shape === 'circle' ? 'rounded-full' : config.hero_image_shape === 'square' ? 'rounded-none' : 'rounded-xl';
@@ -60,8 +60,27 @@ function CapturePagePreview({ config }: { config: { title: string; subtitle: str
           <p className={cn("text-[11px] text-gray-400", !isLeft && "text-center")}>{config.subtitle || 'Subtítulo'}</p>
           <div className="w-full space-y-2 px-2">
             <div className="bg-white/10 rounded-lg h-8 flex items-center px-3"><span className="text-[10px] text-gray-500">Nome completo</span></div>
-            <div className="bg-white/10 rounded-lg h-8 flex items-center px-3"><span className="text-[10px] text-gray-500">Seu melhor email</span></div>
+            {config.email_enabled && (
+              <div className="bg-white/10 rounded-lg h-8 flex items-center px-3"><span className="text-[10px] text-gray-500">Seu melhor email</span></div>
+            )}
             <div className="bg-white/10 rounded-lg h-8 flex items-center px-3"><span className="text-[10px] text-gray-500">(00) 00000-0000</span></div>
+            {config.custom_questions.filter(q => q.question.trim()).map((q, idx) => (
+              <div key={idx} className="space-y-1">
+                <span className="text-[9px] text-gray-500 pl-1">{q.question}{q.required && <span className="text-red-400 ml-0.5">*</span>}</span>
+                {q.type === 'choice' ? (
+                  <div className="space-y-1">
+                    {q.options.filter(o => o.trim()).map((opt, oi) => (
+                      <div key={oi} className="bg-white/5 rounded-lg h-6 flex items-center px-3 gap-2">
+                        <div className="w-3 h-3 rounded-full border border-gray-600" />
+                        <span className="text-[9px] text-gray-500">{opt}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-white/10 rounded-lg h-7 flex items-center px-3"><span className="text-[9px] text-gray-500">Resposta</span></div>
+                )}
+              </div>
+            ))}
           </div>
           <button className="w-full mx-2 h-9 rounded-lg text-white text-xs font-bold" style={{ backgroundColor: config.button_color || '#EB6608' }}>
             {config.button_text || 'Enviar'}
