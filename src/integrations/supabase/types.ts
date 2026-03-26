@@ -347,6 +347,8 @@ export type Database = {
           custom_questions: Json | null
           custom_slug: string | null
           email_enabled: boolean
+          gallery_images: Json | null
+          gallery_title: string | null
           hero_image: string | null
           hero_image_position: string | null
           hero_image_shape: string | null
@@ -357,6 +359,7 @@ export type Database = {
           redirect_type: string | null
           redirect_url: string | null
           subtitle: string | null
+          template_type: string
           title: string | null
           updated_at: string | null
           whatsapp_message: string | null
@@ -370,6 +373,8 @@ export type Database = {
           custom_questions?: Json | null
           custom_slug?: string | null
           email_enabled?: boolean
+          gallery_images?: Json | null
+          gallery_title?: string | null
           hero_image?: string | null
           hero_image_position?: string | null
           hero_image_shape?: string | null
@@ -380,6 +385,7 @@ export type Database = {
           redirect_type?: string | null
           redirect_url?: string | null
           subtitle?: string | null
+          template_type?: string
           title?: string | null
           updated_at?: string | null
           whatsapp_message?: string | null
@@ -393,6 +399,8 @@ export type Database = {
           custom_questions?: Json | null
           custom_slug?: string | null
           email_enabled?: boolean
+          gallery_images?: Json | null
+          gallery_title?: string | null
           hero_image?: string | null
           hero_image_position?: string | null
           hero_image_shape?: string | null
@@ -403,6 +411,7 @@ export type Database = {
           redirect_type?: string | null
           redirect_url?: string | null
           subtitle?: string | null
+          template_type?: string
           title?: string | null
           updated_at?: string | null
           whatsapp_message?: string | null
