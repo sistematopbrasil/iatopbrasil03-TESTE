@@ -176,6 +176,50 @@ export default function ConsultantsManagement() {
     },
   });
 
+  // Toggle CRM mutation
+  const toggleCrmMutation = useMutation({
+    mutationFn: async ({ id, crmEnabled }: { id: string; crmEnabled: boolean }) => {
+      const updateData: Record<string, any> = { crm_enabled: !crmEnabled };
+      if (crmEnabled) {
+        updateData.ai_enabled = false;
+      }
+      const { error } = await supabase
+        .from('users')
+        .update(updateData)
+        .eq('id', id);
+      if (error) throw error;
+      return !crmEnabled;
+    },
+    onSuccess: (newStatus) => {
+      queryClient.invalidateQueries({ queryKey: ['all-consultants-management'] });
+      queryClient.invalidateQueries({ queryKey: ['current-user-layout'] });
+      toast.success(newStatus ? 'CRM ativado!' : 'CRM e IA desativados!');
+    },
+    onError: () => {
+      toast.error('Erro ao atualizar CRM');
+    },
+  });
+
+  // Toggle Ranking mutation
+  const toggleRankingMutation = useMutation({
+    mutationFn: async ({ id, rankingVisible }: { id: string; rankingVisible: boolean }) => {
+      const { error } = await supabase
+        .from('users')
+        .update({ ranking_visible: !rankingVisible } as any)
+        .eq('id', id);
+      if (error) throw error;
+      return !rankingVisible;
+    },
+    onSuccess: (newStatus) => {
+      queryClient.invalidateQueries({ queryKey: ['all-consultants-management'] });
+      queryClient.invalidateQueries({ queryKey: ['current-user-layout'] });
+      toast.success(newStatus ? 'Ranking ativado!' : 'Ranking desativado!');
+    },
+    onError: () => {
+      toast.error('Erro ao atualizar ranking');
+    },
+  });
+
   // Delete single mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
