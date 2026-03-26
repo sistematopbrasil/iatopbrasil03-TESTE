@@ -383,6 +383,7 @@ export default function CapturePage() {
   const [submitted, setSubmitted] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({ name: '', email: '', phone: '' });
+  const [customAnswers, setCustomAnswers] = useState<Record<number, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0]); // Brasil
 
