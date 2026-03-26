@@ -162,7 +162,7 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
     if (!consultant) return;
     setSaving(true);
     try {
-      const payload = {
+      const payload: Record<string, any> = {
         consultant_id: consultant.id,
         organization_id: consultant.organization_id,
         title: captureForm.title,
@@ -177,6 +177,8 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
         redirect_url: captureForm.redirect_url || null,
         whatsapp_message: captureForm.whatsapp_message,
         whatsapp_number: captureForm.whatsapp_number || null,
+        email_enabled: captureForm.email_enabled,
+        custom_questions: captureForm.custom_questions,
         updated_at: new Date().toISOString(),
       };
 
