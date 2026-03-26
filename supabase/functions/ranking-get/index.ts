@@ -185,6 +185,7 @@ serve(async (req) => {
         is_active: consultant.is_active,
         crm_enabled: consultant.crm_enabled ?? false,
         ai_enabled: consultant.ai_enabled ?? false,
+        ranking_visible: consultant.ranking_visible ?? true,
         total_leads: m.total,
         hot_leads: m.hot,
         warm_leads: m.warm,
