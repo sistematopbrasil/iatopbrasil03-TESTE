@@ -79,6 +79,26 @@ export function ConsultantsTable() {
     },
   });
 
+  // Mutation para ativar/desativar Ranking
+  const toggleRankingMutation = useMutation({
+    mutationFn: async ({ consultantId, rankingVisible }: { consultantId: string; rankingVisible: boolean }) => {
+      const { error } = await supabase
+        .from('users')
+        .update({ ranking_visible: !rankingVisible } as any)
+        .eq('id', consultantId);
+      if (error) throw error;
+      return !rankingVisible;
+    },
+    onSuccess: (newStatus) => {
+      queryClient.invalidateQueries({ queryKey: ['unified-ranking'] });
+      queryClient.invalidateQueries({ queryKey: ['current-user-layout'] });
+      toast.success(newStatus ? 'Ranking ativado!' : 'Ranking desativado!');
+    },
+    onError: () => {
+      toast.error('Erro ao atualizar ranking');
+    },
+  });
+
 
   const deleteMutation = useMutation({
     mutationFn: async (consultantId: string) => {

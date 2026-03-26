@@ -709,48 +709,48 @@ export default function CapturePage() {
                     )}
                   </div>
                 </div>
-                {errors.phone && <p className="text-xs text-red-400 pl-1">{errors.phone}</p>}
+              {errors.phone && <p className="text-xs text-red-400 pl-1">{errors.phone}</p>}
               </div>
-            </div>
 
-            {/* Custom Questions */}
-            {config.custom_questions.length > 0 && config.custom_questions.map((q, idx) => (
-              <div key={idx} className="space-y-1.5" style={{ animation: 'fade-in 0.5s ease-out both' }}>
-                <label className="text-sm text-gray-400 pl-1">{q.question}{q.required && <span className="text-red-400 ml-1">*</span>}</label>
-                {q.type === 'choice' ? (
-                  <div className="space-y-2">
-                    {q.options.filter(o => o.trim()).map((opt, optIdx) => (
-                      <label key={optIdx} className={cn(
-                        "flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all duration-200",
-                        customAnswers[idx] === opt 
-                          ? "border-opacity-50 bg-white/[0.08]" 
-                          : "border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06]"
-                      )} style={customAnswers[idx] === opt ? { borderColor: `${config.button_color}60` } : {}}>
-                        <input type="radio" name={`custom_${idx}`} value={opt} checked={customAnswers[idx] === opt}
-                          onChange={() => setCustomAnswers(prev => ({ ...prev, [idx]: opt }))}
-                          className="sr-only" />
-                        <div className={cn("w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors",
-                          customAnswers[idx] === opt ? "border-current" : "border-gray-500"
-                        )} style={customAnswers[idx] === opt ? { borderColor: config.button_color } : {}}>
-                          {customAnswers[idx] === opt && <div className="w-2 h-2 rounded-full" style={{ backgroundColor: config.button_color }} />}
-                        </div>
-                        <span className="text-white text-sm">{opt}</span>
-                      </label>
-                    ))}
-                  </div>
-                ) : (
-                  <input type="text" value={customAnswers[idx] || ''} 
-                    onChange={(e) => setCustomAnswers(prev => ({ ...prev, [idx]: e.target.value }))}
-                    placeholder="Sua resposta"
-                    className="w-full h-[52px] px-4 bg-white/[0.05] border border-white/[0.08] rounded-xl text-white placeholder:text-gray-500/70 focus:outline-none transition-all duration-300 text-[16px]"
-                    style={{ boxShadow: 'none' }}
-                    onFocus={(e) => { e.target.style.boxShadow = `0 0 0 2px ${focusRingColor}40`; e.target.style.borderColor = `${focusRingColor}40`; }}
-                    onBlur={(e) => { e.target.style.boxShadow = 'none'; e.target.style.borderColor = 'rgba(255,255,255,0.08)'; }}
-                    maxLength={300} />
-                )}
-                {errors[`custom_${idx}`] && <p className="text-xs text-red-400 pl-1">{errors[`custom_${idx}`]}</p>}
-              </div>
-            ))}
+              {/* Custom Questions - inside the card */}
+              {config.custom_questions.length > 0 && config.custom_questions.map((q, idx) => (
+                <div key={idx} className="space-y-1.5" style={{ animation: 'fade-in 0.5s ease-out both' }}>
+                  <label className="text-sm text-gray-400 pl-1">{q.question}{q.required && <span className="text-red-400 ml-1">*</span>}</label>
+                  {q.type === 'choice' ? (
+                    <div className="space-y-2">
+                      {q.options.filter(o => o.trim()).map((opt, optIdx) => (
+                        <label key={optIdx} className={cn(
+                          "flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all duration-200",
+                          customAnswers[idx] === opt 
+                            ? "border-opacity-50 bg-white/[0.08]" 
+                            : "border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06]"
+                        )} style={customAnswers[idx] === opt ? { borderColor: `${config.button_color}60` } : {}}>
+                          <input type="radio" name={`custom_${idx}`} value={opt} checked={customAnswers[idx] === opt}
+                            onChange={() => setCustomAnswers(prev => ({ ...prev, [idx]: opt }))}
+                            className="sr-only" />
+                          <div className={cn("w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors",
+                            customAnswers[idx] === opt ? "border-current" : "border-gray-500"
+                          )} style={customAnswers[idx] === opt ? { borderColor: config.button_color } : {}}>
+                            {customAnswers[idx] === opt && <div className="w-2 h-2 rounded-full" style={{ backgroundColor: config.button_color }} />}
+                          </div>
+                          <span className="text-white text-sm">{opt}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <input type="text" value={customAnswers[idx] || ''} 
+                      onChange={(e) => setCustomAnswers(prev => ({ ...prev, [idx]: e.target.value }))}
+                      placeholder="Sua resposta"
+                      className="w-full h-[52px] px-4 bg-white/[0.05] border border-white/[0.08] rounded-xl text-white placeholder:text-gray-500/70 focus:outline-none transition-all duration-300 text-[16px]"
+                      style={{ boxShadow: 'none' }}
+                      onFocus={(e) => { e.target.style.boxShadow = `0 0 0 2px ${focusRingColor}40`; e.target.style.borderColor = `${focusRingColor}40`; }}
+                      onBlur={(e) => { e.target.style.boxShadow = 'none'; e.target.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                      maxLength={300} />
+                  )}
+                  {errors[`custom_${idx}`] && <p className="text-xs text-red-400 pl-1">{errors[`custom_${idx}`]}</p>}
+                </div>
+              ))}
+            </div>
 
             <button type="submit" disabled={submitting}
               className="relative w-full h-16 rounded-2xl text-white font-bold text-xl shadow-lg transition-all duration-300 hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 overflow-hidden"
