@@ -33,7 +33,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Target, Flame, Loader2, MoreVertical, Copy, ExternalLink, UserX, UserCheck, Trash2, Users, CheckSquare, XSquare, Bot, BotOff } from 'lucide-react';
+import { Target, Flame, Loader2, MoreVertical, Copy, ExternalLink, UserX, UserCheck, Trash2, Users, CheckSquare, XSquare, Bot, BotOff, MessageSquare, BarChart3 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { calculateLeadPoints, NOVOS_CONSULTORES_BONUS } from '@/lib/ranking-service';
 import { TableSkeleton } from '@/components/ui/page-skeleton';
@@ -172,6 +173,50 @@ export default function ConsultantsManagement() {
     },
     onError: () => {
       toast.error('Erro ao alterar status da IA');
+    },
+  });
+
+  // Toggle CRM mutation
+  const toggleCrmMutation = useMutation({
+    mutationFn: async ({ id, crmEnabled }: { id: string; crmEnabled: boolean }) => {
+      const updateData: Record<string, any> = { crm_enabled: !crmEnabled };
+      if (crmEnabled) {
+        updateData.ai_enabled = false;
+      }
+      const { error } = await supabase
+        .from('users')
+        .update(updateData)
+        .eq('id', id);
+      if (error) throw error;
+      return !crmEnabled;
+    },
+    onSuccess: (newStatus) => {
+      queryClient.invalidateQueries({ queryKey: ['all-consultants-management'] });
+      queryClient.invalidateQueries({ queryKey: ['current-user-layout'] });
+      toast.success(newStatus ? 'CRM ativado!' : 'CRM e IA desativados!');
+    },
+    onError: () => {
+      toast.error('Erro ao atualizar CRM');
+    },
+  });
+
+  // Toggle Ranking mutation
+  const toggleRankingMutation = useMutation({
+    mutationFn: async ({ id, rankingVisible }: { id: string; rankingVisible: boolean }) => {
+      const { error } = await supabase
+        .from('users')
+        .update({ ranking_visible: !rankingVisible } as any)
+        .eq('id', id);
+      if (error) throw error;
+      return !rankingVisible;
+    },
+    onSuccess: (newStatus) => {
+      queryClient.invalidateQueries({ queryKey: ['all-consultants-management'] });
+      queryClient.invalidateQueries({ queryKey: ['current-user-layout'] });
+      toast.success(newStatus ? 'Ranking ativado!' : 'Ranking desativado!');
+    },
+    onError: () => {
+      toast.error('Erro ao atualizar ranking');
     },
   });
 
@@ -355,6 +400,8 @@ export default function ConsultantsManagement() {
                       <span className="hidden sm:inline">Quentes</span>
                     </div>
                   </TableHead>
+                  <TableHead className="text-center hidden md:table-cell">CRM</TableHead>
+                  <TableHead className="text-center hidden md:table-cell">Ranking</TableHead>
                   <TableHead className="text-center hidden md:table-cell">Status</TableHead>
                   <TableHead className="text-center hidden md:table-cell">IA</TableHead>
                   <TableHead className="text-center">Ações</TableHead>
@@ -408,6 +455,18 @@ export default function ConsultantsManagement() {
                       </TableCell>
                       <TableCell className="text-center font-semibold text-orange-600">
                         {consultant.hotLeads}
+                      </TableCell>
+                      <TableCell className="text-center hidden md:table-cell">
+                        <Switch
+                          checked={consultant.crm_enabled}
+                          onCheckedChange={() => toggleCrmMutation.mutate({ id: consultant.id, crmEnabled: consultant.crm_enabled })}
+                        />
+                      </TableCell>
+                      <TableCell className="text-center hidden md:table-cell">
+                        <Switch
+                          checked={(consultant as any).ranking_visible ?? true}
+                          onCheckedChange={() => toggleRankingMutation.mutate({ id: consultant.id, rankingVisible: (consultant as any).ranking_visible ?? true })}
+                        />
                       </TableCell>
                       <TableCell className="text-center hidden md:table-cell">
                         <Badge variant={consultant.is_active ? "default" : "secondary"}>
