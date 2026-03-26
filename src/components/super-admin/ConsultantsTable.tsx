@@ -198,14 +198,25 @@ export function ConsultantsTable() {
 
                 {/* CRM toggle */}
                 <div className="flex items-center justify-between pt-1 border-t border-border/50">
-                  <div className="flex items-center gap-2">
-                    <MessageSquare className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">CRM</span>
-                    <Switch
-                      checked={consultant.crm_enabled}
-                      onCheckedChange={() => toggleCrmMutation.mutate({ consultantId: consultant.consultant_id, crmEnabled: consultant.crm_enabled })}
-                      className="scale-75"
-                    />
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <MessageSquare className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">CRM</span>
+                      <Switch
+                        checked={consultant.crm_enabled}
+                        onCheckedChange={() => toggleCrmMutation.mutate({ consultantId: consultant.consultant_id, crmEnabled: consultant.crm_enabled })}
+                        className="scale-75"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <BarChart3 className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">Ranking</span>
+                      <Switch
+                        checked={(consultant as any).ranking_visible ?? true}
+                        onCheckedChange={() => toggleRankingMutation.mutate({ consultantId: consultant.consultant_id, rankingVisible: (consultant as any).ranking_visible ?? true })}
+                        className="scale-75"
+                      />
+                    </div>
                   </div>
                 </div>
 
