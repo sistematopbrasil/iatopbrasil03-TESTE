@@ -1,60 +1,28 @@
 
 
-## Plano: Toggle Ranking no Super Admin + Preview dinâmico + Visual da Captura
+## Plano: Adicionar toggles de CRM e Ranking na página de Consultores
 
----
+### Problema
 
-### 1. Toggle Ranking por consultor no Super Admin
+Os toggles de CRM e Ranking existem apenas na página "Dashboard" do Super Admin (`/admin/super`), dentro do componente `ConsultantsTable`. Porém, a página dedicada "Consultores" (`/admin/consultants` → `ConsultantsManagement.tsx`) é um componente **completamente separado** com sua própria tabela — e **não tem** os toggles de CRM e Ranking.
 
-Adicionar coluna `ranking_visible` (boolean, default true) na tabela `users`. No `ConsultantsTable.tsx`, adicionar um toggle ao lado do CRM toggle (mobile e desktop). No `AdminLayout.tsx`, condicionar o menu "Ranking" ao `ranking_visible` do usuário (para consultores, não para super admin).
+### Solução
 
-**Migration**:
-```sql
-ALTER TABLE public.users ADD COLUMN ranking_visible boolean NOT NULL DEFAULT true;
-```
+Substituir a tabela antiga em `ConsultantsManagement.tsx` pelo componente `ConsultantsTable` que já tem os toggles, ou adicionar os toggles diretamente na tabela existente de `ConsultantsManagement.tsx`.
 
-| Arquivo | Mudança |
-|---------|---------|
-| Migration | `ranking_visible` em `users` |
-| `ConsultantsTable.tsx` | Toggle Ranking + mutation |
-| `AdminLayout.tsx` | Condicionar menu Ranking ao `ranking_visible` |
-| `useRankingData.ts` | Incluir `ranking_visible` na interface |
-| `supabase/functions/ranking-get/index.ts` | Retornar `ranking_visible` |
+A melhor abordagem: **reusar o `ConsultantsTable`** na página de Consultores, já que ele já tem toda a lógica pronta (mutations, UI mobile/desktop, toggles).
 
----
-
-### 2. Preview dinâmico com perguntas customizadas
-
-O `CapturePagePreview` (linha 37-73 de `ConsultantSettings.tsx`) atualmente é estático — mostra sempre nome, email, telefone. Precisa:
-- Receber `email_enabled` e `custom_questions` como props
-- Esconder email se desabilitado
-- Renderizar as perguntas customizadas após telefone
-- Não mostrar barra de progresso
+### Mudanças
 
 | Arquivo | Mudança |
 |---------|---------|
-| `ConsultantSettings.tsx` | Atualizar `CapturePagePreview` props e renderização |
+| `src/pages/ConsultantsManagement.tsx` | Substituir a tabela custom pela importação do `ConsultantsTable` que já tem CRM + Ranking toggles. Manter funcionalidades extras que existem apenas nesta página (bulk delete, etc.) se houver |
 
----
+### Detalhes
 
-### 3. Remover progresso + colocar perguntas dentro do card + visual melhorado
+1. Verificar se `ConsultantsManagement.tsx` tem funcionalidades extras que `ConsultantsTable` não tem (bulk select, delete em massa, etc.)
+2. Se tiver, migrar essas funcionalidades para o `ConsultantsTable` compartilhado
+3. Se não tiver, simplesmente substituir a tabela pela importação do componente
 
-No `CapturePage.tsx`:
-- **Remover** a seção de progresso (linhas 608-620) — "Progresso 0/3 campos"
-- **Mover** as perguntas customizadas para **dentro** do card glassmorphism (após telefone, antes do fechar `</div>` do card na linha 727)
-- **Melhorar visual**: gradiente mais rico, melhor contraste, refinar orbs
-
-| Arquivo | Mudança |
-|---------|---------|
-| `CapturePage.tsx` | Remover progresso, mover perguntas para dentro do card, refinamentos visuais |
-
----
-
-### Resumo
-
-| # | Funcionalidade | Arquivo(s) | Migration |
-|---|---------------|-----------|-----------|
-| 1 | Toggle Ranking | `ConsultantsTable.tsx`, `AdminLayout.tsx`, ranking-get | `ranking_visible` em `users` |
-| 2 | Preview dinâmico | `ConsultantSettings.tsx` | Nenhuma |
-| 3 | Captura: remover progresso + perguntas no card | `CapturePage.tsx` | Nenhuma |
+Isso garante que em **qualquer lugar** que o super admin veja consultores, os toggles de CRM e Ranking estarão disponíveis.
 
