@@ -457,6 +457,18 @@ export default function ConsultantsManagement() {
                         {consultant.hotLeads}
                       </TableCell>
                       <TableCell className="text-center hidden md:table-cell">
+                        <Switch
+                          checked={consultant.crm_enabled}
+                          onCheckedChange={() => toggleCrmMutation.mutate({ id: consultant.id, crmEnabled: consultant.crm_enabled })}
+                        />
+                      </TableCell>
+                      <TableCell className="text-center hidden md:table-cell">
+                        <Switch
+                          checked={(consultant as any).ranking_visible ?? true}
+                          onCheckedChange={() => toggleRankingMutation.mutate({ id: consultant.id, rankingVisible: (consultant as any).ranking_visible ?? true })}
+                        />
+                      </TableCell>
+                      <TableCell className="text-center hidden md:table-cell">
                         <Badge variant={consultant.is_active ? "default" : "secondary"}>
                           {consultant.is_active ? 'Ativo' : 'Inativo'}
                         </Badge>
