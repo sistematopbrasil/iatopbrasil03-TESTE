@@ -126,6 +126,8 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
         redirect_url: existingConfig.redirect_url || '',
         whatsapp_message: existingConfig.whatsapp_message || captureForm.whatsapp_message,
         whatsapp_number: (existingConfig as any).whatsapp_number || '',
+        email_enabled: (existingConfig as any).email_enabled ?? true,
+        custom_questions: (existingConfig as any).custom_questions || [],
       });
     }
   }, [existingConfig]);
