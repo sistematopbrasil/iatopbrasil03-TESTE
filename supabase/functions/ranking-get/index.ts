@@ -183,6 +183,8 @@ serve(async (req) => {
         quiz_slug: consultant.quiz_slug,
         profile_photo: consultant.profile_photo,
         is_active: consultant.is_active,
+        crm_enabled: consultant.crm_enabled ?? false,
+        ai_enabled: consultant.ai_enabled ?? false,
         total_leads: m.total,
         hot_leads: m.hot,
         warm_leads: m.warm,
