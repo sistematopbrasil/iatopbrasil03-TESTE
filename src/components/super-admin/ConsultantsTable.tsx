@@ -70,7 +70,7 @@ export function ConsultantsTable() {
       return !crmEnabled;
     },
     onSuccess: (newStatus) => {
-      queryClient.invalidateQueries({ queryKey: ['unified-ranking'] });
+      queryClient.invalidateQueries({ queryKey: ['unified-ranking'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['current-user-layout'] });
       toast.success(newStatus ? 'CRM ativado!' : 'CRM e IA desativados!');
     },
