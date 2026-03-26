@@ -12,6 +12,13 @@ const captureSchema = z.object({
   phone: z.string().trim().min(10, 'Telefone inválido').max(20),
 });
 
+interface CustomQuestion {
+  question: string;
+  type: 'text' | 'choice';
+  required: boolean;
+  options: string[];
+}
+
 interface CaptureConfig {
   title: string;
   subtitle: string;
@@ -25,6 +32,8 @@ interface CaptureConfig {
   redirect_url: string | null;
   whatsapp_message: string;
   whatsapp_number: string | null;
+  email_enabled: boolean;
+  custom_questions: CustomQuestion[];
 }
 
 interface ConsultantData {
