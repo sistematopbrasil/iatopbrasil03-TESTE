@@ -361,6 +361,151 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
               </div>
             )}
 
+            {/* Email toggle */}
+            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+              <div>
+                <Label>Campo de Email</Label>
+                <p className="text-xs text-muted-foreground">Mostrar campo de email no formulário</p>
+              </div>
+              <Switch
+                checked={captureForm.email_enabled}
+                onCheckedChange={(checked) => setCaptureForm({ ...captureForm, email_enabled: checked })}
+              />
+            </div>
+
+            {/* Custom Questions Editor */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Perguntas Personalizadas</Label>
+                  <p className="text-xs text-muted-foreground">Adicione perguntas extras ao formulário</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCaptureForm({
+                    ...captureForm,
+                    custom_questions: [...captureForm.custom_questions, { question: '', type: 'text', required: false, options: [] }]
+                  })}
+                >
+                  <Plus className="w-4 h-4 mr-1" /> Pergunta
+                </Button>
+              </div>
+
+              {captureForm.custom_questions.map((q, idx) => (
+                <div key={idx} className="p-3 rounded-lg border border-border space-y-2 bg-muted/30">
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1 space-y-2">
+                      <Input
+                        value={q.question}
+                        onChange={(e) => {
+                          const updated = [...captureForm.custom_questions];
+                          updated[idx] = { ...updated[idx], question: e.target.value };
+                          setCaptureForm({ ...captureForm, custom_questions: updated });
+                        }}
+                        placeholder="Texto da pergunta"
+                        maxLength={200}
+                      />
+                      <div className="flex items-center gap-3">
+                        <Select
+                          value={q.type}
+                          onValueChange={(v: 'text' | 'choice') => {
+                            const updated = [...captureForm.custom_questions];
+                            updated[idx] = { ...updated[idx], type: v, options: v === 'choice' ? (q.options.length ? q.options : ['']) : [] };
+                            setCaptureForm({ ...captureForm, custom_questions: updated });
+                          }}
+                        >
+                          <SelectTrigger className="w-36 h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="text">Texto livre</SelectItem>
+                            <SelectItem value="choice">Múltipla escolha</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={q.required}
+                            onChange={(e) => {
+                              const updated = [...captureForm.custom_questions];
+                              updated[idx] = { ...updated[idx], required: e.target.checked };
+                              setCaptureForm({ ...captureForm, custom_questions: updated });
+                            }}
+                            className="rounded"
+                          />
+                          Obrigatória
+                        </label>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      {idx > 0 && (
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => {
+                          const updated = [...captureForm.custom_questions];
+                          [updated[idx - 1], updated[idx]] = [updated[idx], updated[idx - 1]];
+                          setCaptureForm({ ...captureForm, custom_questions: updated });
+                        }}>
+                          <ArrowUp className="w-3 h-3" />
+                        </Button>
+                      )}
+                      {idx < captureForm.custom_questions.length - 1 && (
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => {
+                          const updated = [...captureForm.custom_questions];
+                          [updated[idx], updated[idx + 1]] = [updated[idx + 1], updated[idx]];
+                          setCaptureForm({ ...captureForm, custom_questions: updated });
+                        }}>
+                          <ArrowDown className="w-3 h-3" />
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => {
+                        const updated = captureForm.custom_questions.filter((_, i) => i !== idx);
+                        setCaptureForm({ ...captureForm, custom_questions: updated });
+                      }}>
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Choice options */}
+                  {q.type === 'choice' && (
+                    <div className="pl-2 space-y-1.5">
+                      <Label className="text-xs">Opções</Label>
+                      {q.options.map((opt, optIdx) => (
+                        <div key={optIdx} className="flex items-center gap-2">
+                          <Input
+                            value={opt}
+                            onChange={(e) => {
+                              const updated = [...captureForm.custom_questions];
+                              const newOptions = [...updated[idx].options];
+                              newOptions[optIdx] = e.target.value;
+                              updated[idx] = { ...updated[idx], options: newOptions };
+                              setCaptureForm({ ...captureForm, custom_questions: updated });
+                            }}
+                            placeholder={`Opção ${optIdx + 1}`}
+                            className="h-8 text-xs"
+                            maxLength={100}
+                          />
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => {
+                            const updated = [...captureForm.custom_questions];
+                            updated[idx] = { ...updated[idx], options: updated[idx].options.filter((_, i) => i !== optIdx) };
+                            setCaptureForm({ ...captureForm, custom_questions: updated });
+                          }}>
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => {
+                        const updated = [...captureForm.custom_questions];
+                        updated[idx] = { ...updated[idx], options: [...updated[idx].options, ''] };
+                        setCaptureForm({ ...captureForm, custom_questions: updated });
+                      }}>
+                        <Plus className="w-3 h-3 mr-1" /> Opção
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
             <Button onClick={handleSave} disabled={saving} className="w-full">
               {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
               Salvar Configurações
