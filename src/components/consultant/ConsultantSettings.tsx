@@ -204,6 +204,9 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
         whatsapp_number: captureForm.whatsapp_number || null,
         email_enabled: captureForm.email_enabled,
         custom_questions: captureForm.custom_questions,
+        template_type: captureForm.template_type,
+        gallery_images: captureForm.gallery_images,
+        gallery_title: captureForm.gallery_title,
         updated_at: new Date().toISOString(),
       };
 
