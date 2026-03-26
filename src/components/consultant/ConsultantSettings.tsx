@@ -93,6 +93,8 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
     redirect_url: '',
     whatsapp_message: 'Olá! Vim pela página de captura e quero saber mais.',
     whatsapp_number: '',
+    email_enabled: true,
+    custom_questions: [] as Array<{ question: string; type: 'text' | 'choice'; required: boolean; options: string[] }>,
   });
 
   const { data: existingConfig } = useQuery({
