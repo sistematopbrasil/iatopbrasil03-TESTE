@@ -19,6 +19,7 @@ export interface ConsultantUser {
   whatsapp_button_url: string | null;
   pixel_id: string | null;
   username: string | null;
+  ranking_visible: boolean;
 }
 
 export async function getCurrentConsultant(): Promise<ConsultantUser | null> {
