@@ -5,12 +5,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { getCurrentConsultant, getQuizUrl, getCaptureUrl } from '@/lib/consultant-context';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Save, Copy, ExternalLink, Upload, Trash2, Check, User } from 'lucide-react';
+import { Loader2, Save, Copy, ExternalLink, Upload, Trash2, Check, User, Plus, X, GripVertical, ArrowUp, ArrowDown } from 'lucide-react';
 import { QuizQuestionsEditor } from './QuizQuestionsEditor';
 import { cn } from '@/lib/utils';
 
@@ -92,6 +93,8 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
     redirect_url: '',
     whatsapp_message: 'Olá! Vim pela página de captura e quero saber mais.',
     whatsapp_number: '',
+    email_enabled: true,
+    custom_questions: [] as Array<{ question: string; type: 'text' | 'choice'; required: boolean; options: string[] }>,
   });
 
   const { data: existingConfig } = useQuery({
@@ -123,6 +126,8 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
         redirect_url: existingConfig.redirect_url || '',
         whatsapp_message: existingConfig.whatsapp_message || captureForm.whatsapp_message,
         whatsapp_number: (existingConfig as any).whatsapp_number || '',
+        email_enabled: (existingConfig as any).email_enabled ?? true,
+        custom_questions: (existingConfig as any).custom_questions || [],
       });
     }
   }, [existingConfig]);
@@ -157,7 +162,7 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
     if (!consultant) return;
     setSaving(true);
     try {
-      const payload = {
+      const payload: Record<string, any> = {
         consultant_id: consultant.id,
         organization_id: consultant.organization_id,
         title: captureForm.title,
@@ -172,6 +177,8 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
         redirect_url: captureForm.redirect_url || null,
         whatsapp_message: captureForm.whatsapp_message,
         whatsapp_number: captureForm.whatsapp_number || null,
+        email_enabled: captureForm.email_enabled,
+        custom_questions: captureForm.custom_questions,
         updated_at: new Date().toISOString(),
       };
 
@@ -179,7 +186,7 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
         const { error } = await supabase.from('capture_page_configs').update(payload).eq('id', existingConfig.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('capture_page_configs').insert(payload);
+        const { error } = await supabase.from('capture_page_configs').insert(payload as any);
         if (error) throw error;
       }
 
@@ -353,6 +360,151 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
                 </div>
               </div>
             )}
+
+            {/* Email toggle */}
+            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+              <div>
+                <Label>Campo de Email</Label>
+                <p className="text-xs text-muted-foreground">Mostrar campo de email no formulário</p>
+              </div>
+              <Switch
+                checked={captureForm.email_enabled}
+                onCheckedChange={(checked) => setCaptureForm({ ...captureForm, email_enabled: checked })}
+              />
+            </div>
+
+            {/* Custom Questions Editor */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Perguntas Personalizadas</Label>
+                  <p className="text-xs text-muted-foreground">Adicione perguntas extras ao formulário</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCaptureForm({
+                    ...captureForm,
+                    custom_questions: [...captureForm.custom_questions, { question: '', type: 'text', required: false, options: [] }]
+                  })}
+                >
+                  <Plus className="w-4 h-4 mr-1" /> Pergunta
+                </Button>
+              </div>
+
+              {captureForm.custom_questions.map((q, idx) => (
+                <div key={idx} className="p-3 rounded-lg border border-border space-y-2 bg-muted/30">
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1 space-y-2">
+                      <Input
+                        value={q.question}
+                        onChange={(e) => {
+                          const updated = [...captureForm.custom_questions];
+                          updated[idx] = { ...updated[idx], question: e.target.value };
+                          setCaptureForm({ ...captureForm, custom_questions: updated });
+                        }}
+                        placeholder="Texto da pergunta"
+                        maxLength={200}
+                      />
+                      <div className="flex items-center gap-3">
+                        <Select
+                          value={q.type}
+                          onValueChange={(v: 'text' | 'choice') => {
+                            const updated = [...captureForm.custom_questions];
+                            updated[idx] = { ...updated[idx], type: v, options: v === 'choice' ? (q.options.length ? q.options : ['']) : [] };
+                            setCaptureForm({ ...captureForm, custom_questions: updated });
+                          }}
+                        >
+                          <SelectTrigger className="w-36 h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="text">Texto livre</SelectItem>
+                            <SelectItem value="choice">Múltipla escolha</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={q.required}
+                            onChange={(e) => {
+                              const updated = [...captureForm.custom_questions];
+                              updated[idx] = { ...updated[idx], required: e.target.checked };
+                              setCaptureForm({ ...captureForm, custom_questions: updated });
+                            }}
+                            className="rounded"
+                          />
+                          Obrigatória
+                        </label>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      {idx > 0 && (
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => {
+                          const updated = [...captureForm.custom_questions];
+                          [updated[idx - 1], updated[idx]] = [updated[idx], updated[idx - 1]];
+                          setCaptureForm({ ...captureForm, custom_questions: updated });
+                        }}>
+                          <ArrowUp className="w-3 h-3" />
+                        </Button>
+                      )}
+                      {idx < captureForm.custom_questions.length - 1 && (
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => {
+                          const updated = [...captureForm.custom_questions];
+                          [updated[idx], updated[idx + 1]] = [updated[idx + 1], updated[idx]];
+                          setCaptureForm({ ...captureForm, custom_questions: updated });
+                        }}>
+                          <ArrowDown className="w-3 h-3" />
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => {
+                        const updated = captureForm.custom_questions.filter((_, i) => i !== idx);
+                        setCaptureForm({ ...captureForm, custom_questions: updated });
+                      }}>
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Choice options */}
+                  {q.type === 'choice' && (
+                    <div className="pl-2 space-y-1.5">
+                      <Label className="text-xs">Opções</Label>
+                      {q.options.map((opt, optIdx) => (
+                        <div key={optIdx} className="flex items-center gap-2">
+                          <Input
+                            value={opt}
+                            onChange={(e) => {
+                              const updated = [...captureForm.custom_questions];
+                              const newOptions = [...updated[idx].options];
+                              newOptions[optIdx] = e.target.value;
+                              updated[idx] = { ...updated[idx], options: newOptions };
+                              setCaptureForm({ ...captureForm, custom_questions: updated });
+                            }}
+                            placeholder={`Opção ${optIdx + 1}`}
+                            className="h-8 text-xs"
+                            maxLength={100}
+                          />
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => {
+                            const updated = [...captureForm.custom_questions];
+                            updated[idx] = { ...updated[idx], options: updated[idx].options.filter((_, i) => i !== optIdx) };
+                            setCaptureForm({ ...captureForm, custom_questions: updated });
+                          }}>
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => {
+                        const updated = [...captureForm.custom_questions];
+                        updated[idx] = { ...updated[idx], options: [...updated[idx].options, ''] };
+                        setCaptureForm({ ...captureForm, custom_questions: updated });
+                      }}>
+                        <Plus className="w-3 h-3 mr-1" /> Opção
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
 
             <Button onClick={handleSave} disabled={saving} className="w-full">
               {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}

@@ -2,7 +2,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getQuizUrl } from '@/lib/consultant-context';
 import { Button } from '@/components/ui/button';
-import { Copy, ExternalLink, UserPlus, Trophy, Power, Trash2, MoreVertical, Loader2 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Copy, ExternalLink, UserPlus, Trophy, Power, Trash2, MoreVertical, Loader2, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import { CreateConsultantDialog } from './CreateConsultantDialog';
@@ -54,7 +55,31 @@ export function ConsultantsTable() {
     },
   });
 
-  // Mutation para excluir consultor - usando edge function para deletar auth user também
+  // Mutation para ativar/desativar CRM
+  const toggleCrmMutation = useMutation({
+    mutationFn: async ({ consultantId, crmEnabled }: { consultantId: string; crmEnabled: boolean }) => {
+      const updateData: Record<string, any> = { crm_enabled: !crmEnabled };
+      if (crmEnabled) {
+        updateData.ai_enabled = false;
+      }
+      const { error } = await supabase
+        .from('users')
+        .update(updateData)
+        .eq('id', consultantId);
+      if (error) throw error;
+      return !crmEnabled;
+    },
+    onSuccess: (newStatus) => {
+      queryClient.invalidateQueries({ queryKey: ['unified-ranking'] });
+      queryClient.invalidateQueries({ queryKey: ['current-user-layout'] });
+      toast.success(newStatus ? 'CRM ativado!' : 'CRM e IA desativados!');
+    },
+    onError: () => {
+      toast.error('Erro ao atualizar CRM');
+    },
+  });
+
+
   const deleteMutation = useMutation({
     mutationFn: async (consultantId: string) => {
       const { data, error } = await supabase.functions.invoke('delete-consultant', {
@@ -151,6 +176,19 @@ export function ConsultantsTable() {
                   </div>
                 </div>
 
+                {/* CRM toggle */}
+                <div className="flex items-center justify-between pt-1 border-t border-border/50">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">CRM</span>
+                    <Switch
+                      checked={consultant.crm_enabled}
+                      onCheckedChange={() => toggleCrmMutation.mutate({ consultantId: consultant.consultant_id, crmEnabled: consultant.crm_enabled })}
+                      className="scale-75"
+                    />
+                  </div>
+                </div>
+
                 {/* Actions row */}
                 <div className="flex items-center justify-between pt-1 border-t border-border/50">
                   <div className="flex items-center gap-2">
@@ -239,6 +277,9 @@ export function ConsultantsTable() {
                     Quiz Slug
                   </th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+                    CRM
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
                     Status
                   </th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
@@ -290,6 +331,12 @@ export function ConsultantsTable() {
                       ) : (
                         <span className="text-xs text-muted-foreground">-</span>
                       )}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <Switch
+                        checked={consultant.crm_enabled}
+                        onCheckedChange={() => toggleCrmMutation.mutate({ consultantId: consultant.consultant_id, crmEnabled: consultant.crm_enabled })}
+                      />
                     </td>
                     <td className="px-4 py-3 text-center">
                       {consultant.is_active ? (

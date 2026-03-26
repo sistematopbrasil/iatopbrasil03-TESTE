@@ -8,9 +8,16 @@ import { cn } from '@/lib/utils';
 
 const captureSchema = z.object({
   name: z.string().trim().min(2, 'Nome deve ter pelo menos 2 caracteres').max(100),
-  email: z.string().trim().email('Email inválido').max(255),
+  email: z.string().trim().email('Email inválido').max(255).optional().or(z.literal('')),
   phone: z.string().trim().min(10, 'Telefone inválido').max(20),
 });
+
+interface CustomQuestion {
+  question: string;
+  type: 'text' | 'choice';
+  required: boolean;
+  options: string[];
+}
 
 interface CaptureConfig {
   title: string;
@@ -25,6 +32,8 @@ interface CaptureConfig {
   redirect_url: string | null;
   whatsapp_message: string;
   whatsapp_number: string | null;
+  email_enabled: boolean;
+  custom_questions: CustomQuestion[];
 }
 
 interface ConsultantData {
@@ -47,6 +56,8 @@ const DEFAULT_CONFIG: CaptureConfig = {
   redirect_url: null,
   whatsapp_message: 'Olá! Vim pela página de captura e quero saber mais.',
   whatsapp_number: null,
+  email_enabled: true,
+  custom_questions: [],
 };
 
 /* ─── Country data ─── */
@@ -372,6 +383,7 @@ export default function CapturePage() {
   const [submitted, setSubmitted] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({ name: '', email: '', phone: '' });
+  const [customAnswers, setCustomAnswers] = useState<Record<number, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0]); // Brasil
 
@@ -406,6 +418,8 @@ export default function CapturePage() {
           redirect_url: captureConfig.redirect_url,
           whatsapp_message: captureConfig.whatsapp_message || DEFAULT_CONFIG.whatsapp_message,
           whatsapp_number: captureConfig.whatsapp_number || null,
+          email_enabled: (captureConfig as any).email_enabled ?? true,
+          custom_questions: (captureConfig as any).custom_questions || [],
         });
       }
     } catch (error) {
@@ -437,36 +451,67 @@ export default function CapturePage() {
     if (!touched[field]) return false;
     const value = form[field as keyof typeof form];
     if (field === 'name') return value.trim().length >= 2;
-    if (field === 'email') return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+    if (field === 'email') return config.email_enabled ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) : true;
     if (field === 'phone') return value.replace(/\D/g, '').length >= (selectedCountry.maxDigits - 2);
     return false;
   };
 
-  const validCount = useMemo(() =>
-    ['name', 'email', 'phone'].filter(f => isFieldValid(f)).length
-  , [form, touched, selectedCountry]);
+  const baseFields = ['name', ...(config.email_enabled ? ['email'] : []), 'phone'];
+  const totalFields = baseFields.length + config.custom_questions.filter(q => q.required).length;
+  const validBaseCount = baseFields.filter(f => isFieldValid(f)).length;
+  const validCustomCount = config.custom_questions.filter((q, i) => q.required && customAnswers[i]?.trim()).length;
+  const validCount = validBaseCount + validCustomCount;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!consultant) return;
-    const result = captureSchema.safeParse(form);
-    if (!result.success) {
-      const fieldErrors: Record<string, string> = {};
-      result.error.issues.forEach(issue => { fieldErrors[issue.path[0] as string] = issue.message; });
-      setErrors(fieldErrors);
+    
+    // Validate base fields
+    if (form.name.trim().length < 2) {
+      setErrors({ name: 'Nome deve ter pelo menos 2 caracteres' });
       setTouched({ name: true, email: true, phone: true });
       return;
     }
+    if (config.email_enabled && form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      setErrors({ email: 'Email inválido' });
+      setTouched({ name: true, email: true, phone: true });
+      return;
+    }
+    if (form.phone.replace(/\D/g, '').length < (selectedCountry.maxDigits - 2)) {
+      setErrors({ phone: 'Telefone inválido' });
+      setTouched({ name: true, email: true, phone: true });
+      return;
+    }
+
+    // Validate required custom questions
+    const missingRequired = config.custom_questions.findIndex((q, i) => q.required && !customAnswers[i]?.trim());
+    if (missingRequired >= 0) {
+      setErrors({ [`custom_${missingRequired}`]: 'Campo obrigatório' });
+      return;
+    }
+
     setErrors({});
     setSubmitting(true);
     try {
       const phoneDigits = selectedCountry.dial + form.phone.replace(/\D/g, '');
+      
+      // Build extra_answers from custom questions
+      const extra_answers: Record<string, string> = {};
+      config.custom_questions.forEach((q, i) => {
+        if (customAnswers[i]?.trim()) {
+          extra_answers[q.question] = customAnswers[i];
+        }
+      });
+
       await supabase.from('quiz_submissions_new').insert({
-        name: form.name.trim(), email: form.email.trim(), phone: phoneDigits,
+        name: form.name.trim(), 
+        email: config.email_enabled && form.email ? form.email.trim() : null, 
+        phone: phoneDigits,
         organization_id: consultant.organization_id, consultant_id: consultant.id,
         lead_source: 'capture', completion_percentage: 100,
         stage: 'novo', temperature: 'cold', lead_score: 0,
-      });
+        extra_answers: Object.keys(extra_answers).length > 0 ? extra_answers : null,
+      } as any);
       setSubmitted(true);
     } catch (error) {
       console.error('Erro ao enviar:', error);
@@ -502,8 +547,9 @@ export default function CapturePage() {
 
   const fields = [
     { key: 'name', icon: User, placeholder: 'Seu nome completo', type: 'text', maxLength: 100, step: 1 },
-    { key: 'email', icon: Mail, placeholder: 'Seu melhor email', type: 'email', maxLength: 255, step: 2 },
+    ...(config.email_enabled ? [{ key: 'email', icon: Mail, placeholder: 'Seu melhor email', type: 'email', maxLength: 255, step: 2 }] : []),
   ];
+  const phoneStep = config.email_enabled ? 3 : 2;
 
   return (
     <div className="min-h-screen bg-[#0D0D0D] relative overflow-hidden">
@@ -563,12 +609,12 @@ export default function CapturePage() {
           <div className="animate-[fade-in_0.6s_0.3s_ease-out_both]">
             <div className="flex items-center justify-between mb-2.5">
               <span className="text-xs text-gray-500 font-medium tracking-wide uppercase">Progresso</span>
-              <span className="text-xs font-bold" style={{ color: config.button_color }}>{validCount}/3 campos</span>
+              <span className="text-xs font-bold" style={{ color: config.button_color }}>{validCount}/{totalFields} campos</span>
             </div>
             <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden">
               <div 
                 className="h-full rounded-full transition-all duration-500 ease-out" 
-                style={{ width: `${(validCount / 3) * 100}%`, backgroundColor: config.button_color }} 
+                style={{ width: `${totalFields > 0 ? (validCount / totalFields) * 100 : 0}%`, backgroundColor: config.button_color }} 
               />
             </div>
           </div>
@@ -631,7 +677,7 @@ export default function CapturePage() {
                       backgroundColor: isFieldValid('phone') ? '#22c55e' : `${config.button_color}30`,
                       color: isFieldValid('phone') ? 'white' : config.button_color,
                     }}>
-                    {isFieldValid('phone') ? <Check className="w-3.5 h-3.5" /> : 3}
+                    {isFieldValid('phone') ? <Check className="w-3.5 h-3.5" /> : phoneStep}
                   </div>
                   <div className="flex h-[60px] bg-white/[0.05] border border-white/[0.08] rounded-xl transition-all duration-300"
                     id="phone-container">
@@ -680,7 +726,45 @@ export default function CapturePage() {
               </div>
             </div>
 
-            {/* CTA Button with shimmer */}
+            {/* Custom Questions */}
+            {config.custom_questions.length > 0 && config.custom_questions.map((q, idx) => (
+              <div key={idx} className="space-y-1.5" style={{ animation: 'fade-in 0.5s ease-out both' }}>
+                <label className="text-sm text-gray-400 pl-1">{q.question}{q.required && <span className="text-red-400 ml-1">*</span>}</label>
+                {q.type === 'choice' ? (
+                  <div className="space-y-2">
+                    {q.options.filter(o => o.trim()).map((opt, optIdx) => (
+                      <label key={optIdx} className={cn(
+                        "flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all duration-200",
+                        customAnswers[idx] === opt 
+                          ? "border-opacity-50 bg-white/[0.08]" 
+                          : "border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06]"
+                      )} style={customAnswers[idx] === opt ? { borderColor: `${config.button_color}60` } : {}}>
+                        <input type="radio" name={`custom_${idx}`} value={opt} checked={customAnswers[idx] === opt}
+                          onChange={() => setCustomAnswers(prev => ({ ...prev, [idx]: opt }))}
+                          className="sr-only" />
+                        <div className={cn("w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors",
+                          customAnswers[idx] === opt ? "border-current" : "border-gray-500"
+                        )} style={customAnswers[idx] === opt ? { borderColor: config.button_color } : {}}>
+                          {customAnswers[idx] === opt && <div className="w-2 h-2 rounded-full" style={{ backgroundColor: config.button_color }} />}
+                        </div>
+                        <span className="text-white text-sm">{opt}</span>
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <input type="text" value={customAnswers[idx] || ''} 
+                    onChange={(e) => setCustomAnswers(prev => ({ ...prev, [idx]: e.target.value }))}
+                    placeholder="Sua resposta"
+                    className="w-full h-[52px] px-4 bg-white/[0.05] border border-white/[0.08] rounded-xl text-white placeholder:text-gray-500/70 focus:outline-none transition-all duration-300 text-[16px]"
+                    style={{ boxShadow: 'none' }}
+                    onFocus={(e) => { e.target.style.boxShadow = `0 0 0 2px ${focusRingColor}40`; e.target.style.borderColor = `${focusRingColor}40`; }}
+                    onBlur={(e) => { e.target.style.boxShadow = 'none'; e.target.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                    maxLength={300} />
+                )}
+                {errors[`custom_${idx}`] && <p className="text-xs text-red-400 pl-1">{errors[`custom_${idx}`]}</p>}
+              </div>
+            ))}
+
             <button type="submit" disabled={submitting}
               className="relative w-full h-16 rounded-2xl text-white font-bold text-xl shadow-lg transition-all duration-300 hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 overflow-hidden"
               style={{ backgroundColor: config.button_color, boxShadow: `0 8px 30px ${config.button_color}40` }}>

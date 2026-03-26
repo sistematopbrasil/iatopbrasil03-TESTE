@@ -9,6 +9,8 @@ export interface ConsultantRankingData {
   quiz_slug: string | null;
   profile_photo: string | null;
   is_active: boolean;
+  crm_enabled: boolean;
+  ai_enabled: boolean;
   total_leads: number;
   hot_leads: number;
   warm_leads: number;
