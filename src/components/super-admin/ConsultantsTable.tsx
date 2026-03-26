@@ -90,7 +90,7 @@ export function ConsultantsTable() {
       return !rankingVisible;
     },
     onSuccess: (newStatus) => {
-      queryClient.invalidateQueries({ queryKey: ['unified-ranking'] });
+      queryClient.invalidateQueries({ queryKey: ['unified-ranking'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['current-user-layout'] });
       toast.success(newStatus ? 'Ranking ativado!' : 'Ranking desativado!');
     },
