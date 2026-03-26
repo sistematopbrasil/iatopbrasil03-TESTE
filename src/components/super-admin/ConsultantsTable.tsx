@@ -47,7 +47,7 @@ export function ConsultantsTable() {
       return !isActive;
     },
     onSuccess: (newStatus) => {
-      queryClient.invalidateQueries({ queryKey: ['unified-ranking'] });
+      queryClient.invalidateQueries({ queryKey: ['unified-ranking'], refetchType: 'all' });
       toast.success(newStatus ? 'Consultor ativado!' : 'Consultor desativado!');
     },
     onError: () => {
@@ -70,7 +70,7 @@ export function ConsultantsTable() {
       return !crmEnabled;
     },
     onSuccess: (newStatus) => {
-      queryClient.invalidateQueries({ queryKey: ['unified-ranking'] });
+      queryClient.invalidateQueries({ queryKey: ['unified-ranking'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['current-user-layout'] });
       toast.success(newStatus ? 'CRM ativado!' : 'CRM e IA desativados!');
     },
@@ -90,7 +90,7 @@ export function ConsultantsTable() {
       return !rankingVisible;
     },
     onSuccess: (newStatus) => {
-      queryClient.invalidateQueries({ queryKey: ['unified-ranking'] });
+      queryClient.invalidateQueries({ queryKey: ['unified-ranking'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['current-user-layout'] });
       toast.success(newStatus ? 'Ranking ativado!' : 'Ranking desativado!');
     },
@@ -212,8 +212,8 @@ export function ConsultantsTable() {
                       <BarChart3 className="w-3.5 h-3.5 text-muted-foreground" />
                       <span className="text-xs text-muted-foreground">Ranking</span>
                       <Switch
-                        checked={(consultant as any).ranking_visible ?? true}
-                        onCheckedChange={() => toggleRankingMutation.mutate({ consultantId: consultant.consultant_id, rankingVisible: (consultant as any).ranking_visible ?? true })}
+                        checked={consultant.ranking_visible}
+                        onCheckedChange={() => toggleRankingMutation.mutate({ consultantId: consultant.consultant_id, rankingVisible: consultant.ranking_visible })}
                         className="scale-75"
                       />
                     </div>
@@ -374,8 +374,8 @@ export function ConsultantsTable() {
                     </td>
                     <td className="px-4 py-3 text-center">
                       <Switch
-                        checked={(consultant as any).ranking_visible ?? true}
-                        onCheckedChange={() => toggleRankingMutation.mutate({ consultantId: consultant.consultant_id, rankingVisible: (consultant as any).ranking_visible ?? true })}
+                        checked={consultant.ranking_visible}
+                        onCheckedChange={() => toggleRankingMutation.mutate({ consultantId: consultant.consultant_id, rankingVisible: consultant.ranking_visible })}
                       />
                     </td>
                     <td className="px-4 py-3 text-center">
