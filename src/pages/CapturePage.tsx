@@ -56,6 +56,8 @@ const DEFAULT_CONFIG: CaptureConfig = {
   redirect_url: null,
   whatsapp_message: 'Olá! Vim pela página de captura e quero saber mais.',
   whatsapp_number: null,
+  email_enabled: true,
+  custom_questions: [],
 };
 
 /* ─── Country data ─── */
