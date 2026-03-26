@@ -400,6 +400,8 @@ export default function ConsultantsManagement() {
                       <span className="hidden sm:inline">Quentes</span>
                     </div>
                   </TableHead>
+                  <TableHead className="text-center hidden md:table-cell">CRM</TableHead>
+                  <TableHead className="text-center hidden md:table-cell">Ranking</TableHead>
                   <TableHead className="text-center hidden md:table-cell">Status</TableHead>
                   <TableHead className="text-center hidden md:table-cell">IA</TableHead>
                   <TableHead className="text-center">Ações</TableHead>
