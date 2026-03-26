@@ -176,6 +176,19 @@ export function ConsultantsTable() {
                   </div>
                 </div>
 
+                {/* CRM toggle */}
+                <div className="flex items-center justify-between pt-1 border-t border-border/50">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">CRM</span>
+                    <Switch
+                      checked={consultant.crm_enabled}
+                      onCheckedChange={() => toggleCrmMutation.mutate({ consultantId: consultant.consultant_id, crmEnabled: consultant.crm_enabled })}
+                      className="scale-75"
+                    />
+                  </div>
+                </div>
+
                 {/* Actions row */}
                 <div className="flex items-center justify-between pt-1 border-t border-border/50">
                   <div className="flex items-center gap-2">
