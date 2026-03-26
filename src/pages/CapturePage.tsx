@@ -417,6 +417,8 @@ export default function CapturePage() {
           redirect_url: captureConfig.redirect_url,
           whatsapp_message: captureConfig.whatsapp_message || DEFAULT_CONFIG.whatsapp_message,
           whatsapp_number: captureConfig.whatsapp_number || null,
+          email_enabled: (captureConfig as any).email_enabled ?? true,
+          custom_questions: (captureConfig as any).custom_questions || [],
         });
       }
     } catch (error) {
