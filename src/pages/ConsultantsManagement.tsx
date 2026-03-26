@@ -33,7 +33,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Target, Flame, Loader2, MoreVertical, Copy, ExternalLink, UserX, UserCheck, Trash2, Users, CheckSquare, XSquare, Bot, BotOff } from 'lucide-react';
+import { Target, Flame, Loader2, MoreVertical, Copy, ExternalLink, UserX, UserCheck, Trash2, Users, CheckSquare, XSquare, Bot, BotOff, MessageSquare, BarChart3 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { calculateLeadPoints, NOVOS_CONSULTORES_BONUS } from '@/lib/ranking-service';
 import { TableSkeleton } from '@/components/ui/page-skeleton';
