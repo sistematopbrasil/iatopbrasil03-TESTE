@@ -47,7 +47,7 @@ export function ConsultantsTable() {
       return !isActive;
     },
     onSuccess: (newStatus) => {
-      queryClient.invalidateQueries({ queryKey: ['unified-ranking'] });
+      queryClient.invalidateQueries({ queryKey: ['unified-ranking'], refetchType: 'all' });
       toast.success(newStatus ? 'Consultor ativado!' : 'Consultor desativado!');
     },
     onError: () => {
