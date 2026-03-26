@@ -1,0 +1,1 @@
+ALTER TABLE public.users ADD COLUMN ranking_visible boolean NOT NULL DEFAULT true;

@@ -373,6 +373,12 @@ export function ConsultantsTable() {
                       />
                     </td>
                     <td className="px-4 py-3 text-center">
+                      <Switch
+                        checked={(consultant as any).ranking_visible ?? true}
+                        onCheckedChange={() => toggleRankingMutation.mutate({ consultantId: consultant.consultant_id, rankingVisible: (consultant as any).ranking_visible ?? true })}
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-center">
                       {consultant.is_active ? (
                         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-500/10 text-green-600">
                           Ativo
