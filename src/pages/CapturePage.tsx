@@ -431,6 +431,9 @@ export default function CapturePage() {
           whatsapp_number: captureConfig.whatsapp_number || null,
           email_enabled: (captureConfig as any).email_enabled ?? true,
           custom_questions: (captureConfig as any).custom_questions || [],
+          template_type: (captureConfig as any).template_type || 'standard',
+          gallery_images: (captureConfig as any).gallery_images || [],
+          gallery_title: (captureConfig as any).gallery_title || 'Veja nossos resultados',
         });
       }
     } catch (error) {
