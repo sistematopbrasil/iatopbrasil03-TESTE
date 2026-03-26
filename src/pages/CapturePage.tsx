@@ -66,6 +66,9 @@ const DEFAULT_CONFIG: CaptureConfig = {
   whatsapp_number: null,
   email_enabled: true,
   custom_questions: [],
+  template_type: 'standard',
+  gallery_images: [],
+  gallery_title: 'Veja nossos resultados',
 };
 
 /* ─── Country data ─── */
