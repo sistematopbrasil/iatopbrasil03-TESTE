@@ -114,6 +114,9 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
     whatsapp_number: '',
     email_enabled: true,
     custom_questions: [] as Array<{ question: string; type: 'text' | 'choice'; required: boolean; options: string[] }>,
+    template_type: 'standard' as 'standard' | 'landing',
+    gallery_images: [] as Array<{ url: string; caption?: string }>,
+    gallery_title: 'Veja nossos resultados',
   });
 
   const { data: existingConfig } = useQuery({
