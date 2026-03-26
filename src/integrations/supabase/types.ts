@@ -1996,6 +1996,7 @@ export type Database = {
           quiz_image_shape: string | null
           quiz_image_size: string | null
           quiz_slug: string | null
+          ranking_visible: boolean
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string
           username: string | null
@@ -2018,6 +2019,7 @@ export type Database = {
           quiz_image_shape?: string | null
           quiz_image_size?: string | null
           quiz_slug?: string | null
+          ranking_visible?: boolean
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
           username?: string | null
@@ -2040,6 +2042,7 @@ export type Database = {
           quiz_image_shape?: string | null
           quiz_image_size?: string | null
           quiz_slug?: string | null
+          ranking_visible?: boolean
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
           username?: string | null

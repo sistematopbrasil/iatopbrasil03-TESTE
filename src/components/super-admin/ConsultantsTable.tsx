@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { getQuizUrl } from '@/lib/consultant-context';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Copy, ExternalLink, UserPlus, Trophy, Power, Trash2, MoreVertical, Loader2, MessageSquare } from 'lucide-react';
+import { Copy, ExternalLink, UserPlus, Trophy, Power, Trash2, MoreVertical, Loader2, MessageSquare, BarChart3 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import { CreateConsultantDialog } from './CreateConsultantDialog';
@@ -76,6 +76,26 @@ export function ConsultantsTable() {
     },
     onError: () => {
       toast.error('Erro ao atualizar CRM');
+    },
+  });
+
+  // Mutation para ativar/desativar Ranking
+  const toggleRankingMutation = useMutation({
+    mutationFn: async ({ consultantId, rankingVisible }: { consultantId: string; rankingVisible: boolean }) => {
+      const { error } = await supabase
+        .from('users')
+        .update({ ranking_visible: !rankingVisible } as any)
+        .eq('id', consultantId);
+      if (error) throw error;
+      return !rankingVisible;
+    },
+    onSuccess: (newStatus) => {
+      queryClient.invalidateQueries({ queryKey: ['unified-ranking'] });
+      queryClient.invalidateQueries({ queryKey: ['current-user-layout'] });
+      toast.success(newStatus ? 'Ranking ativado!' : 'Ranking desativado!');
+    },
+    onError: () => {
+      toast.error('Erro ao atualizar ranking');
     },
   });
 
@@ -178,14 +198,25 @@ export function ConsultantsTable() {
 
                 {/* CRM toggle */}
                 <div className="flex items-center justify-between pt-1 border-t border-border/50">
-                  <div className="flex items-center gap-2">
-                    <MessageSquare className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">CRM</span>
-                    <Switch
-                      checked={consultant.crm_enabled}
-                      onCheckedChange={() => toggleCrmMutation.mutate({ consultantId: consultant.consultant_id, crmEnabled: consultant.crm_enabled })}
-                      className="scale-75"
-                    />
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <MessageSquare className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">CRM</span>
+                      <Switch
+                        checked={consultant.crm_enabled}
+                        onCheckedChange={() => toggleCrmMutation.mutate({ consultantId: consultant.consultant_id, crmEnabled: consultant.crm_enabled })}
+                        className="scale-75"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <BarChart3 className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">Ranking</span>
+                      <Switch
+                        checked={(consultant as any).ranking_visible ?? true}
+                        onCheckedChange={() => toggleRankingMutation.mutate({ consultantId: consultant.consultant_id, rankingVisible: (consultant as any).ranking_visible ?? true })}
+                        className="scale-75"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -280,6 +311,9 @@ export function ConsultantsTable() {
                     CRM
                   </th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+                    Ranking
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
                     Status
                   </th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
@@ -336,6 +370,12 @@ export function ConsultantsTable() {
                       <Switch
                         checked={consultant.crm_enabled}
                         onCheckedChange={() => toggleCrmMutation.mutate({ consultantId: consultant.consultant_id, crmEnabled: consultant.crm_enabled })}
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <Switch
+                        checked={(consultant as any).ranking_visible ?? true}
+                        onCheckedChange={() => toggleRankingMutation.mutate({ consultantId: consultant.consultant_id, rankingVisible: (consultant as any).ranking_visible ?? true })}
                       />
                     </td>
                     <td className="px-4 py-3 text-center">
