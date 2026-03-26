@@ -19,6 +19,11 @@ interface CustomQuestion {
   options: string[];
 }
 
+interface GalleryImage {
+  url: string;
+  caption?: string;
+}
+
 interface CaptureConfig {
   title: string;
   subtitle: string;
@@ -34,6 +39,9 @@ interface CaptureConfig {
   whatsapp_number: string | null;
   email_enabled: boolean;
   custom_questions: CustomQuestion[];
+  template_type: 'standard' | 'landing';
+  gallery_images: GalleryImage[];
+  gallery_title: string;
 }
 
 interface ConsultantData {
