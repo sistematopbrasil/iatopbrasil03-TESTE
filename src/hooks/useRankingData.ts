@@ -12,7 +12,6 @@ export interface ConsultantRankingData {
   crm_enabled: boolean;
   ai_enabled: boolean;
   ranking_visible: boolean;
-  ai_enabled: boolean;
   total_leads: number;
   hot_leads: number;
   warm_leads: number;
