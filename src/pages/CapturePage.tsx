@@ -677,7 +677,7 @@ export default function CapturePage() {
                       backgroundColor: isFieldValid('phone') ? '#22c55e' : `${config.button_color}30`,
                       color: isFieldValid('phone') ? 'white' : config.button_color,
                     }}>
-                    {isFieldValid('phone') ? <Check className="w-3.5 h-3.5" /> : 3}
+                    {isFieldValid('phone') ? <Check className="w-3.5 h-3.5" /> : phoneStep}
                   </div>
                   <div className="flex h-[60px] bg-white/[0.05] border border-white/[0.08] rounded-xl transition-all duration-300"
                     id="phone-container">
