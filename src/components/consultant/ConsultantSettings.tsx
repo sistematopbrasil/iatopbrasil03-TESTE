@@ -239,6 +239,91 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
             <CardDescription>Configure sua página de captura de leads</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5 overflow-x-hidden min-w-0">
+            {/* Template Selector */}
+            <div className="space-y-2">
+              <Label>Tipo de Página</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <button type="button"
+                  onClick={() => setCaptureForm({ ...captureForm, template_type: 'standard' })}
+                  className={cn("p-4 rounded-xl border-2 text-left transition-all", captureForm.template_type === 'standard' ? "border-primary bg-primary/10" : "border-border hover:border-primary/30")}>
+                  <FileText className="w-5 h-5 mb-2 text-primary" />
+                  <p className="text-sm font-semibold">Formulário</p>
+                  <p className="text-xs text-muted-foreground">Formulário simples e direto</p>
+                </button>
+                <button type="button"
+                  onClick={() => {
+                    const newForm = { ...captureForm, template_type: 'landing' as const };
+                    if (captureForm.template_type !== 'landing' && captureForm.custom_questions.length === 0) {
+                      newForm.custom_questions = [
+                        { question: 'Você trabalha atualmente com carteira assinada?', type: 'choice', required: true, options: ['Sim', 'Não, sou autônomo', 'Estou sem emprego no momento'] },
+                        { question: 'Você já teve alguma experiência com vendas?', type: 'choice', required: true, options: ['Sim, já trabalhei com vendas', 'Nunca trabalhei mas tenho interesse', 'Não tenho experiência e não sei se é pra mim'] },
+                        { question: 'Você tem veículo próprio?', type: 'choice', required: true, options: ['Sim, carro', 'Sim, moto', 'Não tenho'] },
+                      ];
+                    }
+                    setCaptureForm(newForm);
+                  }}
+                  className={cn("p-4 rounded-xl border-2 text-left transition-all", captureForm.template_type === 'landing' ? "border-primary bg-primary/10" : "border-border hover:border-primary/30")}>
+                  <Globe className="w-5 h-5 mb-2 text-primary" />
+                  <p className="text-sm font-semibold">Landing Page</p>
+                  <p className="text-xs text-muted-foreground">Hero + galeria + formulário</p>
+                </button>
+              </div>
+            </div>
+
+            {/* Gallery config (landing only) */}
+            {captureForm.template_type === 'landing' && (
+              <div className="space-y-3 p-4 rounded-xl border border-border bg-muted/30">
+                <div className="space-y-2">
+                  <Label>Título da Galeria</Label>
+                  <Input value={captureForm.gallery_title} onChange={(e) => setCaptureForm({ ...captureForm, gallery_title: e.target.value })} maxLength={100} />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Imagens da Galeria</Label>
+                    <Button type="button" variant="outline" size="sm" onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'file'; input.accept = 'image/*';
+                      input.onchange = async (e) => {
+                        const file = (e.target as HTMLInputElement).files?.[0];
+                        if (!file || !consultant) return;
+                        if (file.size > 5 * 1024 * 1024) { toast.error('Máx 5MB'); return; }
+                        try {
+                          const ext = file.name.split('.').pop();
+                          const path = `capture-gallery/${consultant.id}-${Date.now()}.${ext}`;
+                          const { error } = await supabase.storage.from('quiz-images').upload(path, file, { upsert: true });
+                          if (error) throw error;
+                          const { data } = supabase.storage.from('quiz-images').getPublicUrl(path);
+                          setCaptureForm(prev => ({ ...prev, gallery_images: [...prev.gallery_images, { url: data.publicUrl }] }));
+                          toast.success('Imagem adicionada!');
+                        } catch (err: any) { toast.error(err.message); }
+                      };
+                      input.click();
+                    }} disabled={captureForm.gallery_images.length >= 6}>
+                      <Image className="w-4 h-4 mr-1" /> Adicionar ({captureForm.gallery_images.length}/6)
+                    </Button>
+                  </div>
+                  {captureForm.gallery_images.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2">
+                      {captureForm.gallery_images.map((img, idx) => (
+                        <div key={idx} className="relative group">
+                          <img src={img.url} alt="" className="w-full aspect-square object-cover rounded-lg border border-border" />
+                          <button type="button" onClick={() => setCaptureForm(prev => ({ ...prev, gallery_images: prev.gallery_images.filter((_, i) => i !== idx) }))}
+                            className="absolute top-1 right-1 w-6 h-6 rounded-full bg-destructive text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <X className="w-3 h-3" />
+                          </button>
+                          <Input placeholder="Legenda" value={img.caption || ''} onChange={(e) => {
+                            const updated = [...captureForm.gallery_images];
+                            updated[idx] = { ...updated[idx], caption: e.target.value };
+                            setCaptureForm({ ...captureForm, gallery_images: updated });
+                          }} className="mt-1 h-7 text-xs" maxLength={50} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Link editável com prefixo fixo */}
             <div className="space-y-2">
               <Label>Link da Página de Captura</Label>
