@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { getCurrentConsultant, getQuizUrl, getCaptureUrl } from '@/lib/consultant-context';
 import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
