@@ -661,7 +661,22 @@ export function LeadProfile({ conversation, onClose }: LeadProfileProps) {
                 </div>
               </div>
 
-              {/* Goals */}
+              {/* Extra Answers (Custom Questions) */}
+              {leadData.extra_answers && Object.keys(leadData.extra_answers).length > 0 && (
+                <div className="space-y-3">
+                  <h5 className="font-semibold text-foreground text-sm border-b border-border pb-2 flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4 text-primary" />
+                    Respostas Adicionais
+                  </h5>
+                  <div className="space-y-2">
+                    {Object.entries(leadData.extra_answers).map(([question, answer]) => (
+                      <InfoRow key={question} icon={MessageSquare} label={question} value={answer} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+
               <div className="space-y-3">
                 <h5 className="font-semibold text-foreground text-sm border-b border-border pb-2 flex items-center gap-2">
                   <Target className="w-4 h-4 text-primary" />
