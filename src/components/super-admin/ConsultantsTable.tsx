@@ -311,6 +311,9 @@ export function ConsultantsTable() {
                     CRM
                   </th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+                    Ranking
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
                     Status
                   </th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
