@@ -727,9 +727,21 @@ export default function CapturePage() {
               </div>
 
               {/* Custom Questions - inside the card */}
-              {config.custom_questions.length > 0 && config.custom_questions.map((q, idx) => (
+              {config.custom_questions.length > 0 && config.custom_questions.map((q, idx) => {
+                const customStep = phoneStep + 1 + idx;
+                const isCustomValid = !!customAnswers[idx]?.trim();
+                return (
                 <div key={idx} className="space-y-1.5" style={{ animation: 'fade-in 0.5s ease-out both' }}>
-                  <label className="text-sm text-gray-400 pl-1">{q.question}{q.required && <span className="text-red-400 ml-1">*</span>}</label>
+                  <div className="relative">
+                    <div className="absolute -left-3.5 -top-3.5 w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center z-10 transition-colors duration-300"
+                      style={{
+                        backgroundColor: isCustomValid ? '#22c55e' : `${config.button_color}30`,
+                        color: isCustomValid ? 'white' : config.button_color,
+                      }}>
+                      {isCustomValid ? <Check className="w-3.5 h-3.5" /> : customStep}
+                    </div>
+                    <label className="text-sm text-gray-400 pl-1">{q.question}{q.required && <span className="text-red-400 ml-1">*</span>}</label>
+                  </div>
                   {q.type === 'choice' ? (
                     <div className="space-y-2">
                       {q.options.filter(o => o.trim()).map((opt, optIdx) => (
