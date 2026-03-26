@@ -609,12 +609,12 @@ export default function CapturePage() {
           <div className="animate-[fade-in_0.6s_0.3s_ease-out_both]">
             <div className="flex items-center justify-between mb-2.5">
               <span className="text-xs text-gray-500 font-medium tracking-wide uppercase">Progresso</span>
-              <span className="text-xs font-bold" style={{ color: config.button_color }}>{validCount}/3 campos</span>
+              <span className="text-xs font-bold" style={{ color: config.button_color }}>{validCount}/{totalFields} campos</span>
             </div>
             <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden">
               <div 
                 className="h-full rounded-full transition-all duration-500 ease-out" 
-                style={{ width: `${(validCount / 3) * 100}%`, backgroundColor: config.button_color }} 
+                style={{ width: `${totalFields > 0 ? (validCount / totalFields) * 100 : 0}%`, backgroundColor: config.button_color }} 
               />
             </div>
           </div>
