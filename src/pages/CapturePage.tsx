@@ -785,20 +785,20 @@ export default function CapturePage() {
           {config.compare_enabled && (
             <section className="px-4 sm:px-6 py-14 md:py-20 max-w-5xl mx-auto w-full">
               <div className="space-y-8 md:space-y-10">
-                <div className="text-left space-y-3 max-w-3xl">
+              <div className="text-left space-y-3 max-w-3xl">
                   <p className="lp-reveal text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase" style={{ color: config.button_color }}>Proteção que cabe no bolso</p>
                   <h2 className="lp-reveal text-2xl sm:text-3xl md:text-4xl font-bold text-white leading-[1.15]">
                     {config.compare_title}
                   </h2>
                   <p className="lp-reveal text-gray-400 text-sm sm:text-base leading-relaxed max-w-2xl">
-                    Seguro tradicional cobra até 3x mais pela mesma proteção. Com a Top Brasil você protege seu veículo com um valor justo — e sem consulta de crédito.
+                    O seguro tradicional cobra até 3x mais pela mesma proteção — e ainda usa seu CPF e seu bairro pra definir o preço. Com a Top Brasil você protege seu veículo com um valor justo, sem consulta de crédito e sem surpresa no bolso.
                   </p>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-4 lg:gap-5">
                   {/* Tradicional */}
                   <div className="lp-reveal lp-reveal-d1 bg-[#1A1A1A] rounded-2xl p-6 sm:p-8">
-                    <p className="text-gray-500 text-[10px] sm:text-xs font-semibold tracking-widest uppercase mb-5">Seguro Tradicional</p>
+                    <p className="text-gray-500 text-[10px] sm:text-xs font-semibold tracking-widest uppercase mb-5">✗ Seguro Tradicional</p>
                     <ul className="space-y-3">
                       {(config.compare_traditional_items || []).map((item: string, i: number) => (
                         <li key={i} className="flex gap-3 text-gray-400 text-sm sm:text-base items-center">
