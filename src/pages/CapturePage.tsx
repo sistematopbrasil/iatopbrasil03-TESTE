@@ -830,8 +830,8 @@ export default function CapturePage() {
 
           {/* Gallery Section */}
           {config.gallery_images.length > 0 && (
-            <section className="px-4 sm:px-6 py-20 md:py-28 max-w-6xl mx-auto w-full">
-              <h2 className="lp-reveal text-2xl sm:text-3xl md:text-4xl font-extrabold text-white text-center mb-10 md:mb-14">{config.gallery_title}</h2>
+            <section className="px-4 sm:px-6 py-14 md:py-20 max-w-6xl mx-auto w-full">
+              <h2 className="lp-reveal text-2xl sm:text-3xl md:text-4xl font-extrabold text-white text-center mb-8 md:mb-12">{config.gallery_title}</h2>
               <div className={cn(
                 "grid gap-4",
                 config.gallery_images.length === 1 ? "grid-cols-1 max-w-2xl mx-auto" :
@@ -844,7 +844,7 @@ export default function CapturePage() {
           )}
 
           {/* Bottom CTA */}
-          <section className="px-4 sm:px-6 py-24 md:py-32 pb-36 sm:pb-24 text-center">
+          <section className="px-4 sm:px-6 py-16 md:py-20 pb-28 sm:pb-20 text-center">
             <p className="lp-reveal text-[#EB6608]/70 text-xs sm:text-sm uppercase tracking-widest font-semibold mb-3">Proteção real — Preço justo</p>
             <h2 className="lp-reveal lp-reveal-d1 text-2xl sm:text-3xl md:text-4xl font-extrabold text-white mb-8 max-w-xl mx-auto leading-tight">Pronto para proteger seu veículo?</h2>
             <button
