@@ -830,6 +830,118 @@ export default function CapturePage() {
             </section>
           )}
 
+          {/* ─── Formulário Section ─── */}
+          <section id="formulario" className="px-4 sm:px-6 py-14 md:py-20 max-w-2xl mx-auto w-full scroll-mt-8">
+            <div className="lp-reveal rounded-3xl p-6 sm:p-10 border border-white/10 bg-white/[0.03] backdrop-blur-md shadow-2xl">
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-white text-center mb-8 leading-tight">
+                Descubra o plano ideal para o seu veículo!
+              </h2>
+              <form onSubmit={handleSubmit} className="space-y-5">
+                {/* Nome */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1.5">Nome completo</label>
+                  <div className="relative">
+                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                    <input
+                      type="text"
+                      value={form.name}
+                      onChange={(e) => { setForm({ ...form, name: e.target.value }); setTouched({ ...touched, name: true }); }}
+                      placeholder="Seu nome completo"
+                      maxLength={100}
+                      className="w-full pl-10 pr-4 py-3.5 rounded-xl bg-white/[0.06] border border-white/10 text-white placeholder:text-gray-500 focus:outline-none focus:border-white/30 transition-colors text-sm sm:text-base"
+                    />
+                  </div>
+                  {errors.name && <p className="text-red-400 text-xs mt-1">{errors.name}</p>}
+                </div>
+
+                {/* WhatsApp */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1.5">WhatsApp</label>
+                  <div className="flex rounded-xl bg-white/[0.06] border border-white/10 focus-within:border-white/30 transition-colors overflow-hidden">
+                    <CountrySelector selected={selectedCountry} onSelect={setSelectedCountry} buttonColor={config.button_color} />
+                    <input
+                      type="tel"
+                      value={form.phone}
+                      onChange={(e) => { setForm({ ...form, phone: formatPhone(e.target.value) }); setTouched({ ...touched, phone: true }); }}
+                      placeholder={selectedCountry.mask}
+                      className="flex-1 px-4 py-3.5 bg-transparent text-white placeholder:text-gray-500 focus:outline-none text-sm sm:text-base"
+                    />
+                  </div>
+                  {errors.phone && <p className="text-red-400 text-xs mt-1">{errors.phone}</p>}
+                </div>
+
+                {/* Custom Questions */}
+                {config.custom_questions.length > 0 && config.custom_questions.map((q, idx) => (
+                  <div key={idx}>
+                    <label className="block text-sm font-medium text-gray-300 mb-2.5">
+                      {idx + 1}. {q.question}
+                      {q.required && <span className="text-red-400 ml-1">*</span>}
+                    </label>
+                    {q.type === 'choice' && q.options?.length > 0 ? (
+                      <div className="space-y-2">
+                        {q.options.map((opt, oi) => (
+                          <label
+                            key={oi}
+                            className={cn(
+                              "flex items-center gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-all text-sm sm:text-base",
+                              customAnswers[idx] === opt
+                                ? "border-white/30 bg-white/10 text-white"
+                                : "border-white/[0.07] bg-white/[0.02] text-gray-400 hover:bg-white/[0.05] hover:border-white/15"
+                            )}
+                          >
+                            <div className={cn(
+                              "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors",
+                              customAnswers[idx] === opt ? "border-white" : "border-gray-600"
+                            )}>
+                              {customAnswers[idx] === opt && <div className="w-2 h-2 rounded-full bg-white" />}
+                            </div>
+                            <span>{opt}</span>
+                            <input
+                              type="radio"
+                              name={`q_${idx}`}
+                              value={opt}
+                              checked={customAnswers[idx] === opt}
+                              onChange={() => setCustomAnswers({ ...customAnswers, [idx]: opt })}
+                              className="sr-only"
+                            />
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <input
+                        type="text"
+                        value={customAnswers[idx] || ''}
+                        onChange={(e) => setCustomAnswers({ ...customAnswers, [idx]: e.target.value })}
+                        placeholder="Digite sua resposta..."
+                        className="w-full px-4 py-3.5 rounded-xl bg-white/[0.06] border border-white/10 text-white placeholder:text-gray-500 focus:outline-none focus:border-white/30 transition-colors text-sm sm:text-base"
+                      />
+                    )}
+                    {errors[`custom_${idx}`] && <p className="text-red-400 text-xs mt-1">{errors[`custom_${idx}`]}</p>}
+                  </div>
+                ))}
+
+                {/* Submit */}
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="group relative w-full py-4 sm:py-5 rounded-full text-white font-bold text-base sm:text-lg transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl active:scale-[0.98] overflow-hidden disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  style={{ backgroundColor: config.button_color, boxShadow: `0 12px 40px -8px ${config.button_color}BB` }}
+                >
+                  <div className="absolute inset-0 overflow-hidden">
+                    <div className="absolute inset-0 opacity-25" style={{ background:'linear-gradient(90deg,transparent,rgba(255,255,255,0.5),transparent)', animation:'shimmer 2.5s ease-in-out infinite' }} />
+                  </div>
+                  <span className="relative flex items-center gap-2">
+                    {submitting ? (
+                      <><Loader2 className="w-5 h-5 animate-spin" /> Enviando...</>
+                    ) : (
+                      <>Quero minha proteção agora <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></>
+                    )}
+                  </span>
+                </button>
+              </form>
+            </div>
+          </section>
+
           {/* Gallery Section */}
           {config.gallery_images.length > 0 && (
             <section className="px-4 sm:px-6 py-14 md:py-20 max-w-6xl mx-auto w-full">
@@ -845,20 +957,46 @@ export default function CapturePage() {
             </section>
           )}
 
+          {/* Social Proof Section */}
+          <section className="px-4 sm:px-6 py-14 md:py-20 text-center max-w-3xl mx-auto">
+            <div className="lp-reveal space-y-5">
+              <p className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white leading-none">
+                +75.000
+              </p>
+              <p className="text-base sm:text-lg font-semibold text-gray-300">
+                veículos protegidos em todo o Brasil
+              </p>
+              <div className="flex justify-center gap-1 text-2xl">
+                {['⭐','⭐','⭐','⭐','⭐'].map((s, i) => <span key={i}>{s}</span>)}
+              </div>
+              <p className="text-gray-400 text-sm sm:text-base max-w-xl mx-auto leading-relaxed">
+                Junte-se a mais de 75.000 associados que já protegem seu veículo com tranquilidade.
+              </p>
+              <button
+                type="button"
+                onClick={() => document.getElementById('formulario')?.scrollIntoView({ behavior: 'smooth' })}
+                className="group inline-flex items-center gap-2 px-8 py-4 rounded-full text-white font-bold text-base sm:text-lg transition-all duration-300 hover:scale-[1.03] hover:shadow-2xl active:scale-[0.97]"
+                style={{ backgroundColor: config.button_color, boxShadow: `0 12px 40px -8px ${config.button_color}BB` }}
+              >
+                Quero fazer parte agora <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </button>
+            </div>
+          </section>
+
           {/* Bottom CTA */}
           <section className="px-4 sm:px-6 py-16 md:py-20 pb-28 sm:pb-20 text-center">
             <p className="lp-reveal text-[#EB6608]/70 text-xs sm:text-sm uppercase tracking-widest font-semibold mb-3">Proteção real — Preço justo</p>
             <h2 className="lp-reveal lp-reveal-d1 text-2xl sm:text-3xl md:text-4xl font-extrabold text-white mb-8 max-w-xl mx-auto leading-tight">Pronto para proteger seu veículo?</h2>
             <button
               type="button"
-              onClick={handleWhatsAppRedirect}
+              onClick={() => document.getElementById('formulario')?.scrollIntoView({ behavior: 'smooth' })}
               className="lp-reveal lp-reveal-d2 group relative px-8 py-4 sm:px-12 sm:py-5 rounded-full text-white font-bold text-base sm:text-xl transition-all duration-300 hover:scale-[1.03] hover:shadow-2xl active:scale-[0.97] inline-flex items-center gap-2 overflow-hidden"
               style={{ backgroundColor:config.button_color, boxShadow:`0 12px 50px -10px ${config.button_color}CC` }}
             >
               <div className="absolute inset-0 overflow-hidden">
                 <div className="absolute inset-0 opacity-20" style={{ background:'linear-gradient(90deg,transparent,rgba(255,255,255,0.5),transparent)', animation:'shimmer 2.5s ease-in-out infinite' }} />
               </div>
-              <span className="relative flex items-center gap-2">Falar com um Consultor <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></span>
+              <span className="relative flex items-center gap-2">Quero minha proteção agora <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></span>
             </button>
           </section>
         </div>
