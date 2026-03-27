@@ -45,15 +45,13 @@ function CapturePagePreview({ config }: { config: any }) {
         <div className="absolute inset-0 bg-gradient-to-br from-[#EB6608]/10 via-transparent to-[#EB6608]/5 pointer-events-none" />
         
         {/* Header Logo */}
-        {config.logo_image && (
-          <div className="relative flex justify-center py-4 px-4 border-b border-white/5 bg-black/40 backdrop-blur-md">
-            <img src={config.logo_image} alt="Logo" className="h-10 w-auto object-contain" />
-          </div>
-        )}
+        <div className="relative flex justify-center py-4 px-4 border-b border-white/5 bg-black/40 backdrop-blur-md">
+          <img src={config.logo_image || '/top-brasil-logo.png'} alt="Logo" className="h-10 w-auto object-contain" />
+        </div>
 
         {/* Hero */}
         <div className="relative flex flex-col items-center justify-center px-4 py-10 text-center gap-4">
-          {config.hero_image && !config.logo_image && (
+          {config.hero_image && (
             <img src={config.hero_image} alt="Hero" className="w-16 h-16 object-cover rounded-full border border-white/20 mb-2" />
           )}
           <h3 className="text-lg font-extrabold text-white leading-tight max-w-[250px]">{config.title || 'Título Hero'}</h3>
