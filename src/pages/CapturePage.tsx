@@ -579,6 +579,7 @@ export default function CapturePage() {
         stage: 'novo', temperature: 'cold', lead_score: 0,
         extra_answers: Object.keys(extra_answers).length > 0 ? extra_answers : null,
       } as any);
+      trackEvent('Lead', { content_name: consultant.full_name, content_category: 'capture' });
       setSubmitted(true);
     } catch (error) {
       console.error('Erro ao enviar:', error);
