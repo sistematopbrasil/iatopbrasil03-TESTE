@@ -983,22 +983,6 @@ export default function CapturePage() {
             </div>
           </section>
 
-          {/* Bottom CTA */}
-          <section className="px-4 sm:px-6 py-16 md:py-20 pb-28 sm:pb-20 text-center">
-            <p className="lp-reveal text-[#EB6608]/70 text-xs sm:text-sm uppercase tracking-widest font-semibold mb-3">Proteção real — Preço justo</p>
-            <h2 className="lp-reveal lp-reveal-d1 text-2xl sm:text-3xl md:text-4xl font-extrabold text-white mb-8 max-w-xl mx-auto leading-tight">Pronto para proteger seu veículo?</h2>
-            <button
-              type="button"
-              onClick={() => document.getElementById('formulario')?.scrollIntoView({ behavior: 'smooth' })}
-              className="lp-reveal lp-reveal-d2 group relative px-8 py-4 sm:px-12 sm:py-5 rounded-full text-white font-bold text-base sm:text-xl transition-all duration-300 hover:scale-[1.03] hover:shadow-2xl active:scale-[0.97] inline-flex items-center gap-2 overflow-hidden"
-              style={{ backgroundColor:config.button_color, boxShadow:`0 12px 50px -10px ${config.button_color}CC` }}
-            >
-              <div className="absolute inset-0 overflow-hidden">
-                <div className="absolute inset-0 opacity-20" style={{ background:'linear-gradient(90deg,transparent,rgba(255,255,255,0.5),transparent)', animation:'shimmer 2.5s ease-in-out infinite' }} />
-              </div>
-              <span className="relative flex items-center gap-2">Quero minha proteção agora <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></span>
-            </button>
-          </section>
         </div>
 
       </div>
