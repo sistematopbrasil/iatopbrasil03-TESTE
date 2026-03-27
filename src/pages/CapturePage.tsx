@@ -715,8 +715,18 @@ export default function CapturePage() {
         <div className="relative z-10">
           {/* Header */}
           <header className="absolute top-0 inset-x-0 z-50 px-5 sm:px-10 py-5 pointer-events-none lp-logo">
-            <div className="max-w-7xl mx-auto w-full flex justify-center sm:justify-start">
-              <img src={config.logo_image || '/top-brasil-logo.png'} alt="Logo" className="h-9 sm:h-12 w-auto object-contain pointer-events-auto drop-shadow-lg" />
+            <div className={cn(
+              "max-w-7xl mx-auto w-full flex",
+              config.logo_position === 'center' ? 'justify-center' :
+              config.logo_position === 'right' ? 'justify-end' :
+              'justify-start'
+            )}>
+              <img src={config.logo_image || '/top-brasil-logo.png'} alt="Logo" className={cn(
+                "w-auto object-contain pointer-events-auto drop-shadow-lg",
+                config.logo_size === 'small' ? 'h-7 sm:h-8' :
+                config.logo_size === 'large' ? 'h-14 sm:h-16' :
+                'h-9 sm:h-12'
+              )} />
             </div>
           </header>
 
