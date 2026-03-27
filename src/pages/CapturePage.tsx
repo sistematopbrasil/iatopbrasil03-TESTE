@@ -712,13 +712,11 @@ export default function CapturePage() {
 
         <div className="relative z-10">
           {/* Header */}
-          {config.logo_image && (
-            <header className="absolute top-0 inset-x-0 z-50 px-5 sm:px-10 py-6 pointer-events-none lp-logo">
-              <div className="max-w-7xl mx-auto w-full flex justify-center sm:justify-start">
-                <img src={config.logo_image} alt="Logo" className="h-10 sm:h-14 w-auto object-contain pointer-events-auto" />
-              </div>
-            </header>
-          )}
+          <header className="absolute top-0 inset-x-0 z-50 px-5 sm:px-10 py-5 pointer-events-none lp-logo">
+            <div className="max-w-7xl mx-auto w-full flex justify-center sm:justify-start">
+              <img src={config.logo_image || '/top-brasil-logo.png'} alt="Logo" className="h-9 sm:h-12 w-auto object-contain pointer-events-auto drop-shadow-lg" />
+            </div>
+          </header>
 
           {/* Hero Section */}
           <section className="relative flex flex-col items-center px-5 pt-24 pb-16 md:pt-32 md:pb-24 text-center max-w-5xl mx-auto">
