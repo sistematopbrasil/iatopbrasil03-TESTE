@@ -265,6 +265,8 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
         gallery_images: (existingConfig as any).gallery_images || [],
         gallery_title: (existingConfig as any).gallery_title || 'Veja nossos resultados',
         logo_image: (existingConfig as any).logo_image || '',
+        logo_position: (existingConfig as any).logo_position || 'left',
+        logo_size: (existingConfig as any).logo_size || 'medium',
         compare_enabled: (existingConfig as any).compare_enabled ?? false,
         compare_title: (existingConfig as any).compare_title || 'Por que pagar caro no seguro se você pode pagar muito menos?',
         compare_traditional_items: (existingConfig as any).compare_traditional_items || [
