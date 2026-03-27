@@ -622,8 +622,33 @@ export default function CapturePage() {
       window.location.href = `https://wa.me/${config.whatsapp_number.replace(/\D/g, '')}?text=${txt}`;
     };
 
+    const isYouTubeOrVimeo = (url: string) => 
+      url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com');
+
     const renderMedia = (img: any, idx: number) => {
       if (img.type === 'video') {
+        // Native video (uploaded file)
+        if (!isYouTubeOrVimeo(img.url)) {
+          return (
+            <div key={idx} className="lp-reveal group relative overflow-hidden rounded-3xl border border-white/5 bg-[#0a0a0a] shadow-2xl transition-all duration-500 hover:border-white/20 hover:-translate-y-1 mx-auto w-full">
+              <video
+                src={img.url}
+                controls
+                playsInline
+                preload="metadata"
+                className="w-full aspect-video object-cover rounded-3xl"
+                style={{ background: '#000' }}
+              />
+              {img.caption && (
+                <div className="absolute top-0 inset-x-0 p-4 bg-gradient-to-b from-black/90 via-black/40 to-transparent pointer-events-none z-10">
+                  <p className="text-white text-sm md:text-base font-bold drop-shadow-md">{img.caption}</p>
+                </div>
+              )}
+            </div>
+          );
+        }
+        
+        // YouTube/Vimeo embed
         let embedUrl = img.url;
         let isVertical = false;
         
