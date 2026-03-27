@@ -2,9 +2,10 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, CheckCircle, User, Mail, Phone, Shield, Check, Lock, ChevronDown } from 'lucide-react';
+import { Loader2, CheckCircle, User, Mail, Phone, Shield, Check, Lock, ChevronDown, ChevronRight, X } from 'lucide-react';
 import { z } from 'zod';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 const captureSchema = z.object({
   name: z.string().trim().min(2, 'Nome deve ter pelo menos 2 caracteres').max(100),
@@ -20,6 +21,7 @@ interface CustomQuestion {
 }
 
 interface GalleryImage {
+  type?: 'image' | 'video';
   url: string;
   caption?: string;
 }
@@ -42,6 +44,11 @@ interface CaptureConfig {
   template_type: 'standard' | 'landing';
   gallery_images: GalleryImage[];
   gallery_title: string;
+  logo_image?: string | null;
+  compare_enabled?: boolean;
+  compare_title?: string;
+  compare_traditional_items?: string[];
+  compare_topbrasil_items?: string[];
 }
 
 interface ConsultantData {
@@ -52,23 +59,32 @@ interface ConsultantData {
 }
 
 const DEFAULT_CONFIG: CaptureConfig = {
-  title: 'Descubra uma oportunidade única!',
-  subtitle: 'Preencha seus dados e saiba como começar.',
-  button_text: 'Quero saber mais!',
+  title: 'Seu carro protegido do jeito certo.\nSem burocracia. Sem pegadinhas.',
+  subtitle: 'A Top Brasil Campinas oferece proteção veicular completa com assistência 24h, cobertura contra roubo, furto e colisão, tudo com atendimento ágil e verdadeiro.',
+  button_text: 'Quero proteger meu veículo agora →',
   button_color: '#EB6608',
-  hero_image: null,
+  hero_image: '',
   hero_image_size: 'medium',
   hero_image_position: 'top',
   hero_image_shape: 'rounded',
   redirect_type: 'thank_you',
-  redirect_url: null,
-  whatsapp_message: 'Olá! Vim pela página de captura e quero saber mais.',
-  whatsapp_number: null,
+  redirect_url: '',
+  whatsapp_message: 'Olá!',
+  whatsapp_number: '',
   email_enabled: true,
   custom_questions: [],
   template_type: 'standard',
   gallery_images: [],
   gallery_title: 'Veja nossos resultados',
+  logo_image: '',
+  compare_enabled: false,
+  compare_title: 'Por que pagar caro no seguro se você pode pagar muito menos?',
+  compare_traditional_items: [
+    'Consulta de crédito', 'Processo burocrático', 'Atendimento demorado', 'Preço varia pelo seu perfil', 'Franquia obrigatória', 'Renovação anual forçada'
+  ],
+  compare_topbrasil_items: [
+    'Sem consulta de crédito', 'Aprovação na hora', 'Assistência 24h inclusa', 'Preço justo pra todos', 'Sem franquia surpresa', 'Atendimento humanizado'
+  ]
 };
 
 /* ─── Country data ─── */
@@ -176,6 +192,31 @@ function ThankYouPage({ config, form }: { config: CaptureConfig; form: { name: s
       </div>
     </div>
   );
+}
+
+/* ─── Scroll Reveal Observer for Landing Page ─── */
+function LandingScrollReveal() {
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+          }
+        });
+      },
+      { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
+    );
+    const observe = () => {
+      document.querySelectorAll('.lp-reveal').forEach((el) => observer.observe(el));
+    };
+    observe();
+    // Re-observe on DOM changes
+    const mo = new MutationObserver(observe);
+    mo.observe(document.body, { childList: true, subtree: true });
+    return () => { observer.disconnect(); mo.disconnect(); };
+  }, []);
+  return null;
 }
 
 /* ─── Hero Image ─── */
@@ -434,6 +475,11 @@ export default function CapturePage() {
           template_type: (captureConfig as any).template_type || 'standard',
           gallery_images: (captureConfig as any).gallery_images || [],
           gallery_title: (captureConfig as any).gallery_title || 'Veja nossos resultados',
+          logo_image: (captureConfig as any).logo_image || null,
+          compare_enabled: (captureConfig as any).compare_enabled ?? DEFAULT_CONFIG.compare_enabled,
+          compare_title: (captureConfig as any).compare_title || DEFAULT_CONFIG.compare_title,
+          compare_traditional_items: (captureConfig as any).compare_traditional_items || DEFAULT_CONFIG.compare_traditional_items,
+          compare_topbrasil_items: (captureConfig as any).compare_topbrasil_items || DEFAULT_CONFIG.compare_topbrasil_items,
         });
       }
     } catch (error) {
@@ -567,207 +613,248 @@ export default function CapturePage() {
 
   // ─── Landing Page Template ───
   if (config.template_type === 'landing') {
-    return (
-      <div className="min-h-screen bg-[#0D0D0D] relative overflow-hidden">
-        <style>{`
-          @keyframes float {
-            0% { transform: translateY(0px) translateX(0px); }
-            50% { transform: translateY(-30px) translateX(15px); }
-            100% { transform: translateY(0px) translateX(0px); }
-          }
-          @keyframes shimmer {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
-          }
-        `}</style>
+    const handleWhatsAppRedirect = () => {
+      if (!config.whatsapp_number) {
+        toast.error('Número de WhatsApp não configurado.');
+        return;
+      }
+      const txt = encodeURIComponent(config.whatsapp_message || 'Olá!');
+      window.location.href = `https://wa.me/${config.whatsapp_number.replace(/\D/g, '')}?text=${txt}`;
+    };
 
-        <FloatingOrb color={config.button_color} size={500} top="-10%" left="-5%" delay="0s" />
-        <FloatingOrb color={config.button_color} size={350} top="60%" left="75%" delay="2s" />
-        <FloatingOrb color="#ffffff" size={200} top="30%" left="50%" delay="4s" />
-        <div className="absolute inset-0 bg-gradient-to-br from-[#EB6608]/5 via-transparent to-[#EB6608]/3" />
-
-        <div className="relative z-10">
-          {/* Hero Section */}
-          <section className="min-h-[60vh] flex flex-col items-center justify-center px-5 py-16 text-center">
-            {config.hero_image && (
-              <div className="mb-8 animate-[fade-in_0.6s_ease-out]">
-                <HeroImage config={config} />
+    const renderMedia = (img: any, idx: number) => {
+      if (img.type === 'video') {
+        let embedUrl = img.url;
+        let isVertical = false;
+        
+        if (img.url.includes('youtube.com/shorts/')) {
+          const vidId = img.url.split('shorts/')[1]?.split('?')[0];
+          embedUrl = `https://www.youtube.com/embed/${vidId}`;
+          isVertical = true;
+        } else if (img.url.includes('youtube.com/watch?v=')) {
+          embedUrl = img.url.replace('watch?v=', 'embed/').split('&')[0];
+        } else if (img.url.includes('youtu.be/')) {
+          const vidId = img.url.split('youtu.be/')[1]?.split('?')[0];
+          embedUrl = `https://www.youtube.com/embed/${vidId}`;
+        }
+        
+        return (
+          <div key={idx} className={cn("lp-reveal group relative overflow-hidden rounded-3xl border border-white/5 bg-[#0a0a0a] shadow-2xl transition-all duration-500 hover:border-white/20 hover:-translate-y-1 mx-auto w-full", isVertical ? "aspect-[9/16] max-w-sm" : "aspect-video")}>
+            <iframe src={embedUrl} className="absolute inset-0 w-full h-full" allowFullScreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" />
+            {img.caption && (
+              <div className="absolute top-0 inset-x-0 p-4 bg-gradient-to-b from-black/90 via-black/40 to-transparent pointer-events-none z-10">
+                <p className="text-white text-sm md:text-base font-bold drop-shadow-md">{img.caption}</p>
               </div>
             )}
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-400 leading-tight max-w-3xl animate-[fade-in_0.6s_0.2s_ease-out_both]">
+          </div>
+        );
+      }
+      return (
+        <div key={idx} className="lp-reveal group relative overflow-hidden rounded-3xl border border-white/5 bg-[#0a0a0a] transition-all duration-500 hover:border-white/20 hover:shadow-2xl hover:scale-[1.02]">
+          <img src={img.url} alt={img.caption || `Imagem ${idx + 1}`} className="w-full aspect-video sm:aspect-square object-cover transition-transform duration-700 group-hover:scale-105" />
+          {img.caption && (
+            <div className="absolute bottom-0 inset-x-0 p-5 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none">
+              <p className="text-white text-sm md:text-base font-bold drop-shadow-md">{img.caption}</p>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    return (
+      <div className="min-h-screen bg-[#0D0D0D] relative overflow-x-hidden selection:bg-[#EB6608]/30">
+        <style>{`
+          @keyframes shimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
+          @keyframes lp-fade-up { from{opacity:0;transform:translateY(36px)} to{opacity:1;transform:translateY(0)} }
+          @keyframes lp-fade-in { from{opacity:0} to{opacity:1} }
+          @keyframes mouse-scroll { 0%,100%{transform:translateY(0)} 50%{transform:translateY(6px)} }
+          .lp-hero-title { animation: lp-fade-up 0.9s cubic-bezier(0.22,1,0.36,1) both; }
+          .lp-hero-sub { animation: lp-fade-up 0.9s 0.18s cubic-bezier(0.22,1,0.36,1) both; }
+          .lp-hero-btn { animation: lp-fade-up 0.9s 0.32s cubic-bezier(0.22,1,0.36,1) both; }
+          .lp-logo { animation: lp-fade-in 0.6s ease-out both; }
+          .lp-reveal { opacity:0; transform:translateY(30px); transition: opacity 0.75s cubic-bezier(0.22,1,0.36,1), transform 0.75s cubic-bezier(0.22,1,0.36,1); }
+          .lp-reveal.visible { opacity:1; transform:translateY(0); }
+          .lp-reveal-d1 { transition-delay:0.12s; }
+          .lp-reveal-d2 { transition-delay:0.24s; }
+          .lp-divider { height:1px; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.09),transparent); }
+        `}</style>
+        <LandingScrollReveal />
+
+        {/* Background ambient */}
+        <FloatingOrb color={config.button_color} size={700} top="-20%" left="-15%" delay="0s" />
+        <FloatingOrb color={config.button_color} size={450} top="55%" left="65%" delay="2.5s" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#0D0D0D]/60 via-transparent to-[#0D0D0D]/80" />
+
+        <div className="relative z-10">
+          {/* Header */}
+          {config.logo_image && (
+            <header className="absolute top-0 inset-x-0 z-50 px-5 sm:px-10 py-6 pointer-events-none lp-logo">
+              <div className="max-w-7xl mx-auto w-full flex justify-center sm:justify-start">
+                <img src={config.logo_image} alt="Logo" className="h-10 sm:h-14 w-auto object-contain pointer-events-auto" />
+              </div>
+            </header>
+          )}
+
+          {/* Hero Section */}
+          <section className="relative flex flex-col items-center px-5 pt-28 pb-28 md:pt-36 md:pb-36 text-center max-w-5xl mx-auto mt-4 sm:mt-10">
+            {config.hero_image && (
+              <div className="mb-8 lp-logo"><HeroImage config={config} /></div>
+            )}
+            <div className="lp-reveal mb-6 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[10px] sm:text-xs font-semibold text-gray-300 tracking-wider uppercase">
+              <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full" style={{ backgroundColor: config.button_color, boxShadow: `0 0 10px ${config.button_color}` }} />
+              PROTEÇÃO VEICULAR — CAMPINAS E REGIÃO
+            </div>
+            <h1 className="lp-hero-title text-[2.5rem] leading-[1.08] sm:text-5xl md:text-6xl xl:text-7xl font-extrabold text-white tracking-tight">
               {config.title}
             </h1>
-            <p className="text-gray-400 text-lg sm:text-xl mt-4 max-w-xl animate-[fade-in_0.6s_0.4s_ease-out_both]">
+            <p className="lp-hero-sub text-gray-400 text-base sm:text-lg md:text-xl mt-5 max-w-2xl leading-relaxed whitespace-pre-line">
               {config.subtitle}
             </p>
-            <button
-              type="button"
-              onClick={() => document.getElementById('landing-form')?.scrollIntoView({ behavior: 'smooth' })}
-              className="mt-8 px-8 py-4 rounded-2xl text-white font-bold text-lg transition-all duration-300 hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] animate-[fade-in_0.6s_0.6s_ease-out_both]"
-              style={{ backgroundColor: config.button_color, boxShadow: `0 8px 30px ${config.button_color}40` }}
-            >
-              {config.button_text}
-            </button>
+            <div className="lp-hero-btn mt-8 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={handleWhatsAppRedirect}
+                className="group relative w-full sm:w-auto px-8 py-4 sm:px-10 sm:py-5 rounded-full text-white font-bold text-base sm:text-xl transition-all duration-300 hover:scale-[1.03] hover:shadow-2xl active:scale-[0.97] overflow-hidden flex items-center justify-center gap-2"
+                style={{ backgroundColor: config.button_color, boxShadow: `0 12px 40px -8px ${config.button_color}BB` }}
+              >
+                <div className="absolute inset-0 overflow-hidden">
+                  <div className="absolute inset-0 opacity-25" style={{ background:'linear-gradient(90deg,transparent,rgba(255,255,255,0.5),transparent)', animation:'shimmer 2.5s ease-in-out infinite' }} />
+                </div>
+                <span className="relative flex items-center justify-center gap-2">
+                  {config.button_text} <ChevronRight className="w-5 h-5 group-hover:translate-x-1.5 transition-transform" />
+                </span>
+              </button>
+            </div>
+            {/* scroll cue */}
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 hidden sm:flex flex-col items-center gap-1 opacity-30">
+              <div className="w-6 h-9 rounded-full border-2 border-white/40 flex justify-center pt-2">
+                <div className="w-1.5 h-2 bg-white/80 rounded-full" style={{ animation:'mouse-scroll 1.6s ease-in-out infinite' }} />
+              </div>
+            </div>
           </section>
 
-          {/* Gallery Section */}
-          {config.gallery_images.length > 0 && (
-            <section className="px-5 py-16 max-w-5xl mx-auto">
-              <h2 className="text-2xl sm:text-3xl font-bold text-white text-center mb-10">{config.gallery_title}</h2>
-              <div className={cn(
-                "grid gap-4",
-                config.gallery_images.length === 1 ? "grid-cols-1 max-w-lg mx-auto" :
-                config.gallery_images.length === 2 ? "grid-cols-2 max-w-2xl mx-auto" :
-                "grid-cols-2 md:grid-cols-3"
-              )}>
-                {config.gallery_images.map((img, idx) => (
-                  <div key={idx} className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] transition-all duration-300 hover:border-white/20 hover:shadow-xl hover:scale-[1.02]">
-                    <img src={img.url} alt={img.caption || `Imagem ${idx + 1}`} className="w-full aspect-square object-cover transition-transform duration-500 group-hover:scale-105" />
-                    {img.caption && (
-                      <div className="absolute bottom-0 inset-x-0 p-3 bg-gradient-to-t from-black/80 to-transparent">
-                        <p className="text-white text-sm font-medium">{img.caption}</p>
-                      </div>
+          {/* Benefits Section */}
+          <section className="px-5 sm:px-10 pb-20 md:pb-28 max-w-6xl mx-auto w-full">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6 sm:gap-8 items-start">
+              {[
+                { img: '/benefits/benefit-1.png', alt: 'Proteção Furto e Roubo' },
+                { img: '/benefits/benefit-2.png', alt: 'Assistência 24h' },
+                { img: '/benefits/benefit-3.png', alt: 'Reparo Colisão' },
+                { img: '/benefits/benefit-4.png', alt: 'Reboque Ilimitado' },
+                { img: '/benefits/benefit-5.png', alt: 'SPC e Serasa' }
+              ].map((benefit, idx) => (
+                <div key={idx} className="lp-reveal flex flex-col items-center group" style={{ transitionDelay: `${idx * 0.1}s` }}>
+                  <img src={benefit.img} alt={benefit.alt} className="w-full max-w-[140px] sm:max-w-[180px] aspect-square object-contain filter hover:brightness-110 transition-all duration-500 group-hover:-translate-y-2 group-hover:scale-105" />
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Compare Section */}
+          {config.compare_enabled && (
+            <section className="px-4 sm:px-6 py-20 md:py-28 max-w-5xl mx-auto w-full">
+              <div className="space-y-10 md:space-y-14">
+                <div className="text-left space-y-4 max-w-3xl">
+                  <p className="lp-reveal text-gray-400 text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase">Proteção que cabe no bolso</p>
+                  <h2 className="lp-reveal text-3xl sm:text-4xl md:text-5xl font-bold text-white leading-[1.15]">
+                    {config.compare_title.includes('muito menos') ? (
+                      config.compare_title.split('muito menos').map((part: string, i: number, arr: any[]) => 
+                        <span key={i}>{part}{i < arr.length - 1 && <span className="text-[#00E05E]">muito menos</span>}</span>
+                      )
+                    ) : (
+                      config.compare_title
                     )}
+                  </h2>
+                  <p className="lp-reveal text-gray-400 text-sm sm:text-base leading-relaxed max-w-2xl mt-4">
+                    Seguro tradicional cobra até 3x mais pela mesma proteção. Com a Top Brasil você protege seu veículo com um valor justo — e sem consulta de crédito.
+                  </p>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4 lg:gap-6">
+                  {/* Tradicional */}
+                  <div className="lp-reveal lp-reveal-d1 bg-[#1A1A1A] rounded-2xl p-6 sm:p-8 space-y-6">
+                    <div className="space-y-1">
+                      <p className="text-gray-400 text-[10px] sm:text-xs font-semibold tracking-widest uppercase">Seguro Tradicional</p>
+                      <h3 className="text-4xl sm:text-5xl font-bold text-gray-300 tracking-tight">R$ ???</h3>
+                      <p className="text-gray-500 text-xs sm:text-sm">/mês em média</p>
+                    </div>
+                    <ul className="space-y-3 pt-6">
+                      {(config.compare_traditional_items || []).map((item: string, i: number) => (
+                        <li key={i} className="flex gap-3 text-gray-400 text-sm sm:text-base items-center">
+                          <X className="w-4 h-4 text-gray-500 shrink-0" />
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                ))}
+
+                  {/* Top Brasil */}
+                  <div className="lp-reveal lp-reveal-d2 bg-[#002B7A] rounded-2xl p-6 sm:p-8 space-y-6 relative border border-transparent hover:border-blue-400/30 transition-colors shadow-2xl">
+                    <div className="absolute top-0 right-0 transform translate-x-1 sm:translate-x-2 -translate-y-1/2">
+                      <span className="bg-[#FFD700] text-[#00266B] text-[9px] sm:text-[10px] font-extrabold px-3 py-1.5 rounded uppercase tracking-widest shadow-lg">Melhor Escolha</span>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-blue-200/80 text-[10px] sm:text-xs font-semibold tracking-widest uppercase">Top Brasil</p>
+                      <h3 className="text-4xl sm:text-5xl font-bold text-[#FFD700] tracking-tight">R$ XX</h3>
+                      <p className="text-blue-200/80 text-xs sm:text-sm">/mês</p>
+                    </div>
+                    <ul className="space-y-3 pt-6">
+                      {(config.compare_topbrasil_items || []).map((item: string, i: number) => (
+                        <li key={i} className="flex gap-3 text-[#00E05E] text-sm sm:text-base items-center font-medium">
+                          <Check className="w-4 h-4 shrink-0 stroke-[3]" />
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
               </div>
             </section>
           )}
 
-          {/* Form Section */}
-          <section id="landing-form" className="px-5 py-16 flex justify-center">
-            <form onSubmit={handleSubmit} className="w-full max-w-lg space-y-6">
-              <div className="bg-white/[0.04] backdrop-blur-2xl border border-white/[0.10] rounded-3xl p-8 sm:p-10 space-y-7 shadow-2xl"
-                style={{ boxShadow: `0 25px 60px -12px ${config.button_color}15, 0 0 0 1px ${config.button_color}10` }}>
-                
-                <h3 className="text-xl font-bold text-white text-center">Preencha seus dados</h3>
-
-                {/* Name & Email fields */}
-                {fields.map((field, i) => {
-                  const Icon = field.icon;
-                  return (
-                    <div key={field.key} className="space-y-1.5">
-                      <div className="relative">
-                        <div className="absolute -left-3.5 -top-3.5 w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center z-10 transition-colors duration-300"
-                          style={{
-                            backgroundColor: isFieldValid(field.key) ? '#22c55e' : `${config.button_color}30`,
-                            color: isFieldValid(field.key) ? 'white' : config.button_color,
-                          }}>
-                          {isFieldValid(field.key) ? <Check className="w-3.5 h-3.5" /> : field.step}
-                        </div>
-                        <Icon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
-                        <input
-                          type={field.type}
-                          placeholder={field.placeholder}
-                          value={form[field.key as keyof typeof form]}
-                          onChange={(e) => { setForm({ ...form, [field.key]: e.target.value }); setTouched(t => ({ ...t, [field.key]: true })); }}
-                          className="w-full h-[60px] pl-12 pr-10 bg-white/[0.05] border border-white/[0.08] rounded-xl text-white placeholder:text-gray-500/70 focus:outline-none transition-all duration-300 text-[17px]"
-                          style={{ boxShadow: 'none' }}
-                          onFocus={(e) => { e.target.style.boxShadow = `0 0 0 2px ${focusRingColor}40`; e.target.style.borderColor = `${focusRingColor}40`; }}
-                          onBlur={(e) => { e.target.style.boxShadow = 'none'; e.target.style.borderColor = 'rgba(255,255,255,0.08)'; }}
-                          maxLength={field.maxLength}
-                        />
-                        {isFieldValid(field.key) && <Check className="absolute right-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-green-400" />}
-                      </div>
-                      {errors[field.key] && <p className="text-xs text-red-400 pl-1">{errors[field.key]}</p>}
-                    </div>
-                  );
-                })}
-
-                {/* Phone */}
-                <div className="space-y-1.5">
-                  <div className="relative">
-                    <div className="absolute -left-3.5 -top-3.5 w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center z-10 transition-colors duration-300"
-                      style={{
-                        backgroundColor: isFieldValid('phone') ? '#22c55e' : `${config.button_color}30`,
-                        color: isFieldValid('phone') ? 'white' : config.button_color,
-                      }}>
-                      {isFieldValid('phone') ? <Check className="w-3.5 h-3.5" /> : phoneStep}
-                    </div>
-                    <div className="flex h-[60px] bg-white/[0.05] border border-white/[0.08] rounded-xl">
-                      <CountrySelector selected={selectedCountry} onSelect={(c) => { setSelectedCountry(c); setForm(f => ({ ...f, phone: '' })); }} buttonColor={config.button_color} />
-                      <input type="tel" placeholder={selectedCountry.code === 'BR' ? '(00) 00000-0000' : selectedCountry.mask.replace(/#/g, '0')}
-                        value={form.phone}
-                        onChange={(e) => { setForm({ ...form, phone: formatPhone(e.target.value) }); setTouched(t => ({ ...t, phone: true })); }}
-                        className="flex-1 h-full pl-3 pr-10 bg-transparent text-white placeholder:text-gray-500/70 focus:outline-none text-[17px]"
-                        maxLength={16} />
-                      {isFieldValid('phone') && <Check className="absolute right-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-green-400" />}
-                    </div>
-                  </div>
-                  {errors.phone && <p className="text-xs text-red-400 pl-1">{errors.phone}</p>}
-                </div>
-
-                {/* Custom Questions */}
-                {config.custom_questions.map((q, idx) => {
-                  const customStep = phoneStep + 1 + idx;
-                  const isCustomValid = !!customAnswers[idx]?.trim();
-                  return (
-                    <div key={idx} className="space-y-1.5">
-                      <div className="relative">
-                        <div className="absolute -left-3.5 -top-3.5 w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center z-10 transition-colors duration-300"
-                          style={{
-                            backgroundColor: isCustomValid ? '#22c55e' : `${config.button_color}30`,
-                            color: isCustomValid ? 'white' : config.button_color,
-                          }}>
-                          {isCustomValid ? <Check className="w-3.5 h-3.5" /> : customStep}
-                        </div>
-                        <label className="text-sm text-gray-400 pl-1">{q.question}{q.required && <span className="text-red-400 ml-1">*</span>}</label>
-                      </div>
-                      {q.type === 'choice' ? (
-                        <div className="space-y-2">
-                          {q.options.filter(o => o.trim()).map((opt, optIdx) => (
-                            <label key={optIdx} className={cn(
-                              "flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all duration-200",
-                              customAnswers[idx] === opt ? "border-opacity-50 bg-white/[0.08]" : "border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06]"
-                            )} style={customAnswers[idx] === opt ? { borderColor: `${config.button_color}60` } : {}}>
-                              <input type="radio" name={`custom_${idx}`} value={opt} checked={customAnswers[idx] === opt}
-                                onChange={() => setCustomAnswers(prev => ({ ...prev, [idx]: opt }))} className="sr-only" />
-                              <div className={cn("w-4 h-4 rounded-full border-2 flex items-center justify-center",
-                                customAnswers[idx] === opt ? "border-current" : "border-gray-500"
-                              )} style={customAnswers[idx] === opt ? { borderColor: config.button_color } : {}}>
-                                {customAnswers[idx] === opt && <div className="w-2 h-2 rounded-full" style={{ backgroundColor: config.button_color }} />}
-                              </div>
-                              <span className="text-white text-sm">{opt}</span>
-                            </label>
-                          ))}
-                        </div>
-                      ) : (
-                        <input type="text" value={customAnswers[idx] || ''}
-                          onChange={(e) => setCustomAnswers(prev => ({ ...prev, [idx]: e.target.value }))}
-                          placeholder="Sua resposta"
-                          className="w-full h-[52px] px-4 bg-white/[0.05] border border-white/[0.08] rounded-xl text-white placeholder:text-gray-500/70 focus:outline-none text-[16px]"
-                          style={{ boxShadow: 'none' }}
-                          onFocus={(e) => { e.target.style.boxShadow = `0 0 0 2px ${focusRingColor}40`; e.target.style.borderColor = `${focusRingColor}40`; }}
-                          onBlur={(e) => { e.target.style.boxShadow = 'none'; e.target.style.borderColor = 'rgba(255,255,255,0.08)'; }}
-                          maxLength={300} />
-                      )}
-                      {errors[`custom_${idx}`] && <p className="text-xs text-red-400 pl-1">{errors[`custom_${idx}`]}</p>}
-                    </div>
-                  );
-                })}
-
-                <button type="submit" disabled={submitting}
-                  className="relative w-full h-16 rounded-2xl text-white font-bold text-xl shadow-lg transition-all duration-300 hover:scale-[1.02] hover:shadow-xl active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 overflow-hidden"
-                  style={{ backgroundColor: config.button_color, boxShadow: `0 8px 30px ${config.button_color}40` }}>
-                  <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                    <div className="absolute inset-0 opacity-20"
-                      style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.4) 50%, transparent 100%)', animation: 'shimmer 3s ease-in-out infinite' }} />
-                  </div>
-                  <span className="relative z-10 flex items-center gap-2">
-                    {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : config.button_text}
-                  </span>
-                </button>
+          {/* Gallery Section */}
+          {config.gallery_images.length > 0 && (
+            <section className="px-4 sm:px-6 py-20 md:py-28 max-w-6xl mx-auto w-full">
+              <h2 className="lp-reveal text-2xl sm:text-3xl md:text-4xl font-extrabold text-white text-center mb-10 md:mb-14">{config.gallery_title}</h2>
+              <div className={cn(
+                "grid gap-4",
+                config.gallery_images.length === 1 ? "grid-cols-1 max-w-2xl mx-auto" :
+                config.gallery_images.length === 2 ? "grid-cols-1 sm:grid-cols-2 max-w-3xl mx-auto" :
+                "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+              )}>
+                {config.gallery_images.map((img, idx) => renderMedia(img, idx))}
               </div>
+            </section>
+          )}
 
-              {/* Security badge */}
-              <div className="flex items-center justify-center gap-2.5">
-                <div className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-white/[0.05] border border-white/[0.08]">
-                  <Shield className="w-4 h-4 text-green-500/70" />
-                  <p className="text-xs text-gray-400 font-medium">Seus dados estão protegidos e não serão compartilhados.</p>
-                </div>
+          {/* Bottom CTA */}
+          <section className="px-4 sm:px-6 py-24 md:py-32 pb-36 sm:pb-24 text-center">
+            <p className="lp-reveal text-[#EB6608]/70 text-xs sm:text-sm uppercase tracking-widest font-semibold mb-3">Proteção real — Preço justo</p>
+            <h2 className="lp-reveal lp-reveal-d1 text-2xl sm:text-3xl md:text-4xl font-extrabold text-white mb-8 max-w-xl mx-auto leading-tight">Pronto para proteger seu veículo?</h2>
+            <button
+              type="button"
+              onClick={handleWhatsAppRedirect}
+              className="lp-reveal lp-reveal-d2 group relative px-8 py-4 sm:px-12 sm:py-5 rounded-full text-white font-bold text-base sm:text-xl transition-all duration-300 hover:scale-[1.03] hover:shadow-2xl active:scale-[0.97] inline-flex items-center gap-2 overflow-hidden"
+              style={{ backgroundColor:config.button_color, boxShadow:`0 12px 50px -10px ${config.button_color}CC` }}
+            >
+              <div className="absolute inset-0 overflow-hidden">
+                <div className="absolute inset-0 opacity-20" style={{ background:'linear-gradient(90deg,transparent,rgba(255,255,255,0.5),transparent)', animation:'shimmer 2.5s ease-in-out infinite' }} />
               </div>
-            </form>
+              <span className="relative flex items-center gap-2">Falar com um Consultor <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></span>
+            </button>
           </section>
+        </div>
+
+        {/* Mobile sticky CTA */}
+        <div className="fixed bottom-0 inset-x-0 sm:hidden z-50 p-4 bg-gradient-to-t from-black/90 to-transparent lp-hero-btn pointer-events-none">
+          <button
+            type="button"
+            onClick={handleWhatsAppRedirect}
+            className="pointer-events-auto w-full py-4 rounded-2xl text-white font-bold text-base shadow-2xl active:scale-[0.97] transition-transform flex items-center justify-center gap-2"
+            style={{ backgroundColor:config.button_color, boxShadow:`0 8px 30px ${config.button_color}90` }}
+          >
+            {config.button_text} <ChevronRight className="w-5 h-5" />
+          </button>
         </div>
       </div>
     );

@@ -34,7 +34,96 @@ function ThemeSelector() {
   );
 }
 
-function CapturePagePreview({ config }: { config: { title: string; subtitle: string; button_text: string; button_color: string; hero_image: string; hero_image_size: string; hero_image_position: string; hero_image_shape: string; email_enabled: boolean; custom_questions: Array<{ question: string; type: string; required: boolean; options: string[] }> } }) {
+function CapturePagePreview({ config }: { config: any }) {
+  const isLanding = config.template_type === 'landing';
+  const btnColor = config.button_color || '#EB6608';
+
+  if (isLanding) {
+    return (
+      <div className="relative w-full rounded-xl overflow-hidden border border-border shadow-lg flex flex-col" style={{ background: '#0D0D0D', minHeight: 600 }}>
+        {/* Ambient */}
+        <div className="absolute inset-0 bg-gradient-to-br from-[#EB6608]/10 via-transparent to-[#EB6608]/5 pointer-events-none" />
+        
+        {/* Header Logo */}
+        {config.logo_image && (
+          <div className="relative flex justify-center py-4 px-4 border-b border-white/5 bg-black/40 backdrop-blur-md">
+            <img src={config.logo_image} alt="Logo" className="h-10 w-auto object-contain" />
+          </div>
+        )}
+
+        {/* Hero */}
+        <div className="relative flex flex-col items-center justify-center px-4 py-10 text-center gap-4">
+          {config.hero_image && !config.logo_image && (
+            <img src={config.hero_image} alt="Hero" className="w-16 h-16 object-cover rounded-full border border-white/20 mb-2" />
+          )}
+          <h3 className="text-lg font-extrabold text-white leading-tight max-w-[250px]">{config.title || 'Título Hero'}</h3>
+          <p className="text-xs text-gray-400 max-w-[220px] leading-relaxed line-clamp-3">{config.subtitle || 'Subtítulo descritivo'}</p>
+          <button className="px-6 py-2.5 mt-2 rounded-full text-xs text-white font-bold" style={{ backgroundColor: btnColor, boxShadow: `0 4px 15px -4px ${btnColor}` }}>
+            {config.button_text || 'Clique aqui'}
+          </button>
+        </div>
+
+        {/* Benefits Preview */}
+        <div className="relative px-4 py-6 border-t border-white/[0.05]">
+          <div className="grid grid-cols-5 gap-1.5 opacity-80 pointer-events-none">
+            {[1,2,3,4,5].map(i => (
+              <div key={i} className="aspect-square bg-white/5 rounded-md flex items-center justify-center border border-white/10">
+                <span className="text-[8px] text-gray-500">Ícone {i}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Compare Section */}
+        {config.compare_enabled && (
+          <div className="relative px-4 py-8 bg-white/[0.02] border-t border-white/[0.05] space-y-4">
+            <p className="text-xs font-bold text-white text-center">{config.compare_title || 'Comparativo'}</p>
+            <div className="flex flex-col gap-3">
+              <div className="rounded-xl bg-red-500/5 border border-red-500/15 p-3 space-y-2">
+                <p className="text-[10px] font-bold text-red-400 flex items-center gap-1"><span>✗</span> Seguro Tradicional</p>
+                {(config.compare_traditional_items || []).slice(0, 3).map((item: string, i: number) => (
+                  <p key={i} className="text-[9px] text-gray-500 flex items-start gap-1"><span className="text-red-400/50">✗</span><span className="truncate">{item}</span></p>
+                ))}
+              </div>
+              <div className="rounded-xl border p-3 space-y-2" style={{ borderColor: `${btnColor}50`, background: `linear-gradient(135deg, ${btnColor}15, ${btnColor}05)` }}>
+                <p className="text-[10px] font-bold text-white flex items-center gap-1"><span style={{ color: btnColor }}>✓</span> Top Brasil</p>
+                {(config.compare_topbrasil_items || []).slice(0, 3).map((item: string, i: number) => (
+                  <p key={i} className="text-[9px] text-white flex items-start gap-1"><span style={{ color: btnColor }}>✓</span><span className="truncate">{item}</span></p>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Gallery preview */}
+        {config.gallery_images.length > 0 && (
+          <div className="relative px-4 py-6 border-t border-white/[0.05]">
+            <p className="text-xs font-bold text-white mb-3 text-center">{config.gallery_title}</p>
+            <div className="grid grid-cols-2 gap-2">
+              {config.gallery_images.slice(0, 4).map((img: any, idx: number) => (
+                <div key={idx} className="aspect-video rounded-lg bg-white/10 overflow-hidden border border-white/10">
+                  {img.type === 'video'
+                    ? <div className="w-full h-full flex flex-col items-center justify-center text-[10px] text-gray-500 bg-white/5"><span>🎬</span><span>Vídeo</span></div>
+                    : <img src={img.url} alt="" className="w-full h-full object-cover" />}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Footer sticky CTA simulate */}
+        <div className="relative mt-auto pt-8">
+          <div className="absolute bottom-0 inset-x-0 p-3 bg-gradient-to-t from-black to-transparent flex justify-center pb-4">
+            <button className="w-full max-w-[200px] py-3 rounded-xl text-xs text-white font-bold shadow-lg" style={{ backgroundColor: btnColor }}>
+              {config.button_text}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Standard (form) preview
   const sizeMap: Record<string, number> = { small: 48, medium: 80, large: 120, full: 999 };
   const imgSize = sizeMap[config.hero_image_size] || 80;
   const shapeClass = config.hero_image_shape === 'circle' ? 'rounded-full' : config.hero_image_shape === 'square' ? 'rounded-none' : 'rounded-xl';
@@ -64,12 +153,12 @@ function CapturePagePreview({ config }: { config: { title: string; subtitle: str
               <div className="bg-white/10 rounded-lg h-8 flex items-center px-3"><span className="text-[10px] text-gray-500">Seu melhor email</span></div>
             )}
             <div className="bg-white/10 rounded-lg h-8 flex items-center px-3"><span className="text-[10px] text-gray-500">(00) 00000-0000</span></div>
-            {config.custom_questions.filter(q => q.question.trim()).map((q, idx) => (
+            {config.custom_questions.filter((q: any) => q.question.trim()).map((q: any, idx: number) => (
               <div key={idx} className="space-y-1">
                 <span className="text-[9px] text-gray-500 pl-1">{q.question}{q.required && <span className="text-red-400 ml-0.5">*</span>}</span>
                 {q.type === 'choice' ? (
                   <div className="space-y-1">
-                    {q.options.filter(o => o.trim()).map((opt, oi) => (
+                    {q.options.filter((o: string) => o.trim()).map((opt: string, oi: number) => (
                       <div key={oi} className="bg-white/5 rounded-lg h-6 flex items-center px-3 gap-2">
                         <div className="w-3 h-3 rounded-full border border-gray-600" />
                         <span className="text-[9px] text-gray-500">{opt}</span>
@@ -82,7 +171,7 @@ function CapturePagePreview({ config }: { config: { title: string; subtitle: str
               </div>
             ))}
           </div>
-          <button className="w-full mx-2 h-9 rounded-lg text-white text-xs font-bold" style={{ backgroundColor: config.button_color || '#EB6608' }}>
+          <button className="w-full mx-2 h-9 rounded-lg text-white text-xs font-bold" style={{ backgroundColor: btnColor }}>
             {config.button_text || 'Enviar'}
           </button>
           <p className="text-[9px] text-gray-600 text-center">Seus dados estão protegidos.</p>
@@ -97,12 +186,15 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
   const heroInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [uploadingHero, setUploadingHero] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [videoUrlInput, setVideoUrlInput] = useState('');
+  const logoInputRef = useRef<HTMLInputElement>(null);
   const [linkSuffix, setLinkSuffix] = useState('');
   const linkPrefix = `${window.location.origin}/c/`;
   const [captureForm, setCaptureForm] = useState({
-    title: 'Descubra uma oportunidade única!',
-    subtitle: 'Preencha seus dados e saiba como começar.',
-    button_text: 'Quero saber mais!',
+    title: 'Seu carro protegido do jeito certo.\nSem burocracia. Sem pegadinhas.',
+    subtitle: 'A Top Brasil Campinas oferece proteção veicular completa com assistência 24h, cobertura contra roubo, furto e colisão, tudo com atendimento ágil e verdadeiro.',
+    button_text: 'Quero proteger meu veículo agora →',
     button_color: '#EB6608',
     hero_image: '',
     hero_image_size: 'medium',
@@ -115,8 +207,27 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
     email_enabled: true,
     custom_questions: [] as Array<{ question: string; type: 'text' | 'choice'; required: boolean; options: string[] }>,
     template_type: 'standard' as 'standard' | 'landing',
-    gallery_images: [] as Array<{ url: string; caption?: string }>,
+    gallery_images: [] as Array<{ type?: 'image' | 'video'; url: string; caption?: string }>,
     gallery_title: 'Veja nossos resultados',
+    logo_image: '',
+    compare_enabled: false,
+    compare_title: 'Por que pagar caro no seguro se você pode pagar muito menos?',
+    compare_traditional_items: [
+      'Consulta de crédito',
+      'Processo burocrático',
+      'Atendimento demorado',
+      'Preço varia pelo seu perfil',
+      'Franquia obrigatória',
+      'Renovação anual forçada'
+    ],
+    compare_topbrasil_items: [
+      'Sem consulta de crédito',
+      'Aprovação na hora',
+      'Assistência 24h inclusa',
+      'Preço justo pra todos',
+      'Sem franquia surpresa',
+      'Atendimento humanizado'
+    ],
   });
 
   const { data: existingConfig } = useQuery({
@@ -153,6 +264,15 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
         template_type: (existingConfig as any).template_type || 'standard',
         gallery_images: (existingConfig as any).gallery_images || [],
         gallery_title: (existingConfig as any).gallery_title || 'Veja nossos resultados',
+        logo_image: (existingConfig as any).logo_image || '',
+        compare_enabled: (existingConfig as any).compare_enabled ?? false,
+        compare_title: (existingConfig as any).compare_title || 'Por que pagar caro no seguro se você pode pagar muito menos?',
+        compare_traditional_items: (existingConfig as any).compare_traditional_items || [
+          'Consulta de crédito', 'Processo burocrático', 'Atendimento demorado', 'Preço varia pelo seu perfil', 'Franquia obrigatória', 'Renovação anual forçada'
+        ],
+        compare_topbrasil_items: (existingConfig as any).compare_topbrasil_items || [
+          'Sem consulta de crédito', 'Aprovação na hora', 'Assistência 24h inclusa', 'Preço justo pra todos', 'Sem franquia surpresa', 'Atendimento humanizado'
+        ],
       });
     }
   }, [existingConfig]);
@@ -160,6 +280,28 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
   useEffect(() => {
     setLinkSuffix(consultant?.quiz_slug || 'seu-slug');
   }, [consultant?.quiz_slug]);
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !consultant) return;
+    if (!file.type.startsWith('image/')) { toast.error('Selecione uma imagem'); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error('Imagem muito grande (máx 5MB)'); return; }
+    setUploadingLogo(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `capture-logo-${consultant.id}-${Date.now()}.${fileExt}`;
+      const filePath = `capture-logos/${fileName}`;
+      const { error: uploadError } = await supabase.storage.from('quiz-images').upload(filePath, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data } = supabase.storage.from('quiz-images').getPublicUrl(filePath);
+      setCaptureForm(prev => ({ ...prev, logo_image: data.publicUrl }));
+      toast.success('Logo carregada!');
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao enviar logo');
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
 
   const handleHeroUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -207,6 +349,12 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
         template_type: captureForm.template_type,
         gallery_images: captureForm.gallery_images,
         gallery_title: captureForm.gallery_title,
+        logo_image: captureForm.logo_image || null,
+        compare_enabled: captureForm.compare_enabled,
+        compare_title: captureForm.compare_title,
+        compare_traditional_items: captureForm.compare_traditional_items.filter(Boolean),
+        compare_topbrasil_items: captureForm.compare_topbrasil_items.filter(Boolean),
+        is_active: true,
         updated_at: new Date().toISOString(),
       };
 
@@ -277,50 +425,136 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
                   <Label>Título da Galeria</Label>
                   <Input value={captureForm.gallery_title} onChange={(e) => setCaptureForm({ ...captureForm, gallery_title: e.target.value })} maxLength={100} />
                 </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label>Imagens da Galeria</Label>
-                    <Button type="button" variant="outline" size="sm" onClick={() => {
-                      const input = document.createElement('input');
-                      input.type = 'file'; input.accept = 'image/*';
-                      input.onchange = async (e) => {
-                        const file = (e.target as HTMLInputElement).files?.[0];
-                        if (!file || !consultant) return;
-                        if (file.size > 5 * 1024 * 1024) { toast.error('Máx 5MB'); return; }
-                        try {
-                          const ext = file.name.split('.').pop();
-                          const path = `capture-gallery/${consultant.id}-${Date.now()}.${ext}`;
-                          const { error } = await supabase.storage.from('quiz-images').upload(path, file, { upsert: true });
-                          if (error) throw error;
-                          const { data } = supabase.storage.from('quiz-images').getPublicUrl(path);
-                          setCaptureForm(prev => ({ ...prev, gallery_images: [...prev.gallery_images, { url: data.publicUrl }] }));
-                          toast.success('Imagem adicionada!');
-                        } catch (err: any) { toast.error(err.message); }
-                      };
-                      input.click();
-                    }} disabled={captureForm.gallery_images.length >= 6}>
-                      <Image className="w-4 h-4 mr-1" /> Adicionar ({captureForm.gallery_images.length}/6)
-                    </Button>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <Label className="w-full">Mídias da Galeria (Imagens ou Vídeos)</Label>
+                    <div className="flex gap-2 w-full">
+                      <Button type="button" variant="outline" size="sm" className="flex-1" onClick={() => {
+                        const input = document.createElement('input');
+                        input.type = 'file'; input.accept = 'image/*';
+                        input.onchange = async (e) => {
+                          const file = (e.target as HTMLInputElement).files?.[0];
+                          if (!file || !consultant) return;
+                          if (file.size > 5 * 1024 * 1024) { toast.error('Máx 5MB'); return; }
+                          try {
+                            const ext = file.name.split('.').pop();
+                            const path = `capture-gallery/${consultant.id}-${Date.now()}.${ext}`;
+                            const { error } = await supabase.storage.from('quiz-images').upload(path, file, { upsert: true });
+                            if (error) throw error;
+                            const { data } = supabase.storage.from('quiz-images').getPublicUrl(path);
+                            setCaptureForm(prev => ({ ...prev, gallery_images: [...prev.gallery_images, { type: 'image', url: data.publicUrl }] }));
+                            toast.success('Imagem adicionada!');
+                          } catch (err: any) { toast.error(err.message); }
+                        };
+                        input.click();
+                      }} disabled={captureForm.gallery_images.length >= 6}>
+                        <Image className="w-4 h-4 mr-1" /> Imagem ({captureForm.gallery_images.filter(i => i.type !== 'video').length})
+                      </Button>
+                      <div className="flex flex-1 gap-1">
+                        <Input value={videoUrlInput} onChange={(e) => setVideoUrlInput(e.target.value)} placeholder="Link YouTube/Vimeo" className="h-[36px] text-xs" />
+                        <Button type="button" variant="outline" size="sm" onClick={() => {
+                          if (!videoUrlInput) return;
+                          setCaptureForm(prev => ({ ...prev, gallery_images: [...prev.gallery_images, { type: 'video', url: videoUrlInput }] }));
+                          setVideoUrlInput('');
+                          toast.success('Vídeo adicionado!');
+                        }} disabled={captureForm.gallery_images.length >= 6}>
+                          Víd
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                   {captureForm.gallery_images.length > 0 && (
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
                       {captureForm.gallery_images.map((img, idx) => (
-                        <div key={idx} className="relative group">
-                          <img src={img.url} alt="" className="w-full aspect-square object-cover rounded-lg border border-border" />
+                        <div key={idx} className="relative group border border-border rounded-lg bg-background p-1 space-y-1">
                           <button type="button" onClick={() => setCaptureForm(prev => ({ ...prev, gallery_images: prev.gallery_images.filter((_, i) => i !== idx) }))}
-                            className="absolute top-1 right-1 w-6 h-6 rounded-full bg-destructive text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            className="absolute z-10 top-2 right-2 w-6 h-6 rounded-full bg-destructive text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                             <X className="w-3 h-3" />
                           </button>
-                          <Input placeholder="Legenda" value={img.caption || ''} onChange={(e) => {
+                          {img.type === 'video' ? (
+                            <div className="w-full aspect-square bg-muted flex items-center justify-center rounded text-xs text-muted-foreground break-all p-2 text-center overflow-hidden">
+                              🎬 Vídeo:<br/><span className="truncate w-full inline-block">{img.url}</span>
+                            </div>
+                          ) : (
+                            <img src={img.url} alt="" className="w-full aspect-square object-cover rounded" />
+                          )}
+                          <Input placeholder="Legenda (opcional)" value={img.caption || ''} onChange={(e) => {
                             const updated = [...captureForm.gallery_images];
                             updated[idx] = { ...updated[idx], caption: e.target.value };
                             setCaptureForm({ ...captureForm, gallery_images: updated });
-                          }} className="mt-1 h-7 text-xs" maxLength={50} />
+                          }} className="h-7 text-xs" maxLength={50} />
                         </div>
                       ))}
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* Logo upload (landing only) */}
+            {captureForm.template_type === 'landing' && (
+              <div className="space-y-3 p-4 rounded-xl border border-border bg-muted/30">
+                <Label>Logo da Landing Page</Label>
+                <input ref={logoInputRef} type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                {captureForm.logo_image ? (
+                  <div className="flex items-center gap-3">
+                    <img src={captureForm.logo_image} alt="Logo" className="h-16 w-auto object-contain bg-black/50 p-2 rounded-lg border border-border" />
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => logoInputRef.current?.click()} disabled={uploadingLogo}>
+                        {uploadingLogo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => setCaptureForm({ ...captureForm, logo_image: '' })}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button variant="outline" onClick={() => logoInputRef.current?.click()} disabled={uploadingLogo} className="w-full">
+                    {uploadingLogo ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+                    Enviar Logo
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {/* Compare section (landing only) */}
+            {captureForm.template_type === 'landing' && (
+              <div className="space-y-3 p-4 rounded-xl border border-border bg-muted/30">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Seção de Comparação</Label>
+                    <p className="text-xs text-muted-foreground">Comparar Seguro Tradicional vs Top Brasil</p>
+                  </div>
+                  <Switch checked={captureForm.compare_enabled} onCheckedChange={(v) => setCaptureForm({ ...captureForm, compare_enabled: v })} />
+                </div>
+                {captureForm.compare_enabled && (
+                  <div className="space-y-3 mt-4">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Título da Seção</Label>
+                      <Input value={captureForm.compare_title} onChange={(e) => setCaptureForm({ ...captureForm, compare_title: e.target.value })} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs font-semibold text-red-500">✗ Seguro Tradicional</Label>
+                        <textarea
+                          value={captureForm.compare_traditional_items.join('\n')}
+                          onChange={(e) => setCaptureForm({ ...captureForm, compare_traditional_items: e.target.value.split('\n') })}
+                          className="w-full h-32 p-2 rounded-md border border-input bg-background text-sm resize-none"
+                          placeholder="Item 1\nItem 2"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs font-semibold text-green-500">✓ Top Brasil</Label>
+                        <textarea
+                          value={captureForm.compare_topbrasil_items.join('\n')}
+                          onChange={(e) => setCaptureForm({ ...captureForm, compare_topbrasil_items: e.target.value.split('\n') })}
+                          className="w-full h-32 p-2 rounded-md border border-input bg-background text-sm resize-none"
+                          placeholder="Item 1\nItem 2"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -475,24 +709,27 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
             )}
 
             {/* Email toggle */}
-            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-              <div>
-                <Label>Campo de Email</Label>
-                <p className="text-xs text-muted-foreground">Mostrar campo de email no formulário</p>
+            {captureForm.template_type === 'standard' && (
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                <div>
+                  <Label>Campo de Email</Label>
+                  <p className="text-xs text-muted-foreground">Mostrar campo de email no formulário</p>
+                </div>
+                <Switch
+                  checked={captureForm.email_enabled}
+                  onCheckedChange={(checked) => setCaptureForm({ ...captureForm, email_enabled: checked })}
+                />
               </div>
-              <Switch
-                checked={captureForm.email_enabled}
-                onCheckedChange={(checked) => setCaptureForm({ ...captureForm, email_enabled: checked })}
-              />
-            </div>
+            )}
 
             {/* Custom Questions Editor */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>Perguntas Personalizadas</Label>
-                  <p className="text-xs text-muted-foreground">Adicione perguntas extras ao formulário</p>
-                </div>
+            {captureForm.template_type === 'standard' && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Perguntas Personalizadas</Label>
+                    <p className="text-xs text-muted-foreground">Adicione perguntas extras ao formulário</p>
+                  </div>
                 <Button
                   type="button"
                   variant="outline"
@@ -618,6 +855,7 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
                 </div>
               ))}
             </div>
+            )}
 
             <Button onClick={handleSave} disabled={saving} className="w-full">
               {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
