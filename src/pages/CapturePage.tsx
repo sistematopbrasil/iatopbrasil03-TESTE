@@ -45,6 +45,8 @@ interface CaptureConfig {
   gallery_images: GalleryImage[];
   gallery_title: string;
   logo_image?: string | null;
+  logo_position?: string;
+  logo_size?: string;
   compare_enabled?: boolean;
   compare_title?: string;
   compare_traditional_items?: string[];
