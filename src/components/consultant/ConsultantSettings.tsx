@@ -45,8 +45,21 @@ function CapturePagePreview({ config }: { config: any }) {
         <div className="absolute inset-0 bg-gradient-to-br from-[#EB6608]/10 via-transparent to-[#EB6608]/5 pointer-events-none" />
         
         {/* Header Logo */}
-        <div className="relative flex justify-center py-4 px-4 border-b border-white/5 bg-black/40 backdrop-blur-md">
-          <img src={config.logo_image || '/top-brasil-logo.png'} alt="Logo" className="h-10 w-auto object-contain" />
+        <div className="relative flex py-4 px-4 border-b border-white/5">
+          <div className={cn(
+            "w-full flex",
+            config.logo_position === 'center' ? 'justify-center' :
+            config.logo_position === 'right' ? 'justify-end' :
+            'justify-start'
+          )}>
+            <img src={config.logo_image || '/top-brasil-logo.png'} alt="Logo" className={cn(
+              "w-auto object-contain",
+              config.logo_size === 'small' ? 'h-7' :
+              config.logo_size === 'large' ? 'h-14' :
+              'h-10'
+            )} />
+          </div>
+        </div>
         </div>
 
         {/* Hero */}
