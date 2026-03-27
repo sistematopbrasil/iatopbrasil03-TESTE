@@ -1,91 +1,94 @@
 
 
-## Plano: Corrigir Erro de Save + Build Errors + Melhorias Landing Page
+## Plano: Numerar Perguntas Customizadas + Template 2 "Landing Page WhatsApp"
 
 ---
 
-### Problema 1: Erro "Could not find 'compare_enabled' column"
+### 1. Numerar perguntas customizadas na CapturePage
 
-**Causa raiz**: O código salva campos `compare_enabled`, `compare_title`, `compare_traditional_items`, `compare_topbrasil_items` e `logo_image` no banco, mas essas colunas **não existem** na tabela `capture_page_configs`. A migration nunca foi criada para elas.
+**Problema**: As perguntas customizadas não têm numeração como os campos padrão (nome=1, email=2, telefone=3).
 
-**Correção**: Criar migration adicionando as colunas faltantes:
+**Correção em `CapturePage.tsx`** (linha 716-718): Adicionar o badge numérico (mesmo estilo dos campos padrão) nas perguntas custom. O número começa após o último campo base (phoneStep + 1, phoneStep + 2, etc.).
+
+**Garantir respostas no lead**: As custom answers já são salvas em `extra_answers` (jsonb) no `quiz_submissions_new`. Precisa verificar que essas respostas aparecem na visualização do lead no painel. Verificar `LeadProfile.tsx` ou `LeadCard.tsx` para exibir `extra_answers`.
+
+---
+
+### 2. Novo template "Landing Page WhatsApp" (Template 2)
+
+**Conceito**: Página curta e direta, estilo landing page com:
+- Seção hero com título/subtítulo
+- Galeria de imagens "antes e depois" (até 6 imagens, configuráveis)
+- Formulário com nome, email (opcional), telefone + perguntas customizáveis
+- Botão CTA que redireciona para WhatsApp
+- Visual moderno com a paleta Top Brasil
+
+**Implementação**:
+
+#### 2a. Database: novo campo `template_type` na tabela `capture_page_configs`
+
 ```sql
 ALTER TABLE public.capture_page_configs 
-  ADD COLUMN logo_image text,
-  ADD COLUMN compare_enabled boolean NOT NULL DEFAULT false,
-  ADD COLUMN compare_title text DEFAULT 'Por que pagar caro no seguro se você pode pagar muito menos?',
-  ADD COLUMN compare_traditional_items jsonb DEFAULT '["Consulta de crédito","Processo burocrático","Atendimento demorado","Preço varia pelo seu perfil","Franquia obrigatória","Renovação anual forçada"]'::jsonb,
-  ADD COLUMN compare_topbrasil_items jsonb DEFAULT '["Sem consulta de crédito","Aprovação na hora","Assistência 24h inclusa","Preço justo pra todos","Sem franquia surpresa","Atendimento humanizado"]'::jsonb;
+  ADD COLUMN template_type text NOT NULL DEFAULT 'standard',
+  ADD COLUMN gallery_images jsonb DEFAULT '[]'::jsonb,
+  ADD COLUMN gallery_title text DEFAULT 'Veja nossos resultados';
 ```
 
-| Arquivo | Mudança |
-|---------|---------|
-| Migration SQL | Adicionar 5 colunas faltantes |
+- `template_type`: `'standard'` (atual) ou `'landing'` (novo)
+- `gallery_images`: Array de `{ url: string, caption?: string }` para as imagens antes/depois
+- `gallery_title`: Título da seção de galeria
+
+#### 2b. `ConsultantSettings.tsx` — Seletor de template
+
+Na aba "Captura", adicionar no topo um **seletor de template** (dois cards clicáveis):
+- **Template 1 — Formulário Simples**: O atual (ícone de formulário)
+- **Template 2 — Landing Page**: O novo (ícone de página web)
+
+Ao selecionar um template, os campos de configuração se adaptam:
+- Template "standard": mostra os campos atuais (título, subtítulo, hero, etc.)
+- Template "landing": mostra os mesmos campos + seção de **Galeria de Imagens** (upload múltiplo, caption, reordenar) + título da galeria
+
+O preview também muda conforme o template selecionado.
+
+As perguntas padrão sugeridas pelo cliente (trabalho CLT, experiência vendas, veículo) vêm **pré-preenchidas** quando o usuário seleciona o template "landing" pela primeira vez, mas são editáveis/removíveis.
+
+#### 2c. `CapturePage.tsx` — Renderizar template "landing"
+
+Quando `config.template_type === 'landing'`, renderizar layout diferente:
+
+1. **Hero Section**: Título grande + subtítulo + CTA scroll-to-form
+2. **Galeria Section**: Grid de imagens (2-3 colunas) com bordas arredondadas e efeito hover
+3. **Formulário Section**: Mesmo sistema de formulário atual (nome, email?, telefone, perguntas custom)
+4. **Footer**: Badge de segurança
+
+Visual: Mesmo estilo glassmorphism + paleta Top Brasil, mas com layout vertical mais longo (scrollável), seções separadas por espaçamento generoso.
+
+#### 2d. Preview no Settings
+
+Criar `CapturePagePreviewLanding` que mostra miniatura do template landing (hero + mini galeria + mini form).
 
 ---
 
-### Problema 2: Build errors nos edge functions (TypeScript)
+### 3. Exibir `extra_answers` no perfil do lead
 
-15 erros de tipo: `'e' is of type 'unknown'` e variáveis sem anotação de tipo.
-
-**Correção**: Em cada edge function afetado, adicionar type annotations:
-- `const res: Response = await fetch(nextUrl)` e `const json: any = await res.json()` em `fetch-meta-ads-data`
-- `(e as Error).message` ou `(error as Error).message` em todos os catch blocks de: `fetch-meta-ads-data`, `get-account-campaigns`, `insta-fetch-profile`, `insta-scheduled-update`, `insta-update-profiles`, `list-meta-ad-accounts`, `sync-ad-accounts`, `sync-all-accounts`, `sync-history`, `validate-meta-token`
-
-| Arquivo | Mudança |
-|---------|---------|
-| 10 edge functions | Tipar `catch(e)` como `(e as Error).message` e anotar variáveis |
-
----
-
-### Problema 3: Logo indo para lugar da hero image
-
-**Causa raiz**: Na landing page (`CapturePage.tsx` linha 700), quando `config.hero_image` e `config.logo_image` existem, a hero image aparece dentro do hero section com classe `lp-logo`, conflitando com o logo no header.
-
-**Correção**: Separar completamente logo (header, canto superior esquerdo) e hero image (seção hero). O logo já está correto na linha 690-696. Remover a classe `lp-logo` da hero image na linha 701 e garantir que hero image e logo são independentes (removendo a condição `!config.logo_image` da linha 56 do preview).
-
-| Arquivo | Mudança |
-|---------|---------|
-| `CapturePage.tsx` | Remover `lp-logo` class da hero image, permitir hero e logo coexistirem |
-| `ConsultantSettings.tsx` | Corrigir preview para mostrar logo e hero separados |
-
----
-
-### Problema 4: Upload múltiplo de imagens e vídeos do computador
-
-**Correções**:
-1. Alterar `input.multiple = true` no upload de galeria e processar todos os files selecionados
-2. Adicionar botão para upload de vídeo local (do computador) além do link YouTube
-3. Adicionar controles de tamanho/formato/posição para cada mídia da galeria (aspect ratio, object-fit)
-
-| Arquivo | Mudança |
-|---------|---------|
-| `ConsultantSettings.tsx` | Upload múltiplo + upload vídeo local + controles por mídia |
-
----
-
-### Problema 5: Visual e conteúdo da landing page
-
-**Melhorias na `CapturePage.tsx`**:
-1. Ícones de benefícios: se as imagens `/benefits/benefit-X.png` não existirem, usar ícones SVG com Lucide (Shield, Phone, Car, Truck, CreditCard) com estilo glassmorphism
-2. Seção de comparação já está implementada e com visual bom — manter
-3. Remover texto "Preencha seus dados e saiba como começar" se existir
-4. Player de vídeo local: usar tag `<video>` com controls nativo para vídeos uploadados do computador
-5. Responsividade mobile: verificar sticky CTA, espaçamentos, grid de galeria
-
-| Arquivo | Mudança |
-|---------|---------|
-| `CapturePage.tsx` | Fallback ícones SVG, melhorar player de vídeo, ajustes mobile |
+Verificar e garantir que o `LeadProfile.tsx` ou componente de detalhes do lead mostra as respostas das perguntas customizadas (`extra_answers` do `quiz_submissions_new`).
 
 ---
 
 ### Resumo
 
-| # | Problema | Arquivo(s) | Tipo |
-|---|----------|-----------|------|
-| 1 | Colunas faltantes no DB | Migration | Migration |
-| 2 | Build errors TypeScript | 10 edge functions | Fix tipos |
-| 3 | Logo x Hero conflito | `CapturePage.tsx`, `ConsultantSettings.tsx` | Fix layout |
-| 4 | Upload múltiplo + vídeo local | `ConsultantSettings.tsx` | Feature |
-| 5 | Visual landing page | `CapturePage.tsx` | Refinamento |
+| # | O que | Arquivo(s) | Migration |
+|---|-------|-----------|-----------|
+| 1 | Numerar perguntas custom | `CapturePage.tsx` | — |
+| 2a | Campos template | Migration | `template_type`, `gallery_images`, `gallery_title` |
+| 2b | Seletor de template + config | `ConsultantSettings.tsx` | — |
+| 2c | Render template landing | `CapturePage.tsx` | — |
+| 2d | Preview landing | `ConsultantSettings.tsx` | — |
+| 3 | Mostrar extra_answers no lead | `LeadProfile.tsx` | — |
+
+### Perguntas default do template Landing
+Ao selecionar template "landing" pela primeira vez (sem perguntas custom), pré-preencher:
+1. "Você trabalha atualmente com carteira assinada?" → choice: ["Sim", "Não, sou autônomo", "Estou sem emprego no momento"]
+2. "Você já teve alguma experiência com vendas?" → choice: ["Sim, já trabalhei com vendas", "Nunca trabalhei mas tenho interesse", "Não tenho experiência e não sei se é pra mim"]
+3. "Você tem veículo próprio?" → choice: ["Sim, carro", "Sim, moto", "Não tenho"]
 

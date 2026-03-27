@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
         const data = await res.json();
         results.push({ ad_account_id: acc.ad_account_id, ...data });
       } catch (e) {
-        results.push({ ad_account_id: acc.ad_account_id, error: (e as Error).message });
+        results.push({ ad_account_id: acc.ad_account_id, error: e.message });
       }
     }
 
@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    return new Response(JSON.stringify({ error: (e as Error).message }), {
+    return new Response(JSON.stringify({ error: e.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

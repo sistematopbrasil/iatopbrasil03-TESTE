@@ -342,10 +342,6 @@ export type Database = {
         Row: {
           button_color: string | null
           button_text: string | null
-          compare_enabled: boolean
-          compare_title: string | null
-          compare_topbrasil_items: Json | null
-          compare_traditional_items: Json | null
           consultant_id: string
           created_at: string | null
           custom_questions: Json | null
@@ -359,7 +355,6 @@ export type Database = {
           hero_image_size: string | null
           id: string
           is_active: boolean
-          logo_image: string | null
           organization_id: string
           redirect_type: string | null
           redirect_url: string | null
@@ -373,10 +368,6 @@ export type Database = {
         Insert: {
           button_color?: string | null
           button_text?: string | null
-          compare_enabled?: boolean
-          compare_title?: string | null
-          compare_topbrasil_items?: Json | null
-          compare_traditional_items?: Json | null
           consultant_id: string
           created_at?: string | null
           custom_questions?: Json | null
@@ -390,7 +381,6 @@ export type Database = {
           hero_image_size?: string | null
           id?: string
           is_active?: boolean
-          logo_image?: string | null
           organization_id: string
           redirect_type?: string | null
           redirect_url?: string | null
@@ -404,10 +394,6 @@ export type Database = {
         Update: {
           button_color?: string | null
           button_text?: string | null
-          compare_enabled?: boolean
-          compare_title?: string | null
-          compare_topbrasil_items?: Json | null
-          compare_traditional_items?: Json | null
           consultant_id?: string
           created_at?: string | null
           custom_questions?: Json | null
@@ -421,7 +407,6 @@ export type Database = {
           hero_image_size?: string | null
           id?: string
           is_active?: boolean
-          logo_image?: string | null
           organization_id?: string
           redirect_type?: string | null
           redirect_url?: string | null

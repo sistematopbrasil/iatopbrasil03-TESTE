@@ -10,8 +10,8 @@ async function fetchAllPages(url: string): Promise<any[]> {
   let nextUrl: string | null = url;
 
   while (nextUrl) {
-    const res: Response = await fetch(nextUrl);
-    const json: any = await res.json();
+    const res = await fetch(nextUrl);
+    const json = await res.json();
     if (json.error) throw new Error(json.error.message);
     if (json.data) allData.push(...json.data);
     nextUrl = json.paging?.next || null;
@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    return new Response(JSON.stringify({ error: (e as Error).message }), {
+    return new Response(JSON.stringify({ error: e.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
