@@ -1,70 +1,71 @@
 
 
-## Plano: Corrigir Logo, Melhorar Visual da Landing Page
-
-### Problemas identificados
-
-1. **Logo vai para o lugar da hero image**: No `CapturePage.tsx` (linha 725-727), quando `config.hero_image` existe, renderiza `HeroImage` na hero section. O `HeroImage` component usa `config.hero_image` — logo e hero são campos separados (`logo_image` vs `hero_image`), mas a logo está sobrepondo porque no preview do settings (linha 56) há `{config.hero_image && !config.logo_image && ...}` — quando logo é configurada, a hero desaparece da preview. No CapturePage real, ambos renderizam independentemente, mas a logo (header) + HeroImage (hero section) parecem conflitar visualmente.
-
-2. **Reordenar imagens da galeria**: Não há botões de reordenação para gallery_images (só para custom_questions).
-
-3. **Seção de comparação com R$ ??? e R$ XX**: Precisa remover os preços e redesenhar com a paleta Top Brasil (laranja/preto, não azul).
-
-4. **Preview não reflete a landing page configurada**: Preview é muito simplificada.
-
-5. **Espaçamentos excessivos** e visual geral precisa de polimento.
-
-6. **Logo padrão**: Copiar a imagem enviada como logo default.
-
----
+## Plano: Ajustar Landing Page — Textos, Logo, Ícones, Ordem do Settings
 
 ### Mudanças
 
-#### 1. `src/pages/CapturePage.tsx` — Corrigir logo + comparação + visual
+#### 1. `src/pages/CapturePage.tsx`
 
-**Logo separada da Hero:**
-- Header (linhas 715-721): Logo fica no canto superior esquerdo — OK, já está assim
-- Hero section (linhas 724-727): A hero image renderiza INDEPENDENTE da logo. Manter ambos renderizando. A logo fica no header, a hero image fica na seção hero. Sem conflito.
-- O problema real: quando o usuário configura a logo_image, ela funciona certo no header. Mas o campo `hero_image` do settings é compartilhado — o usuário pode estar colocando a logo no campo de hero_image ao invés do campo logo_image. Verificar se no settings a UI é clara.
+**Hero Section (linhas 726-749)**:
+- Atualizar textos padrão: badge = "PROTEÇÃO VEICULAR — CAMPINAS E REGIÃO" (já está OK)
+- Título default = "Seu carro protegido do jeito certo.\nSem burocracia. Sem pegadinhas."
+- Subtítulo default = "A Top Brasil Campinas oferece proteção veicular completa..."
+- Botão default = "Quero proteger meu veículo agora →"
+- Esses valores já estão como defaults no `captureForm` no Settings — OK
 
-**Seção de comparação — Redesenhar:**
-- Remover `R$ ???` / `R$ XX` / `/mês em média` / `/mês` (linhas 801-824)
-- Usar paleta Top Brasil: card esquerdo = `bg-[#1A1A1A]` (OK), card direito = gradiente laranja `bg-gradient-to-br from-[#EB6608] to-[#D35A07]` ao invés de azul `#002B7A`
-- Badge "Melhor Escolha" em branco/laranja ao invés de dourado/azul
-- Itens positivos em branco (não verde) para combinar com fundo laranja
-- Apenas título do card + lista de itens, sem preços
+**Logo no header (linhas 715-719)**:
+- Adicionar suporte a `config.logo_position` (`left` | `center` | `right`) — mudar `justify-center sm:justify-start` para dinâmico
+- Adicionar suporte a `config.logo_size` (`small` | `medium` | `large`) — mapear para `h-8`, `h-12`, `h-16`
+- Remover qualquer fundo escuro extra que a logo traz — garantir que o header não adiciona `bg-black/40` (isso está no **preview**, não na page real — mas verificar)
 
-**Espaçamentos:**
-- Reduzir `py-20 md:py-28` para `py-14 md:py-20` nas seções
-- Reduzir `pt-28 pb-28` do hero para `pt-24 pb-16`
-- Reduzir gaps gerais
-
-**Visual geral:**
-- Manter animações e glassmorphism
-- Melhorar benefits section com ícones reais (Lucide) ao invés de imagens estáticas que provavelmente não existem em `/benefits/`
+**Ícones de benefícios (linhas 760-779)**:
+- Substituir os Lucide icons pelas 6 imagens enviadas pelo usuário
+- Copiar as 6 imagens para `public/benefits/` como `benefit-1.png` até `benefit-6.png`
+- Atualizar array de benefits para usar `<img>` com os arquivos copiados, com labels: "Proteção Furto e Roubo", "Assistência 24h por dia", "Reparo em Colisão", "Reboque ilimitado para colisão", "SPC e Serasa sem consulta", "Carro reserva"
+- Grid: `grid-cols-3 sm:grid-cols-3 md:grid-cols-6` para 6 itens
 
 #### 2. `src/components/consultant/ConsultantSettings.tsx`
 
-**Reordenar galeria:**
-- Adicionar botões ArrowUp/ArrowDown em cada item da galeria (mesma lógica das custom_questions, linhas 824-841)
+**Reordenar campos para seguir a ordem da landing page**:
+Ordem atual: Template → Galeria → Logo → Comparação → Link → Título → Subtítulo → Botão → Cor → Hero Image → Redirect → Email → Perguntas
 
-**Logo default:**
-- Copiar imagem enviada para `src/assets/top-brasil-logo.png`
-- Quando `captureForm.logo_image` está vazio e template é landing, mostrar a imagem default (importada)
+Nova ordem (seguindo a página de cima para baixo):
+1. **Link da Página** (primeiro, no topo)
+2. **Template Selector**
+3. **Logo** (com novos campos: posição e tamanho)
+4. **Hero Image** (junto/próximo da logo)
+5. **Título / Subtítulo / Texto do Botão / Cor**
+6. **Comparação**
+7. **Galeria**
+8. **Redirect / Email / Perguntas**
 
-**Preview melhorada:**
-- Atualizar `CapturePagePreview` para refletir melhor a landing page real (mostrar galeria real, comparação com cores corretas)
+**Logo config — novos campos**:
+- Adicionar `logo_position` (`left` | `center` | `right`) — Select com 3 opções
+- Adicionar `logo_size` (`small` | `medium` | `large`) — Select com 3 opções
+- Adicionar esses campos ao `captureForm` state, defaults: `left`, `medium`
+- Incluir no `handleSave` payload
+- Logo preview na configuração: sem fundo escuro extra, mostrar com fundo transparente
 
-#### 3. Copiar asset
-- `user-uploads://Cópia_de_Ativo_8.png` → `public/top-brasil-logo.png` para uso como logo padrão
+**Hero image preview fix**:
+- O preview (CapturePagePreview) usa `config.hero_image` para exibir — verificar que o config passado ao preview é sempre o `captureForm` atualizado (state), não o `existingConfig` do banco
 
----
+#### 3. Assets — copiar 6 ícones de benefícios
+- `user-uploads://1.png` → `public/benefits/benefit-1.png` (Proteção Furto e Roubo)
+- `user-uploads://2.png` → `public/benefits/benefit-2.png` (Assistência 24h)
+- `user-uploads://3.png` → `public/benefits/benefit-3.png` (Reparo em Colisão)
+- `user-uploads://4.png` → `public/benefits/benefit-4.png` (Reboque ilimitado)
+- `user-uploads://5.png` → `public/benefits/benefit-5.png` (SPC e Serasa sem consulta)
+- `user-uploads://6.png` → `public/benefits/benefit-6.png` (Carro reserva)
+
+#### 4. Database migration
+- Adicionar colunas `logo_position` (text default 'left') e `logo_size` (text default 'medium') à tabela `capture_page_configs`
 
 ### Arquivos
 
 | Arquivo | Mudança |
 |---------|---------|
-| `public/top-brasil-logo.png` | Logo padrão copiada do upload |
-| `src/pages/CapturePage.tsx` | Redesenhar comparação (remover preços, paleta laranja), ajustar espaçamentos, benefits com ícones Lucide, garantir logo e hero independentes |
-| `src/components/consultant/ConsultantSettings.tsx` | Adicionar reordenação de galeria, logo default, preview melhorada |
+| `public/benefits/benefit-1..6.png` | 6 ícones copiados |
+| `src/pages/CapturePage.tsx` | Ícones com imagens reais, logo position/size dinâmicos |
+| `src/components/consultant/ConsultantSettings.tsx` | Reordenar campos, adicionar logo position/size, fix preview |
+| Migration SQL | `logo_position`, `logo_size` na tabela |
 
