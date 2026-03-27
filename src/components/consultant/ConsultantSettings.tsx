@@ -77,16 +77,16 @@ function CapturePagePreview({ config }: { config: any }) {
           <div className="relative px-4 py-8 bg-white/[0.02] border-t border-white/[0.05] space-y-4">
             <p className="text-xs font-bold text-white text-center">{config.compare_title || 'Comparativo'}</p>
             <div className="flex flex-col gap-3">
-              <div className="rounded-xl bg-red-500/5 border border-red-500/15 p-3 space-y-2">
-                <p className="text-[10px] font-bold text-red-400 flex items-center gap-1"><span>✗</span> Seguro Tradicional</p>
+              <div className="rounded-xl bg-[#1A1A1A] border border-white/10 p-3 space-y-2">
+                <p className="text-[10px] font-bold text-gray-400 flex items-center gap-1"><span className="text-red-400/60">✗</span> Seguro Tradicional</p>
                 {(config.compare_traditional_items || []).slice(0, 3).map((item: string, i: number) => (
                   <p key={i} className="text-[9px] text-gray-500 flex items-start gap-1"><span className="text-red-400/50">✗</span><span className="truncate">{item}</span></p>
                 ))}
               </div>
-              <div className="rounded-xl border p-3 space-y-2" style={{ borderColor: `${btnColor}50`, background: `linear-gradient(135deg, ${btnColor}15, ${btnColor}05)` }}>
-                <p className="text-[10px] font-bold text-white flex items-center gap-1"><span style={{ color: btnColor }}>✓</span> Top Brasil</p>
+              <div className="rounded-xl p-3 space-y-2" style={{ background: `linear-gradient(135deg, ${btnColor}, ${btnColor}DD)` }}>
+                <p className="text-[10px] font-bold text-white flex items-center gap-1"><span>✓</span> Top Brasil</p>
                 {(config.compare_topbrasil_items || []).slice(0, 3).map((item: string, i: number) => (
-                  <p key={i} className="text-[9px] text-white flex items-start gap-1"><span style={{ color: btnColor }}>✓</span><span className="truncate">{item}</span></p>
+                  <p key={i} className="text-[9px] text-white flex items-start gap-1"><span>✓</span><span className="truncate">{item}</span></p>
                 ))}
               </div>
             </div>
