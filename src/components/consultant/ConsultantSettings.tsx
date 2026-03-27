@@ -60,7 +60,6 @@ function CapturePagePreview({ config }: { config: any }) {
             )} />
           </div>
         </div>
-        </div>
 
         {/* Hero */}
         <div className="relative flex flex-col items-center justify-center px-4 py-10 text-center gap-4">
