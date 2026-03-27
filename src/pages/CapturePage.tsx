@@ -783,36 +783,26 @@ export default function CapturePage() {
 
           {/* Compare Section */}
           {config.compare_enabled && (
-            <section className="px-4 sm:px-6 py-20 md:py-28 max-w-5xl mx-auto w-full">
-              <div className="space-y-10 md:space-y-14">
-                <div className="text-left space-y-4 max-w-3xl">
-                  <p className="lp-reveal text-gray-400 text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase">Proteção que cabe no bolso</p>
-                  <h2 className="lp-reveal text-3xl sm:text-4xl md:text-5xl font-bold text-white leading-[1.15]">
-                    {config.compare_title.includes('muito menos') ? (
-                      config.compare_title.split('muito menos').map((part: string, i: number, arr: any[]) => 
-                        <span key={i}>{part}{i < arr.length - 1 && <span className="text-[#00E05E]">muito menos</span>}</span>
-                      )
-                    ) : (
-                      config.compare_title
-                    )}
+            <section className="px-4 sm:px-6 py-14 md:py-20 max-w-5xl mx-auto w-full">
+              <div className="space-y-8 md:space-y-10">
+                <div className="text-left space-y-3 max-w-3xl">
+                  <p className="lp-reveal text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase" style={{ color: config.button_color }}>Proteção que cabe no bolso</p>
+                  <h2 className="lp-reveal text-2xl sm:text-3xl md:text-4xl font-bold text-white leading-[1.15]">
+                    {config.compare_title}
                   </h2>
-                  <p className="lp-reveal text-gray-400 text-sm sm:text-base leading-relaxed max-w-2xl mt-4">
+                  <p className="lp-reveal text-gray-400 text-sm sm:text-base leading-relaxed max-w-2xl">
                     Seguro tradicional cobra até 3x mais pela mesma proteção. Com a Top Brasil você protege seu veículo com um valor justo — e sem consulta de crédito.
                   </p>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-4 lg:gap-6">
+                <div className="grid md:grid-cols-2 gap-4 lg:gap-5">
                   {/* Tradicional */}
-                  <div className="lp-reveal lp-reveal-d1 bg-[#1A1A1A] rounded-2xl p-6 sm:p-8 space-y-6">
-                    <div className="space-y-1">
-                      <p className="text-gray-400 text-[10px] sm:text-xs font-semibold tracking-widest uppercase">Seguro Tradicional</p>
-                      <h3 className="text-4xl sm:text-5xl font-bold text-gray-300 tracking-tight">R$ ???</h3>
-                      <p className="text-gray-500 text-xs sm:text-sm">/mês em média</p>
-                    </div>
-                    <ul className="space-y-3 pt-6">
+                  <div className="lp-reveal lp-reveal-d1 bg-[#1A1A1A] rounded-2xl p-6 sm:p-8">
+                    <p className="text-gray-500 text-[10px] sm:text-xs font-semibold tracking-widest uppercase mb-5">Seguro Tradicional</p>
+                    <ul className="space-y-3">
                       {(config.compare_traditional_items || []).map((item: string, i: number) => (
                         <li key={i} className="flex gap-3 text-gray-400 text-sm sm:text-base items-center">
-                          <X className="w-4 h-4 text-gray-500 shrink-0" />
+                          <X className="w-4 h-4 text-red-400/60 shrink-0" />
                           <span>{item}</span>
                         </li>
                       ))}
@@ -820,18 +810,15 @@ export default function CapturePage() {
                   </div>
 
                   {/* Top Brasil */}
-                  <div className="lp-reveal lp-reveal-d2 bg-[#002B7A] rounded-2xl p-6 sm:p-8 space-y-6 relative border border-transparent hover:border-blue-400/30 transition-colors shadow-2xl">
-                    <div className="absolute top-0 right-0 transform translate-x-1 sm:translate-x-2 -translate-y-1/2">
-                      <span className="bg-[#FFD700] text-[#00266B] text-[9px] sm:text-[10px] font-extrabold px-3 py-1.5 rounded uppercase tracking-widest shadow-lg">Melhor Escolha</span>
+                  <div className="lp-reveal lp-reveal-d2 rounded-2xl p-6 sm:p-8 relative shadow-2xl border border-white/10 hover:border-white/20 transition-colors"
+                    style={{ background: `linear-gradient(135deg, ${config.button_color}, ${config.button_color}DD)` }}>
+                    <div className="absolute top-0 right-3 sm:right-4 -translate-y-1/2">
+                      <span className="bg-white text-[9px] sm:text-[10px] font-extrabold px-3 py-1.5 rounded-full uppercase tracking-widest shadow-lg" style={{ color: config.button_color }}>Melhor Escolha</span>
                     </div>
-                    <div className="space-y-1">
-                      <p className="text-blue-200/80 text-[10px] sm:text-xs font-semibold tracking-widest uppercase">Top Brasil</p>
-                      <h3 className="text-4xl sm:text-5xl font-bold text-[#FFD700] tracking-tight">R$ XX</h3>
-                      <p className="text-blue-200/80 text-xs sm:text-sm">/mês</p>
-                    </div>
-                    <ul className="space-y-3 pt-6">
+                    <p className="text-white/80 text-[10px] sm:text-xs font-semibold tracking-widest uppercase mb-5">Top Brasil</p>
+                    <ul className="space-y-3">
                       {(config.compare_topbrasil_items || []).map((item: string, i: number) => (
-                        <li key={i} className="flex gap-3 text-[#00E05E] text-sm sm:text-base items-center font-medium">
+                        <li key={i} className="flex gap-3 text-white text-sm sm:text-base items-center font-medium">
                           <Check className="w-4 h-4 shrink-0 stroke-[3]" />
                           <span>{item}</span>
                         </li>
