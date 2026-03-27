@@ -759,19 +759,25 @@ export default function CapturePage() {
           </section>
 
           {/* Benefits Section */}
-          <section className="px-5 sm:px-10 pb-20 md:pb-28 max-w-6xl mx-auto w-full">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6 sm:gap-8 items-start">
+          <section className="px-5 sm:px-10 pb-14 md:pb-20 max-w-5xl mx-auto w-full">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 sm:gap-6">
               {[
-                { img: '/benefits/benefit-1.png', alt: 'Proteção Furto e Roubo' },
-                { img: '/benefits/benefit-2.png', alt: 'Assistência 24h' },
-                { img: '/benefits/benefit-3.png', alt: 'Reparo Colisão' },
-                { img: '/benefits/benefit-4.png', alt: 'Reboque Ilimitado' },
-                { img: '/benefits/benefit-5.png', alt: 'SPC e Serasa' }
-              ].map((benefit, idx) => (
-                <div key={idx} className="lp-reveal flex flex-col items-center group" style={{ transitionDelay: `${idx * 0.1}s` }}>
-                  <img src={benefit.img} alt={benefit.alt} className="w-full max-w-[140px] sm:max-w-[180px] aspect-square object-contain filter hover:brightness-110 transition-all duration-500 group-hover:-translate-y-2 group-hover:scale-105" />
-                </div>
-              ))}
+                { icon: Shield, label: 'Proteção Furto e Roubo' },
+                { icon: Phone, label: 'Assistência 24h' },
+                { icon: Check, label: 'Reparo Colisão' },
+                { icon: Lock, label: 'Reboque Ilimitado' },
+                { icon: User, label: 'Sem Consulta SPC/Serasa' },
+              ].map((benefit, idx) => {
+                const Icon = benefit.icon;
+                return (
+                  <div key={idx} className="lp-reveal flex flex-col items-center gap-3 group p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:border-white/[0.15] transition-all duration-500 hover:-translate-y-1" style={{ transitionDelay: `${idx * 0.08}s` }}>
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${config.button_color}20` }}>
+                      <Icon className="w-6 h-6" style={{ color: config.button_color }} />
+                    </div>
+                    <span className="text-[11px] sm:text-xs text-gray-300 font-medium text-center leading-tight">{benefit.label}</span>
+                  </div>
+                );
+              })}
             </div>
           </section>
 
