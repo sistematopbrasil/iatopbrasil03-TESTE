@@ -53,7 +53,7 @@ function CapturePagePreview({ config }: { config: any }) {
 
         {/* Hero */}
         <div className="relative flex flex-col items-center justify-center px-4 py-10 text-center gap-4">
-          {config.hero_image && !config.logo_image && (
+          {config.hero_image && (
             <img src={config.hero_image} alt="Hero" className="w-16 h-16 object-cover rounded-full border border-white/20 mb-2" />
           )}
           <h3 className="text-lg font-extrabold text-white leading-tight max-w-[250px]">{config.title || 'Título Hero'}</h3>
