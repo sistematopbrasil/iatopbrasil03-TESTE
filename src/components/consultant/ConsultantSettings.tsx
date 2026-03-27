@@ -391,7 +391,33 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
             <CardDescription>Configure sua página de captura de leads</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5 overflow-x-hidden min-w-0">
-            {/* Template Selector */}
+            {/* 1. Link da Página (topo) */}
+            <div className="space-y-2">
+              <Label>Link da Página de Captura</Label>
+              <div className="flex items-center rounded-md border border-input bg-background overflow-hidden">
+                <span className="px-3 py-2 text-xs text-muted-foreground bg-muted border-r border-input whitespace-nowrap select-all">
+                  {linkPrefix}
+                </span>
+                <input
+                  value={linkSuffix}
+                  onChange={(e) => setLinkSuffix(e.target.value)}
+                  className="flex-1 px-3 py-2 text-xs font-mono bg-transparent outline-none text-foreground min-w-0"
+                  placeholder="seu-slug?utm_source=facebook"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm"
+                  onClick={() => { navigator.clipboard.writeText(fullLink); toast.success('Link copiado!'); }}>
+                  <Copy className="w-4 h-4 mr-2" />Copiar
+                </Button>
+                <Button variant="outline" size="sm"
+                  onClick={() => window.open(fullLink, '_blank')}>
+                  <ExternalLink className="w-4 h-4 mr-2" />Abrir
+                </Button>
+              </div>
+            </div>
+
+            {/* 2. Template Selector */}
             <div className="space-y-2">
               <Label>Tipo de Página</Label>
               <div className="grid grid-cols-2 gap-3">
@@ -422,7 +448,183 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
               </div>
             </div>
 
-            {/* Gallery config (landing only) */}
+            {/* 3. Logo (landing only) */}
+            {captureForm.template_type === 'landing' && (
+              <div className="space-y-3 p-4 rounded-xl border border-border bg-muted/30">
+                <Label>Logo da Landing Page</Label>
+                <input ref={logoInputRef} type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                {captureForm.logo_image ? (
+                  <div className="flex items-center gap-3">
+                    <img src={captureForm.logo_image} alt="Logo" className="h-16 w-auto object-contain p-2 rounded-lg border border-border" />
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => logoInputRef.current?.click()} disabled={uploadingLogo}>
+                        {uploadingLogo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => setCaptureForm({ ...captureForm, logo_image: '' })}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button variant="outline" onClick={() => logoInputRef.current?.click()} disabled={uploadingLogo} className="w-full">
+                    {uploadingLogo ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+                    Enviar Logo
+                  </Button>
+                )}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Posição da Logo</Label>
+                    <Select value={captureForm.logo_position} onValueChange={(v) => setCaptureForm({ ...captureForm, logo_position: v })}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="left">Esquerda</SelectItem>
+                        <SelectItem value="center">Centro</SelectItem>
+                        <SelectItem value="right">Direita</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Tamanho da Logo</Label>
+                    <Select value={captureForm.logo_size} onValueChange={(v) => setCaptureForm({ ...captureForm, logo_size: v })}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="small">Pequeno</SelectItem>
+                        <SelectItem value="medium">Médio</SelectItem>
+                        <SelectItem value="large">Grande</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 4. Hero Image */}
+            <div className="space-y-2">
+              <Label>Imagem Hero (opcional)</Label>
+              <input ref={heroInputRef} type="file" accept="image/*" onChange={handleHeroUpload} className="hidden" />
+              {captureForm.hero_image ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <img src={captureForm.hero_image} alt="Hero" className="w-16 h-16 object-cover rounded-lg border border-border" />
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => heroInputRef.current?.click()} disabled={uploadingHero}>
+                        {uploadingHero ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => setCaptureForm({ ...captureForm, hero_image: '' })}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Tamanho</Label>
+                      <Select value={captureForm.hero_image_size} onValueChange={(v) => setCaptureForm({ ...captureForm, hero_image_size: v })}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="small">Pequeno</SelectItem>
+                          <SelectItem value="medium">Médio</SelectItem>
+                          <SelectItem value="large">Grande</SelectItem>
+                          <SelectItem value="full">Largura total</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Posição</Label>
+                      <Select value={captureForm.hero_image_position} onValueChange={(v) => setCaptureForm({ ...captureForm, hero_image_position: v })}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="top">Topo</SelectItem>
+                          <SelectItem value="left">Lateral</SelectItem>
+                          <SelectItem value="background">Fundo</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Formato</Label>
+                      <Select value={captureForm.hero_image_shape} onValueChange={(v) => setCaptureForm({ ...captureForm, hero_image_shape: v })}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="rounded">Arredondado</SelectItem>
+                          <SelectItem value="circle">Circular</SelectItem>
+                          <SelectItem value="square">Quadrado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <Button variant="outline" onClick={() => heroInputRef.current?.click()} disabled={uploadingHero} className="w-full">
+                  {uploadingHero ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+                  Enviar imagem
+                </Button>
+              )}
+            </div>
+
+            {/* 5. Título / Subtítulo / Botão / Cor */}
+            <div className="space-y-2">
+              <Label>Título</Label>
+              <Input value={captureForm.title} onChange={(e) => setCaptureForm({ ...captureForm, title: e.target.value })} maxLength={200} />
+            </div>
+            <div className="space-y-2">
+              <Label>Subtítulo</Label>
+              <Input value={captureForm.subtitle} onChange={(e) => setCaptureForm({ ...captureForm, subtitle: e.target.value })} maxLength={500} />
+            </div>
+            <div className="space-y-2">
+              <Label>Texto do Botão</Label>
+              <Input value={captureForm.button_text} onChange={(e) => setCaptureForm({ ...captureForm, button_text: e.target.value })} maxLength={50} />
+            </div>
+            <div className="space-y-2">
+              <Label>Cor do Botão</Label>
+              <div className="flex items-center gap-3">
+                <input type="color" value={captureForm.button_color} onChange={(e) => setCaptureForm({ ...captureForm, button_color: e.target.value })}
+                  className="w-10 h-10 rounded cursor-pointer border border-border" />
+                <Input value={captureForm.button_color} onChange={(e) => setCaptureForm({ ...captureForm, button_color: e.target.value })}
+                  className="font-mono w-32" maxLength={7} />
+              </div>
+            </div>
+
+            {/* 6. Compare section (landing only) */}
+            {captureForm.template_type === 'landing' && (
+              <div className="space-y-3 p-4 rounded-xl border border-border bg-muted/30">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Seção de Comparação</Label>
+                    <p className="text-xs text-muted-foreground">Comparar Seguro Tradicional vs Top Brasil</p>
+                  </div>
+                  <Switch checked={captureForm.compare_enabled} onCheckedChange={(v) => setCaptureForm({ ...captureForm, compare_enabled: v })} />
+                </div>
+                {captureForm.compare_enabled && (
+                  <div className="space-y-3 mt-4">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Título da Seção</Label>
+                      <Input value={captureForm.compare_title} onChange={(e) => setCaptureForm({ ...captureForm, compare_title: e.target.value })} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs font-semibold text-red-500">✗ Seguro Tradicional</Label>
+                        <textarea
+                          value={captureForm.compare_traditional_items.join('\n')}
+                          onChange={(e) => setCaptureForm({ ...captureForm, compare_traditional_items: e.target.value.split('\n') })}
+                          className="w-full h-32 p-2 rounded-md border border-input bg-background text-sm resize-none"
+                          placeholder="Item 1\nItem 2"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs font-semibold text-green-500">✓ Top Brasil</Label>
+                        <textarea
+                          value={captureForm.compare_topbrasil_items.join('\n')}
+                          onChange={(e) => setCaptureForm({ ...captureForm, compare_topbrasil_items: e.target.value.split('\n') })}
+                          className="w-full h-32 p-2 rounded-md border border-input bg-background text-sm resize-none"
+                          placeholder="Item 1\nItem 2"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 7. Gallery config (landing only) */}
             {captureForm.template_type === 'landing' && (
               <div className="space-y-3 p-4 rounded-xl border border-border bg-muted/30">
                 <div className="space-y-2">
@@ -434,7 +636,6 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
                     <Label>Mídias da Galeria (Imagens ou Vídeos)</Label>
                     <p className="text-xs text-muted-foreground">Até 6 mídias. Suporta imagens (múltiplas de uma vez), vídeos do computador ou links do YouTube.</p>
                     <div className="flex flex-wrap gap-2">
-                      {/* Multi-image upload */}
                       <Button type="button" variant="outline" size="sm" onClick={() => {
                         const input = document.createElement('input');
                         input.type = 'file'; input.accept = 'image/*'; input.multiple = true;
@@ -461,7 +662,6 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
                       }} disabled={captureForm.gallery_images.length >= 6}>
                         <Image className="w-4 h-4 mr-1" /> Imagens ({captureForm.gallery_images.filter(i => i.type !== 'video').length})
                       </Button>
-                      {/* Video file upload */}
                       <Button type="button" variant="outline" size="sm" onClick={() => {
                         const input = document.createElement('input');
                         input.type = 'file'; input.accept = 'video/mp4,video/webm,video/ogg';
@@ -484,7 +684,6 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
                         <Upload className="w-4 h-4 mr-1" /> Vídeo do PC
                       </Button>
                     </div>
-                    {/* YouTube link input */}
                     <div className="flex gap-1">
                       <Input value={videoUrlInput} onChange={(e) => setVideoUrlInput(e.target.value)} placeholder="Link YouTube/Vimeo (opcional)" className="h-[36px] text-xs" />
                       <Button type="button" variant="outline" size="sm" onClick={() => {
@@ -549,185 +748,7 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
               </div>
             )}
 
-            {/* Logo upload (landing only) */}
-            {captureForm.template_type === 'landing' && (
-              <div className="space-y-3 p-4 rounded-xl border border-border bg-muted/30">
-                <Label>Logo da Landing Page</Label>
-                <input ref={logoInputRef} type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
-                {captureForm.logo_image ? (
-                  <div className="flex items-center gap-3">
-                    <img src={captureForm.logo_image} alt="Logo" className="h-16 w-auto object-contain bg-black/50 p-2 rounded-lg border border-border" />
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => logoInputRef.current?.click()} disabled={uploadingLogo}>
-                        {uploadingLogo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => setCaptureForm({ ...captureForm, logo_image: '' })}>
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <Button variant="outline" onClick={() => logoInputRef.current?.click()} disabled={uploadingLogo} className="w-full">
-                    {uploadingLogo ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
-                    Enviar Logo
-                  </Button>
-                )}
-              </div>
-            )}
-
-            {/* Compare section (landing only) */}
-            {captureForm.template_type === 'landing' && (
-              <div className="space-y-3 p-4 rounded-xl border border-border bg-muted/30">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label>Seção de Comparação</Label>
-                    <p className="text-xs text-muted-foreground">Comparar Seguro Tradicional vs Top Brasil</p>
-                  </div>
-                  <Switch checked={captureForm.compare_enabled} onCheckedChange={(v) => setCaptureForm({ ...captureForm, compare_enabled: v })} />
-                </div>
-                {captureForm.compare_enabled && (
-                  <div className="space-y-3 mt-4">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Título da Seção</Label>
-                      <Input value={captureForm.compare_title} onChange={(e) => setCaptureForm({ ...captureForm, compare_title: e.target.value })} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label className="text-xs font-semibold text-red-500">✗ Seguro Tradicional</Label>
-                        <textarea
-                          value={captureForm.compare_traditional_items.join('\n')}
-                          onChange={(e) => setCaptureForm({ ...captureForm, compare_traditional_items: e.target.value.split('\n') })}
-                          className="w-full h-32 p-2 rounded-md border border-input bg-background text-sm resize-none"
-                          placeholder="Item 1\nItem 2"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-xs font-semibold text-green-500">✓ Top Brasil</Label>
-                        <textarea
-                          value={captureForm.compare_topbrasil_items.join('\n')}
-                          onChange={(e) => setCaptureForm({ ...captureForm, compare_topbrasil_items: e.target.value.split('\n') })}
-                          className="w-full h-32 p-2 rounded-md border border-input bg-background text-sm resize-none"
-                          placeholder="Item 1\nItem 2"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Link editável com prefixo fixo */}
-            <div className="space-y-2">
-              <Label>Link da Página de Captura</Label>
-              <div className="flex items-center rounded-md border border-input bg-background overflow-hidden">
-                <span className="px-3 py-2 text-xs text-muted-foreground bg-muted border-r border-input whitespace-nowrap select-all">
-                  {linkPrefix}
-                </span>
-                <input
-                  value={linkSuffix}
-                  onChange={(e) => setLinkSuffix(e.target.value)}
-                  className="flex-1 px-3 py-2 text-xs font-mono bg-transparent outline-none text-foreground min-w-0"
-                  placeholder="seu-slug?utm_source=facebook"
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm"
-                  onClick={() => { navigator.clipboard.writeText(fullLink); toast.success('Link copiado!'); }}>
-                  <Copy className="w-4 h-4 mr-2" />Copiar
-                </Button>
-                <Button variant="outline" size="sm"
-                  onClick={() => window.open(fullLink, '_blank')}>
-                  <ExternalLink className="w-4 h-4 mr-2" />Abrir
-                </Button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Título</Label>
-              <Input value={captureForm.title} onChange={(e) => setCaptureForm({ ...captureForm, title: e.target.value })} maxLength={200} />
-            </div>
-            <div className="space-y-2">
-              <Label>Subtítulo</Label>
-              <Input value={captureForm.subtitle} onChange={(e) => setCaptureForm({ ...captureForm, subtitle: e.target.value })} maxLength={500} />
-            </div>
-            <div className="space-y-2">
-              <Label>Texto do Botão</Label>
-              <Input value={captureForm.button_text} onChange={(e) => setCaptureForm({ ...captureForm, button_text: e.target.value })} maxLength={50} />
-            </div>
-            <div className="space-y-2">
-              <Label>Cor do Botão</Label>
-              <div className="flex items-center gap-3">
-                <input type="color" value={captureForm.button_color} onChange={(e) => setCaptureForm({ ...captureForm, button_color: e.target.value })}
-                  className="w-10 h-10 rounded cursor-pointer border border-border" />
-                <Input value={captureForm.button_color} onChange={(e) => setCaptureForm({ ...captureForm, button_color: e.target.value })}
-                  className="font-mono w-32" maxLength={7} />
-              </div>
-            </div>
-
-            {/* Image upload */}
-            <div className="space-y-2">
-              <Label>Imagem Hero (opcional)</Label>
-              <input ref={heroInputRef} type="file" accept="image/*" onChange={handleHeroUpload} className="hidden" />
-              {captureForm.hero_image ? (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <img src={captureForm.hero_image} alt="Hero" className="w-16 h-16 object-cover rounded-lg border border-border" />
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => heroInputRef.current?.click()} disabled={uploadingHero}>
-                        {uploadingHero ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => setCaptureForm({ ...captureForm, hero_image: '' })}>
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  {/* Image config selects */}
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Tamanho</Label>
-                      <Select value={captureForm.hero_image_size} onValueChange={(v) => setCaptureForm({ ...captureForm, hero_image_size: v })}>
-                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="small">Pequeno</SelectItem>
-                          <SelectItem value="medium">Médio</SelectItem>
-                          <SelectItem value="large">Grande</SelectItem>
-                          <SelectItem value="full">Largura total</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Posição</Label>
-                      <Select value={captureForm.hero_image_position} onValueChange={(v) => setCaptureForm({ ...captureForm, hero_image_position: v })}>
-                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="top">Topo</SelectItem>
-                          <SelectItem value="left">Lateral</SelectItem>
-                          <SelectItem value="background">Fundo</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Formato</Label>
-                      <Select value={captureForm.hero_image_shape} onValueChange={(v) => setCaptureForm({ ...captureForm, hero_image_shape: v })}>
-                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="rounded">Arredondado</SelectItem>
-                          <SelectItem value="circle">Circular</SelectItem>
-                          <SelectItem value="square">Quadrado</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <Button variant="outline" onClick={() => heroInputRef.current?.click()} disabled={uploadingHero} className="w-full">
-                  {uploadingHero ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
-                  Enviar imagem
-                </Button>
-              )}
-            </div>
-
-            {/* Redirect type */}
+            {/* 8. Redirect type */}
             <div className="space-y-2">
               <Label>Redirecionamento após envio</Label>
               <Select value={captureForm.redirect_type} onValueChange={(v) => setCaptureForm({ ...captureForm, redirect_type: v })}>
@@ -766,7 +787,7 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
               </div>
             )}
 
-            {/* Email toggle */}
+            {/* Email toggle (standard only) */}
             {captureForm.template_type === 'standard' && (
               <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                 <div>
@@ -780,7 +801,7 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
               </div>
             )}
 
-            {/* Custom Questions Editor */}
+            {/* Custom Questions (standard only) */}
             {captureForm.template_type === 'standard' && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -873,7 +894,6 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
                     </div>
                   </div>
 
-                  {/* Choice options */}
                   {q.type === 'choice' && (
                     <div className="pl-2 space-y-1.5">
                       <Label className="text-xs">Opções</Label>
