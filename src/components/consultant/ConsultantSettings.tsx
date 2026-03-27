@@ -495,10 +495,30 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
                     <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
                       {captureForm.gallery_images.map((img, idx) => (
                         <div key={idx} className="relative group border border-border rounded-lg bg-background p-1 space-y-1">
-                          <button type="button" onClick={() => setCaptureForm(prev => ({ ...prev, gallery_images: prev.gallery_images.filter((_, i) => i !== idx) }))}
-                            className="absolute z-10 top-2 right-2 w-6 h-6 rounded-full bg-destructive text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <X className="w-3 h-3" />
-                          </button>
+                          <div className="absolute z-10 top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {idx > 0 && (
+                              <button type="button" onClick={() => {
+                                const updated = [...captureForm.gallery_images];
+                                [updated[idx - 1], updated[idx]] = [updated[idx], updated[idx - 1]];
+                                setCaptureForm(prev => ({ ...prev, gallery_images: updated }));
+                              }} className="w-6 h-6 rounded-full bg-background/90 border border-border text-foreground flex items-center justify-center">
+                                <ArrowUp className="w-3 h-3" />
+                              </button>
+                            )}
+                            {idx < captureForm.gallery_images.length - 1 && (
+                              <button type="button" onClick={() => {
+                                const updated = [...captureForm.gallery_images];
+                                [updated[idx], updated[idx + 1]] = [updated[idx + 1], updated[idx]];
+                                setCaptureForm(prev => ({ ...prev, gallery_images: updated }));
+                              }} className="w-6 h-6 rounded-full bg-background/90 border border-border text-foreground flex items-center justify-center">
+                                <ArrowDown className="w-3 h-3" />
+                              </button>
+                            )}
+                            <button type="button" onClick={() => setCaptureForm(prev => ({ ...prev, gallery_images: prev.gallery_images.filter((_, i) => i !== idx) }))}
+                              className="w-6 h-6 rounded-full bg-destructive text-white flex items-center justify-center">
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
                           {img.type === 'video' ? (
                             img.url.includes('youtube') || img.url.includes('youtu.be') || img.url.includes('vimeo') ? (
                               <div className="w-full aspect-square bg-muted flex items-center justify-center rounded text-xs text-muted-foreground break-all p-2 text-center overflow-hidden">
