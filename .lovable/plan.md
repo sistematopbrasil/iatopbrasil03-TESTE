@@ -1,94 +1,70 @@
 
 
-## Plano: Numerar Perguntas Customizadas + Template 2 "Landing Page WhatsApp"
+## Plano: Corrigir Logo, Melhorar Visual da Landing Page
+
+### Problemas identificados
+
+1. **Logo vai para o lugar da hero image**: No `CapturePage.tsx` (linha 725-727), quando `config.hero_image` existe, renderiza `HeroImage` na hero section. O `HeroImage` component usa `config.hero_image` — logo e hero são campos separados (`logo_image` vs `hero_image`), mas a logo está sobrepondo porque no preview do settings (linha 56) há `{config.hero_image && !config.logo_image && ...}` — quando logo é configurada, a hero desaparece da preview. No CapturePage real, ambos renderizam independentemente, mas a logo (header) + HeroImage (hero section) parecem conflitar visualmente.
+
+2. **Reordenar imagens da galeria**: Não há botões de reordenação para gallery_images (só para custom_questions).
+
+3. **Seção de comparação com R$ ??? e R$ XX**: Precisa remover os preços e redesenhar com a paleta Top Brasil (laranja/preto, não azul).
+
+4. **Preview não reflete a landing page configurada**: Preview é muito simplificada.
+
+5. **Espaçamentos excessivos** e visual geral precisa de polimento.
+
+6. **Logo padrão**: Copiar a imagem enviada como logo default.
 
 ---
 
-### 1. Numerar perguntas customizadas na CapturePage
+### Mudanças
 
-**Problema**: As perguntas customizadas não têm numeração como os campos padrão (nome=1, email=2, telefone=3).
+#### 1. `src/pages/CapturePage.tsx` — Corrigir logo + comparação + visual
 
-**Correção em `CapturePage.tsx`** (linha 716-718): Adicionar o badge numérico (mesmo estilo dos campos padrão) nas perguntas custom. O número começa após o último campo base (phoneStep + 1, phoneStep + 2, etc.).
+**Logo separada da Hero:**
+- Header (linhas 715-721): Logo fica no canto superior esquerdo — OK, já está assim
+- Hero section (linhas 724-727): A hero image renderiza INDEPENDENTE da logo. Manter ambos renderizando. A logo fica no header, a hero image fica na seção hero. Sem conflito.
+- O problema real: quando o usuário configura a logo_image, ela funciona certo no header. Mas o campo `hero_image` do settings é compartilhado — o usuário pode estar colocando a logo no campo de hero_image ao invés do campo logo_image. Verificar se no settings a UI é clara.
 
-**Garantir respostas no lead**: As custom answers já são salvas em `extra_answers` (jsonb) no `quiz_submissions_new`. Precisa verificar que essas respostas aparecem na visualização do lead no painel. Verificar `LeadProfile.tsx` ou `LeadCard.tsx` para exibir `extra_answers`.
+**Seção de comparação — Redesenhar:**
+- Remover `R$ ???` / `R$ XX` / `/mês em média` / `/mês` (linhas 801-824)
+- Usar paleta Top Brasil: card esquerdo = `bg-[#1A1A1A]` (OK), card direito = gradiente laranja `bg-gradient-to-br from-[#EB6608] to-[#D35A07]` ao invés de azul `#002B7A`
+- Badge "Melhor Escolha" em branco/laranja ao invés de dourado/azul
+- Itens positivos em branco (não verde) para combinar com fundo laranja
+- Apenas título do card + lista de itens, sem preços
 
----
+**Espaçamentos:**
+- Reduzir `py-20 md:py-28` para `py-14 md:py-20` nas seções
+- Reduzir `pt-28 pb-28` do hero para `pt-24 pb-16`
+- Reduzir gaps gerais
 
-### 2. Novo template "Landing Page WhatsApp" (Template 2)
+**Visual geral:**
+- Manter animações e glassmorphism
+- Melhorar benefits section com ícones reais (Lucide) ao invés de imagens estáticas que provavelmente não existem em `/benefits/`
 
-**Conceito**: Página curta e direta, estilo landing page com:
-- Seção hero com título/subtítulo
-- Galeria de imagens "antes e depois" (até 6 imagens, configuráveis)
-- Formulário com nome, email (opcional), telefone + perguntas customizáveis
-- Botão CTA que redireciona para WhatsApp
-- Visual moderno com a paleta Top Brasil
+#### 2. `src/components/consultant/ConsultantSettings.tsx`
 
-**Implementação**:
+**Reordenar galeria:**
+- Adicionar botões ArrowUp/ArrowDown em cada item da galeria (mesma lógica das custom_questions, linhas 824-841)
 
-#### 2a. Database: novo campo `template_type` na tabela `capture_page_configs`
+**Logo default:**
+- Copiar imagem enviada para `src/assets/top-brasil-logo.png`
+- Quando `captureForm.logo_image` está vazio e template é landing, mostrar a imagem default (importada)
 
-```sql
-ALTER TABLE public.capture_page_configs 
-  ADD COLUMN template_type text NOT NULL DEFAULT 'standard',
-  ADD COLUMN gallery_images jsonb DEFAULT '[]'::jsonb,
-  ADD COLUMN gallery_title text DEFAULT 'Veja nossos resultados';
-```
+**Preview melhorada:**
+- Atualizar `CapturePagePreview` para refletir melhor a landing page real (mostrar galeria real, comparação com cores corretas)
 
-- `template_type`: `'standard'` (atual) ou `'landing'` (novo)
-- `gallery_images`: Array de `{ url: string, caption?: string }` para as imagens antes/depois
-- `gallery_title`: Título da seção de galeria
-
-#### 2b. `ConsultantSettings.tsx` — Seletor de template
-
-Na aba "Captura", adicionar no topo um **seletor de template** (dois cards clicáveis):
-- **Template 1 — Formulário Simples**: O atual (ícone de formulário)
-- **Template 2 — Landing Page**: O novo (ícone de página web)
-
-Ao selecionar um template, os campos de configuração se adaptam:
-- Template "standard": mostra os campos atuais (título, subtítulo, hero, etc.)
-- Template "landing": mostra os mesmos campos + seção de **Galeria de Imagens** (upload múltiplo, caption, reordenar) + título da galeria
-
-O preview também muda conforme o template selecionado.
-
-As perguntas padrão sugeridas pelo cliente (trabalho CLT, experiência vendas, veículo) vêm **pré-preenchidas** quando o usuário seleciona o template "landing" pela primeira vez, mas são editáveis/removíveis.
-
-#### 2c. `CapturePage.tsx` — Renderizar template "landing"
-
-Quando `config.template_type === 'landing'`, renderizar layout diferente:
-
-1. **Hero Section**: Título grande + subtítulo + CTA scroll-to-form
-2. **Galeria Section**: Grid de imagens (2-3 colunas) com bordas arredondadas e efeito hover
-3. **Formulário Section**: Mesmo sistema de formulário atual (nome, email?, telefone, perguntas custom)
-4. **Footer**: Badge de segurança
-
-Visual: Mesmo estilo glassmorphism + paleta Top Brasil, mas com layout vertical mais longo (scrollável), seções separadas por espaçamento generoso.
-
-#### 2d. Preview no Settings
-
-Criar `CapturePagePreviewLanding` que mostra miniatura do template landing (hero + mini galeria + mini form).
+#### 3. Copiar asset
+- `user-uploads://Cópia_de_Ativo_8.png` → `public/top-brasil-logo.png` para uso como logo padrão
 
 ---
 
-### 3. Exibir `extra_answers` no perfil do lead
+### Arquivos
 
-Verificar e garantir que o `LeadProfile.tsx` ou componente de detalhes do lead mostra as respostas das perguntas customizadas (`extra_answers` do `quiz_submissions_new`).
-
----
-
-### Resumo
-
-| # | O que | Arquivo(s) | Migration |
-|---|-------|-----------|-----------|
-| 1 | Numerar perguntas custom | `CapturePage.tsx` | — |
-| 2a | Campos template | Migration | `template_type`, `gallery_images`, `gallery_title` |
-| 2b | Seletor de template + config | `ConsultantSettings.tsx` | — |
-| 2c | Render template landing | `CapturePage.tsx` | — |
-| 2d | Preview landing | `ConsultantSettings.tsx` | — |
-| 3 | Mostrar extra_answers no lead | `LeadProfile.tsx` | — |
-
-### Perguntas default do template Landing
-Ao selecionar template "landing" pela primeira vez (sem perguntas custom), pré-preencher:
-1. "Você trabalha atualmente com carteira assinada?" → choice: ["Sim", "Não, sou autônomo", "Estou sem emprego no momento"]
-2. "Você já teve alguma experiência com vendas?" → choice: ["Sim, já trabalhei com vendas", "Nunca trabalhei mas tenho interesse", "Não tenho experiência e não sei se é pra mim"]
-3. "Você tem veículo próprio?" → choice: ["Sim, carro", "Sim, moto", "Não tenho"]
+| Arquivo | Mudança |
+|---------|---------|
+| `public/top-brasil-logo.png` | Logo padrão copiada do upload |
+| `src/pages/CapturePage.tsx` | Redesenhar comparação (remover preços, paleta laranja), ajustar espaçamentos, benefits com ícones Lucide, garantir logo e hero independentes |
+| `src/components/consultant/ConsultantSettings.tsx` | Adicionar reordenação de galeria, logo default, preview melhorada |
 
