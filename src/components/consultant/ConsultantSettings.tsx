@@ -449,9 +449,9 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
                     const newForm = { ...captureForm, template_type: 'landing' as const };
                     if (captureForm.template_type !== 'landing' && captureForm.custom_questions.length === 0) {
                       newForm.custom_questions = [
-                        { question: 'Você trabalha atualmente com carteira assinada?', type: 'choice', required: true, options: ['Sim', 'Não, sou autônomo', 'Estou sem emprego no momento'] },
-                        { question: 'Você já teve alguma experiência com vendas?', type: 'choice', required: true, options: ['Sim, já trabalhei com vendas', 'Nunca trabalhei mas tenho interesse', 'Não tenho experiência e não sei se é pra mim'] },
-                        { question: 'Você tem veículo próprio?', type: 'choice', required: true, options: ['Sim, carro', 'Sim, moto', 'Não tenho'] },
+                        { question: 'Seu veículo tem proteção hoje?', type: 'choice', required: true, options: ['Não tenho nenhuma proteção', 'Tenho mas quero comparar', 'Estou pesquisando opções'] },
+                        { question: 'Qual é o ano do seu veículo?', type: 'choice', required: true, options: ['2020 ou mais novo', '2015 a 2019', '2010 a 2014', 'Antes de 2010'] },
+                        { question: 'Qual sua maior preocupação com seu veículo?', type: 'choice', required: true, options: ['Roubo ou furto', 'Colisão e danos', 'Pane e assistência', 'Quero proteção completa'] },
                       ];
                     }
                     setCaptureForm(newForm);
