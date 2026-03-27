@@ -815,7 +815,7 @@ export default function CapturePage() {
                     <div className="absolute top-0 right-3 sm:right-4 -translate-y-1/2">
                       <span className="bg-white text-[9px] sm:text-[10px] font-extrabold px-3 py-1.5 rounded-full uppercase tracking-widest shadow-lg" style={{ color: config.button_color }}>Melhor Escolha</span>
                     </div>
-                    <p className="text-white/80 text-[10px] sm:text-xs font-semibold tracking-widest uppercase mb-5">Top Brasil</p>
+                    <p className="text-white/80 text-[10px] sm:text-xs font-semibold tracking-widest uppercase mb-5">✓ Melhor Escolha — Top Brasil</p>
                     <ul className="space-y-3">
                       {(config.compare_topbrasil_items || []).map((item: string, i: number) => (
                         <li key={i} className="flex gap-3 text-white text-sm sm:text-base items-center font-medium">
