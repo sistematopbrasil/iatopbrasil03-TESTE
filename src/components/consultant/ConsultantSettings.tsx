@@ -352,6 +352,8 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
         gallery_images: captureForm.gallery_images,
         gallery_title: captureForm.gallery_title,
         logo_image: captureForm.logo_image || null,
+        logo_position: captureForm.logo_position,
+        logo_size: captureForm.logo_size,
         compare_enabled: captureForm.compare_enabled,
         compare_title: captureForm.compare_title,
         compare_traditional_items: captureForm.compare_traditional_items.filter(Boolean),
