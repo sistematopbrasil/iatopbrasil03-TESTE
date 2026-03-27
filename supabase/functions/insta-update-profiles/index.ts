@@ -130,7 +130,7 @@ async function processBatch(profiles: any[], supabase: any, apifyKey: string, bu
         followers: followerCount,
         dailyChange,
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error(`Error processing ${profile.username}:`, err);
       results.push({ username: profile.username, status: "error", error: err.message });
     }
