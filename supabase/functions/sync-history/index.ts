@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
         });
         const data = await res.json();
         results.push({ ad_account_id: acc.ad_account_id, ...data });
-      } catch (e) {
+      } catch (e: any) {
         results.push({ ad_account_id: acc.ad_account_id, error: e.message });
       }
     }
