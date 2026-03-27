@@ -208,6 +208,8 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
     gallery_images: [] as Array<{ type?: 'image' | 'video'; url: string; caption?: string }>,
     gallery_title: 'Veja nossos resultados',
     logo_image: '',
+    logo_position: 'left',
+    logo_size: 'medium',
     compare_enabled: false,
     compare_title: 'Por que pagar caro no seguro se você pode pagar muito menos?',
     compare_traditional_items: [
