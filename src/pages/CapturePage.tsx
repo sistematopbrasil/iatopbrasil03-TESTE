@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useMetaPixel } from '@/hooks/useMetaPixel';
 import { createPortal } from 'react-dom';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -58,6 +59,7 @@ interface ConsultantData {
   full_name: string;
   organization_id: string;
   whatsapp_button_url: string | null;
+  pixel_id: string | null;
 }
 
 const DEFAULT_CONFIG: CaptureConfig = {
@@ -441,6 +443,8 @@ export default function CapturePage() {
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0]); // Brasil
 
+  const { trackEvent } = useMetaPixel({ pixelId: consultant?.pixel_id });
+
   useEffect(() => { if (slug) loadData(); }, [slug]);
 
   const loadData = async () => {
@@ -452,6 +456,7 @@ export default function CapturePage() {
         id: consultantData.id, full_name: consultantData.full_name,
         organization_id: consultantData.organization_id,
         whatsapp_button_url: consultantData.whatsapp_button_url,
+        pixel_id: consultantData.pixel_id,
       });
 
       const { data: captureConfig } = await supabase
@@ -574,6 +579,7 @@ export default function CapturePage() {
         stage: 'novo', temperature: 'cold', lead_score: 0,
         extra_answers: Object.keys(extra_answers).length > 0 ? extra_answers : null,
       } as any);
+      trackEvent('Lead', { content_name: consultant.full_name, content_category: 'capture' });
       setSubmitted(true);
     } catch (error) {
       console.error('Erro ao enviar:', error);
