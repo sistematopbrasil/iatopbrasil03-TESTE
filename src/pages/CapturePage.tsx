@@ -632,13 +632,13 @@ export default function CapturePage() {
         // Native video (uploaded file)
         if (!isYouTubeOrVimeo(img.url)) {
           return (
-            <div key={idx} className="lp-reveal group relative overflow-hidden rounded-3xl border border-white/5 bg-[#0a0a0a] shadow-2xl transition-all duration-500 hover:border-white/20 hover:-translate-y-1 mx-auto w-full">
+            <div key={idx} className="lp-reveal group relative overflow-hidden rounded-3xl border border-white/5 bg-[#0a0a0a] transition-all duration-500 hover:border-white/20 hover:shadow-2xl hover:scale-[1.02]">
               <video
                 src={img.url}
                 controls
                 playsInline
                 preload="metadata"
-                className="w-full aspect-video object-cover rounded-3xl"
+                className="w-full aspect-video sm:aspect-square object-cover transition-transform duration-700 group-hover:scale-105"
                 style={{ background: '#000' }}
               />
               {img.caption && (

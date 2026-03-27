@@ -846,8 +846,8 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
               </div>
             )}
 
-            {/* Custom Questions (standard only) */}
-            {captureForm.template_type === 'standard' && (
+            {/* Custom Questions */}
+            {(
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
