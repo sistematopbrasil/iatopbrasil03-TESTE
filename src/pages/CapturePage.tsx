@@ -443,6 +443,8 @@ export default function CapturePage() {
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0]); // Brasil
 
+  const { trackEvent } = useMetaPixel({ pixelId: consultant?.pixel_id });
+
   useEffect(() => { if (slug) loadData(); }, [slug]);
 
   const loadData = async () => {
