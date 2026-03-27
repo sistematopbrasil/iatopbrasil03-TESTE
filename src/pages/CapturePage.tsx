@@ -226,9 +226,9 @@ function HeroImage({ config }: { config: CaptureConfig }) {
   if (!config.hero_image || config.hero_image_position === 'background') return null;
 
   const sizeMap: Record<string, string> = {
-    small: 'w-20 h-20',
-    medium: 'w-40 h-40',
-    large: 'w-full max-w-md h-auto',
+    small: 'w-32 h-32',
+    medium: 'w-56 h-56',
+    large: 'w-full max-w-sm h-auto',
     full: 'w-full h-auto',
   };
   const shapeMap: Record<string, string> = {
@@ -771,17 +771,9 @@ export default function CapturePage() {
           {/* Benefits Section */}
           <section className="px-5 sm:px-10 pb-14 md:pb-20 max-w-5xl mx-auto w-full">
             <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-6 gap-3 sm:gap-5">
-              {[
-                { img: '/benefits/benefit-1.png', label: 'Proteção Furto e Roubo' },
-                { img: '/benefits/benefit-2.png', label: 'Assistência 24h por dia' },
-                { img: '/benefits/benefit-3.png', label: 'Reparo em Colisão' },
-                { img: '/benefits/benefit-4.png', label: 'Reboque ilimitado para colisão' },
-                { img: '/benefits/benefit-5.png', label: 'SPC e Serasa sem consulta' },
-                { img: '/benefits/benefit-6.png', label: 'Carro reserva' },
-              ].map((benefit, idx) => (
-                <div key={idx} className="lp-reveal flex flex-col items-center gap-3 group p-3 sm:p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:border-white/[0.15] transition-all duration-500 hover:-translate-y-1" style={{ transitionDelay: `${idx * 0.08}s` }}>
-                  <img src={benefit.img} alt={benefit.label} className="w-10 h-10 sm:w-12 sm:h-12 object-contain" />
-                  <span className="text-[10px] sm:text-xs text-gray-300 font-medium text-center leading-tight">{benefit.label}</span>
+              {[1,2,3,4,5,6].map((num, idx) => (
+                <div key={idx} className="lp-reveal flex items-center justify-center group p-3 sm:p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:border-white/[0.15] transition-all duration-500 hover:-translate-y-1" style={{ transitionDelay: `${idx * 0.08}s` }}>
+                  <img src={`/benefits/benefit-${num}.png`} alt={`Benefício ${num}`} className="w-16 h-16 sm:w-20 sm:h-20 object-contain" />
                 </div>
               ))}
             </div>

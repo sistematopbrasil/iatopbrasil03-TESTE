@@ -63,9 +63,13 @@ function CapturePagePreview({ config }: { config: any }) {
 
         {/* Hero */}
         <div className="relative flex flex-col items-center justify-center px-4 py-10 text-center gap-4">
-          {config.hero_image && (
-            <img src={config.hero_image} alt="Hero" className="w-16 h-16 object-cover rounded-full border border-white/20 mb-2" />
-          )}
+          {config.hero_image && (() => {
+            const prevSizeMap: Record<string, string> = { small: 'w-12 h-12', medium: 'w-20 h-20', large: 'w-32 h-auto', full: 'w-full h-auto' };
+            const prevShapeMap: Record<string, string> = { rounded: 'rounded-xl', circle: 'rounded-full', square: 'rounded-none' };
+            const sizeClass = prevSizeMap[config.hero_image_size || 'medium'] || prevSizeMap.medium;
+            const shapeClass = prevShapeMap[config.hero_image_shape || 'rounded'] || prevShapeMap.rounded;
+            return <img src={config.hero_image} alt="Hero" className={cn(sizeClass, shapeClass, "object-cover border border-white/20 mb-2")} />;
+          })()}
           <h3 className="text-lg font-extrabold text-white leading-tight max-w-[250px]">{config.title || 'Título Hero'}</h3>
           <p className="text-xs text-gray-400 max-w-[220px] leading-relaxed line-clamp-3">{config.subtitle || 'Subtítulo descritivo'}</p>
           <button className="px-6 py-2.5 mt-2 rounded-full text-xs text-white font-bold" style={{ backgroundColor: btnColor, boxShadow: `0 4px 15px -4px ${btnColor}` }}>
