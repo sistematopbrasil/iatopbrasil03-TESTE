@@ -226,9 +226,9 @@ function HeroImage({ config }: { config: CaptureConfig }) {
   if (!config.hero_image || config.hero_image_position === 'background') return null;
 
   const sizeMap: Record<string, string> = {
-    small: 'w-20 h-20',
-    medium: 'w-40 h-40',
-    large: 'w-full max-w-md h-auto',
+    small: 'w-32 h-32',
+    medium: 'w-56 h-56',
+    large: 'w-full max-w-sm h-auto',
     full: 'w-full h-auto',
   };
   const shapeMap: Record<string, string> = {
