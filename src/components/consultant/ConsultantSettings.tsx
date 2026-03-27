@@ -45,15 +45,13 @@ function CapturePagePreview({ config }: { config: any }) {
         <div className="absolute inset-0 bg-gradient-to-br from-[#EB6608]/10 via-transparent to-[#EB6608]/5 pointer-events-none" />
         
         {/* Header Logo */}
-        {config.logo_image && (
-          <div className="relative flex justify-center py-4 px-4 border-b border-white/5 bg-black/40 backdrop-blur-md">
-            <img src={config.logo_image} alt="Logo" className="h-10 w-auto object-contain" />
-          </div>
-        )}
+        <div className="relative flex justify-center py-4 px-4 border-b border-white/5 bg-black/40 backdrop-blur-md">
+          <img src={config.logo_image || '/top-brasil-logo.png'} alt="Logo" className="h-10 w-auto object-contain" />
+        </div>
 
         {/* Hero */}
         <div className="relative flex flex-col items-center justify-center px-4 py-10 text-center gap-4">
-          {config.hero_image && !config.logo_image && (
+          {config.hero_image && (
             <img src={config.hero_image} alt="Hero" className="w-16 h-16 object-cover rounded-full border border-white/20 mb-2" />
           )}
           <h3 className="text-lg font-extrabold text-white leading-tight max-w-[250px]">{config.title || 'Título Hero'}</h3>
@@ -79,16 +77,16 @@ function CapturePagePreview({ config }: { config: any }) {
           <div className="relative px-4 py-8 bg-white/[0.02] border-t border-white/[0.05] space-y-4">
             <p className="text-xs font-bold text-white text-center">{config.compare_title || 'Comparativo'}</p>
             <div className="flex flex-col gap-3">
-              <div className="rounded-xl bg-red-500/5 border border-red-500/15 p-3 space-y-2">
-                <p className="text-[10px] font-bold text-red-400 flex items-center gap-1"><span>✗</span> Seguro Tradicional</p>
+              <div className="rounded-xl bg-[#1A1A1A] border border-white/10 p-3 space-y-2">
+                <p className="text-[10px] font-bold text-gray-400 flex items-center gap-1"><span className="text-red-400/60">✗</span> Seguro Tradicional</p>
                 {(config.compare_traditional_items || []).slice(0, 3).map((item: string, i: number) => (
                   <p key={i} className="text-[9px] text-gray-500 flex items-start gap-1"><span className="text-red-400/50">✗</span><span className="truncate">{item}</span></p>
                 ))}
               </div>
-              <div className="rounded-xl border p-3 space-y-2" style={{ borderColor: `${btnColor}50`, background: `linear-gradient(135deg, ${btnColor}15, ${btnColor}05)` }}>
-                <p className="text-[10px] font-bold text-white flex items-center gap-1"><span style={{ color: btnColor }}>✓</span> Top Brasil</p>
+              <div className="rounded-xl p-3 space-y-2" style={{ background: `linear-gradient(135deg, ${btnColor}, ${btnColor}DD)` }}>
+                <p className="text-[10px] font-bold text-white flex items-center gap-1"><span>✓</span> Top Brasil</p>
                 {(config.compare_topbrasil_items || []).slice(0, 3).map((item: string, i: number) => (
-                  <p key={i} className="text-[9px] text-white flex items-start gap-1"><span style={{ color: btnColor }}>✓</span><span className="truncate">{item}</span></p>
+                  <p key={i} className="text-[9px] text-white flex items-start gap-1"><span>✓</span><span className="truncate">{item}</span></p>
                 ))}
               </div>
             </div>
@@ -497,10 +495,30 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
                     <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
                       {captureForm.gallery_images.map((img, idx) => (
                         <div key={idx} className="relative group border border-border rounded-lg bg-background p-1 space-y-1">
-                          <button type="button" onClick={() => setCaptureForm(prev => ({ ...prev, gallery_images: prev.gallery_images.filter((_, i) => i !== idx) }))}
-                            className="absolute z-10 top-2 right-2 w-6 h-6 rounded-full bg-destructive text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <X className="w-3 h-3" />
-                          </button>
+                          <div className="absolute z-10 top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {idx > 0 && (
+                              <button type="button" onClick={() => {
+                                const updated = [...captureForm.gallery_images];
+                                [updated[idx - 1], updated[idx]] = [updated[idx], updated[idx - 1]];
+                                setCaptureForm(prev => ({ ...prev, gallery_images: updated }));
+                              }} className="w-6 h-6 rounded-full bg-background/90 border border-border text-foreground flex items-center justify-center">
+                                <ArrowUp className="w-3 h-3" />
+                              </button>
+                            )}
+                            {idx < captureForm.gallery_images.length - 1 && (
+                              <button type="button" onClick={() => {
+                                const updated = [...captureForm.gallery_images];
+                                [updated[idx], updated[idx + 1]] = [updated[idx + 1], updated[idx]];
+                                setCaptureForm(prev => ({ ...prev, gallery_images: updated }));
+                              }} className="w-6 h-6 rounded-full bg-background/90 border border-border text-foreground flex items-center justify-center">
+                                <ArrowDown className="w-3 h-3" />
+                              </button>
+                            )}
+                            <button type="button" onClick={() => setCaptureForm(prev => ({ ...prev, gallery_images: prev.gallery_images.filter((_, i) => i !== idx) }))}
+                              className="w-6 h-6 rounded-full bg-destructive text-white flex items-center justify-center">
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
                           {img.type === 'video' ? (
                             img.url.includes('youtube') || img.url.includes('youtu.be') || img.url.includes('vimeo') ? (
                               <div className="w-full aspect-square bg-muted flex items-center justify-center rounded text-xs text-muted-foreground break-all p-2 text-center overflow-hidden">

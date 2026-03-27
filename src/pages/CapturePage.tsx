@@ -712,18 +712,16 @@ export default function CapturePage() {
 
         <div className="relative z-10">
           {/* Header */}
-          {config.logo_image && (
-            <header className="absolute top-0 inset-x-0 z-50 px-5 sm:px-10 py-6 pointer-events-none lp-logo">
-              <div className="max-w-7xl mx-auto w-full flex justify-center sm:justify-start">
-                <img src={config.logo_image} alt="Logo" className="h-10 sm:h-14 w-auto object-contain pointer-events-auto" />
-              </div>
-            </header>
-          )}
+          <header className="absolute top-0 inset-x-0 z-50 px-5 sm:px-10 py-5 pointer-events-none lp-logo">
+            <div className="max-w-7xl mx-auto w-full flex justify-center sm:justify-start">
+              <img src={config.logo_image || '/top-brasil-logo.png'} alt="Logo" className="h-9 sm:h-12 w-auto object-contain pointer-events-auto drop-shadow-lg" />
+            </div>
+          </header>
 
           {/* Hero Section */}
-          <section className="relative flex flex-col items-center px-5 pt-28 pb-28 md:pt-36 md:pb-36 text-center max-w-5xl mx-auto mt-4 sm:mt-10">
+          <section className="relative flex flex-col items-center px-5 pt-24 pb-16 md:pt-32 md:pb-24 text-center max-w-5xl mx-auto">
             {config.hero_image && (
-              <div className="mb-8 lp-logo"><HeroImage config={config} /></div>
+              <div className="mb-6 lp-logo"><HeroImage config={config} /></div>
             )}
             <div className="lp-reveal mb-6 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[10px] sm:text-xs font-semibold text-gray-300 tracking-wider uppercase">
               <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full" style={{ backgroundColor: config.button_color, boxShadow: `0 0 10px ${config.button_color}` }} />
@@ -759,54 +757,50 @@ export default function CapturePage() {
           </section>
 
           {/* Benefits Section */}
-          <section className="px-5 sm:px-10 pb-20 md:pb-28 max-w-6xl mx-auto w-full">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6 sm:gap-8 items-start">
+          <section className="px-5 sm:px-10 pb-14 md:pb-20 max-w-5xl mx-auto w-full">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 sm:gap-6">
               {[
-                { img: '/benefits/benefit-1.png', alt: 'Proteção Furto e Roubo' },
-                { img: '/benefits/benefit-2.png', alt: 'Assistência 24h' },
-                { img: '/benefits/benefit-3.png', alt: 'Reparo Colisão' },
-                { img: '/benefits/benefit-4.png', alt: 'Reboque Ilimitado' },
-                { img: '/benefits/benefit-5.png', alt: 'SPC e Serasa' }
-              ].map((benefit, idx) => (
-                <div key={idx} className="lp-reveal flex flex-col items-center group" style={{ transitionDelay: `${idx * 0.1}s` }}>
-                  <img src={benefit.img} alt={benefit.alt} className="w-full max-w-[140px] sm:max-w-[180px] aspect-square object-contain filter hover:brightness-110 transition-all duration-500 group-hover:-translate-y-2 group-hover:scale-105" />
-                </div>
-              ))}
+                { icon: Shield, label: 'Proteção Furto e Roubo' },
+                { icon: Phone, label: 'Assistência 24h' },
+                { icon: Check, label: 'Reparo Colisão' },
+                { icon: Lock, label: 'Reboque Ilimitado' },
+                { icon: User, label: 'Sem Consulta SPC/Serasa' },
+              ].map((benefit, idx) => {
+                const Icon = benefit.icon;
+                return (
+                  <div key={idx} className="lp-reveal flex flex-col items-center gap-3 group p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:border-white/[0.15] transition-all duration-500 hover:-translate-y-1" style={{ transitionDelay: `${idx * 0.08}s` }}>
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${config.button_color}20` }}>
+                      <Icon className="w-6 h-6" style={{ color: config.button_color }} />
+                    </div>
+                    <span className="text-[11px] sm:text-xs text-gray-300 font-medium text-center leading-tight">{benefit.label}</span>
+                  </div>
+                );
+              })}
             </div>
           </section>
 
           {/* Compare Section */}
           {config.compare_enabled && (
-            <section className="px-4 sm:px-6 py-20 md:py-28 max-w-5xl mx-auto w-full">
-              <div className="space-y-10 md:space-y-14">
-                <div className="text-left space-y-4 max-w-3xl">
-                  <p className="lp-reveal text-gray-400 text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase">Proteção que cabe no bolso</p>
-                  <h2 className="lp-reveal text-3xl sm:text-4xl md:text-5xl font-bold text-white leading-[1.15]">
-                    {config.compare_title.includes('muito menos') ? (
-                      config.compare_title.split('muito menos').map((part: string, i: number, arr: any[]) => 
-                        <span key={i}>{part}{i < arr.length - 1 && <span className="text-[#00E05E]">muito menos</span>}</span>
-                      )
-                    ) : (
-                      config.compare_title
-                    )}
+            <section className="px-4 sm:px-6 py-14 md:py-20 max-w-5xl mx-auto w-full">
+              <div className="space-y-8 md:space-y-10">
+                <div className="text-left space-y-3 max-w-3xl">
+                  <p className="lp-reveal text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase" style={{ color: config.button_color }}>Proteção que cabe no bolso</p>
+                  <h2 className="lp-reveal text-2xl sm:text-3xl md:text-4xl font-bold text-white leading-[1.15]">
+                    {config.compare_title}
                   </h2>
-                  <p className="lp-reveal text-gray-400 text-sm sm:text-base leading-relaxed max-w-2xl mt-4">
+                  <p className="lp-reveal text-gray-400 text-sm sm:text-base leading-relaxed max-w-2xl">
                     Seguro tradicional cobra até 3x mais pela mesma proteção. Com a Top Brasil você protege seu veículo com um valor justo — e sem consulta de crédito.
                   </p>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-4 lg:gap-6">
+                <div className="grid md:grid-cols-2 gap-4 lg:gap-5">
                   {/* Tradicional */}
-                  <div className="lp-reveal lp-reveal-d1 bg-[#1A1A1A] rounded-2xl p-6 sm:p-8 space-y-6">
-                    <div className="space-y-1">
-                      <p className="text-gray-400 text-[10px] sm:text-xs font-semibold tracking-widest uppercase">Seguro Tradicional</p>
-                      <h3 className="text-4xl sm:text-5xl font-bold text-gray-300 tracking-tight">R$ ???</h3>
-                      <p className="text-gray-500 text-xs sm:text-sm">/mês em média</p>
-                    </div>
-                    <ul className="space-y-3 pt-6">
+                  <div className="lp-reveal lp-reveal-d1 bg-[#1A1A1A] rounded-2xl p-6 sm:p-8">
+                    <p className="text-gray-500 text-[10px] sm:text-xs font-semibold tracking-widest uppercase mb-5">Seguro Tradicional</p>
+                    <ul className="space-y-3">
                       {(config.compare_traditional_items || []).map((item: string, i: number) => (
                         <li key={i} className="flex gap-3 text-gray-400 text-sm sm:text-base items-center">
-                          <X className="w-4 h-4 text-gray-500 shrink-0" />
+                          <X className="w-4 h-4 text-red-400/60 shrink-0" />
                           <span>{item}</span>
                         </li>
                       ))}
@@ -814,18 +808,15 @@ export default function CapturePage() {
                   </div>
 
                   {/* Top Brasil */}
-                  <div className="lp-reveal lp-reveal-d2 bg-[#002B7A] rounded-2xl p-6 sm:p-8 space-y-6 relative border border-transparent hover:border-blue-400/30 transition-colors shadow-2xl">
-                    <div className="absolute top-0 right-0 transform translate-x-1 sm:translate-x-2 -translate-y-1/2">
-                      <span className="bg-[#FFD700] text-[#00266B] text-[9px] sm:text-[10px] font-extrabold px-3 py-1.5 rounded uppercase tracking-widest shadow-lg">Melhor Escolha</span>
+                  <div className="lp-reveal lp-reveal-d2 rounded-2xl p-6 sm:p-8 relative shadow-2xl border border-white/10 hover:border-white/20 transition-colors"
+                    style={{ background: `linear-gradient(135deg, ${config.button_color}, ${config.button_color}DD)` }}>
+                    <div className="absolute top-0 right-3 sm:right-4 -translate-y-1/2">
+                      <span className="bg-white text-[9px] sm:text-[10px] font-extrabold px-3 py-1.5 rounded-full uppercase tracking-widest shadow-lg" style={{ color: config.button_color }}>Melhor Escolha</span>
                     </div>
-                    <div className="space-y-1">
-                      <p className="text-blue-200/80 text-[10px] sm:text-xs font-semibold tracking-widest uppercase">Top Brasil</p>
-                      <h3 className="text-4xl sm:text-5xl font-bold text-[#FFD700] tracking-tight">R$ XX</h3>
-                      <p className="text-blue-200/80 text-xs sm:text-sm">/mês</p>
-                    </div>
-                    <ul className="space-y-3 pt-6">
+                    <p className="text-white/80 text-[10px] sm:text-xs font-semibold tracking-widest uppercase mb-5">Top Brasil</p>
+                    <ul className="space-y-3">
                       {(config.compare_topbrasil_items || []).map((item: string, i: number) => (
-                        <li key={i} className="flex gap-3 text-[#00E05E] text-sm sm:text-base items-center font-medium">
+                        <li key={i} className="flex gap-3 text-white text-sm sm:text-base items-center font-medium">
                           <Check className="w-4 h-4 shrink-0 stroke-[3]" />
                           <span>{item}</span>
                         </li>
@@ -839,8 +830,8 @@ export default function CapturePage() {
 
           {/* Gallery Section */}
           {config.gallery_images.length > 0 && (
-            <section className="px-4 sm:px-6 py-20 md:py-28 max-w-6xl mx-auto w-full">
-              <h2 className="lp-reveal text-2xl sm:text-3xl md:text-4xl font-extrabold text-white text-center mb-10 md:mb-14">{config.gallery_title}</h2>
+            <section className="px-4 sm:px-6 py-14 md:py-20 max-w-6xl mx-auto w-full">
+              <h2 className="lp-reveal text-2xl sm:text-3xl md:text-4xl font-extrabold text-white text-center mb-8 md:mb-12">{config.gallery_title}</h2>
               <div className={cn(
                 "grid gap-4",
                 config.gallery_images.length === 1 ? "grid-cols-1 max-w-2xl mx-auto" :
@@ -853,7 +844,7 @@ export default function CapturePage() {
           )}
 
           {/* Bottom CTA */}
-          <section className="px-4 sm:px-6 py-24 md:py-32 pb-36 sm:pb-24 text-center">
+          <section className="px-4 sm:px-6 py-16 md:py-20 pb-28 sm:pb-20 text-center">
             <p className="lp-reveal text-[#EB6608]/70 text-xs sm:text-sm uppercase tracking-widest font-semibold mb-3">Proteção real — Preço justo</p>
             <h2 className="lp-reveal lp-reveal-d1 text-2xl sm:text-3xl md:text-4xl font-extrabold text-white mb-8 max-w-xl mx-auto leading-tight">Pronto para proteger seu veículo?</h2>
             <button
