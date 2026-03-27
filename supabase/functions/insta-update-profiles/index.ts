@@ -130,7 +130,7 @@ async function processBatch(profiles: any[], supabase: any, apifyKey: string, bu
         followers: followerCount,
         dailyChange,
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error(`Error processing ${profile.username}:`, err);
       results.push({ username: profile.username, status: "error", error: err.message });
     }
@@ -201,7 +201,7 @@ Deno.serve(async (req) => {
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
