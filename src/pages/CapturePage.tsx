@@ -45,6 +45,8 @@ interface CaptureConfig {
   gallery_images: GalleryImage[];
   gallery_title: string;
   logo_image?: string | null;
+  logo_position?: string;
+  logo_size?: string;
   compare_enabled?: boolean;
   compare_title?: string;
   compare_traditional_items?: string[];
@@ -713,8 +715,18 @@ export default function CapturePage() {
         <div className="relative z-10">
           {/* Header */}
           <header className="absolute top-0 inset-x-0 z-50 px-5 sm:px-10 py-5 pointer-events-none lp-logo">
-            <div className="max-w-7xl mx-auto w-full flex justify-center sm:justify-start">
-              <img src={config.logo_image || '/top-brasil-logo.png'} alt="Logo" className="h-9 sm:h-12 w-auto object-contain pointer-events-auto drop-shadow-lg" />
+            <div className={cn(
+              "max-w-7xl mx-auto w-full flex",
+              config.logo_position === 'center' ? 'justify-center' :
+              config.logo_position === 'right' ? 'justify-end' :
+              'justify-start'
+            )}>
+              <img src={config.logo_image || '/top-brasil-logo.png'} alt="Logo" className={cn(
+                "w-auto object-contain pointer-events-auto drop-shadow-lg",
+                config.logo_size === 'small' ? 'h-7 sm:h-8' :
+                config.logo_size === 'large' ? 'h-14 sm:h-16' :
+                'h-9 sm:h-12'
+              )} />
             </div>
           </header>
 
@@ -758,24 +770,20 @@ export default function CapturePage() {
 
           {/* Benefits Section */}
           <section className="px-5 sm:px-10 pb-14 md:pb-20 max-w-5xl mx-auto w-full">
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 sm:gap-6">
+            <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-6 gap-3 sm:gap-5">
               {[
-                { icon: Shield, label: 'Proteção Furto e Roubo' },
-                { icon: Phone, label: 'Assistência 24h' },
-                { icon: Check, label: 'Reparo Colisão' },
-                { icon: Lock, label: 'Reboque Ilimitado' },
-                { icon: User, label: 'Sem Consulta SPC/Serasa' },
-              ].map((benefit, idx) => {
-                const Icon = benefit.icon;
-                return (
-                  <div key={idx} className="lp-reveal flex flex-col items-center gap-3 group p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:border-white/[0.15] transition-all duration-500 hover:-translate-y-1" style={{ transitionDelay: `${idx * 0.08}s` }}>
-                    <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${config.button_color}20` }}>
-                      <Icon className="w-6 h-6" style={{ color: config.button_color }} />
-                    </div>
-                    <span className="text-[11px] sm:text-xs text-gray-300 font-medium text-center leading-tight">{benefit.label}</span>
-                  </div>
-                );
-              })}
+                { img: '/benefits/benefit-1.png', label: 'Proteção Furto e Roubo' },
+                { img: '/benefits/benefit-2.png', label: 'Assistência 24h por dia' },
+                { img: '/benefits/benefit-3.png', label: 'Reparo em Colisão' },
+                { img: '/benefits/benefit-4.png', label: 'Reboque ilimitado para colisão' },
+                { img: '/benefits/benefit-5.png', label: 'SPC e Serasa sem consulta' },
+                { img: '/benefits/benefit-6.png', label: 'Carro reserva' },
+              ].map((benefit, idx) => (
+                <div key={idx} className="lp-reveal flex flex-col items-center gap-3 group p-3 sm:p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:border-white/[0.15] transition-all duration-500 hover:-translate-y-1" style={{ transitionDelay: `${idx * 0.08}s` }}>
+                  <img src={benefit.img} alt={benefit.label} className="w-10 h-10 sm:w-12 sm:h-12 object-contain" />
+                  <span className="text-[10px] sm:text-xs text-gray-300 font-medium text-center leading-tight">{benefit.label}</span>
+                </div>
+              ))}
             </div>
           </section>
 
