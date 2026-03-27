@@ -426,41 +426,71 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
                   <Input value={captureForm.gallery_title} onChange={(e) => setCaptureForm({ ...captureForm, gallery_title: e.target.value })} maxLength={100} />
                 </div>
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <Label className="w-full">Mídias da Galeria (Imagens ou Vídeos)</Label>
-                    <div className="flex gap-2 w-full">
-                      <Button type="button" variant="outline" size="sm" className="flex-1" onClick={() => {
+                  <div className="flex flex-col gap-2">
+                    <Label>Mídias da Galeria (Imagens ou Vídeos)</Label>
+                    <p className="text-xs text-muted-foreground">Até 6 mídias. Suporta imagens (múltiplas de uma vez), vídeos do computador ou links do YouTube.</p>
+                    <div className="flex flex-wrap gap-2">
+                      {/* Multi-image upload */}
+                      <Button type="button" variant="outline" size="sm" onClick={() => {
                         const input = document.createElement('input');
-                        input.type = 'file'; input.accept = 'image/*';
+                        input.type = 'file'; input.accept = 'image/*'; input.multiple = true;
+                        input.onchange = async (e) => {
+                          const files = Array.from((e.target as HTMLInputElement).files || []);
+                          if (!files.length || !consultant) return;
+                          const remaining = 6 - captureForm.gallery_images.length;
+                          const toUpload = files.slice(0, remaining);
+                          if (toUpload.length < files.length) toast.info(`Limite de 6 mídias. Apenas ${toUpload.length} serão adicionadas.`);
+                          for (const file of toUpload) {
+                            if (file.size > 5 * 1024 * 1024) { toast.error(`${file.name}: máx 5MB`); continue; }
+                            try {
+                              const ext = file.name.split('.').pop();
+                              const path = `capture-gallery/${consultant.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${ext}`;
+                              const { error } = await supabase.storage.from('quiz-images').upload(path, file, { upsert: true });
+                              if (error) throw error;
+                              const { data } = supabase.storage.from('quiz-images').getPublicUrl(path);
+                              setCaptureForm(prev => ({ ...prev, gallery_images: [...prev.gallery_images, { type: 'image', url: data.publicUrl }] }));
+                            } catch (err: any) { toast.error(err.message); }
+                          }
+                          toast.success(`${toUpload.length} imagem(ns) adicionada(s)!`);
+                        };
+                        input.click();
+                      }} disabled={captureForm.gallery_images.length >= 6}>
+                        <Image className="w-4 h-4 mr-1" /> Imagens ({captureForm.gallery_images.filter(i => i.type !== 'video').length})
+                      </Button>
+                      {/* Video file upload */}
+                      <Button type="button" variant="outline" size="sm" onClick={() => {
+                        const input = document.createElement('input');
+                        input.type = 'file'; input.accept = 'video/mp4,video/webm,video/ogg';
                         input.onchange = async (e) => {
                           const file = (e.target as HTMLInputElement).files?.[0];
                           if (!file || !consultant) return;
-                          if (file.size > 5 * 1024 * 1024) { toast.error('Máx 5MB'); return; }
+                          if (file.size > 50 * 1024 * 1024) { toast.error('Vídeo muito grande (máx 50MB)'); return; }
                           try {
                             const ext = file.name.split('.').pop();
-                            const path = `capture-gallery/${consultant.id}-${Date.now()}.${ext}`;
+                            const path = `capture-gallery/${consultant.id}-vid-${Date.now()}.${ext}`;
                             const { error } = await supabase.storage.from('quiz-images').upload(path, file, { upsert: true });
                             if (error) throw error;
                             const { data } = supabase.storage.from('quiz-images').getPublicUrl(path);
-                            setCaptureForm(prev => ({ ...prev, gallery_images: [...prev.gallery_images, { type: 'image', url: data.publicUrl }] }));
-                            toast.success('Imagem adicionada!');
+                            setCaptureForm(prev => ({ ...prev, gallery_images: [...prev.gallery_images, { type: 'video', url: data.publicUrl }] }));
+                            toast.success('Vídeo enviado!');
                           } catch (err: any) { toast.error(err.message); }
                         };
                         input.click();
                       }} disabled={captureForm.gallery_images.length >= 6}>
-                        <Image className="w-4 h-4 mr-1" /> Imagem ({captureForm.gallery_images.filter(i => i.type !== 'video').length})
+                        <Upload className="w-4 h-4 mr-1" /> Vídeo do PC
                       </Button>
-                      <div className="flex flex-1 gap-1">
-                        <Input value={videoUrlInput} onChange={(e) => setVideoUrlInput(e.target.value)} placeholder="Link YouTube/Vimeo" className="h-[36px] text-xs" />
-                        <Button type="button" variant="outline" size="sm" onClick={() => {
-                          if (!videoUrlInput) return;
-                          setCaptureForm(prev => ({ ...prev, gallery_images: [...prev.gallery_images, { type: 'video', url: videoUrlInput }] }));
-                          setVideoUrlInput('');
-                          toast.success('Vídeo adicionado!');
-                        }} disabled={captureForm.gallery_images.length >= 6}>
-                          Víd
-                        </Button>
-                      </div>
+                    </div>
+                    {/* YouTube link input */}
+                    <div className="flex gap-1">
+                      <Input value={videoUrlInput} onChange={(e) => setVideoUrlInput(e.target.value)} placeholder="Link YouTube/Vimeo (opcional)" className="h-[36px] text-xs" />
+                      <Button type="button" variant="outline" size="sm" onClick={() => {
+                        if (!videoUrlInput) return;
+                        setCaptureForm(prev => ({ ...prev, gallery_images: [...prev.gallery_images, { type: 'video', url: videoUrlInput }] }));
+                        setVideoUrlInput('');
+                        toast.success('Vídeo adicionado!');
+                      }} disabled={captureForm.gallery_images.length >= 6 || !videoUrlInput}>
+                        + Link
+                      </Button>
                     </div>
                   </div>
                   {captureForm.gallery_images.length > 0 && (
@@ -472,9 +502,13 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
                             <X className="w-3 h-3" />
                           </button>
                           {img.type === 'video' ? (
-                            <div className="w-full aspect-square bg-muted flex items-center justify-center rounded text-xs text-muted-foreground break-all p-2 text-center overflow-hidden">
-                              🎬 Vídeo:<br/><span className="truncate w-full inline-block">{img.url}</span>
-                            </div>
+                            img.url.includes('youtube') || img.url.includes('youtu.be') || img.url.includes('vimeo') ? (
+                              <div className="w-full aspect-square bg-muted flex items-center justify-center rounded text-xs text-muted-foreground break-all p-2 text-center overflow-hidden">
+                                🎬 Vídeo:<br/><span className="truncate w-full inline-block">{img.url.substring(0, 40)}...</span>
+                              </div>
+                            ) : (
+                              <video src={img.url} className="w-full aspect-square object-cover rounded" muted />
+                            )
                           ) : (
                             <img src={img.url} alt="" className="w-full aspect-square object-cover rounded" />
                           )}
