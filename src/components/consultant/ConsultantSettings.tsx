@@ -109,6 +109,35 @@ function CapturePagePreview({ config }: { config: any }) {
           </div>
         )}
 
+        {/* Form preview */}
+        <div className="relative px-4 py-6 border-t border-white/[0.05] space-y-3">
+          <p className="text-xs font-bold text-white text-center">Descubra o plano ideal para o seu veículo!</p>
+          <div className="space-y-2 px-2">
+            <div className="bg-white/10 rounded-lg h-8 flex items-center px-3"><span className="text-[10px] text-gray-500">Nome completo</span></div>
+            <div className="bg-white/10 rounded-lg h-8 flex items-center px-3"><span className="text-[10px] text-gray-500">WhatsApp</span></div>
+            {config.custom_questions.filter((q: any) => q.question.trim()).map((q: any, idx: number) => (
+              <div key={idx} className="space-y-1">
+                <span className="text-[9px] text-gray-500 pl-1">{q.question}</span>
+                {q.type === 'choice' ? (
+                  <div className="space-y-1">
+                    {q.options.filter((o: string) => o.trim()).slice(0, 3).map((opt: string, oi: number) => (
+                      <div key={oi} className="bg-white/5 rounded-lg h-6 flex items-center px-3 gap-2">
+                        <div className="w-3 h-3 rounded-full border border-gray-600" />
+                        <span className="text-[9px] text-gray-500">{opt}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-white/10 rounded-lg h-7 flex items-center px-3"><span className="text-[9px] text-gray-500">Resposta</span></div>
+                )}
+              </div>
+            ))}
+          </div>
+          <button className="w-full py-2.5 rounded-xl text-xs text-white font-bold" style={{ backgroundColor: btnColor, boxShadow: `0 4px 15px -4px ${btnColor}` }}>
+            Quero minha proteção agora →
+          </button>
+        </div>
+
         {/* Gallery preview */}
         {config.gallery_images.length > 0 && (
           <div className="relative px-4 py-6 border-t border-white/[0.05]">
