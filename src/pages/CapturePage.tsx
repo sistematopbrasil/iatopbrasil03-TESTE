@@ -737,18 +737,20 @@ export default function CapturePage() {
             )}
             <div className="lp-reveal mb-6 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[10px] sm:text-xs font-semibold text-gray-300 tracking-wider uppercase">
               <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full" style={{ backgroundColor: config.button_color, boxShadow: `0 0 10px ${config.button_color}` }} />
-              PROTEÇÃO VEICULAR — CAMPINAS E REGIÃO
+              PROTEÇÃO VEICULAR | CAMPINAS & REGIÃO
             </div>
-            <h1 className="lp-hero-title text-[2.5rem] leading-[1.08] sm:text-5xl md:text-6xl xl:text-7xl font-extrabold text-white tracking-tight">
-              {config.title}
+            <h1 className="lp-hero-title text-[2rem] leading-[1.1] sm:text-4xl md:text-5xl xl:text-6xl font-extrabold text-white tracking-tight max-w-4xl">
+              Seu carro protegido do jeito certo.{' '}
+              <span className="block mt-1" style={{ color: config.button_color }}>Sem burocracia. Sem pegadinhas.</span>
             </h1>
-            <p className="lp-hero-sub text-gray-400 text-base sm:text-lg md:text-xl mt-5 max-w-2xl leading-relaxed whitespace-pre-line">
-              {config.subtitle}
+            <p className="lp-hero-sub text-gray-400 text-sm sm:text-base md:text-lg mt-5 max-w-2xl leading-relaxed">
+              A Top Brasil Campinas oferece proteção veicular completa com assistência 24h, cobertura contra roubo, furto e colisão — tudo com atendimento ágil e de verdade.{' '}
+              <span className="text-white font-semibold">Sem consulta de crédito. Aprovação na hora.</span>
             </p>
             <div className="lp-hero-btn mt-8 w-full sm:w-auto">
               <button
                 type="button"
-                onClick={handleWhatsAppRedirect}
+                onClick={() => document.getElementById('formulario')?.scrollIntoView({ behavior: 'smooth' })}
                 className="group relative w-full sm:w-auto px-8 py-4 sm:px-10 sm:py-5 rounded-full text-white font-bold text-base sm:text-xl transition-all duration-300 hover:scale-[1.03] hover:shadow-2xl active:scale-[0.97] overflow-hidden flex items-center justify-center gap-2"
                 style={{ backgroundColor: config.button_color, boxShadow: `0 12px 40px -8px ${config.button_color}BB` }}
               >
