@@ -721,9 +721,9 @@ export default function CapturePage() {
           )}
 
           {/* Hero Section */}
-          <section className="relative flex flex-col items-center px-5 pt-28 pb-28 md:pt-36 md:pb-36 text-center max-w-5xl mx-auto mt-4 sm:mt-10">
+          <section className="relative flex flex-col items-center px-5 pt-24 pb-16 md:pt-32 md:pb-24 text-center max-w-5xl mx-auto">
             {config.hero_image && (
-              <div className="mb-8 lp-logo"><HeroImage config={config} /></div>
+              <div className="mb-6 lp-logo"><HeroImage config={config} /></div>
             )}
             <div className="lp-reveal mb-6 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[10px] sm:text-xs font-semibold text-gray-300 tracking-wider uppercase">
               <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full" style={{ backgroundColor: config.button_color, boxShadow: `0 0 10px ${config.button_color}` }} />
