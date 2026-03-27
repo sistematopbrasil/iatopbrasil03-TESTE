@@ -1,41 +1,29 @@
 
 
-## Plano: Formulário no preview, remover CTA final, corrigir upload de vídeo
+## Plano: Corrigir tamanho do vídeo na galeria + Habilitar configuração de perguntas no landing
 
-### 3 Problemas
+### Problema 1 — Vídeo com tamanho diferente das imagens
+Na galeria, as imagens usam `aspect-video sm:aspect-square` mas o vídeo nativo não segue o mesmo padrão de aspect ratio do container. O vídeo precisa ter o mesmo tamanho e formato visual das imagens.
 
-1. **Formulário não aparece no preview** do settings — o `CapturePagePreview` (landing) mostra hero, benefícios, comparação e galeria, mas **não tem o formulário**. Precisa adicionar.
-
-2. **Upload de vídeo dá erro "exceeded maximum allowed size"** — O bucket `quiz-images` do Supabase tem limite padrão de 50MB. O código já valida 50MB no frontend (linha 687), mas o bucket pode ter um limite menor configurado (padrão Supabase = 50MB). Precisa aumentar o file_size_limit do bucket via migration.
-
-3. **Seção "Proteção real — Preço justo" no final** (linhas 986-1001) deve ser removida pois já tem a prova social e formulário.
+### Problema 2 — Perguntas do formulário não configuráveis no landing
+O editor de `custom_questions` está condicionado a `template_type === 'standard'` (linha 850 do ConsultantSettings), então quando o template é `landing`, a seção de perguntas personalizadas não aparece nas configurações.
 
 ---
 
 ### Mudanças
 
-#### 1. `src/components/consultant/ConsultantSettings.tsx` — Preview do Landing
+#### 1. `src/pages/CapturePage.tsx` — Vídeo na galeria
 
-**Adicionar seção de formulário no preview** (entre comparação e galeria, linhas ~110):
-- Mostrar preview do formulário com campos Nome, WhatsApp
-- Mostrar as `custom_questions` configuradas (como no preview standard)
-- Botão de submit estilizado
+**Linha 635**: O container do vídeo nativo precisa ter a mesma classe de aspect ratio das imagens. Mudar o `<video>` de `aspect-video` para `aspect-video sm:aspect-square object-cover` e garantir que o container externo tenha as mesmas dimensões que os cards de imagem (mesma classe do container de imagem na linha 680).
 
-#### 2. `src/pages/CapturePage.tsx` — Remover CTA final
+#### 2. `src/components/consultant/ConsultantSettings.tsx` — Perguntas no landing
 
-**Remover** o bloco "Proteção real — Preço justo / Pronto para proteger seu veículo?" (linhas 986-1001).
-
-#### 3. Migration — Aumentar limite do bucket `quiz-images`
-
-Executar migration SQL para aumentar o `file_size_limit` do bucket `quiz-images` para 52428800 (50MB), garantindo que o Supabase aceite uploads de vídeo nesse tamanho.
+**Linha 849-850**: Remover a condição `captureForm.template_type === 'standard'` para que o editor de perguntas personalizadas apareça também quando o template é `landing`.
 
 ---
 
-### Arquivos
-
 | Arquivo | Mudança |
 |---------|---------|
-| `src/components/consultant/ConsultantSettings.tsx` | Adicionar formulário ao preview landing |
-| `src/pages/CapturePage.tsx` | Remover seção CTA final "Proteção real" |
-| Migration SQL | Aumentar file_size_limit do bucket quiz-images |
+| `src/pages/CapturePage.tsx` | Igualar aspect ratio do vídeo ao das imagens na galeria |
+| `src/components/consultant/ConsultantSettings.tsx` | Mostrar editor de custom_questions para ambos os templates |
 
