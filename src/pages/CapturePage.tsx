@@ -454,6 +454,7 @@ export default function CapturePage() {
         id: consultantData.id, full_name: consultantData.full_name,
         organization_id: consultantData.organization_id,
         whatsapp_button_url: consultantData.whatsapp_button_url,
+        pixel_id: consultantData.pixel_id,
       });
 
       const { data: captureConfig } = await supabase
