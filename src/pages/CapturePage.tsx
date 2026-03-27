@@ -59,6 +59,7 @@ interface ConsultantData {
   full_name: string;
   organization_id: string;
   whatsapp_button_url: string | null;
+  pixel_id: string | null;
 }
 
 const DEFAULT_CONFIG: CaptureConfig = {
