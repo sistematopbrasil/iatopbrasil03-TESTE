@@ -360,6 +360,8 @@ export type Database = {
           id: string
           is_active: boolean
           logo_image: string | null
+          logo_position: string | null
+          logo_size: string | null
           organization_id: string
           redirect_type: string | null
           redirect_url: string | null
@@ -391,6 +393,8 @@ export type Database = {
           id?: string
           is_active?: boolean
           logo_image?: string | null
+          logo_position?: string | null
+          logo_size?: string | null
           organization_id: string
           redirect_type?: string | null
           redirect_url?: string | null
@@ -422,6 +426,8 @@ export type Database = {
           id?: string
           is_active?: boolean
           logo_image?: string | null
+          logo_position?: string | null
+          logo_size?: string | null
           organization_id?: string
           redirect_type?: string | null
           redirect_url?: string | null
