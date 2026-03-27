@@ -861,17 +861,6 @@ export default function CapturePage() {
           </section>
         </div>
 
-        {/* Mobile sticky CTA */}
-        <div className="fixed bottom-0 inset-x-0 sm:hidden z-50 p-4 bg-gradient-to-t from-black/90 to-transparent lp-hero-btn pointer-events-none">
-          <button
-            type="button"
-            onClick={handleWhatsAppRedirect}
-            className="pointer-events-auto w-full py-4 rounded-2xl text-white font-bold text-base shadow-2xl active:scale-[0.97] transition-transform flex items-center justify-center gap-2"
-            style={{ backgroundColor:config.button_color, boxShadow:`0 8px 30px ${config.button_color}90` }}
-          >
-            {config.button_text} <ChevronRight className="w-5 h-5" />
-          </button>
-        </div>
       </div>
     );
   }
