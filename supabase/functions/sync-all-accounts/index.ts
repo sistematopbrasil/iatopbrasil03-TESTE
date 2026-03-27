@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
             .eq("ad_account_id", acc.ad_account_id)
             .eq("organization_id", acc.organization_id);
         }
-      } catch (e) {
+      } catch (e: any) {
         results.push({ ad_account_id: acc.ad_account_id, error: e.message });
       }
     }
