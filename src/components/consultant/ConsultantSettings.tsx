@@ -239,6 +239,7 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [linkSuffix, setLinkSuffix] = useState('');
   const linkPrefix = `${window.location.origin}/c/`;
+  const recruitLinkPrefix = `${window.location.origin}/r/`;
   const [captureForm, setCaptureForm] = useState({
     title: 'Seu carro protegido do jeito certo.\nSem burocracia. Sem pegadinhas.',
     subtitle: 'A Top Brasil Campinas oferece proteção veicular completa com assistência 24h, cobertura contra roubo, furto e colisão, tudo com atendimento ágil e verdadeiro.',
