@@ -430,9 +430,22 @@ function CountrySelector({
   );
 }
 
+/* ─── Media format helper ─── */
+function getMediaAspectClass(format?: string): string {
+  switch (format) {
+    case 'square': return 'aspect-square';
+    case 'portrait': return 'aspect-[9/16]';
+    case 'auto': return '';
+    case 'video':
+    default: return 'aspect-video';
+  }
+}
+
 /* ─── Main Page ─── */
 export default function CapturePage() {
   const { slug } = useParams<{ slug: string }>();
+  const location = useLocation();
+  const isRecruitment = location.pathname.startsWith('/r/');
   const [config, setConfig] = useState<CaptureConfig>(DEFAULT_CONFIG);
   const [consultant, setConsultant] = useState<ConsultantData | null>(null);
   const [loading, setLoading] = useState(true);
