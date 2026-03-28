@@ -650,17 +650,18 @@ export default function CapturePage() {
       url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com');
 
     const renderMedia = (img: any, idx: number) => {
+      const aspectClass = getMediaAspectClass(img.media_format);
       if (img.type === 'video') {
         // Native video (uploaded file)
         if (!isYouTubeOrVimeo(img.url)) {
           return (
             <div key={idx} className="lp-reveal group relative overflow-hidden rounded-3xl border border-white/5 bg-[#0a0a0a] transition-all duration-500 hover:border-white/20 hover:shadow-2xl hover:scale-[1.02]">
               <video
-                src={img.url}
+                src={img.url + '#t=0.5'}
                 controls
                 playsInline
                 preload="metadata"
-                className="w-full aspect-video sm:aspect-square object-cover transition-transform duration-700 group-hover:scale-105"
+                className={cn("w-full object-cover transition-transform duration-700 group-hover:scale-105", aspectClass || "aspect-video")}
                 style={{ background: '#000' }}
               />
               {img.caption && (
