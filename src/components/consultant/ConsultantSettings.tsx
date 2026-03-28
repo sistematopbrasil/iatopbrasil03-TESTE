@@ -143,13 +143,18 @@ function CapturePagePreview({ config }: { config: any }) {
           <div className="relative px-4 py-6 border-t border-white/[0.05]">
             <p className="text-xs font-bold text-white mb-3 text-center">{config.gallery_title}</p>
             <div className="grid grid-cols-2 gap-2">
-              {config.gallery_images.slice(0, 4).map((img: any, idx: number) => (
-                <div key={idx} className="aspect-video rounded-lg bg-white/10 overflow-hidden border border-white/10">
+              {config.gallery_images.slice(0, 4).map((img: any, idx: number) => {
+                const formatClass = img.media_format === 'square' ? 'aspect-square' : img.media_format === 'portrait' ? 'aspect-[9/16]' : img.media_format === 'auto' ? 'aspect-video' : 'aspect-video';
+                return (
+                <div key={idx} className={cn("rounded-lg bg-white/10 overflow-hidden border border-white/10", formatClass)}>
                   {img.type === 'video'
-                    ? <div className="w-full h-full flex flex-col items-center justify-center text-[10px] text-gray-500 bg-white/5"><span>🎬</span><span>Vídeo</span></div>
+                    ? (img.url.includes('youtube') || img.url.includes('youtu.be') || img.url.includes('vimeo')
+                      ? <div className="w-full h-full flex flex-col items-center justify-center text-[10px] text-gray-500 bg-white/5"><span>🎬</span><span>Vídeo</span></div>
+                      : <video src={img.url + '#t=0.5'} preload="metadata" muted className="w-full h-full object-cover" />)
                     : <img src={img.url} alt="" className="w-full h-full object-cover" />}
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
