@@ -1,79 +1,55 @@
 
 
-## Plano: Melhorar vídeos na galeria + Landing Page para captação de consultores
+## Plano: Redirecionamento direto para WhatsApp + Perfil do lead dinâmico por origem
 
-### Escopo — 4 entregas
+### 3 entregas
 
 ---
 
-### 1. Corrigir capa preta dos vídeos
+### 1. WhatsApp direto (sem página de obrigado)
 
-**Problema:** O `<video>` usa `preload="metadata"` mas não tem `poster` e muitos browsers mostram tela preta.
+**Problema atual:** Após o formulário, SEMPRE mostra a `ThankYouPage`, mesmo quando o redirect é WhatsApp.
 
 **Solução em `CapturePage.tsx`:**
-- Adicionar `src={img.url + '#t=0.5'}` para forçar o browser a capturar um frame do vídeo como thumbnail
-- Manter `preload="metadata"` para carregar o frame sem baixar o vídeo inteiro
+- No `handleSubmit`, após salvar com sucesso, verificar o `redirect_type`:
+  - Se `whatsapp` → redirecionar diretamente para `wa.me/...` via `window.location.href` (sem `setSubmitted(true)`)
+  - Se `url` → redirecionar diretamente para a URL configurada
+  - Se `thank_you` (novo tipo) → aí sim `setSubmitted(true)` e mostra a ThankYouPage
+- Adicionar `thank_you` como opção de `redirect_type` para quem quer a página de obrigado
+- Na `ThankYouPage`, o botão deve ser configurável (texto e link do botão) — usar campos existentes `button_text` e `redirect_url`
 
-**Solução no preview (`ConsultantSettings.tsx`):**
-- Igual: vídeo no preview da galeria deve usar `#t=0.5`
+**Mudança no settings (`ConsultantSettings.tsx`):**
+- Nas opções de redirecionamento, ajustar para 3 opções claras:
+  - **WhatsApp** → vai direto pro WhatsApp
+  - **URL externa** → vai direto pra URL
+  - **Página de Obrigado** → mostra thank you page com botão configurável (texto + link do botão)
 
 ---
 
-### 2. Formato configurável para vídeos (não cortar tanto)
+### 2. Botão configurável na página de obrigado
 
-**Problema:** Vídeos com `aspect-video sm:aspect-square object-cover` ficam muito cortados.
+Quando `redirect_type === 'thank_you'`:
+- Mostrar a ThankYouPage com um botão cujo texto e URL são configuráveis
+- No settings, quando selecionar "Página de Obrigado", mostrar campos:
+  - Texto do botão (default: "Falar com um Consultor")
+  - Link do botão (URL ou WhatsApp)
+
+Aproveitar os campos existentes `button_text` e `redirect_url` do `capture_page_configs`.
+
+---
+
+### 3. Perfil do lead dinâmico por origem (`LeadProfile.tsx`)
+
+**Problema atual:** O perfil sempre mostra seções do quiz (Experiência Profissional, Expectativas, etc.) mesmo para leads de captura/recrutamento que não responderam quiz.
 
 **Solução:**
-- Adicionar propriedade `media_format` ao objeto `GalleryImage` com opções: `'square'`, `'video'` (16:9), `'portrait'` (9:16), `'auto'` (sem aspect ratio forçado)
-- No `CapturePage.tsx`, usar a classe de aspect ratio correspondente ao `media_format` do item
-- No settings, adicionar um select de "Formato" por item da galeria (ao lado da legenda)
-- Default: `'video'` (16:9) que é mais natural para vídeos e não corta tanto
-
-**Mapeamento de classes:**
-- `square` → `aspect-square`
-- `video` → `aspect-video`
-- `portrait` → `aspect-[9/16]`
-- `auto` → sem aspect (tamanho natural, com max-height)
-
----
-
-### 3. Preview deve refletir formato real dos vídeos
-
-No `CapturePagePreview` dentro do `ConsultantSettings.tsx`, ao invés de mostrar apenas um placeholder "🎬 Vídeo", mostrar:
-- Para vídeos nativos: `<video>` real com `#t=0.5` e o aspect ratio configurado
-- Para YouTube/Vimeo: manter placeholder com ícone mas com o aspect ratio correto
-
----
-
-### 4. Nova Landing Page para captação de consultores
-
-**Conceito:** O consultor terá DUAS páginas independentes:
-- `/c/:slug` — Landing de proteção veicular (já existe)
-- `/r/:slug` — Landing de recrutamento de consultores (nova)
-
-**Implementação:**
-
-#### Banco de dados
-- Adicionar coluna `page_purpose` ao `capture_page_configs` com valor `'protection'` (default) ou `'recruitment'`
-- Cada consultor poderá ter 2 configs ativas (uma para cada purpose)
-
-#### Rota nova
-- Em `App.tsx`: adicionar `<Route path="/r/:slug" element={<CapturePage />} />`
-- O `CapturePage` recebe o path e determina o `page_purpose` baseado na rota (`/c/` = protection, `/r/` = recruitment)
-
-#### Settings
-- No seletor de templates, adicionar um terceiro tipo: **"Recrutamento de Consultores"**
-- Quando selecionado, preencher defaults focados em recrutamento:
-  - Título: "Quer uma renda extra ou mudar de vida?"
-  - Subtítulo: "Faça parte do nosso time de consultores..."
-  - Perguntas: experiência em vendas, disponibilidade, etc.
-  - Botão: "Quero fazer parte do time →"
-- O link mostrado muda para `/r/:slug` quando o tipo é recrutamento
-- O consultor pode configurar ambas as páginas (tabs ou seções separadas)
-
-#### CapturePage
-- Ao carregar, verificar se a rota é `/r/` ou `/c/` e buscar a config correspondente pelo `page_purpose`
-- Os leads captados pela página de recrutamento serão salvos com `lead_source: 'recruitment'` ao invés de `'capture'`
+- Adicionar `lead_source` à interface `LeadData`
+- Condicionar as seções por `lead_source`:
+  - **`quiz`**: mostrar tudo (informações pessoais, profissionais, expectativas — campos do quiz)
+  - **`capture` / `recruitment`**: mostrar apenas informações básicas (nome, telefone, email) + `extra_answers` (respostas do formulário da landing) + origem do lead
+  - Esconder seções vazias automaticamente (se nenhum campo da seção tem valor, não mostrar o header)
+- Ajustar o label "Quiz respondido" para "Cadastrado em" quando `lead_source !== 'quiz'`
+- Ajustar a mensagem "Este contato ainda não respondeu o quiz" para ser contextual
 
 ---
 
@@ -81,8 +57,7 @@ No `CapturePagePreview` dentro do `ConsultantSettings.tsx`, ao invés de mostrar
 
 | Arquivo | Mudança |
 |---------|---------|
-| `src/pages/CapturePage.tsx` | Fix vídeo `#t=0.5`, formato por item, rota `/r/` |
-| `src/components/consultant/ConsultantSettings.tsx` | Select formato por mídia, preview real, config recrutamento |
-| `src/App.tsx` | Nova rota `/r/:slug` |
-| Migration SQL | Coluna `page_purpose` em `capture_page_configs` |
+| `src/pages/CapturePage.tsx` | Redirect direto para WhatsApp/URL no submit; ThankYouPage só para `thank_you` |
+| `src/components/consultant/ConsultantSettings.tsx` | 3 opções de redirect; campos do botão da thank you page |
+| `src/components/crm/LeadProfile.tsx` | Adicionar `lead_source`; condicionar seções por origem; esconder seções vazias |
 
