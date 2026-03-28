@@ -614,60 +614,35 @@ export function LeadProfile({ conversation, onClose }: LeadProfileProps) {
               {/* Notes Section */}
               <NotesSection conversationId={conversation.id} />
 
-              {/* Personal Info */}
-              <div className="space-y-3">
-                <h5 className="font-semibold text-foreground text-sm border-b border-border pb-2 flex items-center gap-2">
-                  <User className="w-4 h-4 text-primary" />
-                  Informações Pessoais
-                </h5>
-                <div className="space-y-2">
-                  <InfoRow icon={Phone} label="Telefone" value={conversation.contact_phone} />
-                  {leadData.email && (
-                    <InfoRow icon={Mail} label="Email" value={leadData.email} />
-                  )}
-                  {leadData.age && (
-                    <InfoRow icon={Calendar} label="Idade" value={`${leadData.age} anos`} />
-                  )}
-                  {leadData.location && (
-                    <InfoRow icon={MapPin} label="Localização" value={leadData.location} />
-                  )}
-                  {leadData.has_vehicle && (
-                    <InfoRow icon={Car} label="Veículo" value={leadData.has_vehicle} />
-                  )}
-                  {leadData.has_driver_license && (
-                    <InfoRow icon={Car} label="CNH" value={leadData.has_driver_license} />
-                  )}
-                </div>
-              </div>
+              {/* Personal Info - always shown */}
+              {(() => {
+                const hasPersonalInfo = leadData.email || leadData.age || leadData.location || leadData.has_vehicle || leadData.has_driver_license;
+                return (
+                  <div className="space-y-3">
+                    <h5 className="font-semibold text-foreground text-sm border-b border-border pb-2 flex items-center gap-2">
+                      <User className="w-4 h-4 text-primary" />
+                      Informações Pessoais
+                    </h5>
+                    <div className="space-y-2">
+                      <InfoRow icon={Phone} label="Telefone" value={conversation.contact_phone} />
+                      {leadData.email && <InfoRow icon={Mail} label="Email" value={leadData.email} />}
+                      {leadData.age && <InfoRow icon={Calendar} label="Idade" value={`${leadData.age} anos`} />}
+                      {leadData.location && <InfoRow icon={MapPin} label="Localização" value={leadData.location} />}
+                      {leadData.has_vehicle && <InfoRow icon={Car} label="Veículo" value={leadData.has_vehicle} />}
+                      {leadData.has_driver_license && <InfoRow icon={Car} label="CNH" value={leadData.has_driver_license} />}
+                    </div>
+                  </div>
+                );
+              })()}
 
-              {/* Professional Info */}
-              <div className="space-y-3">
-                <h5 className="font-semibold text-foreground text-sm border-b border-border pb-2 flex items-center gap-2">
-                  <Briefcase className="w-4 h-4 text-primary" />
-                  Experiência Profissional
-                </h5>
-                <div className="space-y-2">
-                  {leadData.employment_status && (
-                    <InfoRow icon={Briefcase} label="Situação" value={leadData.employment_status} />
-                  )}
-                  {leadData.current_job && (
-                    <InfoRow icon={Briefcase} label="Profissão" value={leadData.current_job} />
-                  )}
-                  {leadData.sales_experience && (
-                    <InfoRow icon={TrendingUp} label="Exp. Vendas" value={leadData.sales_experience} />
-                  )}
-                  {leadData.vehicle_protection_experience && (
-                    <InfoRow icon={Car} label="Exp. Proteção" value={leadData.vehicle_protection_experience} />
-                  )}
-                </div>
-              </div>
-
-              {/* Extra Answers (Custom Questions) */}
+              {/* Extra Answers (from landing page forms) - shown for all sources */}
               {leadData.extra_answers && Object.keys(leadData.extra_answers).length > 0 && (
                 <div className="space-y-3">
                   <h5 className="font-semibold text-foreground text-sm border-b border-border pb-2 flex items-center gap-2">
                     <MessageSquare className="w-4 h-4 text-primary" />
-                    Respostas Adicionais
+                    {leadData.lead_source === 'recruitment' ? 'Respostas do Formulário (Recrutamento)' :
+                     leadData.lead_source === 'capture' ? 'Respostas do Formulário (Captura)' :
+                     'Respostas Adicionais'}
                   </h5>
                   <div className="space-y-2">
                     {Object.entries(leadData.extra_answers).map(([question, answer]) => (
@@ -677,21 +652,35 @@ export function LeadProfile({ conversation, onClose }: LeadProfileProps) {
                 </div>
               )}
 
-
-              <div className="space-y-3">
-                <h5 className="font-semibold text-foreground text-sm border-b border-border pb-2 flex items-center gap-2">
-                  <Target className="w-4 h-4 text-primary" />
-                  Expectativas
-                </h5>
-                <div className="space-y-2">
-                  {leadData.desired_income && (
-                    <InfoRow icon={TrendingUp} label="Renda Desejada" value={leadData.desired_income} />
-                  )}
-                  {leadData.motivation && (
-                    <InfoRow icon={Target} label="Motivação" value={leadData.motivation} />
-                  )}
+              {/* Professional Info - only for quiz leads */}
+              {leadData.lead_source === 'quiz' && (leadData.employment_status || leadData.current_job || leadData.sales_experience || leadData.vehicle_protection_experience) && (
+                <div className="space-y-3">
+                  <h5 className="font-semibold text-foreground text-sm border-b border-border pb-2 flex items-center gap-2">
+                    <Briefcase className="w-4 h-4 text-primary" />
+                    Experiência Profissional
+                  </h5>
+                  <div className="space-y-2">
+                    {leadData.employment_status && <InfoRow icon={Briefcase} label="Situação" value={leadData.employment_status} />}
+                    {leadData.current_job && <InfoRow icon={Briefcase} label="Profissão" value={leadData.current_job} />}
+                    {leadData.sales_experience && <InfoRow icon={TrendingUp} label="Exp. Vendas" value={leadData.sales_experience} />}
+                    {leadData.vehicle_protection_experience && <InfoRow icon={Car} label="Exp. Proteção" value={leadData.vehicle_protection_experience} />}
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Expectations - only for quiz leads */}
+              {leadData.lead_source === 'quiz' && (leadData.desired_income || leadData.motivation) && (
+                <div className="space-y-3">
+                  <h5 className="font-semibold text-foreground text-sm border-b border-border pb-2 flex items-center gap-2">
+                    <Target className="w-4 h-4 text-primary" />
+                    Expectativas
+                  </h5>
+                  <div className="space-y-2">
+                    {leadData.desired_income && <InfoRow icon={TrendingUp} label="Renda Desejada" value={leadData.desired_income} />}
+                    {leadData.motivation && <InfoRow icon={Target} label="Motivação" value={leadData.motivation} />}
+                  </div>
+                </div>
+              )}
 
               {/* Tracking Info */}
               <div className="space-y-3">
@@ -700,19 +689,20 @@ export function LeadProfile({ conversation, onClose }: LeadProfileProps) {
                   Origem do Lead
                 </h5>
                 <div className="space-y-2 text-xs">
-                  <InfoRow icon={BarChart} label="Origem" value={leadData.utm_source || 'Direto'} />
-                  {leadData.utm_campaign && (
-                    <InfoRow icon={BarChart} label="Campanha" value={leadData.utm_campaign} />
-                  )}
-                  {leadData.device_type && (
-                    <InfoRow icon={BarChart} label="Dispositivo" value={leadData.device_type} />
-                  )}
-                  {leadData.browser && (
-                    <InfoRow icon={BarChart} label="Navegador" value={leadData.browser} />
-                  )}
+                  <InfoRow icon={BarChart} label="Fonte" value={
+                    leadData.lead_source === 'quiz' ? 'Quiz' :
+                    leadData.lead_source === 'capture' ? 'Página de Captura' :
+                    leadData.lead_source === 'recruitment' ? 'Recrutamento' :
+                    leadData.lead_source === 'whatsapp' ? 'WhatsApp' :
+                    leadData.lead_source || 'Direto'
+                  } />
+                  {leadData.utm_source && <InfoRow icon={BarChart} label="UTM Source" value={leadData.utm_source} />}
+                  {leadData.utm_campaign && <InfoRow icon={BarChart} label="Campanha" value={leadData.utm_campaign} />}
+                  {leadData.device_type && <InfoRow icon={BarChart} label="Dispositivo" value={leadData.device_type} />}
+                  {leadData.browser && <InfoRow icon={BarChart} label="Navegador" value={leadData.browser} />}
                   <InfoRow 
                     icon={Calendar} 
-                    label="Quiz respondido" 
+                    label={leadData.lead_source === 'quiz' ? 'Quiz respondido' : 'Cadastrado em'} 
                     value={format(new Date(leadData.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })} 
                   />
                 </div>
