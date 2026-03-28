@@ -689,7 +689,7 @@ export default function CapturePage() {
         }
         
         return (
-          <div key={idx} className={cn("lp-reveal group relative overflow-hidden rounded-3xl border border-white/5 bg-[#0a0a0a] shadow-2xl transition-all duration-500 hover:border-white/20 hover:-translate-y-1 mx-auto w-full", isVertical ? "aspect-[9/16] max-w-sm" : "aspect-video")}>
+          <div key={idx} className={cn("lp-reveal group relative overflow-hidden rounded-3xl border border-white/5 bg-[#0a0a0a] shadow-2xl transition-all duration-500 hover:border-white/20 hover:-translate-y-1 mx-auto w-full", isVertical ? "aspect-[9/16] max-w-sm" : (aspectClass || "aspect-video"))}>
             <iframe src={embedUrl} className="absolute inset-0 w-full h-full" allowFullScreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" />
             {img.caption && (
               <div className="absolute top-0 inset-x-0 p-4 bg-gradient-to-b from-black/90 via-black/40 to-transparent pointer-events-none z-10">
