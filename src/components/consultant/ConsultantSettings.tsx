@@ -297,12 +297,36 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
     enabled: !!consultant?.id,
   });
 
+  // Default values based on page purpose
+  const getDefaults = (purpose: 'protection' | 'recruitment') => {
+    if (purpose === 'recruitment') {
+      return {
+        title: 'Quer uma renda extra ou mudar de vida?',
+        subtitle: 'Faça parte do nosso time de consultores e conquiste sua independência financeira com proteção veicular.',
+        button_text: 'Quero fazer parte do time →',
+        template_type: 'landing' as const,
+        custom_questions: [
+          { question: 'Você tem experiência com vendas?', type: 'choice' as const, required: true, options: ['Sim, já trabalho com vendas', 'Já trabalhei mas parei', 'Nunca trabalhei mas tenho interesse', 'Não tenho experiência'] },
+          { question: 'Qual sua disponibilidade?', type: 'choice' as const, required: true, options: ['Período integral', 'Meio período', 'Apenas finais de semana', 'Horários flexíveis'] },
+          { question: 'Qual renda mensal você busca?', type: 'choice' as const, required: true, options: ['R$ 2.000 a R$ 4.000', 'R$ 4.000 a R$ 8.000', 'R$ 8.000 a R$ 12.000', 'Acima de R$ 12.000'] },
+        ],
+      };
+    }
+    return {
+      title: 'Seu carro protegido do jeito certo.\nSem burocracia. Sem pegadinhas.',
+      subtitle: 'A Top Brasil Campinas oferece proteção veicular completa com assistência 24h, cobertura contra roubo, furto e colisão, tudo com atendimento ágil e verdadeiro.',
+      button_text: 'Quero proteger meu veículo agora →',
+      template_type: 'standard' as const,
+      custom_questions: [] as Array<{ question: string; type: 'text' | 'choice'; required: boolean; options: string[] }>,
+    };
+  };
+
   useEffect(() => {
     if (existingConfig) {
       setCaptureForm({
-        title: existingConfig.title || captureForm.title,
-        subtitle: existingConfig.subtitle || captureForm.subtitle,
-        button_text: existingConfig.button_text || captureForm.button_text,
+        title: existingConfig.title || getDefaults(pagePurpose).title,
+        subtitle: existingConfig.subtitle || getDefaults(pagePurpose).subtitle,
+        button_text: existingConfig.button_text || getDefaults(pagePurpose).button_text,
         button_color: existingConfig.button_color || '#EB6608',
         hero_image: existingConfig.hero_image || '',
         hero_image_size: (existingConfig as any).hero_image_size || 'medium',
@@ -310,11 +334,11 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
         hero_image_shape: (existingConfig as any).hero_image_shape || 'rounded',
         redirect_type: existingConfig.redirect_type || 'thank_you',
         redirect_url: existingConfig.redirect_url || '',
-        whatsapp_message: existingConfig.whatsapp_message || captureForm.whatsapp_message,
+        whatsapp_message: existingConfig.whatsapp_message || 'Olá! Vim pela página de captura e quero saber mais.',
         whatsapp_number: (existingConfig as any).whatsapp_number || '',
         email_enabled: (existingConfig as any).email_enabled ?? true,
-        custom_questions: (existingConfig as any).custom_questions || [],
-        template_type: (existingConfig as any).template_type || 'standard',
+        custom_questions: (existingConfig as any).custom_questions || getDefaults(pagePurpose).custom_questions,
+        template_type: (existingConfig as any).template_type || getDefaults(pagePurpose).template_type,
         gallery_images: (existingConfig as any).gallery_images || [],
         gallery_title: (existingConfig as any).gallery_title || 'Veja nossos resultados',
         logo_image: (existingConfig as any).logo_image || '',
@@ -329,8 +353,19 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
           'Sem consulta de crédito', 'Aprovação na hora', 'Assistência 24h inclusa', 'Preço justo pra todos', 'Sem franquia surpresa', 'Atendimento humanizado'
         ],
       });
+    } else {
+      // No existing config, load defaults for this purpose
+      const defaults = getDefaults(pagePurpose);
+      setCaptureForm(prev => ({
+        ...prev,
+        title: defaults.title,
+        subtitle: defaults.subtitle,
+        button_text: defaults.button_text,
+        template_type: defaults.template_type,
+        custom_questions: defaults.custom_questions,
+      }));
     }
-  }, [existingConfig]);
+  }, [existingConfig, pagePurpose]);
 
   useEffect(() => {
     setLinkSuffix(consultant?.quiz_slug || 'seu-slug');
