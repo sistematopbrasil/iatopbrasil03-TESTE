@@ -283,13 +283,14 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
   });
 
   const { data: existingConfig } = useQuery({
-    queryKey: ['capture-config', consultant?.id],
+    queryKey: ['capture-config', consultant?.id, pagePurpose],
     queryFn: async () => {
       if (!consultant?.id) return null;
-      const { data } = await supabase
+      const { data } = await (supabase
         .from('capture_page_configs')
         .select('*')
-        .eq('consultant_id', consultant.id)
+        .eq('consultant_id', consultant.id) as any)
+        .eq('page_purpose', pagePurpose)
         .maybeSingle();
       return data;
     },
