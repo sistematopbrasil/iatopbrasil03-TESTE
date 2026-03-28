@@ -781,7 +781,7 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
                                 🎬 Vídeo:<br/><span className="truncate w-full inline-block">{img.url.substring(0, 40)}...</span>
                               </div>
                             ) : (
-                              <video src={img.url} className="w-full aspect-square object-cover rounded" muted />
+                              <video src={img.url + '#t=0.5'} className="w-full aspect-square object-cover rounded" muted preload="metadata" />
                             )
                           ) : (
                             <img src={img.url} alt="" className="w-full aspect-square object-cover rounded" />
@@ -791,6 +791,19 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
                             updated[idx] = { ...updated[idx], caption: e.target.value };
                             setCaptureForm({ ...captureForm, gallery_images: updated });
                           }} className="h-7 text-xs" maxLength={50} />
+                          <Select value={img.media_format || 'video'} onValueChange={(v) => {
+                            const updated = [...captureForm.gallery_images];
+                            updated[idx] = { ...updated[idx], media_format: v };
+                            setCaptureForm({ ...captureForm, gallery_images: updated });
+                          }}>
+                            <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Formato" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="video">16:9 (Paisagem)</SelectItem>
+                              <SelectItem value="square">1:1 (Quadrado)</SelectItem>
+                              <SelectItem value="portrait">9:16 (Retrato)</SelectItem>
+                              <SelectItem value="auto">Auto</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                       ))}
                     </div>
