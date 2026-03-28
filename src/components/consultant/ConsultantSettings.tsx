@@ -238,7 +238,8 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
   const [videoUrlInput, setVideoUrlInput] = useState('');
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [linkSuffix, setLinkSuffix] = useState('');
-  const linkPrefix = `${window.location.origin}/c/`;
+  const [pagePurpose, setPagePurpose] = useState<'protection' | 'recruitment'>('protection');
+  const linkPrefix = pagePurpose === 'recruitment' ? `${window.location.origin}/r/` : `${window.location.origin}/c/`;
   const recruitLinkPrefix = `${window.location.origin}/r/`;
   const [captureForm, setCaptureForm] = useState({
     title: 'Seu carro protegido do jeito certo.\nSem burocracia. Sem pegadinhas.',
