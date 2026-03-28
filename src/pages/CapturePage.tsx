@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useMetaPixel } from '@/hooks/useMetaPixel';
 import { createPortal } from 'react-dom';
-import { useParams } from 'react-router-dom';
+import { useParams, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, CheckCircle, User, Mail, Phone, Shield, Check, Lock, ChevronDown, ChevronRight, X } from 'lucide-react';
 import { z } from 'zod';
