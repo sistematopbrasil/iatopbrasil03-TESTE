@@ -256,7 +256,7 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
     email_enabled: true,
     custom_questions: [] as Array<{ question: string; type: 'text' | 'choice'; required: boolean; options: string[] }>,
     template_type: 'standard' as 'standard' | 'landing',
-    gallery_images: [] as Array<{ type?: 'image' | 'video'; url: string; caption?: string }>,
+    gallery_images: [] as Array<{ type?: 'image' | 'video'; url: string; caption?: string; media_format?: string }>,
     gallery_title: 'Veja nossos resultados',
     logo_image: '',
     logo_position: 'left',
