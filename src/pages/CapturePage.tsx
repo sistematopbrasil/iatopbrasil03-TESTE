@@ -474,10 +474,10 @@ export default function CapturePage() {
       });
 
       const pagePurpose = isRecruitment ? 'recruitment' : 'protection';
-      const { data: captureConfig } = await supabase
+      const { data: captureConfig } = await (supabase
         .from('capture_page_configs').select('*')
-        .eq('consultant_id', consultantData.id).eq('is_active', true)
-        .eq('page_purpose' as any, pagePurpose).maybeSingle();
+        .eq('consultant_id', consultantData.id).eq('is_active', true) as any)
+        .eq('page_purpose', pagePurpose).maybeSingle();
 
       if (captureConfig) {
         setConfig({
