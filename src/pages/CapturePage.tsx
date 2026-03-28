@@ -147,46 +147,15 @@ function AnimatedCheck() {
   );
 }
 
-/* ─── Thank You Page ─── */
+/* ─── Thank You Page (only shown for redirect_type === 'thank_you') ─── */
 function ThankYouPage({ config, form }: { config: CaptureConfig; form: { name: string } }) {
   const firstName = form.name.split(' ')[0];
-
-  if (config.redirect_type === 'url' && config.redirect_url) {
-    return (
-      <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center px-4">
-        <div className="text-center space-y-6 max-w-md animate-[fade-in_0.6s_ease-out]">
-          <AnimatedCheck />
-          <h1 className="text-3xl font-bold text-white">Obrigado, {firstName}!</h1>
-          <p className="text-gray-400 text-lg">Enquanto aguarda nosso contato, confira o link abaixo:</p>
-          <a href={config.redirect_url.match(/^https?:\/\//) ? config.redirect_url : `https://${config.redirect_url}`} target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-8 py-4 rounded-xl text-white font-bold text-lg transition-all hover:scale-[1.02] hover:shadow-xl"
-            style={{ backgroundColor: config.button_color, boxShadow: `0 8px 30px ${config.button_color}40` }}>
-            Acessar agora
-          </a>
-        </div>
-      </div>
-    );
-  }
-
-  if (config.redirect_type === 'whatsapp' && config.whatsapp_number) {
-    const phone = config.whatsapp_number.replace(/\D/g, '');
-    const message = encodeURIComponent(config.whatsapp_message);
-    const whatsappLink = `https://wa.me/${phone}?text=${message}`;
-    return (
-      <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center px-4">
-        <div className="text-center space-y-6 max-w-md animate-[fade-in_0.6s_ease-out]">
-          <AnimatedCheck />
-          <h1 className="text-3xl font-bold text-white">Obrigado, {firstName}!</h1>
-          <p className="text-gray-400 text-lg">Fale diretamente conosco pelo WhatsApp:</p>
-          <a href={whatsappLink} target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-8 py-4 rounded-xl text-white font-bold text-lg transition-all hover:scale-[1.02] hover:shadow-xl"
-            style={{ backgroundColor: '#25D366' }}>
-            <Phone className="w-5 h-5" /> Falar no WhatsApp
-          </a>
-        </div>
-      </div>
-    );
-  }
+  const buttonText = config.button_text || 'Falar com um Consultor';
+  
+  // If redirect_url is configured, show button linking to it
+  const buttonUrl = config.redirect_url 
+    ? (config.redirect_url.match(/^https?:\/\//) ? config.redirect_url : `https://${config.redirect_url}`)
+    : null;
 
   return (
     <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center px-4">
@@ -194,6 +163,13 @@ function ThankYouPage({ config, form }: { config: CaptureConfig; form: { name: s
         <AnimatedCheck />
         <h1 className="text-3xl font-bold text-white">Obrigado, {firstName}!</h1>
         <p className="text-gray-400 text-lg">Seus dados foram enviados com sucesso. Nossa equipe entrará em contato em breve!</p>
+        {buttonUrl && (
+          <a href={buttonUrl} target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-8 py-4 rounded-xl text-white font-bold text-lg transition-all hover:scale-[1.02] hover:shadow-xl"
+            style={{ backgroundColor: config.button_color, boxShadow: `0 8px 30px ${config.button_color}40` }}>
+            {buttonText}
+          </a>
+        )}
       </div>
     </div>
   );
@@ -596,6 +572,20 @@ export default function CapturePage() {
         extra_answers: Object.keys(extra_answers).length > 0 ? extra_answers : null,
       } as any);
       trackEvent('Lead', { content_name: consultant.full_name, content_category: 'capture' });
+      
+      // Redirect based on type
+      if (config.redirect_type === 'whatsapp' && config.whatsapp_number) {
+        const phone = config.whatsapp_number.replace(/\D/g, '');
+        const msg = encodeURIComponent(config.whatsapp_message || 'Olá!');
+        window.location.href = `https://wa.me/${phone}?text=${msg}`;
+        return;
+      }
+      if (config.redirect_type === 'url' && config.redirect_url) {
+        const url = config.redirect_url.match(/^https?:\/\//) ? config.redirect_url : `https://${config.redirect_url}`;
+        window.location.href = url;
+        return;
+      }
+      // thank_you → show ThankYouPage
       setSubmitted(true);
     } catch (error) {
       console.error('Erro ao enviar:', error);
