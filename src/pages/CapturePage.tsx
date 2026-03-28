@@ -701,7 +701,7 @@ export default function CapturePage() {
       }
       return (
         <div key={idx} className="lp-reveal group relative overflow-hidden rounded-3xl border border-white/5 bg-[#0a0a0a] transition-all duration-500 hover:border-white/20 hover:shadow-2xl hover:scale-[1.02]">
-          <img src={img.url} alt={img.caption || `Imagem ${idx + 1}`} className="w-full aspect-video sm:aspect-square object-cover transition-transform duration-700 group-hover:scale-105" />
+          <img src={img.url} alt={img.caption || `Imagem ${idx + 1}`} className={cn("w-full object-cover transition-transform duration-700 group-hover:scale-105", aspectClass || "aspect-video")} />
           {img.caption && (
             <div className="absolute bottom-0 inset-x-0 p-5 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none">
               <p className="text-white text-sm md:text-base font-bold drop-shadow-md">{img.caption}</p>
