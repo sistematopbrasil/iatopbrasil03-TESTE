@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useMetaPixel } from '@/hooks/useMetaPixel';
 import { createPortal } from 'react-dom';
-import { useParams } from 'react-router-dom';
+import { useParams, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, CheckCircle, User, Mail, Phone, Shield, Check, Lock, ChevronDown, ChevronRight, X } from 'lucide-react';
 import { z } from 'zod';
@@ -25,6 +25,7 @@ interface GalleryImage {
   type?: 'image' | 'video';
   url: string;
   caption?: string;
+  media_format?: 'square' | 'video' | 'portrait' | 'auto';
 }
 
 interface CaptureConfig {
@@ -429,9 +430,22 @@ function CountrySelector({
   );
 }
 
+/* ─── Media format helper ─── */
+function getMediaAspectClass(format?: string): string {
+  switch (format) {
+    case 'square': return 'aspect-square';
+    case 'portrait': return 'aspect-[9/16]';
+    case 'auto': return '';
+    case 'video':
+    default: return 'aspect-video';
+  }
+}
+
 /* ─── Main Page ─── */
 export default function CapturePage() {
   const { slug } = useParams<{ slug: string }>();
+  const location = useLocation();
+  const isRecruitment = location.pathname.startsWith('/r/');
   const [config, setConfig] = useState<CaptureConfig>(DEFAULT_CONFIG);
   const [consultant, setConsultant] = useState<ConsultantData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -459,9 +473,11 @@ export default function CapturePage() {
         pixel_id: consultantData.pixel_id,
       });
 
-      const { data: captureConfig } = await supabase
+      const pagePurpose = isRecruitment ? 'recruitment' : 'protection';
+      const { data: captureConfig } = await (supabase
         .from('capture_page_configs').select('*')
-        .eq('consultant_id', consultantData.id).eq('is_active', true).maybeSingle();
+        .eq('consultant_id', consultantData.id).eq('is_active', true) as any)
+        .eq('page_purpose', pagePurpose).maybeSingle();
 
       if (captureConfig) {
         setConfig({
@@ -575,7 +591,7 @@ export default function CapturePage() {
         email: config.email_enabled && form.email ? form.email.trim() : null, 
         phone: phoneDigits,
         organization_id: consultant.organization_id, consultant_id: consultant.id,
-        lead_source: 'capture', completion_percentage: 100,
+        lead_source: isRecruitment ? 'recruitment' : 'capture', completion_percentage: 100,
         stage: 'novo', temperature: 'cold', lead_score: 0,
         extra_answers: Object.keys(extra_answers).length > 0 ? extra_answers : null,
       } as any);
@@ -634,17 +650,18 @@ export default function CapturePage() {
       url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com');
 
     const renderMedia = (img: any, idx: number) => {
+      const aspectClass = getMediaAspectClass(img.media_format);
       if (img.type === 'video') {
         // Native video (uploaded file)
         if (!isYouTubeOrVimeo(img.url)) {
           return (
             <div key={idx} className="lp-reveal group relative overflow-hidden rounded-3xl border border-white/5 bg-[#0a0a0a] transition-all duration-500 hover:border-white/20 hover:shadow-2xl hover:scale-[1.02]">
               <video
-                src={img.url}
+                src={img.url + '#t=0.5'}
                 controls
                 playsInline
                 preload="metadata"
-                className="w-full aspect-video sm:aspect-square object-cover transition-transform duration-700 group-hover:scale-105"
+                className={cn("w-full object-cover transition-transform duration-700 group-hover:scale-105", aspectClass || "aspect-video")}
                 style={{ background: '#000' }}
               />
               {img.caption && (
@@ -672,7 +689,7 @@ export default function CapturePage() {
         }
         
         return (
-          <div key={idx} className={cn("lp-reveal group relative overflow-hidden rounded-3xl border border-white/5 bg-[#0a0a0a] shadow-2xl transition-all duration-500 hover:border-white/20 hover:-translate-y-1 mx-auto w-full", isVertical ? "aspect-[9/16] max-w-sm" : "aspect-video")}>
+          <div key={idx} className={cn("lp-reveal group relative overflow-hidden rounded-3xl border border-white/5 bg-[#0a0a0a] shadow-2xl transition-all duration-500 hover:border-white/20 hover:-translate-y-1 mx-auto w-full", isVertical ? "aspect-[9/16] max-w-sm" : (aspectClass || "aspect-video"))}>
             <iframe src={embedUrl} className="absolute inset-0 w-full h-full" allowFullScreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" />
             {img.caption && (
               <div className="absolute top-0 inset-x-0 p-4 bg-gradient-to-b from-black/90 via-black/40 to-transparent pointer-events-none z-10">
@@ -684,7 +701,7 @@ export default function CapturePage() {
       }
       return (
         <div key={idx} className="lp-reveal group relative overflow-hidden rounded-3xl border border-white/5 bg-[#0a0a0a] transition-all duration-500 hover:border-white/20 hover:shadow-2xl hover:scale-[1.02]">
-          <img src={img.url} alt={img.caption || `Imagem ${idx + 1}`} className="w-full aspect-video sm:aspect-square object-cover transition-transform duration-700 group-hover:scale-105" />
+          <img src={img.url} alt={img.caption || `Imagem ${idx + 1}`} className={cn("w-full object-cover transition-transform duration-700 group-hover:scale-105", aspectClass || "aspect-video")} />
           {img.caption && (
             <div className="absolute bottom-0 inset-x-0 p-5 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none">
               <p className="text-white text-sm md:text-base font-bold drop-shadow-md">{img.caption}</p>

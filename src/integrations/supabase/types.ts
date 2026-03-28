@@ -363,6 +363,7 @@ export type Database = {
           logo_position: string | null
           logo_size: string | null
           organization_id: string
+          page_purpose: string
           redirect_type: string | null
           redirect_url: string | null
           subtitle: string | null
@@ -396,6 +397,7 @@ export type Database = {
           logo_position?: string | null
           logo_size?: string | null
           organization_id: string
+          page_purpose?: string
           redirect_type?: string | null
           redirect_url?: string | null
           subtitle?: string | null
@@ -429,6 +431,7 @@ export type Database = {
           logo_position?: string | null
           logo_size?: string | null
           organization_id?: string
+          page_purpose?: string
           redirect_type?: string | null
           redirect_url?: string | null
           subtitle?: string | null

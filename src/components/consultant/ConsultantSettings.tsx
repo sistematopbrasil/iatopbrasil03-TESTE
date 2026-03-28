@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Save, Copy, ExternalLink, Upload, Trash2, Check, User, Plus, X, GripVertical, ArrowUp, ArrowDown, FileText, Globe, Image } from 'lucide-react';
+import { Loader2, Save, Copy, ExternalLink, Upload, Trash2, Check, User, Plus, X, GripVertical, ArrowUp, ArrowDown, FileText, Globe, Image, Users, Shield } from 'lucide-react';
 import { QuizQuestionsEditor } from './QuizQuestionsEditor';
 import { cn } from '@/lib/utils';
 
@@ -143,13 +143,18 @@ function CapturePagePreview({ config }: { config: any }) {
           <div className="relative px-4 py-6 border-t border-white/[0.05]">
             <p className="text-xs font-bold text-white mb-3 text-center">{config.gallery_title}</p>
             <div className="grid grid-cols-2 gap-2">
-              {config.gallery_images.slice(0, 4).map((img: any, idx: number) => (
-                <div key={idx} className="aspect-video rounded-lg bg-white/10 overflow-hidden border border-white/10">
+              {config.gallery_images.slice(0, 4).map((img: any, idx: number) => {
+                const formatClass = img.media_format === 'square' ? 'aspect-square' : img.media_format === 'portrait' ? 'aspect-[9/16]' : img.media_format === 'auto' ? 'aspect-video' : 'aspect-video';
+                return (
+                <div key={idx} className={cn("rounded-lg bg-white/10 overflow-hidden border border-white/10", formatClass)}>
                   {img.type === 'video'
-                    ? <div className="w-full h-full flex flex-col items-center justify-center text-[10px] text-gray-500 bg-white/5"><span>🎬</span><span>Vídeo</span></div>
+                    ? (img.url.includes('youtube') || img.url.includes('youtu.be') || img.url.includes('vimeo')
+                      ? <div className="w-full h-full flex flex-col items-center justify-center text-[10px] text-gray-500 bg-white/5"><span>🎬</span><span>Vídeo</span></div>
+                      : <video src={img.url + '#t=0.5'} preload="metadata" muted className="w-full h-full object-cover" />)
                     : <img src={img.url} alt="" className="w-full h-full object-cover" />}
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -233,7 +238,9 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
   const [videoUrlInput, setVideoUrlInput] = useState('');
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [linkSuffix, setLinkSuffix] = useState('');
-  const linkPrefix = `${window.location.origin}/c/`;
+  const [pagePurpose, setPagePurpose] = useState<'protection' | 'recruitment'>('protection');
+  const linkPrefix = pagePurpose === 'recruitment' ? `${window.location.origin}/r/` : `${window.location.origin}/c/`;
+  const recruitLinkPrefix = `${window.location.origin}/r/`;
   const [captureForm, setCaptureForm] = useState({
     title: 'Seu carro protegido do jeito certo.\nSem burocracia. Sem pegadinhas.',
     subtitle: 'A Top Brasil Campinas oferece proteção veicular completa com assistência 24h, cobertura contra roubo, furto e colisão, tudo com atendimento ágil e verdadeiro.',
@@ -250,7 +257,7 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
     email_enabled: true,
     custom_questions: [] as Array<{ question: string; type: 'text' | 'choice'; required: boolean; options: string[] }>,
     template_type: 'standard' as 'standard' | 'landing',
-    gallery_images: [] as Array<{ type?: 'image' | 'video'; url: string; caption?: string }>,
+    gallery_images: [] as Array<{ type?: 'image' | 'video'; url: string; caption?: string; media_format?: string }>,
     gallery_title: 'Veja nossos resultados',
     logo_image: '',
     logo_position: 'left',
@@ -276,25 +283,50 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
   });
 
   const { data: existingConfig } = useQuery({
-    queryKey: ['capture-config', consultant?.id],
+    queryKey: ['capture-config', consultant?.id, pagePurpose],
     queryFn: async () => {
       if (!consultant?.id) return null;
-      const { data } = await supabase
+      const { data } = await (supabase
         .from('capture_page_configs')
         .select('*')
-        .eq('consultant_id', consultant.id)
+        .eq('consultant_id', consultant.id) as any)
+        .eq('page_purpose', pagePurpose)
         .maybeSingle();
       return data;
     },
     enabled: !!consultant?.id,
   });
 
+  // Default values based on page purpose
+  const getDefaults = (purpose: 'protection' | 'recruitment') => {
+    if (purpose === 'recruitment') {
+      return {
+        title: 'Quer uma renda extra ou mudar de vida?',
+        subtitle: 'Faça parte do nosso time de consultores e conquiste sua independência financeira com proteção veicular.',
+        button_text: 'Quero fazer parte do time →',
+        template_type: 'landing' as const,
+        custom_questions: [
+          { question: 'Você tem experiência com vendas?', type: 'choice' as const, required: true, options: ['Sim, já trabalho com vendas', 'Já trabalhei mas parei', 'Nunca trabalhei mas tenho interesse', 'Não tenho experiência'] },
+          { question: 'Qual sua disponibilidade?', type: 'choice' as const, required: true, options: ['Período integral', 'Meio período', 'Apenas finais de semana', 'Horários flexíveis'] },
+          { question: 'Qual renda mensal você busca?', type: 'choice' as const, required: true, options: ['R$ 2.000 a R$ 4.000', 'R$ 4.000 a R$ 8.000', 'R$ 8.000 a R$ 12.000', 'Acima de R$ 12.000'] },
+        ],
+      };
+    }
+    return {
+      title: 'Seu carro protegido do jeito certo.\nSem burocracia. Sem pegadinhas.',
+      subtitle: 'A Top Brasil Campinas oferece proteção veicular completa com assistência 24h, cobertura contra roubo, furto e colisão, tudo com atendimento ágil e verdadeiro.',
+      button_text: 'Quero proteger meu veículo agora →',
+      template_type: 'standard' as const,
+      custom_questions: [] as Array<{ question: string; type: 'text' | 'choice'; required: boolean; options: string[] }>,
+    };
+  };
+
   useEffect(() => {
     if (existingConfig) {
       setCaptureForm({
-        title: existingConfig.title || captureForm.title,
-        subtitle: existingConfig.subtitle || captureForm.subtitle,
-        button_text: existingConfig.button_text || captureForm.button_text,
+        title: existingConfig.title || getDefaults(pagePurpose).title,
+        subtitle: existingConfig.subtitle || getDefaults(pagePurpose).subtitle,
+        button_text: existingConfig.button_text || getDefaults(pagePurpose).button_text,
         button_color: existingConfig.button_color || '#EB6608',
         hero_image: existingConfig.hero_image || '',
         hero_image_size: (existingConfig as any).hero_image_size || 'medium',
@@ -302,11 +334,11 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
         hero_image_shape: (existingConfig as any).hero_image_shape || 'rounded',
         redirect_type: existingConfig.redirect_type || 'thank_you',
         redirect_url: existingConfig.redirect_url || '',
-        whatsapp_message: existingConfig.whatsapp_message || captureForm.whatsapp_message,
+        whatsapp_message: existingConfig.whatsapp_message || 'Olá! Vim pela página de captura e quero saber mais.',
         whatsapp_number: (existingConfig as any).whatsapp_number || '',
         email_enabled: (existingConfig as any).email_enabled ?? true,
-        custom_questions: (existingConfig as any).custom_questions || [],
-        template_type: (existingConfig as any).template_type || 'standard',
+        custom_questions: (existingConfig as any).custom_questions || getDefaults(pagePurpose).custom_questions,
+        template_type: (existingConfig as any).template_type || getDefaults(pagePurpose).template_type,
         gallery_images: (existingConfig as any).gallery_images || [],
         gallery_title: (existingConfig as any).gallery_title || 'Veja nossos resultados',
         logo_image: (existingConfig as any).logo_image || '',
@@ -321,8 +353,19 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
           'Sem consulta de crédito', 'Aprovação na hora', 'Assistência 24h inclusa', 'Preço justo pra todos', 'Sem franquia surpresa', 'Atendimento humanizado'
         ],
       });
+    } else {
+      // No existing config, load defaults for this purpose
+      const defaults = getDefaults(pagePurpose);
+      setCaptureForm(prev => ({
+        ...prev,
+        title: defaults.title,
+        subtitle: defaults.subtitle,
+        button_text: defaults.button_text,
+        template_type: defaults.template_type,
+        custom_questions: defaults.custom_questions,
+      }));
     }
-  }, [existingConfig]);
+  }, [existingConfig, pagePurpose]);
 
   useEffect(() => {
     setLinkSuffix(consultant?.quiz_slug || 'seu-slug');
@@ -404,6 +447,7 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
         compare_traditional_items: captureForm.compare_traditional_items.filter(Boolean),
         compare_topbrasil_items: captureForm.compare_topbrasil_items.filter(Boolean),
         is_active: true,
+        page_purpose: pagePurpose,
         updated_at: new Date().toISOString(),
       };
 
@@ -436,9 +480,28 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
             <CardDescription>Configure sua página de captura de leads</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5 overflow-x-hidden min-w-0">
+            {/* 0. Purpose selector */}
+            <div className="space-y-2">
+              <Label>Finalidade da Página</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <button type="button" onClick={() => setPagePurpose('protection')}
+                  className={cn("p-3 rounded-xl border-2 text-left transition-all", pagePurpose === 'protection' ? "border-primary bg-primary/10" : "border-border hover:border-primary/30")}>
+                  <Shield className="w-4 h-4 mb-1 text-primary" />
+                  <p className="text-sm font-semibold">Proteção Veicular</p>
+                  <p className="text-[10px] text-muted-foreground">Captar associados</p>
+                </button>
+                <button type="button" onClick={() => setPagePurpose('recruitment')}
+                  className={cn("p-3 rounded-xl border-2 text-left transition-all", pagePurpose === 'recruitment' ? "border-primary bg-primary/10" : "border-border hover:border-primary/30")}>
+                  <Users className="w-4 h-4 mb-1 text-primary" />
+                  <p className="text-sm font-semibold">Recrutamento</p>
+                  <p className="text-[10px] text-muted-foreground">Captar consultores</p>
+                </button>
+              </div>
+            </div>
+
             {/* 1. Link da Página (topo) */}
             <div className="space-y-2">
-              <Label>Link da Página de Captura</Label>
+              <Label>Link da Página de {pagePurpose === 'recruitment' ? 'Recrutamento' : 'Captura'}</Label>
               <div className="flex items-center rounded-md border border-input bg-background overflow-hidden">
                 <span className="px-3 py-2 text-xs text-muted-foreground bg-muted border-r border-input whitespace-nowrap select-all">
                   {linkPrefix}
@@ -775,7 +838,7 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
                                 🎬 Vídeo:<br/><span className="truncate w-full inline-block">{img.url.substring(0, 40)}...</span>
                               </div>
                             ) : (
-                              <video src={img.url} className="w-full aspect-square object-cover rounded" muted />
+                              <video src={img.url + '#t=0.5'} className="w-full aspect-square object-cover rounded" muted preload="metadata" />
                             )
                           ) : (
                             <img src={img.url} alt="" className="w-full aspect-square object-cover rounded" />
@@ -785,6 +848,19 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
                             updated[idx] = { ...updated[idx], caption: e.target.value };
                             setCaptureForm({ ...captureForm, gallery_images: updated });
                           }} className="h-7 text-xs" maxLength={50} />
+                          <Select value={img.media_format || 'video'} onValueChange={(v) => {
+                            const updated = [...captureForm.gallery_images];
+                            updated[idx] = { ...updated[idx], media_format: v };
+                            setCaptureForm({ ...captureForm, gallery_images: updated });
+                          }}>
+                            <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Formato" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="video">16:9 (Paisagem)</SelectItem>
+                              <SelectItem value="square">1:1 (Quadrado)</SelectItem>
+                              <SelectItem value="portrait">9:16 (Retrato)</SelectItem>
+                              <SelectItem value="auto">Auto</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                       ))}
                     </div>

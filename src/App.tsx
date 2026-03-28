@@ -53,6 +53,7 @@ const App = () => {
               <Route path="/" element={<LandingPage />} />
               <Route path="/quiz/:slug" element={<QuizPage />} />
               <Route path="/c/:slug" element={<CapturePage />} />
+              <Route path="/r/:slug" element={<CapturePage />} />
               <Route path="/login" element={<AdminLogin />} />
               <Route
                 path="/admin/dashboard"

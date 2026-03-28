@@ -74,3 +74,7 @@ export function getQuizUrl(slug: string): string {
 export function getCaptureUrl(slug: string): string {
   return `${window.location.origin}/c/${slug}`;
 }
+
+export function getRecruitmentUrl(slug: string): string {
+  return `${window.location.origin}/r/${slug}`;
+}
