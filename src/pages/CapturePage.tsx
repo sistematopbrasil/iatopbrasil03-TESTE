@@ -572,6 +572,20 @@ export default function CapturePage() {
         extra_answers: Object.keys(extra_answers).length > 0 ? extra_answers : null,
       } as any);
       trackEvent('Lead', { content_name: consultant.full_name, content_category: 'capture' });
+      
+      // Redirect based on type
+      if (config.redirect_type === 'whatsapp' && config.whatsapp_number) {
+        const phone = config.whatsapp_number.replace(/\D/g, '');
+        const msg = encodeURIComponent(config.whatsapp_message || 'Olá!');
+        window.location.href = `https://wa.me/${phone}?text=${msg}`;
+        return;
+      }
+      if (config.redirect_type === 'url' && config.redirect_url) {
+        const url = config.redirect_url.match(/^https?:\/\//) ? config.redirect_url : `https://${config.redirect_url}`;
+        window.location.href = url;
+        return;
+      }
+      // thank_you → show ThankYouPage
       setSubmitted(true);
     } catch (error) {
       console.error('Erro ao enviar:', error);

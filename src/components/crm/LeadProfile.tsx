@@ -783,7 +783,7 @@ export function LeadProfile({ conversation, onClose }: LeadProfileProps) {
               <Card className="glass p-6 text-center">
                 <AlertCircle className="w-12 h-12 mx-auto mb-3 text-amber-500" />
                 <p className="text-sm text-muted-foreground mb-4">
-                  Este contato ainda não respondeu o quiz de qualificação
+                  Este contato não possui cadastro no sistema
                 </p>
                 <Button className="bg-primary hover:bg-primary/90" size="sm">
                   <Send className="w-4 h-4 mr-2" />

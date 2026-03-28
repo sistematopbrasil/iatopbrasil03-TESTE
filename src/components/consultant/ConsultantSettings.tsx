@@ -875,23 +875,21 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
               <Select value={captureForm.redirect_type} onValueChange={(v) => setCaptureForm({ ...captureForm, redirect_type: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="thank_you">Página de obrigado (padrão)</SelectItem>
-                  <SelectItem value="url">Link personalizado</SelectItem>
-                  <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                  <SelectItem value="whatsapp">WhatsApp (redireciona direto)</SelectItem>
+                  <SelectItem value="url">URL externa (redireciona direto)</SelectItem>
+                  <SelectItem value="thank_you">Página de Obrigado</SelectItem>
                 </SelectContent>
               </Select>
+              {captureForm.redirect_type === 'whatsapp' && (
+                <p className="text-xs text-muted-foreground">Após enviar o formulário, o lead será redirecionado diretamente para o WhatsApp.</p>
+              )}
+              {captureForm.redirect_type === 'url' && (
+                <p className="text-xs text-muted-foreground">Após enviar o formulário, o lead será redirecionado diretamente para a URL configurada.</p>
+              )}
               {captureForm.redirect_type === 'thank_you' && (
-                <p className="text-xs text-muted-foreground">Mostra uma página de obrigado informando que a equipe entrará em contato.</p>
+                <p className="text-xs text-muted-foreground">Mostra uma página de obrigado com botão configurável.</p>
               )}
             </div>
-            {captureForm.redirect_type === 'url' && (
-              <div className="space-y-2">
-                <Label>URL de Redirecionamento</Label>
-                <Input value={captureForm.redirect_url} onChange={(e) => setCaptureForm({ ...captureForm, redirect_url: e.target.value })}
-                  placeholder="https://exemplo.com" maxLength={500} />
-                <p className="text-xs text-muted-foreground">A página de obrigado mostrará um botão incentivando o lead a clicar neste link.</p>
-              </div>
-            )}
             {captureForm.redirect_type === 'whatsapp' && (
               <div className="space-y-3">
                 <div className="space-y-2">
@@ -904,6 +902,28 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
                   <Label>Mensagem padrão</Label>
                   <Input value={captureForm.whatsapp_message} onChange={(e) => setCaptureForm({ ...captureForm, whatsapp_message: e.target.value })}
                     placeholder="Olá! Vim pela página de captura..." maxLength={500} />
+                </div>
+              </div>
+            )}
+            {captureForm.redirect_type === 'url' && (
+              <div className="space-y-2">
+                <Label>URL de Redirecionamento</Label>
+                <Input value={captureForm.redirect_url} onChange={(e) => setCaptureForm({ ...captureForm, redirect_url: e.target.value })}
+                  placeholder="https://exemplo.com" maxLength={500} />
+              </div>
+            )}
+            {captureForm.redirect_type === 'thank_you' && (
+              <div className="space-y-3 p-3 rounded-lg border border-border bg-muted/30">
+                <div className="space-y-2">
+                  <Label>Texto do Botão</Label>
+                  <Input value={captureForm.button_text} onChange={(e) => setCaptureForm({ ...captureForm, button_text: e.target.value })}
+                    placeholder="Falar com um Consultor" maxLength={100} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Link do Botão (opcional)</Label>
+                  <Input value={captureForm.redirect_url} onChange={(e) => setCaptureForm({ ...captureForm, redirect_url: e.target.value })}
+                    placeholder="https://exemplo.com ou wa.me/5511999999999" maxLength={500} />
+                  <p className="text-xs text-muted-foreground">Se vazio, a página de obrigado mostrará apenas a mensagem sem botão.</p>
                 </div>
               </div>
             )}
