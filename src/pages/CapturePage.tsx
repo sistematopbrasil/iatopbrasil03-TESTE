@@ -591,7 +591,7 @@ export default function CapturePage() {
         email: config.email_enabled && form.email ? form.email.trim() : null, 
         phone: phoneDigits,
         organization_id: consultant.organization_id, consultant_id: consultant.id,
-        lead_source: 'capture', completion_percentage: 100,
+        lead_source: isRecruitment ? 'recruitment' : 'capture', completion_percentage: 100,
         stage: 'novo', temperature: 'cold', lead_score: 0,
         extra_answers: Object.keys(extra_answers).length > 0 ? extra_answers : null,
       } as any);
