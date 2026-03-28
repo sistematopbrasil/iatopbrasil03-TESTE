@@ -25,6 +25,7 @@ interface GalleryImage {
   type?: 'image' | 'video';
   url: string;
   caption?: string;
+  media_format?: 'square' | 'video' | 'portrait' | 'auto';
 }
 
 interface CaptureConfig {
