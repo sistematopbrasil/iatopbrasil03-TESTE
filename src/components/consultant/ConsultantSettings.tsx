@@ -447,6 +447,7 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
         compare_traditional_items: captureForm.compare_traditional_items.filter(Boolean),
         compare_topbrasil_items: captureForm.compare_topbrasil_items.filter(Boolean),
         is_active: true,
+        page_purpose: pagePurpose,
         updated_at: new Date().toISOString(),
       };
 
