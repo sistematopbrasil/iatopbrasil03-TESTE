@@ -480,9 +480,28 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
             <CardDescription>Configure sua página de captura de leads</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5 overflow-x-hidden min-w-0">
+            {/* 0. Purpose selector */}
+            <div className="space-y-2">
+              <Label>Finalidade da Página</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <button type="button" onClick={() => setPagePurpose('protection')}
+                  className={cn("p-3 rounded-xl border-2 text-left transition-all", pagePurpose === 'protection' ? "border-primary bg-primary/10" : "border-border hover:border-primary/30")}>
+                  <Shield className="w-4 h-4 mb-1 text-primary" />
+                  <p className="text-sm font-semibold">Proteção Veicular</p>
+                  <p className="text-[10px] text-muted-foreground">Captar associados</p>
+                </button>
+                <button type="button" onClick={() => setPagePurpose('recruitment')}
+                  className={cn("p-3 rounded-xl border-2 text-left transition-all", pagePurpose === 'recruitment' ? "border-primary bg-primary/10" : "border-border hover:border-primary/30")}>
+                  <Users className="w-4 h-4 mb-1 text-primary" />
+                  <p className="text-sm font-semibold">Recrutamento</p>
+                  <p className="text-[10px] text-muted-foreground">Captar consultores</p>
+                </button>
+              </div>
+            </div>
+
             {/* 1. Link da Página (topo) */}
             <div className="space-y-2">
-              <Label>Link da Página de Captura</Label>
+              <Label>Link da Página de {pagePurpose === 'recruitment' ? 'Recrutamento' : 'Captura'}</Label>
               <div className="flex items-center rounded-md border border-input bg-background overflow-hidden">
                 <span className="px-3 py-2 text-xs text-muted-foreground bg-muted border-r border-input whitespace-nowrap select-all">
                   {linkPrefix}
