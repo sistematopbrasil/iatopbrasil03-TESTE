@@ -63,6 +63,7 @@ interface LeadData {
   notes: string | null;
   completion_percentage: number | null;
   extra_answers?: Record<string, string> | null;
+  lead_source?: string | null;
 }
 
 export function LeadProfile({ conversation, onClose }: LeadProfileProps) {
