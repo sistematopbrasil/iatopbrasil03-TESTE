@@ -973,12 +973,8 @@ export default function AdminLeads() {
               <div className="space-y-4">
                 {/* Lead Source & Email */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Badge variant="outline" className={`${
-                    (selectedLead as any).lead_source === 'capture' ? 'border-[#EB6608]/40 text-[#EB6608]' :
-                    (selectedLead as any).lead_source === 'whatsapp' ? 'border-green-500/40 text-green-500' :
-                    'border-purple-500/40 text-purple-500'
-                  }`}>
-                    Origem: {(selectedLead as any).lead_source === 'capture' ? 'Captura' : (selectedLead as any).lead_source === 'whatsapp' ? 'WhatsApp' : 'Quiz'}
+                  <Badge variant="outline" className={getSourceBadgeClass(selectedLead.lead_source)}>
+                    Origem: {getSourceLabel(selectedLead.lead_source)}
                   </Badge>
                   {(selectedLead as any).email && (
                     <span className="text-sm text-muted-foreground">📧 {(selectedLead as any).email}</span>
