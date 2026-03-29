@@ -1,55 +1,47 @@
 
 
-## Plano: Redirecionamento direto para WhatsApp + Perfil do lead dinâmico por origem
+## Plano: Corrigir exibição de respostas e origem dos leads da landing page
 
-### 3 entregas
+### Problemas identificados
 
----
+1. **Origem incorreta nos badges**: O código em `AdminLeads.tsx` só reconhece 3 origens (`capture`, `whatsapp`, `quiz`). Não reconhece `recruitment` e trata tudo que não é capture/whatsapp como "Quiz".
 
-### 1. WhatsApp direto (sem página de obrigado)
+2. **Modal de detalhes mostra campos do quiz para TODOS os leads**: O modal em `AdminLeads.tsx` (linhas 995-1052) sempre mostra Idade, Estado Civil, CNH, Situação Profissional, etc. — campos do quiz que ficam vazios ("-") para leads da landing page.
 
-**Problema atual:** Após o formulário, SEMPRE mostra a `ThankYouPage`, mesmo quando o redirect é WhatsApp.
+3. **Respostas extras não aparecem corretamente**: O `CapturePage` salva `extra_answers` como `{ "pergunta": "resposta" }` (string simples), mas o `AdminLeads.tsx` tenta ler como `{ question, answer }` (objeto). Isso faz as respostas não aparecerem.
 
-**Solução em `CapturePage.tsx`:**
-- No `handleSubmit`, após salvar com sucesso, verificar o `redirect_type`:
-  - Se `whatsapp` → redirecionar diretamente para `wa.me/...` via `window.location.href` (sem `setSubmitted(true)`)
-  - Se `url` → redirecionar diretamente para a URL configurada
-  - Se `thank_you` (novo tipo) → aí sim `setSubmitted(true)` e mostra a ThankYouPage
-- Adicionar `thank_you` como opção de `redirect_type` para quem quer a página de obrigado
-- Na `ThankYouPage`, o botão deve ser configurável (texto e link do botão) — usar campos existentes `button_text` e `redirect_url`
-
-**Mudança no settings (`ConsultantSettings.tsx`):**
-- Nas opções de redirecionamento, ajustar para 3 opções claras:
-  - **WhatsApp** → vai direto pro WhatsApp
-  - **URL externa** → vai direto pra URL
-  - **Página de Obrigado** → mostra thank you page com botão configurável (texto + link do botão)
+4. **Leads existentes da landing page já foram salvos com `lead_source: 'capture'`**, então as respostas já estão no banco — o problema é apenas na exibição.
 
 ---
 
-### 2. Botão configurável na página de obrigado
+### Mudanças
 
-Quando `redirect_type === 'thank_you'`:
-- Mostrar a ThankYouPage com um botão cujo texto e URL são configuráveis
-- No settings, quando selecionar "Página de Obrigado", mostrar campos:
-  - Texto do botão (default: "Falar com um Consultor")
-  - Link do botão (URL ou WhatsApp)
+#### 1. `src/pages/AdminLeads.tsx` — Badges de origem (4 locais)
 
-Aproveitar os campos existentes `button_text` e `redirect_url` do `capture_page_configs`.
+Atualizar a lógica de badges para reconhecer todas as origens:
+- `capture` → "Captura" (laranja)
+- `recruitment` → "Recrutamento" (azul)
+- `whatsapp` → "WhatsApp" (verde)
+- `quiz` → "Quiz" (roxo)
 
----
+Atualizar nos 4 locais: badges da lista mobile, badges da tabela desktop, badge do modal, e exportação CSV.
 
-### 3. Perfil do lead dinâmico por origem (`LeadProfile.tsx`)
+#### 2. `src/pages/AdminLeads.tsx` — Modal de detalhes dinâmico
 
-**Problema atual:** O perfil sempre mostra seções do quiz (Experiência Profissional, Expectativas, etc.) mesmo para leads de captura/recrutamento que não responderam quiz.
+Condicionar os campos exibidos por `lead_source`:
+- **Quiz**: mostrar todos os campos (idade, estado civil, profissão, etc.)
+- **Capture/Recruitment**: mostrar apenas Nome, Telefone, Email + `extra_answers`
+- Seção "Respostas do Formulário" aparece para capture/recruitment com as perguntas e respostas da landing
 
-**Solução:**
-- Adicionar `lead_source` à interface `LeadData`
-- Condicionar as seções por `lead_source`:
-  - **`quiz`**: mostrar tudo (informações pessoais, profissionais, expectativas — campos do quiz)
-  - **`capture` / `recruitment`**: mostrar apenas informações básicas (nome, telefone, email) + `extra_answers` (respostas do formulário da landing) + origem do lead
-  - Esconder seções vazias automaticamente (se nenhum campo da seção tem valor, não mostrar o header)
-- Ajustar o label "Quiz respondido" para "Cadastrado em" quando `lead_source !== 'quiz'`
-- Ajustar a mensagem "Este contato ainda não respondeu o quiz" para ser contextual
+#### 3. `src/pages/AdminLeads.tsx` — Fix formato `extra_answers`
+
+O `extra_answers` salvo pela landing é `{ "pergunta": "resposta" }`. Ajustar o render para aceitar os dois formatos:
+- Se `value` for string → label = key, valor = value
+- Se `value` for objeto com `.answer` → label = value.question, valor = value.answer
+
+#### 4. `src/pages/AdminLeads.tsx` — Filtro de origem
+
+Adicionar `recruitment` como opção no filtro de origem (se existir).
 
 ---
 
@@ -57,7 +49,7 @@ Aproveitar os campos existentes `button_text` e `redirect_url` do `capture_page_
 
 | Arquivo | Mudança |
 |---------|---------|
-| `src/pages/CapturePage.tsx` | Redirect direto para WhatsApp/URL no submit; ThankYouPage só para `thank_you` |
-| `src/components/consultant/ConsultantSettings.tsx` | 3 opções de redirect; campos do botão da thank you page |
-| `src/components/crm/LeadProfile.tsx` | Adicionar `lead_source`; condicionar seções por origem; esconder seções vazias |
+| `src/pages/AdminLeads.tsx` | Badges com 4 origens, modal dinâmico por lead_source, fix extra_answers |
+
+Nenhuma mudança no banco — os dados já estão corretos, o problema é apenas na UI.
 
