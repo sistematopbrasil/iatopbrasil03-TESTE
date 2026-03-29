@@ -455,7 +455,7 @@ export default function AdminLeads() {
       lead.name || '',
       lead.phone || '',
       (lead as any).email || '',
-      (lead as any).lead_source === 'capture' ? 'Captura' : (lead as any).lead_source === 'whatsapp' ? 'WhatsApp' : 'Quiz',
+      getSourceLabel(lead.lead_source),
       lead.age || '',
       lead.relationship_status || '',
       lead.location || '',
