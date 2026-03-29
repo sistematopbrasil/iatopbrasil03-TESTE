@@ -557,6 +557,10 @@ export default function AdminLeads() {
               className={sourceFilter === 'whatsapp' ? 'bg-green-500 hover:bg-green-600' : ''}>
               WhatsApp
             </Button>
+            <Button variant={sourceFilter === 'recruitment' ? 'default' : 'outline'} size="sm" onClick={() => setSourceFilter('recruitment')}
+              className={sourceFilter === 'recruitment' ? 'bg-blue-500 hover:bg-blue-600' : ''}>
+              Recrutamento
+            </Button>
           </div>
 
           {/* Botão de exclusão em massa */}
