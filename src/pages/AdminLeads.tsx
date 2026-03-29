@@ -64,7 +64,27 @@ interface CrmTag {
 }
 
 type TemperatureFilter = 'all' | 'hot' | 'warm' | 'cold';
-type SourceFilter = 'all' | 'quiz' | 'capture' | 'whatsapp';
+type SourceFilter = 'all' | 'quiz' | 'capture' | 'whatsapp' | 'recruitment';
+
+const getSourceLabel = (source: string) => {
+  switch (source) {
+    case 'capture': return 'Captura';
+    case 'recruitment': return 'Recrutamento';
+    case 'whatsapp': return 'WhatsApp';
+    default: return 'Quiz';
+  }
+};
+
+const getSourceBadgeClass = (source: string) => {
+  switch (source) {
+    case 'capture': return 'border-[#EB6608]/40 text-[#EB6608]';
+    case 'recruitment': return 'border-blue-500/40 text-blue-500';
+    case 'whatsapp': return 'border-green-500/40 text-green-500';
+    default: return 'border-purple-500/40 text-purple-500';
+  }
+};
+
+const isQuizLead = (source: string) => source === 'quiz';
 
 export default function AdminLeads() {
   const navigate = useNavigate();
@@ -435,7 +455,7 @@ export default function AdminLeads() {
       lead.name || '',
       lead.phone || '',
       (lead as any).email || '',
-      (lead as any).lead_source === 'capture' ? 'Captura' : (lead as any).lead_source === 'whatsapp' ? 'WhatsApp' : 'Quiz',
+      getSourceLabel(lead.lead_source),
       lead.age || '',
       lead.relationship_status || '',
       lead.location || '',
@@ -536,6 +556,10 @@ export default function AdminLeads() {
             <Button variant={sourceFilter === 'whatsapp' ? 'default' : 'outline'} size="sm" onClick={() => setSourceFilter('whatsapp')}
               className={sourceFilter === 'whatsapp' ? 'bg-green-500 hover:bg-green-600' : ''}>
               WhatsApp
+            </Button>
+            <Button variant={sourceFilter === 'recruitment' ? 'default' : 'outline'} size="sm" onClick={() => setSourceFilter('recruitment')}
+              className={sourceFilter === 'recruitment' ? 'bg-blue-500 hover:bg-blue-600' : ''}>
+              Recrutamento
             </Button>
           </div>
 
@@ -791,12 +815,8 @@ export default function AdminLeads() {
                     {lead.temperature && (
                       <TemperatureBadge temperature={lead.temperature} size="sm" />
                     )}
-                    <Badge variant="outline" className={`text-[10px] ${
-                      (lead as any).lead_source === 'capture' ? 'border-[#EB6608]/40 text-[#EB6608]' :
-                      (lead as any).lead_source === 'whatsapp' ? 'border-green-500/40 text-green-500' :
-                      'border-purple-500/40 text-purple-500'
-                    }`}>
-                      {(lead as any).lead_source === 'capture' ? 'Captura' : (lead as any).lead_source === 'whatsapp' ? 'WhatsApp' : 'Quiz'}
+                    <Badge variant="outline" className={`text-[10px] ${getSourceBadgeClass(lead.lead_source)}`}>
+                      {getSourceLabel(lead.lead_source)}
                     </Badge>
                   </div>
                 </div>
@@ -889,12 +909,8 @@ export default function AdminLeads() {
                         {lead.phone || '-'}
                       </TableCell>
                       <TableCell className="text-center px-4">
-                        <Badge variant="outline" className={`text-[10px] ${
-                          (lead as any).lead_source === 'capture' ? 'border-[#EB6608]/40 text-[#EB6608]' :
-                          (lead as any).lead_source === 'whatsapp' ? 'border-green-500/40 text-green-500' :
-                          'border-purple-500/40 text-purple-500'
-                        }`}>
-                          {(lead as any).lead_source === 'capture' ? 'Captura' : (lead as any).lead_source === 'whatsapp' ? 'WhatsApp' : 'Quiz'}
+                        <Badge variant="outline" className={`text-[10px] ${getSourceBadgeClass(lead.lead_source)}`}>
+                          {getSourceLabel(lead.lead_source)}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center px-4">
@@ -957,12 +973,8 @@ export default function AdminLeads() {
               <div className="space-y-4">
                 {/* Lead Source & Email */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Badge variant="outline" className={`${
-                    (selectedLead as any).lead_source === 'capture' ? 'border-[#EB6608]/40 text-[#EB6608]' :
-                    (selectedLead as any).lead_source === 'whatsapp' ? 'border-green-500/40 text-green-500' :
-                    'border-purple-500/40 text-purple-500'
-                  }`}>
-                    Origem: {(selectedLead as any).lead_source === 'capture' ? 'Captura' : (selectedLead as any).lead_source === 'whatsapp' ? 'WhatsApp' : 'Quiz'}
+                  <Badge variant="outline" className={getSourceBadgeClass(selectedLead.lead_source)}>
+                    Origem: {getSourceLabel(selectedLead.lead_source)}
                   </Badge>
                   {(selectedLead as any).email && (
                     <span className="text-sm text-muted-foreground">📧 {(selectedLead as any).email}</span>
@@ -992,6 +1004,7 @@ export default function AdminLeads() {
                   </div>
                 )}
 
+                {/* Informações Básicas */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Nome</p>
@@ -1001,69 +1014,142 @@ export default function AdminLeads() {
                     <p className="text-sm text-muted-foreground">Telefone</p>
                     <p className="font-medium break-words">{selectedLead.phone || '-'}</p>
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Idade</p>
-                    <p className="font-medium">{selectedLead.age || '-'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Estado Civil</p>
-                    <p className="font-medium break-words">{selectedLead.relationship_status || '-'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Localização</p>
-                    <p className="font-medium break-words">{selectedLead.location || '-'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Possui Veículo</p>
-                    <p className="font-medium break-words">{selectedLead.has_vehicle || '-'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Possui CNH</p>
-                    <p className="font-medium break-words">{selectedLead.has_driver_license || '-'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Situação Profissional</p>
-                    <p className="font-medium break-words">{selectedLead.employment_status || '-'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Trabalho Atual</p>
-                    <p className="font-medium break-words">{selectedLead.current_job || '-'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Experiência em Vendas</p>
-                    <p className="font-medium break-words">{selectedLead.sales_experience || '-'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Experiência com Proteção Veicular</p>
-                    <p className="font-medium break-words">{selectedLead.vehicle_protection_experience || '-'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Renda Atual</p>
-                    <p className="font-medium break-words">{selectedLead.current_income || '-'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Renda Desejada</p>
-                    <p className="font-medium break-words">{selectedLead.desired_income || '-'}</p>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">Motivação</p>
-                  <p className="text-sm bg-muted p-3 rounded break-words">{selectedLead.motivation || '-'}</p>
+                  {selectedLead.email && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Email</p>
+                      <p className="font-medium break-words">{selectedLead.email}</p>
+                    </div>
+                  )}
+                  {selectedLead.location && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Localização</p>
+                      <p className="font-medium break-words">{selectedLead.location}</p>
+                    </div>
+                  )}
                 </div>
 
-                {/* Respostas Adicionais (perguntas dinâmicas) */}
+                {/* Campos do Quiz - só mostra para leads do quiz */}
+                {isQuizLead(selectedLead.lead_source) && (
+                  <>
+                    {/* Informações Pessoais */}
+                    {(selectedLead.age || selectedLead.relationship_status || selectedLead.has_vehicle || selectedLead.has_driver_license) && (
+                      <div className="border-t border-border pt-4">
+                        <p className="text-sm font-semibold text-foreground mb-3">Informações Pessoais</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {selectedLead.age && (
+                            <div>
+                              <p className="text-sm text-muted-foreground">Idade</p>
+                              <p className="font-medium">{selectedLead.age}</p>
+                            </div>
+                          )}
+                          {selectedLead.relationship_status && (
+                            <div>
+                              <p className="text-sm text-muted-foreground">Estado Civil</p>
+                              <p className="font-medium break-words">{selectedLead.relationship_status}</p>
+                            </div>
+                          )}
+                          {selectedLead.has_vehicle && (
+                            <div>
+                              <p className="text-sm text-muted-foreground">Possui Veículo</p>
+                              <p className="font-medium break-words">{selectedLead.has_vehicle}</p>
+                            </div>
+                          )}
+                          {selectedLead.has_driver_license && (
+                            <div>
+                              <p className="text-sm text-muted-foreground">Possui CNH</p>
+                              <p className="font-medium break-words">{selectedLead.has_driver_license}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Experiência Profissional */}
+                    {(selectedLead.employment_status || selectedLead.current_job || selectedLead.sales_experience || selectedLead.vehicle_protection_experience) && (
+                      <div className="border-t border-border pt-4">
+                        <p className="text-sm font-semibold text-foreground mb-3">Experiência Profissional</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {selectedLead.employment_status && (
+                            <div>
+                              <p className="text-sm text-muted-foreground">Situação Profissional</p>
+                              <p className="font-medium break-words">{selectedLead.employment_status}</p>
+                            </div>
+                          )}
+                          {selectedLead.current_job && (
+                            <div>
+                              <p className="text-sm text-muted-foreground">Trabalho Atual</p>
+                              <p className="font-medium break-words">{selectedLead.current_job}</p>
+                            </div>
+                          )}
+                          {selectedLead.sales_experience && (
+                            <div>
+                              <p className="text-sm text-muted-foreground">Experiência em Vendas</p>
+                              <p className="font-medium break-words">{selectedLead.sales_experience}</p>
+                            </div>
+                          )}
+                          {selectedLead.vehicle_protection_experience && (
+                            <div>
+                              <p className="text-sm text-muted-foreground">Experiência com Proteção Veicular</p>
+                              <p className="font-medium break-words">{selectedLead.vehicle_protection_experience}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Expectativas */}
+                    {(selectedLead.current_income || selectedLead.desired_income || selectedLead.motivation) && (
+                      <div className="border-t border-border pt-4">
+                        <p className="text-sm font-semibold text-foreground mb-3">Expectativas</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          {selectedLead.current_income && (
+                            <div>
+                              <p className="text-sm text-muted-foreground">Renda Atual</p>
+                              <p className="font-medium break-words">{selectedLead.current_income}</p>
+                            </div>
+                          )}
+                          {selectedLead.desired_income && (
+                            <div>
+                              <p className="text-sm text-muted-foreground">Renda Desejada</p>
+                              <p className="font-medium break-words">{selectedLead.desired_income}</p>
+                            </div>
+                          )}
+                        </div>
+                        {selectedLead.motivation && (
+                          <div className="mt-3">
+                            <p className="text-sm text-muted-foreground mb-2">Motivação</p>
+                            <p className="text-sm bg-muted p-3 rounded break-words">{selectedLead.motivation}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Respostas do Formulário - para capture/recruitment e quiz com extra_answers */}
                 {selectedLead.extra_answers && typeof selectedLead.extra_answers === 'object' && Object.keys(selectedLead.extra_answers).length > 0 && (
                   <div className="border-t border-border pt-4">
-                    <p className="text-sm font-semibold text-foreground mb-3">Respostas Adicionais</p>
+                    <p className="text-sm font-semibold text-foreground mb-3">
+                      {isQuizLead(selectedLead.lead_source) ? 'Respostas Adicionais' : 'Respostas do Formulário'}
+                    </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {Object.entries(selectedLead.extra_answers)
-                        .sort((a, b) => ((a[1] as any)?.order_index || 0) - ((b[1] as any)?.order_index || 0))
-                        .map(([key, value]: [string, any]) => (
-                          <div key={key}>
-                            <p className="text-sm text-muted-foreground">{value?.question || key}</p>
-                            <p className="font-medium break-words">{value?.answer || '-'}</p>
-                          </div>
-                        ))}
+                        .sort((a, b) => {
+                          const orderA = typeof a[1] === 'object' && a[1] !== null ? ((a[1] as any)?.order_index || 0) : 0;
+                          const orderB = typeof b[1] === 'object' && b[1] !== null ? ((b[1] as any)?.order_index || 0) : 0;
+                          return orderA - orderB;
+                        })
+                        .map(([key, value]: [string, any]) => {
+                          // Support both formats: { "pergunta": "resposta" } and { question, answer }
+                          const label = typeof value === 'string' ? key : (value?.question || key);
+                          const answer = typeof value === 'string' ? value : (value?.answer || '-');
+                          return (
+                            <div key={key}>
+                              <p className="text-sm text-muted-foreground">{label}</p>
+                              <p className="font-medium break-words">{answer}</p>
+                            </div>
+                          );
+                        })}
                     </div>
                   </div>
                 )}
