@@ -909,12 +909,8 @@ export default function AdminLeads() {
                         {lead.phone || '-'}
                       </TableCell>
                       <TableCell className="text-center px-4">
-                        <Badge variant="outline" className={`text-[10px] ${
-                          (lead as any).lead_source === 'capture' ? 'border-[#EB6608]/40 text-[#EB6608]' :
-                          (lead as any).lead_source === 'whatsapp' ? 'border-green-500/40 text-green-500' :
-                          'border-purple-500/40 text-purple-500'
-                        }`}>
-                          {(lead as any).lead_source === 'capture' ? 'Captura' : (lead as any).lead_source === 'whatsapp' ? 'WhatsApp' : 'Quiz'}
+                        <Badge variant="outline" className={`text-[10px] ${getSourceBadgeClass(lead.lead_source)}`}>
+                          {getSourceLabel(lead.lead_source)}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center px-4">
