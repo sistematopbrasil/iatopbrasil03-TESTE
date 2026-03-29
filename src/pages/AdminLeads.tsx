@@ -64,7 +64,27 @@ interface CrmTag {
 }
 
 type TemperatureFilter = 'all' | 'hot' | 'warm' | 'cold';
-type SourceFilter = 'all' | 'quiz' | 'capture' | 'whatsapp';
+type SourceFilter = 'all' | 'quiz' | 'capture' | 'whatsapp' | 'recruitment';
+
+const getSourceLabel = (source: string) => {
+  switch (source) {
+    case 'capture': return 'Captura';
+    case 'recruitment': return 'Recrutamento';
+    case 'whatsapp': return 'WhatsApp';
+    default: return 'Quiz';
+  }
+};
+
+const getSourceBadgeClass = (source: string) => {
+  switch (source) {
+    case 'capture': return 'border-[#EB6608]/40 text-[#EB6608]';
+    case 'recruitment': return 'border-blue-500/40 text-blue-500';
+    case 'whatsapp': return 'border-green-500/40 text-green-500';
+    default: return 'border-purple-500/40 text-purple-500';
+  }
+};
+
+const isQuizLead = (source: string) => source === 'quiz';
 
 export default function AdminLeads() {
   const navigate = useNavigate();
