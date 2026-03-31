@@ -426,6 +426,7 @@ export default function CapturePage() {
   const [consultant, setConsultant] = useState<ConsultantData | null>(null);
   const [loading, setLoading] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
