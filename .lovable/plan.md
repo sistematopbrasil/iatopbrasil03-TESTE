@@ -1,30 +1,26 @@
 
 
-## Plano: Corrigir evento duplicado do Meta Pixel
+## Plano: Eliminar flash de template errado na CapturePage
 
 ### Causa raiz
-`fbq('init', pixelId)` é chamado dentro de um `useEffect` que pode executar múltiplas vezes (re-renders do React). Cada `init` registra uma instância do pixel, e quando `trackEvent` dispara, o evento é enviado para **todas** as instâncias — duplicando.
+
+O `DEFAULT_CONFIG` tem `template_type: 'standard'`. Como `loading` começa `false` (mudança anterior para carregar rápido), a página renderiza imediatamente com o template **standard** (formulário de captura). Quando os dados do Supabase chegam e `template_type` é `'landing'`, a UI troca — causando um flash visível onde o usuário vê a página de captura antes da landing.
 
 ### Solução
-Manter um **Set global** de pixel IDs já inicializados, e só chamar `fbq('init')` se o pixel ainda não foi inicializado.
 
-### Mudança
+Não renderizar o conteúdo principal até saber qual template usar. Em vez de mostrar um spinner, mostrar apenas o **background escuro** (`bg-[#0D0D0D]`) sem conteúdo — isso é instantâneo e não parece "tela de loading". Assim que os dados chegam (geralmente <200ms), o template correto aparece direto.
 
-| Arquivo | Ação |
-|---------|------|
-| `src/hooks/useMetaPixel.ts` | Adicionar `Set` global para rastrear pixels já inicializados; pular `init` se já existe |
+### Mudanças em `src/pages/CapturePage.tsx`
 
-### Código resumido
-```ts
-const initializedPixels = new Set<string>();
+1. **Adicionar estado `dataLoaded`** (inicia `false`, fica `true` após `loadData` completar)
+2. **Antes do check de `notFound` e antes de renderizar qualquer template**, se `!dataLoaded`, retornar apenas:
+   ```tsx
+   <div className="min-h-screen bg-[#0D0D0D]" />
+   ```
+   — Tela preta limpa, sem spinner, sem flash de conteúdo errado
+3. O carregamento continua rápido (sem delay artificial), mas o conteúdo só aparece quando sabemos qual template renderizar
 
-// Dentro do useEffect:
-if (!initializedPixels.has(pixelId)) {
-  initializedPixels.add(pixelId);
-  window.fbq('init', pixelId);
-  window.fbq('track', 'PageView');
-}
-```
-
-Isso garante que cada pixel é inicializado **uma única vez**, independente de quantas vezes o componente re-renderiza.
+| Arquivo | Mudança |
+|---------|---------|
+| `src/pages/CapturePage.tsx` | Adicionar guard `dataLoaded` para não renderizar conteúdo antes de saber o template |
 
