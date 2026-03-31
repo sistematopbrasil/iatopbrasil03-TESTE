@@ -442,7 +442,7 @@ export default function CapturePage() {
     try {
       const { data: consultantRows } = await supabase.rpc('get_consultant_by_slug', { p_slug: slug });
       const consultantData = consultantRows?.[0];
-      if (!consultantData) { setLoading(false); return; }
+      if (!consultantData) { setNotFound(true); return; }
       setConsultant({
         id: consultantData.id, full_name: consultantData.full_name,
         organization_id: consultantData.organization_id,
