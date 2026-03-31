@@ -424,7 +424,8 @@ export default function CapturePage() {
   const isRecruitment = location.pathname.startsWith('/r/');
   const [config, setConfig] = useState<CaptureConfig>(DEFAULT_CONFIG);
   const [consultant, setConsultant] = useState<ConsultantData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [notFound, setNotFound] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
