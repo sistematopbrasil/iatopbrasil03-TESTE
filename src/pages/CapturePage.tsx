@@ -1,4 +1,3 @@
-// CapturePage - optimized loading
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useMetaPixel } from '@/hooks/useMetaPixel';
 import { createPortal } from 'react-dom';
