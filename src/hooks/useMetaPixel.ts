@@ -6,6 +6,8 @@ declare global {
   }
 }
 
+const initializedPixels = new Set<string>();
+
 interface UseMetaPixelOptions {
   pixelId?: string | null;
 }
