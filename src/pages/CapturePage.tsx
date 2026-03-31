@@ -424,7 +424,8 @@ export default function CapturePage() {
   const isRecruitment = location.pathname.startsWith('/r/');
   const [config, setConfig] = useState<CaptureConfig>(DEFAULT_CONFIG);
   const [consultant, setConsultant] = useState<ConsultantData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [notFound, setNotFound] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -441,7 +442,7 @@ export default function CapturePage() {
     try {
       const { data: consultantRows } = await supabase.rpc('get_consultant_by_slug', { p_slug: slug });
       const consultantData = consultantRows?.[0];
-      if (!consultantData) { setLoading(false); return; }
+      if (!consultantData) { setNotFound(true); return; }
       setConsultant({
         id: consultantData.id, full_name: consultantData.full_name,
         organization_id: consultantData.organization_id,
@@ -483,8 +484,7 @@ export default function CapturePage() {
       }
     } catch (error) {
       console.error('Erro ao carregar página de captura:', error);
-    } finally {
-      setLoading(false);
+      setNotFound(true);
     }
   };
 
@@ -573,15 +573,17 @@ export default function CapturePage() {
       } as any);
       trackEvent('Lead', { content_name: consultant.full_name, content_category: 'capture' });
       
-      // Redirect based on type
+      // Redirect based on type — delay to ensure Pixel event fires
       if (config.redirect_type === 'whatsapp' && config.whatsapp_number) {
         const phone = config.whatsapp_number.replace(/\D/g, '');
         const msg = encodeURIComponent(config.whatsapp_message || 'Olá!');
+        await new Promise(r => setTimeout(r, 350));
         window.location.href = `https://wa.me/${phone}?text=${msg}`;
         return;
       }
       if (config.redirect_type === 'url' && config.redirect_url) {
         const url = config.redirect_url.match(/^https?:\/\//) ? config.redirect_url : `https://${config.redirect_url}`;
+        await new Promise(r => setTimeout(r, 350));
         window.location.href = url;
         return;
       }
@@ -594,15 +596,7 @@ export default function CapturePage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#EB6608]" />
-      </div>
-    );
-  }
-
-  if (!consultant) {
+  if (notFound) {
     return (
       <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center text-white">
         <div className="text-center space-y-4">
