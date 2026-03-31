@@ -35,9 +35,10 @@ export const useMetaPixel = (options?: UseMetaPixelOptions) => {
       document.head.appendChild(script);
     }
 
-    // Wait for fbq to be available then initialize
+    // Wait for fbq to be available then initialize (only once per pixelId)
     const timer = setTimeout(() => {
-      if (window.fbq) {
+      if (window.fbq && !initializedPixels.has(pixelId)) {
+        initializedPixels.add(pixelId);
         console.log('Initializing Meta Pixel with ID:', pixelId);
         window.fbq('init', pixelId);
         window.fbq('track', 'PageView');
