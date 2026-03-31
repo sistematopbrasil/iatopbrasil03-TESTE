@@ -571,7 +571,7 @@ export default function CapturePage() {
         stage: 'novo', temperature: 'cold', lead_score: 0,
         extra_answers: Object.keys(extra_answers).length > 0 ? extra_answers : null,
       } as any);
-      trackEvent('Lead', { content_name: consultant.full_name, content_category: 'capture' });
+      trackEvent('CompleteRegistration', { content_name: consultant.full_name, content_category: 'capture' });
       
       // Redirect based on type — delay to ensure Pixel event fires
       if (config.redirect_type === 'whatsapp' && config.whatsapp_number) {

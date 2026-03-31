@@ -76,32 +76,3 @@ export const useMetaPixel = (options?: UseMetaPixelOptions) => {
   return { trackEvent, trackCustomEvent };
 };
 
-// Hook for loading pixel from app_settings (global pixel)
-export const useGlobalMetaPixel = () => {
-  useEffect(() => {
-    const loadGlobalPixel = async () => {
-      try {
-        const { supabase } = await import('@/integrations/supabase/client');
-        const { data, error } = await supabase
-          .from('app_settings')
-          .select('setting_value')
-          .eq('setting_key', 'meta_pixel_id')
-          .maybeSingle();
-
-        if (error || !data?.setting_value) return;
-
-        const pixelId = data.setting_value.trim();
-        
-        if (pixelId && window.fbq) {
-          window.fbq('init', pixelId);
-          window.fbq('track', 'PageView');
-        }
-      } catch (error) {
-        console.error('Error loading global Meta Pixel:', error);
-      }
-    };
-
-    const timer = setTimeout(loadGlobalPixel, 100);
-    return () => clearTimeout(timer);
-  }, []);
-};

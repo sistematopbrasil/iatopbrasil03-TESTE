@@ -118,7 +118,7 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
   // Disparar evento Lead do Meta Pixel quando quiz for completado
   useEffect(() => {
     if (isComplete && consultant?.pixel_id) {
-      trackEvent('Lead');
+      trackEvent('CompleteRegistration');
     }
   }, [isComplete, consultant?.pixel_id, trackEvent]);
 
