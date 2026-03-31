@@ -3,7 +3,7 @@ import { useMetaPixel } from '@/hooks/useMetaPixel';
 import { createPortal } from 'react-dom';
 import { useParams, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { CheckCircle, User, Mail, Phone, Shield, Check, Lock, ChevronDown, ChevronRight, X } from 'lucide-react';
+import { Loader2, CheckCircle, User, Mail, Phone, Shield, Check, Lock, ChevronDown, ChevronRight, X } from 'lucide-react';
 import { z } from 'zod';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
