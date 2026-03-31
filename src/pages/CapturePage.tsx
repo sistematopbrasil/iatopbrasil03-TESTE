@@ -484,8 +484,7 @@ export default function CapturePage() {
       }
     } catch (error) {
       console.error('Erro ao carregar página de captura:', error);
-    } finally {
-      setLoading(false);
+      setNotFound(true);
     }
   };
 
