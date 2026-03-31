@@ -573,15 +573,17 @@ export default function CapturePage() {
       } as any);
       trackEvent('Lead', { content_name: consultant.full_name, content_category: 'capture' });
       
-      // Redirect based on type
+      // Redirect based on type — delay to ensure Pixel event fires
       if (config.redirect_type === 'whatsapp' && config.whatsapp_number) {
         const phone = config.whatsapp_number.replace(/\D/g, '');
         const msg = encodeURIComponent(config.whatsapp_message || 'Olá!');
+        await new Promise(r => setTimeout(r, 350));
         window.location.href = `https://wa.me/${phone}?text=${msg}`;
         return;
       }
       if (config.redirect_type === 'url' && config.redirect_url) {
         const url = config.redirect_url.match(/^https?:\/\//) ? config.redirect_url : `https://${config.redirect_url}`;
+        await new Promise(r => setTimeout(r, 350));
         window.location.href = url;
         return;
       }
