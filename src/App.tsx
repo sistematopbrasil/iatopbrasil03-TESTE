@@ -39,8 +39,6 @@ export const queryClient = new QueryClient({
 });
 
 const App = () => {
-  // Initialize Meta Pixel with dynamic ID from database
-  useMetaPixel();
 
   return (
     <QueryClientProvider client={queryClient}>
