@@ -426,6 +426,7 @@ export default function CapturePage() {
   const [consultant, setConsultant] = useState<ConsultantData | null>(null);
   const [loading, setLoading] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -485,6 +486,8 @@ export default function CapturePage() {
     } catch (error) {
       console.error('Erro ao carregar página de captura:', error);
       setNotFound(true);
+    } finally {
+      setDataLoaded(true);
     }
   };
 
@@ -595,6 +598,10 @@ export default function CapturePage() {
       setSubmitting(false);
     }
   };
+
+  if (!dataLoaded) {
+    return <div className="min-h-screen bg-[#0D0D0D]" />;
+  }
 
   if (notFound) {
     return (
