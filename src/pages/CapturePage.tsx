@@ -596,15 +596,7 @@ export default function CapturePage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#EB6608]" />
-      </div>
-    );
-  }
-
-  if (!consultant) {
+  if (notFound) {
     return (
       <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center text-white">
         <div className="text-center space-y-4">
