@@ -1,40 +1,48 @@
 
-Objetivo: resolver o erro de publish sem perder tempo alterando código que não causa esse problema.
 
-Diagnóstico
-- O problema real não está no app em si.
-- O erro acontece na etapa de upload do `dist`, depois da geração dos arquivos:
-  `aws s3 cp exit 127`
-- `exit 127` significa comando/binário ausente.
-- O wrapper interno do AWS CLI está quebrado no ambiente de publish:
-  `/bin/aws` tenta chamar `.aws-wrapped`, mas esse arquivo não existe no caminho Nix informado.
-- Revisei os pontos que poderiam causar isso no projeto:
-  - `package.json`: build padrão com `vite build`
-  - `vite.config.ts`: configuração normal de Vite/PWA
-  - `netlify.toml`: apenas `publish = "dist"`
-  - busca no repositório: não há script customizado de AWS, S3 ou upload
+## Plano: Corrigir Pixel duplicado, otimizar carregamento e mensagem WhatsApp com dados do lead
 
-Do I know what the issue is?
-- Sim. É uma falha de infraestrutura da etapa de publicação, não uma falha do código React/Vite.
+### 1. Problema do Pixel duplicado
 
-Plano de ação
-1. Não fazer mudanças no código para “tentar corrigir” esse erro, porque isso não repara um binário ausente no ambiente de publish.
-2. Confirmar que o preview continua funcionando normalmente; isso valida que o frontend está gerando saída utilizável.
-3. Tentar publicar novamente mais tarde, porque esse tipo de erro costuma depender do ambiente interno de deploy.
-4. Se precisar de link imediato, usar compartilhamento de preview como solução temporária enquanto o publish não normaliza.
-5. Se continuar repetindo igual, tratar como incidente da plataforma e abrir o histórico/suporte com a mensagem exata do erro.
+**Causa raiz**: O `useMetaPixel` usa `setTimeout(100ms)` que pode falhar em inicializar o pixel a tempo, e o `fbq('track', 'PageView')` é disparado pelo nosso código **e** pelo script automático do Facebook (que detecta botões via "Configuração de Eventos"). Resultado: PageView duplicado e CompleteRegistration duplicado (um do nosso `trackEvent` + um do "SubscribedButtonClick" automático do Facebook).
 
-Arquivos isolados como relevantes
-- `package.json`
-- `vite.config.ts`
-- `netlify.toml`
+**Solução no código**:
+- Remover o `setTimeout` e usar um approach mais robusto: verificar `window.fbq` imediatamente após inserir o script (o snippet do Facebook cria `fbq` como queue antes de carregar o script externo, então já está disponível)
+- Adicionar `eventID` único ao `CompleteRegistration` para deduplicação nativa do Facebook
+- O PageView do "Configuração de Eventos" automática do Facebook **não é bug do código** — é configuração feita pelo usuário na Meta. Recomendação: desativar o "SubscribedButtonClick" automático na ferramenta de configuração de eventos da Meta, já que o código já dispara `CompleteRegistration` manualmente.
 
-Detalhes técnicos
-- O comando que falha é o upload do build, não a compilação do app.
-- O texto `dist upload failed` indica que o `dist` já era esperado/gerado e a quebra aconteceu ao enviar os arquivos.
-- Como o executável interno referenciado por `/bin/aws` está faltando, nenhuma alteração em componentes, rotas, hooks ou páginas resolverá isso.
-- Se surgir um erro diferente depois que o publish voltar a funcionar, aí sim vale investigar código novamente.
+**Mudanças em `src/hooks/useMetaPixel.ts`**:
+- Remover `setTimeout` — inicializar `fbq` imediatamente após inserir o snippet (o snippet cria a queue sync)
+- Adicionar `eventID` gerado com `crypto.randomUUID()` no `trackEvent` para deduplicação
 
-Resultado esperado
-- Evitar novas alterações desnecessárias no projeto.
-- Direcionar a correção para o ponto certo: a infraestrutura de publicação.
+### 2. Otimização de carregamento
+
+A página já tem o guard `dataLoaded` mas pode ser mais rápida:
+
+**Mudanças em `src/pages/CapturePage.tsx`**:
+- Adicionar `<link rel="preconnect">` para domínios do Supabase no `useEffect` inicial para acelerar DNS
+- Mover CSS crítico inline (background, fonts) para evitar FOUC
+
+### 3. Mensagem WhatsApp com dados do lead
+
+O cliente quer que a mensagem enviada ao WhatsApp inclua dados como nome e placa (resposta customizada).
+
+**Mudanças em `src/pages/CapturePage.tsx`**:
+- Na hora do redirect para WhatsApp, substituir placeholders na mensagem: `{nome}`, `{telefone}`, `{email}` e `{resposta_N}` (para perguntas customizadas)
+- Exemplo de mensagem padrão sugerida: `Olá! Meu nome é {nome}, telefone {telefone}. Tenho interesse em proteção para o veículo placa {resposta_1}.`
+
+**Mudanças em `src/components/consultant/ConsultantSettings.tsx`**:
+- Adicionar texto de ajuda abaixo do campo "Mensagem padrão" explicando os placeholders disponíveis: `{nome}`, `{telefone}`, `{email}`, `{resposta_1}`, `{resposta_2}`, etc.
+
+### Resumo de arquivos
+
+| Arquivo | Mudança |
+|---------|---------|
+| `src/hooks/useMetaPixel.ts` | Remover setTimeout, init imediato, adicionar eventID para deduplicação |
+| `src/pages/CapturePage.tsx` | Substituir placeholders na mensagem WhatsApp, preconnect DNS |
+| `src/components/consultant/ConsultantSettings.tsx` | Texto de ajuda com placeholders disponíveis |
+
+### Nota sobre o Pixel do David mostrando 0 eventos
+
+O print mostra "Total de eventos: 0 / Últimos 28 dias" mas ao abrir mostra 853 PageViews. Isso é um comportamento da interface da Meta (o widget resumido pode ter delay). Com as correções de deduplicação e eventID, os eventos serão registrados corretamente e sem duplicação.
+
