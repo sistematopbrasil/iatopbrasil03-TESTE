@@ -579,7 +579,17 @@ export default function CapturePage() {
       // Redirect based on type — delay to ensure Pixel event fires
       if (config.redirect_type === 'whatsapp' && config.whatsapp_number) {
         const phone = config.whatsapp_number.replace(/\D/g, '');
-        const msg = encodeURIComponent(config.whatsapp_message || 'Olá!');
+        // Replace placeholders in whatsapp message with lead data
+        let rawMsg = config.whatsapp_message || 'Olá!';
+        rawMsg = rawMsg.replace(/\{nome\}/gi, form.name.trim());
+        rawMsg = rawMsg.replace(/\{telefone\}/gi, form.phone);
+        rawMsg = rawMsg.replace(/\{email\}/gi, form.email || '');
+        // Replace {resposta_N} with custom question answers (1-indexed)
+        rawMsg = rawMsg.replace(/\{resposta_(\d+)\}/gi, (_match, num) => {
+          const idx = parseInt(num, 10) - 1;
+          return customAnswers[idx]?.trim() || '';
+        });
+        const msg = encodeURIComponent(rawMsg);
         await new Promise(r => setTimeout(r, 350));
         window.location.href = `https://wa.me/${phone}?text=${msg}`;
         return;

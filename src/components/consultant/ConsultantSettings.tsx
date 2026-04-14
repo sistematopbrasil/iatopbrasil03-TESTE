@@ -902,6 +902,12 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
                   <Label>Mensagem padrão</Label>
                   <Input value={captureForm.whatsapp_message} onChange={(e) => setCaptureForm({ ...captureForm, whatsapp_message: e.target.value })}
                     placeholder="Olá! Vim pela página de captura..." maxLength={500} />
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Use variáveis para incluir dados do lead na mensagem: <code className="bg-muted px-1 rounded text-[11px]">{'{nome}'}</code>, <code className="bg-muted px-1 rounded text-[11px]">{'{telefone}'}</code>, <code className="bg-muted px-1 rounded text-[11px]">{'{email}'}</code>, <code className="bg-muted px-1 rounded text-[11px]">{'{resposta_1}'}</code>, <code className="bg-muted px-1 rounded text-[11px]">{'{resposta_2}'}</code> (número da pergunta customizada em ordem).
+                  </p>
+                  <p className="text-xs text-muted-foreground/70">
+                    Ex: <em>Olá! Meu nome é {'{nome}'}, placa {'{resposta_1}'}. Quero saber mais sobre proteção veicular.</em>
+                  </p>
                 </div>
               </div>
             )}
