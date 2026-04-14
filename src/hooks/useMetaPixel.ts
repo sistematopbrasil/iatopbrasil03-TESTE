@@ -40,7 +40,7 @@ export const useMetaPixel = (options?: UseMetaPixelOptions) => {
       initializedPixels.add(pixelId);
       console.log('Initializing Meta Pixel with ID:', pixelId);
       window.fbq('init', pixelId);
-      window.fbq('track', 'PageView');
+      // PageView is fired automatically by the Facebook SDK — no manual call needed
       
       // Add noscript fallback in body
       const existingNoscript = document.getElementById('fb-pixel-noscript');

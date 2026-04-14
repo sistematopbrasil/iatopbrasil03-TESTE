@@ -887,7 +887,7 @@ export default function CapturePage() {
                       type="tel"
                       value={form.phone}
                       onChange={(e) => { setForm({ ...form, phone: formatPhone(e.target.value) }); setTouched({ ...touched, phone: true }); }}
-                      placeholder={selectedCountry.mask}
+                      placeholder={selectedCountry.mask.replace(/#/g, '0')}
                       className="flex-1 px-4 py-3.5 bg-transparent text-white placeholder:text-gray-500 focus:outline-none text-sm sm:text-base"
                     />
                   </div>
