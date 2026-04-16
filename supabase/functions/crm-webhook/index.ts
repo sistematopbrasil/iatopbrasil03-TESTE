@@ -89,39 +89,46 @@ function getExtensionFromMimetype(mimetype: string | null): string {
   return map[mimetype] || mimetype.split('/')[1] || 'bin';
 }
 
+// ✅ Lista branca de MIMEs permitidos para upload
+const ALLOWED_MEDIA_MIMES = new Set([
+  'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+  'video/mp4', 'video/3gpp', 'video/quicktime', 'video/webm',
+  'audio/ogg', 'audio/mpeg', 'audio/mp4', 'audio/opus', 'audio/webm',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/plain',
+]);
+
+const MAX_MEDIA_SIZE_BYTES = 16 * 1024 * 1024; // 16 MB
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    // ✅ WEBHOOK SECRET VALIDATION — flexível: aceita se body é válido da Evolution API
+    // ✅ WEBHOOK SECRET VALIDATION — secret obrigatório quando configurado
     const webhookSecret = Deno.env.get('EVOLUTION_WEBHOOK_SECRET');
     const body = await req.json();
-    
+
     if (webhookSecret) {
-      const receivedSecret = req.headers.get('x-webhook-secret') 
+      const receivedSecret = req.headers.get('x-webhook-secret')
         || req.headers.get('authorization')?.replace('Bearer ', '')
         || req.headers.get('apikey');
-      
+
       if (!receivedSecret || receivedSecret !== webhookSecret) {
-        // Verificar se o body tem estrutura válida da Evolution API
-        const hasValidStructure = body && typeof body === 'object' && body.event && body.instance && body.data;
-        
-        if (hasValidStructure) {
-          // Aceitar o request mas logar para diagnóstico
-          const headerNames = [...req.headers.keys()].join(', ');
-          console.warn(`⚠️ Webhook secret não bateu, mas body é válido da Evolution API. Headers recebidos: [${headerNames}]`);
-          console.warn(`⚠️ Secret esperado: ${webhookSecret.substring(0, 4)}...${webhookSecret.substring(webhookSecret.length - 4)}`);
-          console.warn(`⚠️ Secret recebido: ${receivedSecret ? receivedSecret.substring(0, 4) + '...' : 'NENHUM'}`);
-        } else {
-          console.warn('⛔ Webhook request com secret inválido E body inválido - rejeitando');
-          return new Response(
-            JSON.stringify({ success: false, error: 'Unauthorized' }),
-            { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
+        const headerNames = [...req.headers.keys()].join(', ');
+        console.warn(`⛔ Webhook rejeitado: secret inválido ou ausente. Headers: [${headerNames}]`);
+        return new Response(
+          JSON.stringify({ success: false, error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
+    } else {
+      console.warn('⚠️ EVOLUTION_WEBHOOK_SECRET não configurado — webhook aceita requests sem validação. Configure o secret para reforçar a segurança.');
     }
     
     // ✅ INPUT VALIDATION
@@ -454,31 +461,42 @@ serve(async (req) => {
                   const base64Data = mediaData.base64;
                   
                   if (base64Data) {
-                    console.log('✅ Mídia recebida, fazendo upload...');
-                    
-                    // Converter base64 para Uint8Array
-                    const fileBytes = base64ToUint8Array(base64Data);
-                    const extension = getExtensionFromMimetype(mediaMimetype);
-                    const fileName = `messages/${instanceName}/${Date.now()}_${key.id}.${extension}`;
-                    
-                    // Upload para Supabase Storage
-                    const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
-                      .from('crm-media')
-                      .upload(fileName, fileBytes, {
-                        contentType: mediaMimetype || 'application/octet-stream',
-                        upsert: false,
-                      });
-                    
-                    if (uploadError) {
-                      console.error('⚠️ Erro no upload:', uploadError);
+                    console.log('✅ Mídia recebida, validando...');
+
+                    // ✅ Validação de MIME type (whitelist)
+                    if (mediaMimetype && !ALLOWED_MEDIA_MIMES.has(mediaMimetype)) {
+                      console.warn(`⛔ MIME bloqueado: ${mediaMimetype}`);
                     } else {
-                      // Obter URL pública
-                      const { data: { publicUrl } } = supabaseAdmin.storage
-                        .from('crm-media')
-                        .getPublicUrl(fileName);
-                      
-                      mediaUrl = publicUrl;
-                      console.log('✅ Mídia salva:', mediaUrl);
+                      // Converter base64 para Uint8Array
+                      const fileBytes = base64ToUint8Array(base64Data);
+
+                      // ✅ Validação de tamanho (max 16 MB)
+                      if (fileBytes.byteLength > MAX_MEDIA_SIZE_BYTES) {
+                        console.warn(`⛔ Mídia muito grande: ${fileBytes.byteLength} bytes (max ${MAX_MEDIA_SIZE_BYTES})`);
+                      } else {
+                        const extension = getExtensionFromMimetype(mediaMimetype);
+                        const fileName = `messages/${instanceName}/${Date.now()}_${key.id}.${extension}`;
+
+                        // Upload para Supabase Storage
+                        const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
+                          .from('crm-media')
+                          .upload(fileName, fileBytes, {
+                            contentType: mediaMimetype || 'application/octet-stream',
+                            upsert: false,
+                          });
+
+                        if (uploadError) {
+                          console.error('⚠️ Erro no upload:', uploadError);
+                        } else {
+                          // Obter URL pública
+                          const { data: { publicUrl } } = supabaseAdmin.storage
+                            .from('crm-media')
+                            .getPublicUrl(fileName);
+
+                          mediaUrl = publicUrl;
+                          console.log('✅ Mídia salva:', mediaUrl);
+                        }
+                      }
                     }
                   } else {
                     console.log('⚠️ Mídia vazia na resposta');
