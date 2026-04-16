@@ -89,6 +89,21 @@ function getExtensionFromMimetype(mimetype: string | null): string {
   return map[mimetype] || mimetype.split('/')[1] || 'bin';
 }
 
+// ✅ Lista branca de MIMEs permitidos para upload
+const ALLOWED_MEDIA_MIMES = new Set([
+  'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+  'video/mp4', 'video/3gpp', 'video/quicktime', 'video/webm',
+  'audio/ogg', 'audio/mpeg', 'audio/mp4', 'audio/opus', 'audio/webm',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/plain',
+]);
+
+const MAX_MEDIA_SIZE_BYTES = 16 * 1024 * 1024; // 16 MB
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -446,31 +461,42 @@ serve(async (req) => {
                   const base64Data = mediaData.base64;
                   
                   if (base64Data) {
-                    console.log('✅ Mídia recebida, fazendo upload...');
-                    
-                    // Converter base64 para Uint8Array
-                    const fileBytes = base64ToUint8Array(base64Data);
-                    const extension = getExtensionFromMimetype(mediaMimetype);
-                    const fileName = `messages/${instanceName}/${Date.now()}_${key.id}.${extension}`;
-                    
-                    // Upload para Supabase Storage
-                    const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
-                      .from('crm-media')
-                      .upload(fileName, fileBytes, {
-                        contentType: mediaMimetype || 'application/octet-stream',
-                        upsert: false,
-                      });
-                    
-                    if (uploadError) {
-                      console.error('⚠️ Erro no upload:', uploadError);
+                    console.log('✅ Mídia recebida, validando...');
+
+                    // ✅ Validação de MIME type (whitelist)
+                    if (mediaMimetype && !ALLOWED_MEDIA_MIMES.has(mediaMimetype)) {
+                      console.warn(`⛔ MIME bloqueado: ${mediaMimetype}`);
                     } else {
-                      // Obter URL pública
-                      const { data: { publicUrl } } = supabaseAdmin.storage
-                        .from('crm-media')
-                        .getPublicUrl(fileName);
-                      
-                      mediaUrl = publicUrl;
-                      console.log('✅ Mídia salva:', mediaUrl);
+                      // Converter base64 para Uint8Array
+                      const fileBytes = base64ToUint8Array(base64Data);
+
+                      // ✅ Validação de tamanho (max 16 MB)
+                      if (fileBytes.byteLength > MAX_MEDIA_SIZE_BYTES) {
+                        console.warn(`⛔ Mídia muito grande: ${fileBytes.byteLength} bytes (max ${MAX_MEDIA_SIZE_BYTES})`);
+                      } else {
+                        const extension = getExtensionFromMimetype(mediaMimetype);
+                        const fileName = `messages/${instanceName}/${Date.now()}_${key.id}.${extension}`;
+
+                        // Upload para Supabase Storage
+                        const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
+                          .from('crm-media')
+                          .upload(fileName, fileBytes, {
+                            contentType: mediaMimetype || 'application/octet-stream',
+                            upsert: false,
+                          });
+
+                        if (uploadError) {
+                          console.error('⚠️ Erro no upload:', uploadError);
+                        } else {
+                          // Obter URL pública
+                          const { data: { publicUrl } } = supabaseAdmin.storage
+                            .from('crm-media')
+                            .getPublicUrl(fileName);
+
+                          mediaUrl = publicUrl;
+                          console.log('✅ Mídia salva:', mediaUrl);
+                        }
+                      }
                     }
                   } else {
                     console.log('⚠️ Mídia vazia na resposta');
