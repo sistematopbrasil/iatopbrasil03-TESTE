@@ -2035,13 +2035,16 @@ export type Database = {
       users: {
         Row: {
           ai_enabled: boolean
+          allowed_funnels: Database["public"]["Enums"]["funnel_type"][]
           auth_user_id: string
           created_at: string
           crm_enabled: boolean
+          default_funnel: Database["public"]["Enums"]["funnel_type"]
           email: string
           full_name: string
           id: string
           is_active: boolean
+          last_active_funnel: Database["public"]["Enums"]["funnel_type"] | null
           organization_id: string
           pixel_id: string | null
           profile_photo: string | null
@@ -2058,13 +2061,16 @@ export type Database = {
         }
         Insert: {
           ai_enabled?: boolean
+          allowed_funnels?: Database["public"]["Enums"]["funnel_type"][]
           auth_user_id: string
           created_at?: string
           crm_enabled?: boolean
+          default_funnel?: Database["public"]["Enums"]["funnel_type"]
           email: string
           full_name: string
           id?: string
           is_active?: boolean
+          last_active_funnel?: Database["public"]["Enums"]["funnel_type"] | null
           organization_id: string
           pixel_id?: string | null
           profile_photo?: string | null
@@ -2081,13 +2087,16 @@ export type Database = {
         }
         Update: {
           ai_enabled?: boolean
+          allowed_funnels?: Database["public"]["Enums"]["funnel_type"][]
           auth_user_id?: string
           created_at?: string
           crm_enabled?: boolean
+          default_funnel?: Database["public"]["Enums"]["funnel_type"]
           email?: string
           full_name?: string
           id?: string
           is_active?: boolean
+          last_active_funnel?: Database["public"]["Enums"]["funnel_type"] | null
           organization_id?: string
           pixel_id?: string | null
           profile_photo?: string | null
@@ -2271,6 +2280,14 @@ export type Database = {
         Args: { org_id: string }
         Returns: string
       }
+      get_my_funnel_access: {
+        Args: never
+        Returns: {
+          allowed: Database["public"]["Enums"]["funnel_type"][]
+          default_f: Database["public"]["Enums"]["funnel_type"]
+          last_active: Database["public"]["Enums"]["funnel_type"]
+        }[]
+      }
       get_novos_consultores_stage_id: {
         Args: { org_id: string }
         Returns: string
@@ -2304,6 +2321,13 @@ export type Database = {
       normalize_br_phone: { Args: { phone: string }; Returns: string }
       try_acquire_ai_lock: {
         Args: { p_contact_phone: string; p_conversation_id: string }
+        Returns: boolean
+      }
+      user_has_funnel_access: {
+        Args: {
+          p_funnel: Database["public"]["Enums"]["funnel_type"]
+          p_user_id: string
+        }
         Returns: boolean
       }
     }
