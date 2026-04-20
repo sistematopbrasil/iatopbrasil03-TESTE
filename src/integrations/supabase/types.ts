@@ -161,6 +161,7 @@ export type Database = {
           created_at: string | null
           description: string | null
           farewell_message: string | null
+          funnel_type: Database["public"]["Enums"]["funnel_type"]
           greeting_message: string | null
           id: string
           max_tokens: number | null
@@ -190,6 +191,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           farewell_message?: string | null
+          funnel_type?: Database["public"]["Enums"]["funnel_type"]
           greeting_message?: string | null
           id?: string
           max_tokens?: number | null
@@ -219,6 +221,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           farewell_message?: string | null
+          funnel_type?: Database["public"]["Enums"]["funnel_type"]
           greeting_message?: string | null
           id?: string
           max_tokens?: number | null
@@ -242,7 +245,7 @@ export type Database = {
           {
             foreignKeyName: "ai_agent_configs_user_id_fkey"
             columns: ["user_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
@@ -351,6 +354,7 @@ export type Database = {
           custom_questions: Json | null
           custom_slug: string | null
           email_enabled: boolean
+          funnel_type: Database["public"]["Enums"]["funnel_type"]
           gallery_images: Json | null
           gallery_title: string | null
           hero_image: string | null
@@ -385,6 +389,7 @@ export type Database = {
           custom_questions?: Json | null
           custom_slug?: string | null
           email_enabled?: boolean
+          funnel_type?: Database["public"]["Enums"]["funnel_type"]
           gallery_images?: Json | null
           gallery_title?: string | null
           hero_image?: string | null
@@ -419,6 +424,7 @@ export type Database = {
           custom_questions?: Json | null
           custom_slug?: string | null
           email_enabled?: boolean
+          funnel_type?: Database["public"]["Enums"]["funnel_type"]
           gallery_images?: Json | null
           gallery_title?: string | null
           hero_image?: string | null
@@ -1117,6 +1123,7 @@ export type Database = {
           delay_minutes: number
           exclude_stages: string[] | null
           fixed_message: string | null
+          funnel_type: Database["public"]["Enums"]["funnel_type"]
           id: string
           is_active: boolean
           max_followups: number
@@ -1134,6 +1141,7 @@ export type Database = {
           delay_minutes?: number
           exclude_stages?: string[] | null
           fixed_message?: string | null
+          funnel_type?: Database["public"]["Enums"]["funnel_type"]
           id?: string
           is_active?: boolean
           max_followups?: number
@@ -1151,6 +1159,7 @@ export type Database = {
           delay_minutes?: number
           exclude_stages?: string[] | null
           fixed_message?: string | null
+          funnel_type?: Database["public"]["Enums"]["funnel_type"]
           id?: string
           is_active?: boolean
           max_followups?: number
@@ -1345,6 +1354,7 @@ export type Database = {
         Row: {
           created_at: string
           description: string
+          funnel_type: Database["public"]["Enums"]["funnel_type"]
           id: string
           organization_id: string
           stage_id: string
@@ -1354,6 +1364,7 @@ export type Database = {
         Insert: {
           created_at?: string
           description?: string
+          funnel_type?: Database["public"]["Enums"]["funnel_type"]
           id?: string
           organization_id: string
           stage_id: string
@@ -1363,6 +1374,7 @@ export type Database = {
         Update: {
           created_at?: string
           description?: string
+          funnel_type?: Database["public"]["Enums"]["funnel_type"]
           id?: string
           organization_id?: string
           stage_id?: string
@@ -1397,6 +1409,7 @@ export type Database = {
         Row: {
           color: string
           created_at: string | null
+          funnel_type: Database["public"]["Enums"]["funnel_type"]
           icon: string | null
           id: string
           name: string
@@ -1407,6 +1420,7 @@ export type Database = {
         Insert: {
           color?: string
           created_at?: string | null
+          funnel_type?: Database["public"]["Enums"]["funnel_type"]
           icon?: string | null
           id?: string
           name: string
@@ -1417,6 +1431,7 @@ export type Database = {
         Update: {
           color?: string
           created_at?: string | null
+          funnel_type?: Database["public"]["Enums"]["funnel_type"]
           icon?: string | null
           id?: string
           name?: string
@@ -1612,6 +1627,7 @@ export type Database = {
           email: string | null
           employment_status: string | null
           extra_answers: Json | null
+          funnel_type: Database["public"]["Enums"]["funnel_type"]
           has_driver_license: string | null
           has_vehicle: string | null
           id: string
@@ -1658,6 +1674,7 @@ export type Database = {
           email?: string | null
           employment_status?: string | null
           extra_answers?: Json | null
+          funnel_type?: Database["public"]["Enums"]["funnel_type"]
           has_driver_license?: string | null
           has_vehicle?: string | null
           id?: string
@@ -1704,6 +1721,7 @@ export type Database = {
           email?: string | null
           employment_status?: string | null
           extra_answers?: Json | null
+          funnel_type?: Database["public"]["Enums"]["funnel_type"]
           has_driver_license?: string | null
           has_vehicle?: string | null
           id?: string
@@ -1773,6 +1791,7 @@ export type Database = {
           consultants_recruited: number
           created_at: string
           events_hosted: number
+          funnel_type: Database["public"]["Enums"]["funnel_type"]
           id: string
           leads_captured: number
           leads_contacted: number
@@ -1789,6 +1808,7 @@ export type Database = {
           consultants_recruited?: number
           created_at?: string
           events_hosted?: number
+          funnel_type?: Database["public"]["Enums"]["funnel_type"]
           id?: string
           leads_captured?: number
           leads_contacted?: number
@@ -1805,6 +1825,7 @@ export type Database = {
           consultants_recruited?: number
           created_at?: string
           events_hosted?: number
+          funnel_type?: Database["public"]["Enums"]["funnel_type"]
           id?: string
           leads_captured?: number
           leads_contacted?: number
@@ -2095,6 +2116,7 @@ export type Database = {
         Row: {
           connection_state: Json | null
           created_at: string | null
+          funnel_type: Database["public"]["Enums"]["funnel_type"]
           id: string
           instance_key: string
           instance_name: string
@@ -2113,6 +2135,7 @@ export type Database = {
         Insert: {
           connection_state?: Json | null
           created_at?: string | null
+          funnel_type?: Database["public"]["Enums"]["funnel_type"]
           id?: string
           instance_key: string
           instance_name: string
@@ -2131,6 +2154,7 @@ export type Database = {
         Update: {
           connection_state?: Json | null
           created_at?: string | null
+          funnel_type?: Database["public"]["Enums"]["funnel_type"]
           id?: string
           instance_key?: string
           instance_name?: string
@@ -2236,6 +2260,13 @@ export type Database = {
         }[]
       }
       get_current_consultant_id: { Args: never; Returns: string }
+      get_default_pipeline_stage_for_funnel: {
+        Args: {
+          org_id: string
+          p_funnel?: Database["public"]["Enums"]["funnel_type"]
+        }
+        Returns: string
+      }
       get_default_pipeline_stage_id: {
         Args: { org_id: string }
         Returns: string
@@ -2279,6 +2310,7 @@ export type Database = {
     Enums: {
       attendee_status: "convidado" | "confirmado" | "presente" | "ausente"
       event_status: "planejado" | "confirmado" | "realizado" | "cancelado"
+      funnel_type: "consultor" | "associado"
       lead_stage:
         | "novo"
         | "contatado"
@@ -2422,6 +2454,7 @@ export const Constants = {
     Enums: {
       attendee_status: ["convidado", "confirmado", "presente", "ausente"],
       event_status: ["planejado", "confirmado", "realizado", "cancelado"],
+      funnel_type: ["consultor", "associado"],
       lead_stage: [
         "novo",
         "contatado",
