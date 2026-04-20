@@ -278,16 +278,39 @@ serve(async (req) => {
       });
     }
 
-    // 2. Buscar configuração do agente
+    // 1.5. Determinar funnel_type da conversa via instance
+    let conversationFunnel: 'consultor' | 'associado' = 'consultor';
+    if (instance_id) {
+      const { data: inst } = await supabaseAdmin
+        .from('whatsapp_instances')
+        .select('funnel_type')
+        .eq('id', instance_id)
+        .maybeSingle();
+      if (inst?.funnel_type === 'consultor' || inst?.funnel_type === 'associado') {
+        conversationFunnel = inst.funnel_type;
+      }
+    }
+    console.log('🎯 Funil da conversa:', conversationFunnel);
+
+    // 2. Buscar configuração do agente PARA ESSE FUNIL
+    // Decisão 3: se não existir config para o funil, NÃO responder (não cai em fallback)
     const { data: config } = await supabaseAdmin
       .from('ai_agent_configs')
       .select('*')
       .eq('user_id', user_id)
-      .single();
+      .eq('funnel_type', conversationFunnel)
+      .maybeSingle();
 
-    if (!config || (!config.auto_reply && !force_respond)) {
-      console.log('⏭️ Sem config ou auto_reply desativado');
-      return new Response(JSON.stringify({ skipped: true, reason: 'no_config_or_auto_reply_off' }), {
+    if (!config) {
+      console.log(`⏭️ Sem config de IA para funil "${conversationFunnel}" — IA não habilitada para este funil`);
+      return new Response(JSON.stringify({ skipped: true, reason: 'no_config_for_funnel' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (!config.auto_reply && !force_respond) {
+      console.log('⏭️ auto_reply desativado');
+      return new Response(JSON.stringify({ skipped: true, reason: 'auto_reply_off' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -699,12 +722,13 @@ serve(async (req) => {
             const allowedStages = stages.filter((s: any) => 
               !blockedKeywords.some(keyword => s.name.toLowerCase().includes(keyword))
             );
-            // Buscar prompts customizados dos quadros
+            // Buscar prompts customizados dos quadros (filtrados pelo funil da conversa)
             const { data: stagePrompts } = await supabaseAdmin
               .from('pipeline_stage_prompts')
               .select('stage_id, description')
               .eq('user_id', user_id)
-              .eq('organization_id', conv.organization_id);
+              .eq('organization_id', conv.organization_id)
+              .eq('funnel_type', conversationFunnel);
 
             const stagePromptsMap: Record<string, string> = {};
             (stagePrompts || []).forEach((sp: any) => {

@@ -25,7 +25,14 @@ serve(async (req) => {
       temperature,
       max_tokens,
       test_message,
+      funnel_type,
     } = await req.json();
+
+    // funnel_type aceito mas opcional (default 'consultor' para retrocompat)
+    // Atualmente serve apenas para logging/contexto; a config testada vem direto do body
+    const funnelType: 'consultor' | 'associado' =
+      funnel_type === 'associado' ? 'associado' : 'consultor';
+    console.log('🎯 Test funnel:', funnelType);
 
     // Build system prompt
     const systemParts: string[] = [];

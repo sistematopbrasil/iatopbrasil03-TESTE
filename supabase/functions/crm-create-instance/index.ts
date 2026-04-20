@@ -80,6 +80,18 @@ serve(async (req) => {
       throw new Error('Não autorizado');
     }
 
+    // ✅ Parse body for optional funnel_type (default 'consultor' for retrocompat)
+    let funnelType: 'consultor' | 'associado' = 'consultor';
+    try {
+      const body = await req.json();
+      if (body?.funnel_type === 'consultor' || body?.funnel_type === 'associado') {
+        funnelType = body.funnel_type;
+      }
+    } catch {
+      // No body or invalid — keep default
+    }
+    console.log('🎯 Funnel type:', funnelType);
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -116,11 +128,25 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Verificar se já existe instância
+    // ✅ Validar acesso ao funil solicitado
+    const { data: hasAccess } = await supabaseAdmin.rpc('user_has_funnel_access', {
+      p_user_id: userData.id,
+      p_funnel: funnelType,
+    });
+    if (hasAccess === false) {
+      return new Response(
+        JSON.stringify({ success: false, error: `Sem acesso ao funil ${funnelType}` }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Verificar se já existe instância PARA ESTE FUNIL
+    // Retrocompat: se houver instância sem funnel_type definido, ela conta como 'consultor'
     const { data: existingInstance, error: existingError } = await supabaseAdmin
       .from('whatsapp_instances')
       .select('*')
       .eq('user_id', userData.id)
+      .eq('funnel_type', funnelType)
       .maybeSingle();
 
     if (existingError) {
@@ -332,6 +358,7 @@ serve(async (req) => {
             instance_key: retryResponse.data.instance?.instanceName || altInstanceName,
             status: 'disconnected',
             webhook_url: webhookUrl,
+            funnel_type: funnelType,
           })
           .select()
           .single();
@@ -389,6 +416,7 @@ serve(async (req) => {
         instance_key: evolutionResponse.data.instance?.instanceName || instanceName,
         status: 'disconnected',
         webhook_url: webhookUrl,
+        funnel_type: funnelType,
       })
       .select()
       .single();
