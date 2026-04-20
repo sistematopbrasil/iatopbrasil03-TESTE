@@ -27,13 +27,21 @@ serve(async (req) => {
       throw new Error('Não autorizado');
     }
 
-    // Parse request body for period filters
+    // Parse request body for period filters and optional funnel_type
+    // funnel_type: 'consultor' | 'associado' | 'all' | undefined
+    //   - undefined: comportamento legado (soma de todos os funis) — RETROCOMPAT
+    //   - 'consultor' / 'associado': filtra leads por funil
+    //   - 'all': retorna { consultor: [...], associado: [...] } separadamente (super_admin)
     let periodStart: string | null = null;
     let periodEnd: string | null = null;
+    let funnelFilter: 'consultor' | 'associado' | 'all' | null = null;
     try {
       const body = await req.json();
       periodStart = body.periodStart || null;
       periodEnd = body.periodEnd || new Date().toISOString();
+      if (body.funnel_type === 'consultor' || body.funnel_type === 'associado' || body.funnel_type === 'all') {
+        funnelFilter = body.funnel_type;
+      }
     } catch {
       periodEnd = new Date().toISOString();
     }
