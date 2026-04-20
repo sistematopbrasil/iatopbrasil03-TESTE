@@ -39,6 +39,10 @@ serve(async (req) => {
         const user = (rule as any).users;
         if (!user?.ai_enabled) continue;
 
+        // ✅ Funil da regra (default consultor para retrocompat)
+        const ruleFunnel: 'consultor' | 'associado' =
+          rule.funnel_type === 'associado' ? 'associado' : 'consultor';
+
         // Check working hours if enabled
         if (rule.respect_working_hours) {
           const now = new Date();
@@ -52,11 +56,25 @@ serve(async (req) => {
 
         const delayThreshold = new Date(Date.now() - rule.delay_minutes * 60 * 1000).toISOString();
 
-        // Find conversations needing follow-up
+        // ✅ Buscar instâncias do usuário no MESMO funil da regra
+        const { data: ruleInstances } = await supabaseAdmin
+          .from('whatsapp_instances')
+          .select('id')
+          .eq('user_id', rule.user_id)
+          .eq('funnel_type', ruleFunnel);
+
+        const allowedInstanceIds = (ruleInstances || []).map((i: any) => i.id);
+        if (allowedInstanceIds.length === 0) {
+          // Sem instância nesse funil — regra não dispara
+          continue;
+        }
+
+        // Find conversations needing follow-up (apenas das instâncias do funil correto)
         let convQuery = supabaseAdmin
           .from('crm_conversations')
           .select('id, contact_phone, lead_id, instance_id, status, last_message_at')
           .eq('user_id', rule.user_id)
+          .in('instance_id', allowedInstanceIds)
           .lt('last_message_at', delayThreshold);
 
         if (rule.only_open_conversations) {
@@ -172,12 +190,13 @@ serve(async (req) => {
                 return `[${sender}]: ${m.content || `(${m.type})`}`;
               }).join('\n');
 
-              // Get AI config for persona
+              // Get AI config for persona (do mesmo funil da regra)
               const { data: aiConfig } = await supabaseAdmin
                 .from('ai_agent_configs')
                 .select('agent_name, persona')
                 .eq('user_id', rule.user_id)
-                .single();
+                .eq('funnel_type', ruleFunnel)
+                .maybeSingle();
 
               const prompt = rule.ai_prompt || 'Envie uma mensagem de acompanhamento amigável.';
 

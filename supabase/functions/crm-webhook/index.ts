@@ -565,27 +565,43 @@ serve(async (req) => {
           // ✅ CRIAR LEAD AUTOMATICAMENTE SE NÃO EXISTIR (para qualquer direção)
           if (!lead) {
             console.log('🆕 Criando lead automaticamente para:', normalizedPhone);
-            
-            // Buscar primeiro quadro do pipeline
+
+            // ✅ Funnel type herda da instance (default 'consultor')
+            const leadFunnelType: 'consultor' | 'associado' =
+              instance.funnel_type === 'associado' ? 'associado' : 'consultor';
+
+            // Buscar primeiro quadro do pipeline DO MESMO FUNIL
             const { data: stages } = await supabaseAdmin
               .from('pipeline_stages')
               .select('id')
               .eq('organization_id', instance.organization_id)
+              .eq('funnel_type', leadFunnelType)
               .order('order_index', { ascending: true })
               .limit(1);
-            
-            const firstStageId = stages?.[0]?.id || null;
-            
+
+            let firstStageId = stages?.[0]?.id || null;
+
+            // Fallback defensivo: qualquer stage da org se o funil não tiver stages
+            if (!firstStageId) {
+              const { data: anyStage } = await supabaseAdmin
+                .from('pipeline_stages')
+                .select('id')
+                .eq('organization_id', instance.organization_id)
+                .order('order_index', { ascending: true })
+                .limit(1);
+              firstStageId = anyStage?.[0]?.id || null;
+            }
+
             // ✅ Para mensagens outgoing, NÃO usar pushName (seria o nome do consultor)
             // Para mensagens incoming, usar pushName como nome do contato
             // pushName pode vir no message ou no data (nível do payload)
             const contactPushName = message.pushName || payloadPushName || message.verifiedBizName;
-            const leadName = direction === 'incoming' 
-              ? (contactPushName || normalizedPhone) 
+            const leadName = direction === 'incoming'
+              ? (contactPushName || normalizedPhone)
               : normalizedPhone;
-            
-            console.log('📛 Nome do contato:', { contactPushName, leadName, direction });
-            
+
+            console.log('📛 Nome do contato:', { contactPushName, leadName, direction, funnel: leadFunnelType });
+
             // Criar lead automaticamente
             const { data: newLead, error: leadError } = await supabaseAdmin
               .from('quiz_submissions_new')
@@ -600,13 +616,14 @@ serve(async (req) => {
                 completion_percentage: 0,
                 lead_score: 0,
                 lead_source: 'whatsapp',
+                funnel_type: leadFunnelType,
               })
               .select('id, name, organization_id, pipeline_stage_id, phone, consultant_id')
               .single();
-            
+
             if (!leadError && newLead) {
               lead = newLead;
-              console.log('✅ Lead criado automaticamente:', lead.id, '| Nome:', lead.name, '| Direção:', direction);
+              console.log('✅ Lead criado automaticamente:', lead.id, '| Nome:', lead.name, '| Direção:', direction, '| Funil:', leadFunnelType);
             } else {
               console.warn('⚠️ Erro ao criar lead automaticamente:', leadError);
             }
