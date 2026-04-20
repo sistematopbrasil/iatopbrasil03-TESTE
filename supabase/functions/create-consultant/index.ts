@@ -70,9 +70,31 @@ serve(async (req) => {
       );
     }
 
-    const { email, password, full_name, organization_id, role } = await req.json();
+    const {
+      email,
+      password,
+      full_name,
+      organization_id,
+      role,
+      allowed_funnels,
+      default_funnel,
+    } = await req.json();
 
     console.log('Creating consultant:', { email, full_name, organization_id, role });
+
+    // ─── Validar funnel access (defaults retrocompatíveis) ───
+    const VALID_FUNNELS = ['consultor', 'associado'];
+    let normalizedAllowed: string[] = Array.isArray(allowed_funnels) && allowed_funnels.length > 0
+      ? Array.from(new Set(allowed_funnels)).filter((f: any) => VALID_FUNNELS.includes(f))
+      : ['consultor'];
+    if (normalizedAllowed.length === 0) normalizedAllowed = ['consultor'];
+
+    let normalizedDefault: string = VALID_FUNNELS.includes(default_funnel)
+      ? default_funnel
+      : 'consultor';
+    if (!normalizedAllowed.includes(normalizedDefault)) {
+      normalizedDefault = normalizedAllowed[0];
+    }
 
     // Validate required fields
     if (!email || !password || !full_name || !organization_id) {
@@ -220,6 +242,8 @@ serve(async (req) => {
         full_name,
         role: role || 'consultor',
         organization_id,
+        allowed_funnels: normalizedAllowed,
+        default_funnel: normalizedDefault,
       })
       .select('id')
       .single();
