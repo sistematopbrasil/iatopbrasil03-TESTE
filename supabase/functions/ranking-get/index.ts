@@ -119,11 +119,23 @@ serve(async (req) => {
       .select('id, consultant_id, temperature, pipeline_stage_id, created_at')
       .eq('organization_id', organizationId);
 
+    // 3. Fetch leads with optional funnel filter
+    // IMPORTANTE: Não filtrar por completion_percentage para incluir leads frios
+    let leadsQuery = supabaseAdmin
+      .from('quiz_submissions_new')
+      .select('id, consultant_id, temperature, pipeline_stage_id, created_at, funnel_type')
+      .eq('organization_id', organizationId);
+
     if (periodStart) {
       leadsQuery = leadsQuery.gte('created_at', periodStart);
     }
     if (periodEnd) {
       leadsQuery = leadsQuery.lte('created_at', periodEnd);
+    }
+
+    // ✅ Aplicar filtro de funil quando informado (modo single)
+    if (funnelFilter === 'consultor' || funnelFilter === 'associado') {
+      leadsQuery = leadsQuery.eq('funnel_type', funnelFilter);
     }
 
     const { data: leads, error: leadsError } = await leadsQuery;
@@ -132,93 +144,100 @@ serve(async (req) => {
       throw leadsError;
     }
 
-    console.log('📊 Found', consultants.length, 'consultants and', leads?.length || 0, 'leads');
+    console.log('📊 Found', consultants.length, 'consultants and', leads?.length || 0, 'leads (funnelFilter:', funnelFilter, ')');
 
-    // 4. Aggregate metrics per consultant
-    const metricsMap = new Map<string, {
-      total: number;
-      hot: number;
-      warm: number;
-      cold: number;
-      novosConsultores: number;
-    }>();
+    // ✅ Helper: aggregate ranking from a leads array
+    function buildRanking(leadsArr: any[]) {
+      const metricsMap = new Map<string, {
+        total: number; hot: number; warm: number; cold: number; novosConsultores: number;
+      }>();
 
-    // Initialize all consultants
-    consultants.forEach(c => {
-      metricsMap.set(c.id, { total: 0, hot: 0, warm: 0, cold: 0, novosConsultores: 0 });
-    });
+      consultants!.forEach(c => {
+        metricsMap.set(c.id, { total: 0, hot: 0, warm: 0, cold: 0, novosConsultores: 0 });
+      });
 
-    // Process leads
-    // Lógica: Leads em "Novos Consultores" = 100 pts fixo (não soma temperatura)
-    // Outros leads = pontos por temperatura (5/15/30)
-    leads?.forEach(lead => {
-      if (!lead.consultant_id) return;
-      
-      const metrics = metricsMap.get(lead.consultant_id);
-      if (!metrics) return;
+      leadsArr.forEach(lead => {
+        if (!lead.consultant_id) return;
+        const metrics = metricsMap.get(lead.consultant_id);
+        if (!metrics) return;
+        metrics.total++;
+        const isNovosConsultores = novosStageId && lead.pipeline_stage_id === novosStageId;
+        if (isNovosConsultores) {
+          metrics.novosConsultores++;
+        } else {
+          if (lead.temperature === 'hot') metrics.hot++;
+          else if (lead.temperature === 'warm') metrics.warm++;
+          else metrics.cold++;
+        }
+      });
 
-      metrics.total++;
+      const list = consultants!.map(consultant => {
+        const m = metricsMap.get(consultant.id) || { total: 0, hot: 0, warm: 0, cold: 0, novosConsultores: 0 };
+        const temperaturePoints =
+          (m.hot * LEAD_TEMPERATURE_POINTS.hot) +
+          (m.warm * LEAD_TEMPERATURE_POINTS.warm) +
+          (m.cold * LEAD_TEMPERATURE_POINTS.cold);
+        const novosConsultoresPoints = m.novosConsultores * NOVOS_CONSULTORES_BONUS;
+        const totalPoints = temperaturePoints + novosConsultoresPoints;
+        return {
+          consultant_id: consultant.id,
+          full_name: consultant.full_name,
+          email: consultant.email,
+          quiz_slug: consultant.quiz_slug,
+          profile_photo: consultant.profile_photo,
+          is_active: consultant.is_active,
+          crm_enabled: consultant.crm_enabled ?? false,
+          ai_enabled: consultant.ai_enabled ?? false,
+          ranking_visible: consultant.ranking_visible ?? true,
+          total_leads: m.total,
+          hot_leads: m.hot,
+          warm_leads: m.warm,
+          cold_leads: m.cold,
+          novos_consultores_count: m.novosConsultores,
+          total_points: totalPoints,
+          ranking_position: 0,
+        };
+      });
 
-      const isNovosConsultores = novosStageId && lead.pipeline_stage_id === novosStageId;
+      list.sort((a, b) => b.total_points - a.total_points);
+      list.forEach((entry, index) => { entry.ranking_position = index + 1; });
 
-      if (isNovosConsultores) {
-        // Lead em Novos Consultores: apenas conta aqui, não na temperatura
-        metrics.novosConsultores++;
-      } else {
-        // Lead normal: conta por temperatura
-        if (lead.temperature === 'hot') metrics.hot++;
-        else if (lead.temperature === 'warm') metrics.warm++;
-        else metrics.cold++;
-      }
-    });
+      const totals = list.reduce((acc, c) => ({
+        leads: acc.leads + c.total_leads,
+        hot: acc.hot + c.hot_leads,
+        warm: acc.warm + c.warm_leads,
+        cold: acc.cold + c.cold_leads,
+        points: acc.points + c.total_points,
+        novosConsultores: acc.novosConsultores + c.novos_consultores_count,
+      }), { leads: 0, hot: 0, warm: 0, cold: 0, points: 0, novosConsultores: 0 });
 
-    // 5. Calculate scores and create ranking
-    const rankingList = consultants.map(consultant => {
-      const m = metricsMap.get(consultant.id) || { total: 0, hot: 0, warm: 0, cold: 0, novosConsultores: 0 };
+      return { list, totals };
+    }
 
-      const temperaturePoints = 
-        (m.hot * LEAD_TEMPERATURE_POINTS.hot) +
-        (m.warm * LEAD_TEMPERATURE_POINTS.warm) +
-        (m.cold * LEAD_TEMPERATURE_POINTS.cold);
+    // ✅ Modo "all" — retorna funis separados (super_admin)
+    if (funnelFilter === 'all') {
+      const consultorLeads = (leads || []).filter(l => (l.funnel_type ?? 'consultor') === 'consultor');
+      const associadoLeads = (leads || []).filter(l => l.funnel_type === 'associado');
+      const consultorRanking = buildRanking(consultorLeads);
+      const associadoRanking = buildRanking(associadoLeads);
 
-      const novosConsultoresPoints = m.novosConsultores * NOVOS_CONSULTORES_BONUS;
-      const totalPoints = temperaturePoints + novosConsultoresPoints;
+      console.log('✅ Ranking by funnel:', consultorRanking.list.length, 'consultor /', associadoRanking.list.length, 'associado');
 
-      return {
-        consultant_id: consultant.id,
-        full_name: consultant.full_name,
-        email: consultant.email,
-        quiz_slug: consultant.quiz_slug,
-        profile_photo: consultant.profile_photo,
-        is_active: consultant.is_active,
-        crm_enabled: consultant.crm_enabled ?? false,
-        ai_enabled: consultant.ai_enabled ?? false,
-        ranking_visible: consultant.ranking_visible ?? true,
-        total_leads: m.total,
-        hot_leads: m.hot,
-        warm_leads: m.warm,
-        cold_leads: m.cold,
-        novos_consultores_count: m.novosConsultores,
-        total_points: totalPoints,
-        ranking_position: 0,
-      };
-    });
+      return new Response(
+        JSON.stringify({
+          success: true,
+          mode: 'all',
+          consultor: { data: consultorRanking.list, totals: consultorRanking.totals },
+          associado: { data: associadoRanking.list, totals: associadoRanking.totals },
+          currentUserId,
+          currentUserRole,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    // 6. Sort by points and assign positions
-    rankingList.sort((a, b) => b.total_points - a.total_points);
-    rankingList.forEach((entry, index) => {
-      entry.ranking_position = index + 1;
-    });
-
-    // 7. Calculate totals
-    const totals = rankingList.reduce((acc, c) => ({
-      leads: acc.leads + c.total_leads,
-      hot: acc.hot + c.hot_leads,
-      warm: acc.warm + c.warm_leads,
-      cold: acc.cold + c.cold_leads,
-      points: acc.points + c.total_points,
-      novosConsultores: acc.novosConsultores + c.novos_consultores_count,
-    }), { leads: 0, hot: 0, warm: 0, cold: 0, points: 0, novosConsultores: 0 });
+    // ✅ Modo padrão (sem filtro OU com filtro single) — formato legado preservado
+    const { list: rankingList, totals } = buildRanking(leads || []);
 
     console.log('✅ Ranking calculated:', rankingList.length, 'entries');
 
@@ -229,6 +248,7 @@ serve(async (req) => {
         totals,
         currentUserId,
         currentUserRole,
+        funnel_type: funnelFilter, // null se não filtrou (legado)
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
