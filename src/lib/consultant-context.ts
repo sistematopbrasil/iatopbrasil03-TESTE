@@ -20,6 +20,7 @@ export interface ConsultantUser {
   pixel_id: string | null;
   username: string | null;
   ranking_visible: boolean;
+  quiz_funnel_type: 'consultor' | 'associado';
 }
 
 export async function getCurrentConsultant(): Promise<ConsultantUser | null> {
