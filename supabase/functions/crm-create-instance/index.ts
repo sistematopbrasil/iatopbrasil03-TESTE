@@ -168,8 +168,11 @@ serve(async (req) => {
       console.log('✅ Instância já existe:', existingInstance.instance_name);
       
       // Reconfigurar webhook com webhookByEvents: true (sub-paths funcionam no Edge Functions)
-      const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/crm-webhook`;
       const webhookSecret = (await getIntegrationValue('EVOLUTION_WEBHOOK_SECRET', supabaseAdmin)) || '';
+      const webhookBaseUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/crm-webhook`;
+      const webhookUrl = webhookSecret
+        ? `${webhookBaseUrl}?secret=${encodeURIComponent(webhookSecret)}`
+        : webhookBaseUrl;
       console.log('🔧 Reconfigurando webhook para instância existente...');
       try {
         await evolutionRequest(`/webhook/set/${existingInstance.instance_name}`, {
