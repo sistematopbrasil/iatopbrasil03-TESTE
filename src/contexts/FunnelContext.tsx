@@ -1,10 +1,11 @@
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode, useMemo } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode, useMemo, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrentConsultant, isSuperAdmin } from '@/lib/consultant-context';
 import { FunnelType, isFunnelType } from '@/lib/funnel-types';
 
 const STORAGE_KEY = 'top-brasil:active-funnel';
+const STORAGE_OWNER_KEY = 'top-brasil:active-funnel-owner';
 
 export type ActiveFunnel = FunnelType | 'all';
 
@@ -24,17 +25,28 @@ interface FunnelContextValue {
 
 const FunnelContext = createContext<FunnelContextValue | null>(null);
 
-function readStoredFunnel(): ActiveFunnel | null {
+function readStored(): { value: ActiveFunnel | null; owner: string | null } {
   try {
-    const v = localStorage.getItem(STORAGE_KEY);
-    if (v === 'all' || v === 'consultor' || v === 'associado') return v;
+    const value = localStorage.getItem(STORAGE_KEY);
+    const owner = localStorage.getItem(STORAGE_OWNER_KEY);
+    if (value === 'all' || value === 'consultor' || value === 'associado') {
+      return { value, owner };
+    }
   } catch {}
-  return null;
+  return { value: null, owner: null };
 }
 
-function writeStoredFunnel(value: ActiveFunnel) {
+function writeStored(value: ActiveFunnel, owner: string) {
   try {
     localStorage.setItem(STORAGE_KEY, value);
+    localStorage.setItem(STORAGE_OWNER_KEY, owner);
+  } catch {}
+}
+
+function clearStored() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_OWNER_KEY);
   } catch {}
 }
 
@@ -45,72 +57,119 @@ export function FunnelProvider({ children }: { children: ReactNode }) {
   const [defaultFunnel, setDefaultFunnel] = useState<FunnelType>('consultor');
   const [canSeeAll, setCanSeeAll] = useState(false);
   const [activeFunnel, setActiveFunnelState] = useState<ActiveFunnel>('consultor');
+  const currentUserIdRef = useRef<string | null>(null);
+
+  // Re-inicializa o contexto quando o usuário autenticado muda
+  const initialize = useCallback(async (signal?: { cancelled: boolean }) => {
+    setIsLoading(true);
+    try {
+      const user = await getCurrentConsultant();
+      if (signal?.cancelled) return;
+
+      if (!user) {
+        currentUserIdRef.current = null;
+        setAvailableFunnels(['consultor']);
+        setDefaultFunnel('consultor');
+        setCanSeeAll(false);
+        setActiveFunnelState('consultor');
+        clearStored();
+        return;
+      }
+
+      currentUserIdRef.current = user.id;
+      const superAdmin = isSuperAdmin(user.role);
+
+      const { data, error } = await supabase.rpc('get_my_funnel_access');
+      let allowed: FunnelType[] = ['consultor'];
+      let defF: FunnelType = 'consultor';
+      let lastF: FunnelType | null = null;
+
+      if (!error && Array.isArray(data) && data.length > 0) {
+        const row: any = data[0];
+        if (Array.isArray(row.allowed) && row.allowed.length > 0) {
+          allowed = row.allowed.filter(isFunnelType) as FunnelType[];
+        }
+        if (isFunnelType(row.default_f)) defF = row.default_f as FunnelType;
+        if (isFunnelType(row.last_active)) lastF = row.last_active as FunnelType;
+      }
+
+      if (allowed.length === 0) allowed = ['consultor'];
+      if (!allowed.includes(defF)) defF = allowed[0];
+
+      // Determinar o funil inicial respeitando as restrições do usuário
+      // Prioridade: localStorage do MESMO usuário > last_active_funnel > default_funnel
+      const stored = readStored();
+      let initial: ActiveFunnel = defF;
+
+      const storedBelongsToUser = stored.value && stored.owner === user.id;
+
+      if (storedBelongsToUser) {
+        if (stored.value === 'all' && superAdmin && allowed.length > 1) {
+          initial = 'all';
+        } else if (stored.value !== 'all' && allowed.includes(stored.value as FunnelType)) {
+          initial = stored.value as FunnelType;
+        } else {
+          initial = defF;
+        }
+      } else if (lastF && allowed.includes(lastF)) {
+        initial = lastF;
+      }
+
+      // ✅ Se só tem 1 funil disponível, força esse funil (sem 'all')
+      if (allowed.length === 1) {
+        initial = allowed[0];
+      }
+
+      // ✅ Se 'all' foi escolhido mas não é super admin OU não tem mais de 1 funil, fallback
+      if (initial === 'all' && (!superAdmin || allowed.length <= 1)) {
+        initial = defF;
+      }
+
+      if (signal?.cancelled) return;
+
+      setAvailableFunnels(allowed);
+      setDefaultFunnel(defF);
+      setCanSeeAll(superAdmin);
+      setActiveFunnelState(initial);
+      writeStored(initial, user.id);
+    } catch (e) {
+      console.warn('[FunnelContext] Falha ao inicializar:', e);
+    } finally {
+      if (!signal?.cancelled) setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const user = await getCurrentConsultant();
-        if (!user) {
-          if (mounted) setIsLoading(false);
-          return;
+    const signal = { cancelled: false };
+    initialize(signal);
+
+    // Reage a login/logout/troca de sessão
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      const newUserId = session?.user?.id ?? null;
+      if (newUserId !== currentUserIdRef.current) {
+        // Usuário mudou — limpa storage anterior e recarrega
+        if (newUserId === null) {
+          clearStored();
         }
-        const superAdmin = isSuperAdmin(user.role);
-
-        // Carrega allowed/default/last via RPC
-        const { data, error } = await supabase.rpc('get_my_funnel_access');
-        let allowed: FunnelType[] = ['consultor'];
-        let defF: FunnelType = 'consultor';
-        let lastF: FunnelType | null = null;
-
-        if (!error && Array.isArray(data) && data.length > 0) {
-          const row: any = data[0];
-          if (Array.isArray(row.allowed) && row.allowed.length > 0) {
-            allowed = row.allowed.filter(isFunnelType) as FunnelType[];
-          }
-          if (isFunnelType(row.default_f)) defF = row.default_f as FunnelType;
-          if (isFunnelType(row.last_active)) lastF = row.last_active as FunnelType;
-        }
-
-        if (allowed.length === 0) allowed = ['consultor'];
-        if (!allowed.includes(defF)) defF = allowed[0];
-
-        // Ordem de prioridade: localStorage > last_active_funnel > default_funnel
-        const stored = readStoredFunnel();
-        let initial: ActiveFunnel = defF;
-        if (stored) {
-          if (stored === 'all' && superAdmin) initial = 'all';
-          else if (stored !== 'all' && allowed.includes(stored)) initial = stored;
-          else initial = defF;
-        } else if (lastF && allowed.includes(lastF)) {
-          initial = lastF;
-        }
-
-        if (!mounted) return;
-        setAvailableFunnels(allowed);
-        setDefaultFunnel(defF);
-        setCanSeeAll(superAdmin);
-        setActiveFunnelState(initial);
-      } catch (e) {
-        console.warn('[FunnelContext] Falha ao inicializar:', e);
-      } finally {
-        if (mounted) setIsLoading(false);
+        initialize();
       }
-    })();
+    });
 
     return () => {
-      mounted = false;
+      signal.cancelled = true;
+      sub.subscription.unsubscribe();
     };
-  }, []);
+  }, [initialize]);
 
   const setActiveFunnel = useCallback(
     (funnel: ActiveFunnel) => {
       // Validar
-      if (funnel === 'all' && !canSeeAll) return;
+      if (funnel === 'all' && (!canSeeAll || availableFunnels.length <= 1)) return;
       if (funnel !== 'all' && !availableFunnels.includes(funnel)) return;
 
       setActiveFunnelState(funnel);
-      writeStoredFunnel(funnel);
+      const ownerId = currentUserIdRef.current;
+      if (ownerId) writeStored(funnel, ownerId);
 
       // Persiste no banco em background (apenas funnel concreto)
       if (funnel !== 'all') {
