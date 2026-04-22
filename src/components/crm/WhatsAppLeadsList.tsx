@@ -21,6 +21,9 @@ import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getCurrentConsultant, isSuperAdmin } from '@/lib/consultant-context';
+import { useFunnel } from '@/contexts/FunnelContext';
+import { FunnelBadge } from '@/components/leads/FunnelBadge';
+import { useWhatsAppConnectionContext } from '@/contexts/WhatsAppConnectionContext';
 
 interface WhatsAppLeadsListProps {
   onStartConversation: (phone: string, leadData: any) => void;
@@ -42,6 +45,8 @@ export function WhatsAppLeadsList({ onStartConversation }: WhatsAppLeadsListProp
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const { activeFunnel } = useFunnel();
+  const { instance } = useWhatsAppConnectionContext();
 
   useEffect(() => {
     loadContacts();
@@ -70,7 +75,7 @@ export function WhatsAppLeadsList({ onStartConversation }: WhatsAppLeadsListProp
     return () => {
       supabase.removeChannel(conversationsChannel);
     };
-  }, []);
+  }, [activeFunnel, instance?.id]);
 
   const loadContacts = async () => {
     try {
@@ -95,6 +100,11 @@ export function WhatsAppLeadsList({ onStartConversation }: WhatsAppLeadsListProp
         conversationsQuery = conversationsQuery.eq('user_id', user.id);
       } else {
         conversationsQuery = conversationsQuery.eq('organization_id', user.organization_id);
+      }
+
+      // Filtrar por instância do funil ativo (quando houver instância carregada)
+      if (instance?.id) {
+        conversationsQuery = conversationsQuery.eq('instance_id', instance.id);
       }
 
       const { data: conversations, error: convError } = await conversationsQuery;
@@ -134,6 +144,11 @@ export function WhatsAppLeadsList({ onStartConversation }: WhatsAppLeadsListProp
         
         // ✅ Incluir apenas leads do WhatsApp ou sem lead
         if (lead && lead.lead_source !== 'whatsapp' && lead.completion_percentage > 0) {
+          continue;
+        }
+
+        // Filtrar por funil ativo (quando aplicável e existe lead vinculado)
+        if (activeFunnel !== 'all' && lead && lead.funnel_type && lead.funnel_type !== activeFunnel) {
           continue;
         }
 
@@ -281,6 +296,9 @@ export function WhatsAppLeadsList({ onStartConversation }: WhatsAppLeadsListProp
                         </h3>
                         {contact.lead?.temperature && (
                           <TemperatureBadge temperature={contact.lead.temperature} />
+                        )}
+                        {contact.lead?.funnel_type && (
+                          <FunnelBadge funnel={contact.lead.funnel_type} size="xs" />
                         )}
                         <Badge variant="outline" className="text-xs border-green-500/30 text-green-600">
                           WhatsApp
