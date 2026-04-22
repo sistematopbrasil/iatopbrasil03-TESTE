@@ -198,6 +198,40 @@ export function ConsultantsTable() {
                   </div>
                 </div>
 
+                {/* Funis row (mobile) */}
+                <button
+                  type="button"
+                  onClick={() => setFunnelEdit({ id: consultant.consultant_id, name: consultant.full_name })}
+                  className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md border border-border/60 bg-background hover:bg-muted/50 transition-colors"
+                >
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Layers className="w-3.5 h-3.5 text-primary" />
+                    Funis
+                  </span>
+                  <span className="flex items-center gap-1">
+                    {(['consultor','associado'] as const).map((f) => {
+                      const allowed = (consultant.allowed_funnels ?? ['consultor']).includes(f);
+                      const isDefault = consultant.default_funnel === f;
+                      return (
+                        <span
+                          key={f}
+                          className={
+                            'inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold ' +
+                            (allowed
+                              ? isDefault
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-primary/15 text-primary'
+                              : 'bg-muted text-muted-foreground/40 line-through')
+                          }
+                          title={`${f === 'consultor' ? 'Consultor' : 'Associado'}${isDefault ? ' (padrão)' : ''}`}
+                        >
+                          {f === 'consultor' ? 'C' : 'A'}
+                        </span>
+                      );
+                    })}
+                  </span>
+                </button>
+
                 {/* CRM toggle */}
                 <div className="flex items-center justify-between pt-1 border-t border-border/50">
                   <div className="flex items-center gap-4">
