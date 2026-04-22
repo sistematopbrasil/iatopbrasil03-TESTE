@@ -149,7 +149,6 @@ serve(async (req) => {
               'MESSAGES_UPDATE',
               'MESSAGES_SET',
               'MESSAGES_DELETE',
-              'MESSAGE_ACK',
               'SEND_MESSAGE',
             ],
           },
