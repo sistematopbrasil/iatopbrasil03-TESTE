@@ -206,8 +206,12 @@ serve(async (req) => {
     const steps: string[] = [];
     let qrCode: string | null = null;
     
-    // URL do webhook
-    const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/crm-webhook`;
+    // URL do webhook — secret também na query string para compatibilidade
+    const webhookSecretEarly = (await getIntegrationValue('EVOLUTION_WEBHOOK_SECRET', supabaseAdmin)) || '';
+    const webhookBase = `${Deno.env.get('SUPABASE_URL')}/functions/v1/crm-webhook`;
+    const webhookUrl = webhookSecretEarly
+      ? `${webhookBase}?secret=${encodeURIComponent(webhookSecretEarly)}`
+      : webhookBase;
 
     // ✅ VERIFICAR SE A INSTÂNCIA EXISTE NA EVOLUTION ANTES DE TUDO
     const instanceExists = await checkInstanceExists(instance.instance_name);
