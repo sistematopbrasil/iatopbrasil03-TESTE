@@ -111,8 +111,14 @@ serve(async (req) => {
   }
 
   try {
+    // ✅ Cliente admin disponível antes da validação para suportar leitura via integration_settings
+    const supabaseAdminEarly = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
     // ✅ WEBHOOK SECRET VALIDATION — secret obrigatório quando configurado
-    const webhookSecret = Deno.env.get('EVOLUTION_WEBHOOK_SECRET');
+    const webhookSecret = await getIntegrationValue('EVOLUTION_WEBHOOK_SECRET', supabaseAdminEarly);
     const body = await req.json();
 
     if (webhookSecret) {
@@ -131,6 +137,7 @@ serve(async (req) => {
     } else {
       console.warn('⚠️ EVOLUTION_WEBHOOK_SECRET não configurado — webhook aceita requests sem validação. Configure o secret para reforçar a segurança.');
     }
+
     
     // ✅ INPUT VALIDATION
     const event = body.event;
