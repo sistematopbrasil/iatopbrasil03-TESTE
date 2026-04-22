@@ -98,6 +98,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
 
   // Reload instance when active funnel changes (multi-funnel users)
   const prevFunnelRef = useRef(resolvedFunnel);
+  const loadInstanceRef = useRef<() => Promise<void>>(async () => {});
   useEffect(() => {
     if (prevFunnelRef.current === resolvedFunnel) return;
     prevFunnelRef.current = resolvedFunnel;
@@ -110,8 +111,8 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
     isCreatingRef.current = false;
     isConnectingRef.current = false;
     setIsLoading(true);
-    loadInstance();
-  }, [resolvedFunnel, loadInstance]);
+    loadInstanceRef.current?.();
+  }, [resolvedFunnel]);
 
   function startPolling() {
     if (pollRef.current) return;
