@@ -118,17 +118,30 @@ serve(async (req) => {
     );
 
     // ✅ WEBHOOK SECRET VALIDATION — secret obrigatório quando configurado
+    // Aceita o secret em múltiplas fontes para compatibilidade com diferentes
+    // builds da Evolution API (algumas descartam o objeto `headers` configurado).
     const webhookSecret = await getIntegrationValue('EVOLUTION_WEBHOOK_SECRET', supabaseAdminEarly);
     const body = await req.json();
 
     if (webhookSecret) {
+      const url = new URL(req.url);
+      const querySecret = url.searchParams.get('secret');
       const receivedSecret = req.headers.get('x-webhook-secret')
+        || req.headers.get('x-evolution-apikey')
         || req.headers.get('authorization')?.replace('Bearer ', '')
-        || req.headers.get('apikey');
+        || req.headers.get('apikey')
+        || querySecret;
+
+      const mask = (v: string | null | undefined) =>
+        v ? `${v.slice(0, 4)}***(${v.length})` : '(null)';
 
       if (!receivedSecret || receivedSecret !== webhookSecret) {
         const headerNames = [...req.headers.keys()].join(', ');
-        console.warn(`⛔ Webhook rejeitado: secret inválido ou ausente. Headers: [${headerNames}]`);
+        console.warn(
+          `⛔ Webhook rejeitado: secret inválido ou ausente. ` +
+          `Recebido: ${mask(receivedSecret)} | Esperado: ${mask(webhookSecret)} | ` +
+          `Headers: [${headerNames}] | Query secret presente: ${querySecret ? 'sim' : 'não'}`
+        );
         return new Response(
           JSON.stringify({ success: false, error: 'Unauthorized' }),
           { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
