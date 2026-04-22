@@ -12,19 +12,27 @@ import { CRMSettings } from '@/components/crm/CRMSettings';
 import { Conversation } from '@/lib/crm-service';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { MessageSquare, Users, Settings, WifiOff, Wifi, MessageCircle, FileText } from 'lucide-react';
+import { MessageSquare, Users, Settings, WifiOff, Wifi, MessageCircle, FileText, Layers } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { normalizePhone, getPhoneVariants } from '@/lib/phone-utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useFunnel } from '@/contexts/FunnelContext';
+import { FUNNEL_LABELS } from '@/lib/funnel-types';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 function AdminCRMContent() {
   const location = useLocation();
   const { isConnected, isLoading, instance, isConnecting, qrCode, connectionVerified } = useWhatsAppConnectionContext();
+  const { activeFunnel, resolvedFunnel, availableFunnels } = useFunnel();
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [activeTab, setActiveTab] = useState<'conversations' | 'leads' | 'settings'>('conversations');
   const [leadsSubTab, setLeadsSubTab] = useState<'quiz' | 'whatsapp' | 'capture'>('quiz');
   const [wasConnected, setWasConnected] = useState(false);
+
+  // Mostrar banner de funil quando o usuário tem 2+ funis e está num funil sem WhatsApp configurado
+  const hasMultipleFunnels = availableFunnels.length > 1;
+  const showFunnelBanner = hasMultipleFunnels && !isLoading && !instance && activeTab === 'conversations';
 
   // Quando conectar com sucesso, ir automaticamente para aba de conversas
   useEffect(() => {
@@ -204,6 +212,21 @@ function AdminCRMContent() {
           <div className={activeTab === 'conversations' ? 'h-full' : 'hidden'}>
             {!instance ? (
               <div className="h-full overflow-auto">
+                {showFunnelBanner && (
+                  <div className="px-4 pt-4">
+                    <Alert className="border-primary/30 bg-primary/5">
+                      <Layers className="h-4 w-4 text-primary" />
+                      <AlertTitle className="text-foreground">
+                        Conectar WhatsApp do funil de {FUNNEL_LABELS[resolvedFunnel]}
+                      </AlertTitle>
+                      <AlertDescription className="text-muted-foreground">
+                        Você ainda não conectou um WhatsApp para este funil. Cada funil tem sua
+                        própria conexão — conecte abaixo para começar a conversar com leads de{' '}
+                        <strong>{FUNNEL_LABELS[resolvedFunnel]}</strong>.
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                )}
                 <ConnectionPanel />
               </div>
             ) : (
