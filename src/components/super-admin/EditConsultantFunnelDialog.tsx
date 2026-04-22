@@ -172,16 +172,18 @@ export function EditConsultantFunnelDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
+        <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <Layers className="w-5 h-5 text-primary" />
-              Acesso a Funis
+              Editar funis de acesso
             </DialogTitle>
             <DialogDescription>
               Configure quais funis <strong>{consultantName}</strong> pode acessar.
             </DialogDescription>
           </DialogHeader>
+
+          <div className="px-6 py-2 overflow-y-auto flex-1 min-h-0">
 
           {loadingInitial ? (
             <div className="py-8 flex justify-center">

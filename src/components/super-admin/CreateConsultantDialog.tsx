@@ -130,12 +130,12 @@ export function CreateConsultantDialog({ open: controlledOpen, onOpenChange: con
           </Button>
         </DialogTrigger>
       )}
-      <DialogContent className="max-w-md">
-        <DialogHeader>
+      <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0 gap-0">
+        <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
           <DialogTitle>Novo Consultor</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 px-6 py-4 overflow-y-auto flex-1 min-h-0">
           <div>
             <Label htmlFor="full_name">Nome Completo *</Label>
             <Input
@@ -259,24 +259,26 @@ export function CreateConsultantDialog({ open: controlledOpen, onOpenChange: con
             </p>
           </div>
 
-          <div className="flex gap-2 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              className="flex-1"
-            >
-              Cancelar
-            </Button>
-            <Button 
-              type="submit" 
-              className="flex-1" 
-              disabled={createMutation.isPending}
-            >
-              {createMutation.isPending ? 'Criando...' : 'Criar Consultor'}
-            </Button>
-          </div>
         </form>
+
+        <div className="flex gap-2 px-6 py-4 border-t border-border bg-background shrink-0">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            className="flex-1"
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSubmit}
+            className="flex-1"
+            disabled={createMutation.isPending}
+          >
+            {createMutation.isPending ? 'Criando...' : 'Criar Consultor'}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
