@@ -371,7 +371,10 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
     }
   }, [queryClient]);
 
-  const refreshFromDatabase = useCallback(async () => {
+  // Sync ref so the funnel-change effect can call loadInstance without triggering hoisting issues
+  useEffect(() => {
+    loadInstanceRef.current = loadInstance;
+  }, [loadInstance]);
     try {
       const instanceData = await crmService.getInstance(resolvedFunnelRef.current);
       if (!instanceData || !mountedRef.current) return;
