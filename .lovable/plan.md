@@ -1,77 +1,69 @@
 
 
-# Fase B aprovada — implementação
+# Fase C — Implementação aprovada
 
-## 1. Migration única (banco)
+Implemento o plano exatamente como descrito, com a confirmação:
+- **Pipeline em modo "Todos" (super admin)**: força fallback para `default_funnel` e exibe banner "Pipeline mostra apenas o funil X. Use o seletor para trocar."
 
-Adiciona à tabela `users`:
-- `allowed_funnels funnel_type[] NOT NULL DEFAULT ARRAY['consultor']::funnel_type[]`
-- `default_funnel funnel_type NOT NULL DEFAULT 'consultor'`
-- `last_active_funnel funnel_type` (nullable)
-- CHECK constraint: `default_funnel = ANY(allowed_funnels)`
-- Backfill defensivo (UPDATE redundante onde já houver default)
+## Ordem de execução
 
-Cria 2 funções `SECURITY DEFINER`:
-- `user_has_funnel_access(p_user_id uuid, p_funnel funnel_type) → boolean`
-- `get_my_funnel_access() → TABLE(allowed funnel_type[], default_f funnel_type, last_active funnel_type)`
+**1. Fundação (estado global)**
+- `src/contexts/FunnelContext.tsx` — provider com `activeFunnel`, `availableFunnels`, `canSeeAll`, `setActiveFunnel`. Inicialização: localStorage → `last_active_funnel` → `default_funnel`. Ao trocar: atualiza estado, grava localStorage, persiste no banco em background, invalida queries.
+- `src/App.tsx` — envolver rotas autenticadas com `<FunnelProvider>` (dentro do `QueryClientProvider`).
 
-## 2. Edge functions atualizadas (retrocompatíveis — todas com defaults)
+**2. Componentes visuais reutilizáveis**
+- `src/components/admin/FunnelSwitcher.tsx` — pill segmentado, esconde se `availableFunnels.length ≤ 1`. Super admin recebe opção "Todos".
+- `src/components/leads/FunnelBadge.tsx` — badge colorido (Consultores: `#EB6608`, Associados: `#3B82F6`).
 
-| Função | Mudança |
-|---|---|
-| `create-consultant` | Aceita `allowed_funnels` + `default_funnel` (Zod, defaults `['consultor']`/`'consultor'`); persiste nas colunas novas |
-| `crm-create-instance` | Aceita `funnel_type` (default `'consultor'`); valida `user_has_funnel_access`; respeita UNIQUE `(user_id, funnel_type)` |
-| `ai-agent-respond` | Lê `funnel_type` da `whatsapp_instances` da conversa; busca `ai_agent_configs WHERE user_id = X AND funnel_type = Y`; **se não existir, não responde** (decisão 3 do usuário); filtra `pipeline_stage_prompts` por funil também |
-| `ai-agent-test` | Aceita `funnel_type` (default `'consultor'`) |
-| `ranking-get` | Aceita query param `funnel_type` opcional. Comportamento: super_admin sem filtro → `{ consultor: [...], associado: [...] }` separado; usuário comum sem filtro → usa `last_active_funnel || default_funnel`; com filtro → aplica direto |
-| `followup-check` | Junta `whatsapp_instances` e filtra `followup_rules` pelo mesmo `funnel_type` da conversa — regras de um funil não disparam no outro |
-| `crm-webhook` | Propaga `funnel_type` da `whatsapp_instances` ao criar conversa/lead via webhook |
+**3. Layout**
+- `src/components/admin/AdminLayout.tsx` — renderizar `<FunnelSwitcher />` no sidebar desktop (acima de `renderUserInfo`) e dentro do `Sheet` mobile.
 
-## 3. Edge function nova
+**4. Páginas e hooks com filtro de funil** (versionar `queryKey` com `activeFunnel`):
+- `src/components/crm/PipelineBoard.tsx` + `src/pages/AdminPipeline.tsx` — filtro `funnel_type`. Em "Todos", força `default_funnel` e exibe `<Alert>` no header.
+- `src/pages/AdminLeads.tsx` — filtro + coluna "Funil" com `FunnelBadge`.
+- `src/hooks/useRankingData.ts` + `src/pages/AdminRanking.tsx` — passa `funnel_type` ao `ranking-get`. Em "Todos", renderiza `<Tabs>` com 2 tabelas separadas.
+- `src/hooks/useAIConfig.ts` + `src/pages/AdminAIConfig.tsx` — query por `(user_id, funnel_type)`; se `null`, exibe card "Habilitar IA para este funil" com botão que cria registro vazio com `funnel_type` correto.
+- `src/contexts/WhatsAppConnectionContext.tsx` + `src/hooks/useConversations.ts` + `src/pages/AdminCRM.tsx` — busca instância por funil; se ausente, exibe card "Conectar WhatsApp para [Funil]" reutilizando `ConnectionPanel`.
+- `src/hooks/usePrefetchAdminData.ts` — incluir `activeFunnel` nos prefetches.
 
-`update-consultant-funnel-access`:
-- Apenas `super_admin` (validação por JWT + lookup de role)
-- Body: `{ user_id, allowed_funnels, default_funnel }`
-- Validações Zod: `allowed_funnels.length ≥ 1`, `default_funnel ∈ allowed_funnels`
-- Retorna contagem de leads/conversas por funil que ficarão "invisíveis" se um funil for removido (sem deletar nada)
+**5. Tag de funil em listas**
+- `src/components/crm/LeadCard.tsx` — chip pequeno
+- `src/components/crm/LeadProfile.tsx` — header
+- `src/components/crm/QuizLeadsList.tsx`, `WhatsAppLeadsList.tsx`, `CaptureLeadsList.tsx` — coluna ou chip
 
-## 4. Arquivo TypeScript novo
+**6. Super Admin — gestão de acesso a funis**
+- `src/components/super-admin/CreateConsultantDialog.tsx` — bloco "Acesso a Funis" (2 checkboxes + radio de padrão), envia `allowed_funnels` + `default_funnel` para `create-consultant`.
+- `src/components/super-admin/EditConsultantFunnelDialog.tsx` (novo) — mesmo bloco; antes de salvar removendo funil, chama `update-consultant-funnel-access` para mostrar contagem de leads/conversas que ficarão invisíveis em `<AlertDialog>` de confirmação.
+- `src/components/super-admin/ConsultantsTable.tsx` — adicionar ação no menu para abrir o diálogo.
 
-`src/lib/funnel-types.ts`:
-```typescript
-export type FunnelType = 'consultor' | 'associado';
-export const FUNNEL_LABELS: Record<FunnelType, string> = {
-  consultor: 'Consultores',
-  associado: 'Associados',
-};
-```
+**7. Roteamento de leads novos**
+- `src/pages/CapturePage.tsx` — passar `funnel_type: 'associado'` no insert quando rota for `/c/:slug`. (`/r/:slug` mantém default `'consultor'`.)
+- `src/components/crm/NewContactDialog.tsx` — passar `funnel_type: activeFunnel` no insert (fallback `'consultor'` se "Todos").
 
-`src/integrations/supabase/types.ts` se atualiza sozinho após a migration.
-
-## 5. O que NÃO muda
-
-- Rotas (`/c/:slug`, `/r/:slug`, `/quiz/:slug`) — intocadas
-- Frontend (Fase C) — zero alteração agora
-- RLS atual — preservada (filtros adicionais ficam para Fase C)
-- Tabela `quiz_submissions` legada — sem mudanças
-- Chamadas existentes às edge functions sem `funnel_type` continuam funcionando (default `'consultor'`)
-
-## 6. Garantias de não-quebra
+## Garantias de não-quebra
 
 | Risco | Mitigação |
 |---|---|
-| Frontend antigo chama function sem `funnel_type` | Default `'consultor'` em todos os parsers |
-| Webhook recebe mensagem antes da Fase C | `whatsapp_instances.funnel_type` (NOT NULL DEFAULT) garante valor consistente |
-| `ai-agent-respond` para de responder em funil novo sem config | Comportamento esperado (decisão 3) — usuário "habilita" manualmente na Fase C |
-| Ranking de super_admin muda formato | Só muda quando `funnel_type` é omitido — chamadas atuais já passam parâmetros conhecidos; verifico cada caller antes de quebrar |
+| Usuário com 1 funil só | `FunnelSwitcher` retorna `null`; comportamento idêntico ao atual |
+| Backfill: todos têm `allowed_funnels=['consultor']` + `default_funnel='consultor'` | Sistema funciona como hoje no primeiro deploy |
+| `useAIConfig` save em conta antiga | `onConflict: 'user_id,funnel_type'` — registros existentes têm `funnel_type='consultor'` (Fase A backfill) |
+| Realtime CRM escuta funil errado | Channel reinstanciado quando `instance.id` muda (já é o padrão) |
+| Pipeline em "Todos" mostraria 2 boards | Banner + fallback para `default_funnel` (decisão confirmada) |
+| Rotas `/c/:slug`, `/r/:slug`, `/quiz/:slug` | Nenhuma rota tocada — apenas o payload do insert no `/c/:slug` ganha `funnel_type` explícito |
 
-## 7. Entregáveis desta fase
+## O que NÃO muda
 
-- 1 migration SQL
-- 7 edge functions atualizadas
-- 1 edge function nova (`update-consultant-funnel-access`)
-- 1 arquivo TypeScript novo (`src/lib/funnel-types.ts`)
-- Deploy automático de todas as functions tocadas
+Rotas, slugs, RLS, edge functions (Fase B já entregue), schema do banco, `Quiz.tsx`, `AdminSettings`, `AdminInstagram`, `AdminTraffic`, `AdminSuperAdmin` (visão consolidada), `AdminAnalytics` (filtra por `lead_source='quiz'` conforme memória), `AdminDashboard`.
 
-Após a aprovação, sistema continua 100% funcional. Fase C (frontend: toggle, filtros, UI de acesso) entra em seguida quando você liberar.
+## Entregáveis
+
+**Novos arquivos (4):**
+- `src/contexts/FunnelContext.tsx`
+- `src/components/admin/FunnelSwitcher.tsx`
+- `src/components/leads/FunnelBadge.tsx`
+- `src/components/super-admin/EditConsultantFunnelDialog.tsx`
+
+**Arquivos atualizados (~18):** App, AdminLayout, PipelineBoard, AdminPipeline, AdminLeads, AdminRanking, useRankingData, AdminAIConfig, useAIConfig, AdminCRM, WhatsAppConnectionContext, useConversations, usePrefetchAdminData, LeadCard, LeadProfile, QuizLeadsList, WhatsAppLeadsList, CaptureLeadsList, NewContactDialog, CapturePage, CreateConsultantDialog, ConsultantsTable.
+
+Após aprovação, sistema continua 100% funcional para usuários atuais (todos com 1 funil = nenhuma diferença visual). Apenas usuários com 2 funis veem o seletor.
 
