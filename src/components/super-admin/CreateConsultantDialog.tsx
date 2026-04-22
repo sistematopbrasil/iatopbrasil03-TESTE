@@ -201,6 +201,57 @@ export function CreateConsultantDialog({ open: controlledOpen, onOpenChange: con
             </p>
           </div>
 
+          <div className="space-y-3 p-3 rounded-lg border border-border bg-muted/30">
+            <Label className="text-sm font-semibold flex items-center gap-2">
+              <Layers className="w-4 h-4 text-primary" />
+              Acesso a Funis
+            </Label>
+            <div className="space-y-2">
+              {FUNNEL_VALUES.map((funnel) => {
+                const checked = allowedFunnels.includes(funnel);
+                const isOnlyOne = checked && allowedFunnels.length === 1;
+                return (
+                  <div key={funnel} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`cf-${funnel}`}
+                      checked={checked}
+                      disabled={isOnlyOne}
+                      onCheckedChange={(v) => {
+                        setAllowedFunnels((prev) => {
+                          const next = v
+                            ? Array.from(new Set([...prev, funnel]))
+                            : prev.filter((f) => f !== funnel);
+                          if (next.length === 0) return prev;
+                          if (!next.includes(defaultFunnel)) setDefaultFunnel(next[0]);
+                          return next;
+                        });
+                      }}
+                    />
+                    <Label htmlFor={`cf-${funnel}`} className="text-sm font-normal cursor-pointer">
+                      Funil de {FUNNEL_LABELS[funnel]}
+                    </Label>
+                  </div>
+                );
+              })}
+            </div>
+
+            {allowedFunnels.length > 1 && (
+              <div className="space-y-2 pt-2 border-t border-border">
+                <Label className="text-xs font-semibold text-muted-foreground">Funil padrão (entrada)</Label>
+                <RadioGroup value={defaultFunnel} onValueChange={(v) => setDefaultFunnel(v as FunnelType)}>
+                  {allowedFunnels.map((f) => (
+                    <div key={f} className="flex items-center gap-2">
+                      <RadioGroupItem value={f} id={`cd-${f}`} />
+                      <Label htmlFor={`cd-${f}`} className="text-sm font-normal cursor-pointer">
+                        {FUNNEL_LABELS[f]}
+                      </Label>
+                    </div>
+                  ))}
+                </RadioGroup>
+              </div>
+            )}
+          </div>
+
           <div className="bg-muted/50 p-3 rounded-lg">
             <p className="text-sm text-muted-foreground">
               💡 O slug do quiz será gerado automaticamente a partir do nome.

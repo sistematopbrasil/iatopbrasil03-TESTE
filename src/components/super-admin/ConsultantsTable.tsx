@@ -3,10 +3,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { getQuizUrl } from '@/lib/consultant-context';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Copy, ExternalLink, UserPlus, Trophy, Power, Trash2, MoreVertical, Loader2, MessageSquare, BarChart3 } from 'lucide-react';
+import { Copy, ExternalLink, UserPlus, Trophy, Power, Trash2, MoreVertical, Loader2, MessageSquare, BarChart3, Layers } from 'lucide-react';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import { CreateConsultantDialog } from './CreateConsultantDialog';
+import { EditConsultantFunnelDialog } from './EditConsultantFunnelDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useRankingData } from '@/hooks/useRankingData';
 import {
@@ -30,6 +31,7 @@ import {
 export function ConsultantsTable() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [consultantToDelete, setConsultantToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [funnelEdit, setFunnelEdit] = useState<{ id: string; name: string } | null>(null);
   const queryClient = useQueryClient();
   
   // Usar hook centralizado para dados de ranking
