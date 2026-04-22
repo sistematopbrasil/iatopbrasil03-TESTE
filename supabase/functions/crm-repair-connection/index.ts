@@ -201,6 +201,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+    await loadEvolutionCreds(supabaseAdmin);
 
     const steps: string[] = [];
     let qrCode: string | null = null;
@@ -273,7 +274,7 @@ serve(async (req) => {
       // 4. Forçar configuração do webhook
       try {
         console.log('🔧 Reconfigurando webhook...');
-        const webhookSecret = Deno.env.get('EVOLUTION_WEBHOOK_SECRET') || '';
+        const webhookSecret = (await getIntegrationValue('EVOLUTION_WEBHOOK_SECRET', supabaseAdmin)) || '';
         const webhookResult = await evolutionRequest(`/webhook/set/${instance.instance_name}`, {
           method: 'POST',
           body: JSON.stringify({
@@ -343,7 +344,7 @@ serve(async (req) => {
       // SEMPRE reconfigurar webhook para garantir eventos corretos
       try {
         console.log('🔧 Reconfigurando webhook com todos os eventos...');
-        const webhookSecret2 = Deno.env.get('EVOLUTION_WEBHOOK_SECRET') || '';
+        const webhookSecret2 = (await getIntegrationValue('EVOLUTION_WEBHOOK_SECRET', supabaseAdmin)) || '';
         const webhookResult = await evolutionRequest(`/webhook/set/${instance.instance_name}`, {
           method: 'POST',
           body: JSON.stringify({

@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getIntegrationValue } from '../_shared/integration-config.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -512,8 +513,8 @@ serve(async (req) => {
     if (isNewConversation && config.greeting_message?.trim()) {
       console.log('👋 Conversa nova - enviando greeting message');
 
-      const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL');
-      const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY');
+      const evolutionApiUrl = await getIntegrationValue('EVOLUTION_API_URL', supabaseAdmin);
+      const evolutionApiKey = await getIntegrationValue('EVOLUTION_API_KEY', supabaseAdmin);
 
       if (evolutionApiUrl && evolutionApiKey) {
         const jid = contact_phone.includes('@') ? contact_phone : `${contact_phone}@s.whatsapp.net`;
@@ -615,8 +616,8 @@ serve(async (req) => {
     }
 
     // 10. Enviar resposta via Evolution API (com split de mensagens para humanização)
-    const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL');
-    const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY');
+    const evolutionApiUrl = await getIntegrationValue('EVOLUTION_API_URL', supabaseAdmin);
+    const evolutionApiKey = await getIntegrationValue('EVOLUTION_API_KEY', supabaseAdmin);
 
     if (!evolutionApiUrl || !evolutionApiKey) {
       console.error('❌ Evolution API não configurada');

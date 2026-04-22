@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getIntegrationValue } from '../_shared/integration-config.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -110,8 +111,14 @@ serve(async (req) => {
   }
 
   try {
+    // ✅ Cliente admin disponível antes da validação para suportar leitura via integration_settings
+    const supabaseAdminEarly = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
     // ✅ WEBHOOK SECRET VALIDATION — secret obrigatório quando configurado
-    const webhookSecret = Deno.env.get('EVOLUTION_WEBHOOK_SECRET');
+    const webhookSecret = await getIntegrationValue('EVOLUTION_WEBHOOK_SECRET', supabaseAdminEarly);
     const body = await req.json();
 
     if (webhookSecret) {
@@ -130,6 +137,7 @@ serve(async (req) => {
     } else {
       console.warn('⚠️ EVOLUTION_WEBHOOK_SECRET não configurado — webhook aceita requests sem validação. Configure o secret para reforçar a segurança.');
     }
+
     
     // ✅ INPUT VALIDATION
     const event = body.event;
@@ -161,10 +169,7 @@ serve(async (req) => {
     };
     console.log('🔵 Webhook:', JSON.stringify(logSummary));
 
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const supabaseAdmin = supabaseAdminEarly;
 
     // Buscar instância pelo nome
     const { data: instance, error: instanceError } = await supabaseAdmin
@@ -434,8 +439,8 @@ serve(async (req) => {
           // ✅ BUSCAR MÍDIA SE FOR MENSAGEM DE MÍDIA
           if (['image', 'video', 'audio', 'document', 'sticker'].includes(type)) {
             try {
-              const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL');
-              const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY');
+              const evolutionApiUrl = await getIntegrationValue('EVOLUTION_API_URL', supabaseAdmin);
+              const evolutionApiKey = await getIntegrationValue('EVOLUTION_API_KEY', supabaseAdmin);
               
               if (evolutionApiUrl && evolutionApiKey) {
                 console.log('📥 Baixando mídia do tipo:', type);
