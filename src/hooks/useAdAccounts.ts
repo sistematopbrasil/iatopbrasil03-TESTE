@@ -12,6 +12,7 @@ export function useAdAccounts(organizationId?: string) {
       const { data, error } = await supabase
         .from("ad_accounts")
         .select("*")
+        .eq("organization_id", organizationId!)
         .order("name");
       if (error) throw error;
       return data;
@@ -50,7 +51,8 @@ export function useAdAccounts(organizationId?: string) {
       const { error } = await supabase
         .from("ad_accounts")
         .update({ is_monitored })
-        .eq("id", id);
+        .eq("id", id)
+        .eq("organization_id", organizationId!);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -68,7 +70,9 @@ export function useAdAccounts(organizationId?: string) {
 
   const syncAllAccounts = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("sync-all-accounts");
+      const { data, error } = await supabase.functions.invoke("sync-all-accounts", {
+        body: { organization_id: organizationId },
+      });
       if (error) throw error;
       return data;
     },

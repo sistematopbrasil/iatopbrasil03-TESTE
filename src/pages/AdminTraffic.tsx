@@ -42,7 +42,9 @@ const AdminTraffic = () => {
     if (organizationId && !hasSynced.current) {
       hasSynced.current = true;
       // Background sync — don't show toast for auto-sync
-      supabase.functions.invoke("sync-all-accounts").catch(() => {});
+      supabase.functions.invoke("sync-all-accounts", {
+        body: { organization_id: organizationId },
+      }).catch(() => {});
     }
   }, [organizationId]);
 

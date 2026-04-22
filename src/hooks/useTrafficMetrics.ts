@@ -48,6 +48,7 @@ export function useTrafficMetrics(
       let query = supabase
         .from("ad_metrics")
         .select("*")
+        .eq("organization_id", organizationId!)
         .order("date", { ascending: true });
 
       if (period && period.preset !== "total" && period.from) {
