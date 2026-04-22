@@ -98,7 +98,7 @@ export function ConsultantDashboard() {
           table: 'quiz_submissions_new',
         },
         () => {
-          queryClient.invalidateQueries({ queryKey: ['all-leads-consultant', currentUser.id] });
+          queryClient.invalidateQueries({ queryKey: ['all-leads-consultant', currentUser.id], exact: false });
           queryClient.invalidateQueries({ queryKey: ['ranking'] });
         }
       )
