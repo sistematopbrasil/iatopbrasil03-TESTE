@@ -595,7 +595,7 @@ export default function ConsultantsManagement() {
                 })}
                 {consultants?.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                       Nenhum consultor cadastrado
                     </TableCell>
                   </TableRow>
@@ -667,6 +667,15 @@ export default function ConsultantsManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {funnelEdit && (
+        <EditConsultantFunnelDialog
+          open={!!funnelEdit}
+          onOpenChange={(o) => !o && setFunnelEdit(null)}
+          consultantId={funnelEdit.id}
+          consultantName={funnelEdit.name}
+        />
+      )}
     </AdminLayout>
   );
 }
