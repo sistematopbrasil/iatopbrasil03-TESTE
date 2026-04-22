@@ -169,10 +169,7 @@ serve(async (req) => {
     };
     console.log('🔵 Webhook:', JSON.stringify(logSummary));
 
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const supabaseAdmin = supabaseAdminEarly;
 
     // Buscar instância pelo nome
     const { data: instance, error: instanceError } = await supabaseAdmin
