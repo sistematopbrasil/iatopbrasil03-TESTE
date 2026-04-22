@@ -3,7 +3,7 @@ import { AdminLayout } from '@/components/admin/AdminLayout';
 import { PipelineBoard } from '@/components/crm/PipelineBoard';
 import { PipelineStageManager } from '@/components/crm/PipelineStageManager';
 import { Button } from '@/components/ui/button';
-import { Settings2 } from 'lucide-react';
+import { Settings2, Info } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -12,9 +12,13 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { useHorizontalDragScroll } from '@/hooks/useHorizontalDragScroll';
+import { useFunnel } from '@/contexts/FunnelContext';
+import { FUNNEL_LABELS } from '@/lib/funnel-types';
 
 export default function AdminPipeline() {
   const scrollRef = useHorizontalDragScroll<HTMLDivElement>();
+  const { activeFunnel, resolvedFunnel, setActiveFunnel, availableFunnels } = useFunnel();
+  const isAllMode = activeFunnel === 'all';
 
   return (
     <AdminLayout disableVerticalScroll>
@@ -46,6 +50,27 @@ export default function AdminPipeline() {
             </SheetContent>
           </Sheet>
         </div>
+
+        {/* Banner em modo "Todos" — Pipeline mostra apenas 1 funil */}
+        {isAllMode && (
+          <div className="flex-shrink-0 mx-4 md:mx-6 mb-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 flex items-start sm:items-center gap-2 text-xs sm:text-sm">
+            <Info className="w-4 h-4 text-primary flex-shrink-0 mt-0.5 sm:mt-0" />
+            <span className="text-foreground flex-1">
+              Pipeline mostra apenas o funil <strong>{FUNNEL_LABELS[resolvedFunnel]}</strong>. Use o seletor para trocar.
+            </span>
+            {availableFunnels.map((f) => (
+              <Button
+                key={f}
+                size="sm"
+                variant={f === resolvedFunnel ? 'default' : 'outline'}
+                className="h-7 text-xs"
+                onClick={() => setActiveFunnel(f)}
+              >
+                {FUNNEL_LABELS[f]}
+              </Button>
+            ))}
+          </div>
+        )}
 
         {/* Pipeline Board - scrollbar nativa estilizada */}
         <div 

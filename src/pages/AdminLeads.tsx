@@ -23,7 +23,10 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Badge } from "@/components/ui/badge";
 import { TemperatureBadge } from "@/components/ui/temperature-badge";
 import { LeadScoreDisplay } from "@/components/leads/LeadScoreDisplay";
+import { FunnelBadge } from "@/components/leads/FunnelBadge";
 import type { LeadTemperature } from "@/lib/lead-scoring";
+import { useFunnel } from "@/contexts/FunnelContext";
+import type { FunnelType } from "@/lib/funnel-types";
 
 interface Lead {
   id: string;
@@ -47,6 +50,7 @@ interface Lead {
   lead_score: number | null;
   temperature: LeadTemperature | null;
   lead_source: string;
+  funnel_type?: FunnelType;
   extra_answers?: any;
   pipeline_stage_id?: string | null;
 }
@@ -90,6 +94,7 @@ export default function AdminLeads() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
+  const { activeFunnel } = useFunnel();
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -131,16 +136,21 @@ export default function AdminLeads() {
     staleTime: 5 * 60 * 1000, // 5 minutos
   });
 
-  // Buscar leads com useQuery e cache agressivo
+  // Buscar leads com useQuery e cache agressivo (filtra por funil ativo)
   const { data: leads = [], isLoading: loading, refetch: fetchLeads } = useQuery({
-    queryKey: ['leads', currentUser?.id, currentUser?.role, currentUser?.organization_id],
+    queryKey: ['leads', currentUser?.id, currentUser?.role, currentUser?.organization_id, activeFunnel],
     queryFn: async () => {
       if (!currentUser) return [];
-      
+
       let query = supabase
         .from('quiz_submissions_new')
         .select('*')
         .order('created_at', { ascending: false });
+
+      // Filtrar por funil (super admin em "all" não filtra)
+      if (activeFunnel !== 'all') {
+        query = query.eq('funnel_type', activeFunnel);
+      }
 
       // Filtrar por consultant_id se não for super admin
       if (!isSuperAdmin(currentUser.role)) {
