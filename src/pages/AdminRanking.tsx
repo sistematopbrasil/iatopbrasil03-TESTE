@@ -375,10 +375,6 @@ export default function AdminRanking() {
             </Card>
           );
         })()}
-              </p>
-            </div>
-          )}
-        </Card>
 
         {/* Points Legend - Only for consultants */}
         {!isAdmin && (
