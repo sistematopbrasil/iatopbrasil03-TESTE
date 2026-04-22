@@ -439,8 +439,8 @@ serve(async (req) => {
           // ✅ BUSCAR MÍDIA SE FOR MENSAGEM DE MÍDIA
           if (['image', 'video', 'audio', 'document', 'sticker'].includes(type)) {
             try {
-              const evolutionApiUrl = Deno.env.get('EVOLUTION_API_URL');
-              const evolutionApiKey = Deno.env.get('EVOLUTION_API_KEY');
+              const evolutionApiUrl = await getIntegrationValue('EVOLUTION_API_URL', supabaseAdmin);
+              const evolutionApiKey = await getIntegrationValue('EVOLUTION_API_KEY', supabaseAdmin);
               
               if (evolutionApiUrl && evolutionApiKey) {
                 console.log('📥 Baixando mídia do tipo:', type);
