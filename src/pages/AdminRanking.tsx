@@ -50,10 +50,11 @@ export default function AdminRanking() {
   }, [period]);
 
   // Usar hook centralizado com queryKey estável (dados pré-carregados em usePrefetchAdminData)
-  const { ranking, isLoading, error, currentUser, currentUserRole, totals, myData, refetch } = useRankingData({
+  const { ranking, grouped, isLoading, error, currentUser, currentUserRole, totals, myData, refetch } = useRankingData({
     periodStart,
     periodEnd,
   });
+  const { activeFunnel } = useFunnel();
 
   const queryClient = useQueryClient();
 
