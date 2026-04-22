@@ -422,6 +422,9 @@ export default function CapturePage() {
   const { slug } = useParams<{ slug: string }>();
   const location = useLocation();
   const isRecruitment = location.pathname.startsWith('/r/');
+  // /c/:slug → funil de Associados; /r/:slug e /quiz/* permanecem em Consultores
+  const isAssociadoCapture = location.pathname.startsWith('/c/');
+  const captureFunnel: 'consultor' | 'associado' = isAssociadoCapture ? 'associado' : 'consultor';
   const [config, setConfig] = useState<CaptureConfig>(DEFAULT_CONFIG);
   const [consultant, setConsultant] = useState<ConsultantData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -572,6 +575,7 @@ export default function CapturePage() {
         organization_id: consultant.organization_id, consultant_id: consultant.id,
         lead_source: isRecruitment ? 'recruitment' : 'capture', completion_percentage: 100,
         stage: 'novo', temperature: 'cold', lead_score: 0,
+        funnel_type: captureFunnel,
         extra_answers: Object.keys(extra_answers).length > 0 ? extra_answers : null,
       } as any);
       trackEvent('CompleteRegistration', { content_name: consultant.full_name, content_category: 'capture' });
