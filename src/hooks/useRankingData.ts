@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useFunnel } from '@/contexts/FunnelContext';
 
 export interface ConsultantRankingData {
   consultant_id: string;
@@ -30,6 +31,8 @@ interface UseRankingDataOptions {
 interface RankingResponse {
   success: boolean;
   data?: ConsultantRankingData[];
+  // Quando funnel_type === 'all' (super admin) o backend pode retornar grouped
+  grouped?: { consultor: ConsultantRankingData[]; associado: ConsultantRankingData[] };
   totals?: {
     leads: number;
     hot: number;
@@ -52,17 +55,18 @@ export function useRankingData(options: UseRankingDataOptions = {}) {
   // pois muda a cada render e invalida a queryKey constantemente
   const { periodStart = null, periodEnd = null, enabled = true } = options;
   const queryClient = useQueryClient();
+  const { activeFunnel } = useFunnel();
 
   // Query principal de ranking via backend
   const { data: response, isLoading, error, refetch } = useQuery({
     // QueryKey estável: usar 'now' como string em vez de timestamp dinâmico
-    queryKey: ['unified-ranking', periodStart ?? 'all', periodEnd ?? 'now'],
+    queryKey: ['unified-ranking', periodStart ?? 'all', periodEnd ?? 'now', activeFunnel],
     queryFn: async (): Promise<RankingResponse> => {
       // Resolver periodEnd no momento da chamada, não no render
       const effectivePeriodEnd = periodEnd ?? new Date().toISOString();
-      
+
       const { data, error } = await supabase.functions.invoke('ranking-get', {
-        body: { periodStart, periodEnd: effectivePeriodEnd },
+        body: { periodStart, periodEnd: effectivePeriodEnd, funnel_type: activeFunnel },
       });
 
       if (error) {
