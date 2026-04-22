@@ -569,6 +569,12 @@ export default function ConsultantsManagement() {
                                 </>
                               )}
                             </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => setFunnelEdit({ id: consultant.id, name: consultant.full_name })}
+                            >
+                              <Layers className="mr-2 h-4 w-4" />
+                              Editar funis de acesso
+                            </DropdownMenuItem>
                             {!isSelf && (
                               <>
                                 <DropdownMenuSeparator />
