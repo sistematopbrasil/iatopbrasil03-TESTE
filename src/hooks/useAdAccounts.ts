@@ -12,6 +12,7 @@ export function useAdAccounts(organizationId?: string) {
       const { data, error } = await supabase
         .from("ad_accounts")
         .select("*")
+        .eq("organization_id", organizationId!)
         .order("name");
       if (error) throw error;
       return data;
