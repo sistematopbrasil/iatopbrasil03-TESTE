@@ -497,6 +497,18 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
                   <p className="text-[10px] text-muted-foreground">Captar consultores</p>
                 </button>
               </div>
+              <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground leading-relaxed">
+                A finalidade define o conteúdo desta página. O <strong>funil</strong> em que o lead entra é definido pela <strong>rota</strong>:
+                <span className="block mt-1">
+                  • <code className="text-foreground">/c/{'{seu-slug}'}</code> → cria leads no funil de <strong>Associados</strong>
+                </span>
+                <span className="block">
+                  • <code className="text-foreground">/r/{'{seu-slug}'}</code> → cria leads no funil de <strong>Consultores</strong>
+                </span>
+                <span className="block mt-1">
+                  Para o quiz (<code className="text-foreground">/quiz/{'{seu-slug}'}</code>), configure o funil na aba <strong>Quiz</strong>.
+                </span>
+              </div>
             </div>
 
             {/* 1. Link da Página (topo) */}
@@ -1185,6 +1197,7 @@ export function ConsultantSettings() {
         whatsapp_button_url: consultant.whatsapp_button_url || '',
         pixel_id: consultant.pixel_id || '',
         username: consultant.username || '',
+        quiz_funnel_type: (consultant.quiz_funnel_type as 'consultor' | 'associado') || 'consultor',
       });
     }
   }, [consultant]);
@@ -1381,6 +1394,7 @@ export function ConsultantSettings() {
           whatsapp_button_url: data.whatsapp_button_url,
           pixel_id: data.pixel_id,
           username: data.username || undefined,
+          quiz_funnel_type: data.quiz_funnel_type,
         })
         .eq('id', consultant.id);
 
@@ -1809,6 +1823,39 @@ export function ConsultantSettings() {
                   Cole um link completo (ex: https://wa.me/5511999999999?text=Olá!) ou apenas o número com DDD (ex: 5511999999999).
                   Deixe em branco para usar o padrão.
                 </p>
+              </div>
+
+              {/* Funil que o Quiz alimenta */}
+              <div className="space-y-3 p-4 bg-muted/30 border border-border rounded-lg">
+                <div className="space-y-1">
+                  <Label className="text-base font-semibold">Funil que o Quiz alimenta</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Por padrão, o quiz captura para o funil de <strong>Consultores</strong>.
+                    Você pode mudar para <strong>Associados</strong> se estiver usando o quiz para esse fim.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { value: 'consultor' as const, label: 'Consultores', desc: 'Captar consultores via quiz', icon: Users },
+                    { value: 'associado' as const, label: 'Associados', desc: 'Captar associados via quiz', icon: Shield },
+                  ].map(({ value, label, desc, icon: Icon }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, quiz_funnel_type: value })}
+                      className={cn(
+                        "p-3 rounded-xl border-2 text-left transition-all",
+                        formData.quiz_funnel_type === value
+                          ? "border-primary bg-primary/10"
+                          : "border-border hover:border-primary/30"
+                      )}
+                    >
+                      <Icon className="w-4 h-4 mb-1 text-primary" />
+                      <p className="text-sm font-semibold">{label}</p>
+                      <p className="text-[10px] text-muted-foreground">{desc}</p>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <Button 
