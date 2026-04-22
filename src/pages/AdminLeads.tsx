@@ -825,6 +825,7 @@ export default function AdminLeads() {
                     {lead.temperature && (
                       <TemperatureBadge temperature={lead.temperature} size="sm" />
                     )}
+                    <FunnelBadge funnel={(lead as any).funnel_type} size="xs" />
                     <Badge variant="outline" className={`text-[10px] ${getSourceBadgeClass(lead.lead_source)}`}>
                       {getSourceLabel(lead.lead_source)}
                     </Badge>
@@ -878,6 +879,7 @@ export default function AdminLeads() {
                   </TableHead>
                   <TableHead className="px-4">Nome</TableHead>
                   <TableHead className="px-4">Telefone</TableHead>
+                  <TableHead className="text-center px-4">Funil</TableHead>
                   <TableHead className="text-center px-4">Origem</TableHead>
                   <TableHead className="text-center px-4">Temp.</TableHead>
                   <TableHead className="text-center px-4">% Conclusão</TableHead>
@@ -889,13 +891,13 @@ export default function AdminLeads() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
+                    <TableCell colSpan={10} className="text-center py-8">
                       Carregando...
                     </TableCell>
                   </TableRow>
                 ) : filteredLeads.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                       Nenhum lead encontrado
                     </TableCell>
                   </TableRow>
@@ -917,6 +919,9 @@ export default function AdminLeads() {
                       </TableCell>
                       <TableCell className="px-4 text-sm">
                         {lead.phone || '-'}
+                      </TableCell>
+                      <TableCell className="text-center px-4">
+                        <FunnelBadge funnel={(lead as any).funnel_type} size="xs" />
                       </TableCell>
                       <TableCell className="text-center px-4">
                         <Badge variant="outline" className={`text-[10px] ${getSourceBadgeClass(lead.lead_source)}`}>
