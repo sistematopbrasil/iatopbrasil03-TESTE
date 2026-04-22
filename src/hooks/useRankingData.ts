@@ -30,19 +30,22 @@ interface UseRankingDataOptions {
   enabled?: boolean;
 }
 
+interface FunnelTotals {
+  leads: number;
+  hot: number;
+  warm: number;
+  cold: number;
+  points: number;
+  novosConsultores: number;
+}
+
 interface RankingResponse {
   success: boolean;
   data?: ConsultantRankingData[];
   // Quando funnel_type === 'all' (super admin) o backend pode retornar grouped
   grouped?: { consultor: ConsultantRankingData[]; associado: ConsultantRankingData[] };
-  totals?: {
-    leads: number;
-    hot: number;
-    warm: number;
-    cold: number;
-    points: number;
-    novosConsultores: number;
-  };
+  groupedTotals?: { consultor: FunnelTotals; associado: FunnelTotals };
+  totals?: FunnelTotals;
   currentUserId?: string;
   currentUserRole?: string;
   error?: string;
@@ -141,6 +144,7 @@ export function useRankingData(options: UseRankingDataOptions = {}) {
   return {
     ranking: response?.data || [],
     grouped: response?.grouped || null,
+    groupedTotals: response?.groupedTotals || null,
     isLoading,
     error,
     currentUser,

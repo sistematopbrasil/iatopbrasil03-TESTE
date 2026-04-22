@@ -216,14 +216,30 @@ serve(async (req) => {
       const consultorRanking = buildRanking(consultorLeads);
       const associadoRanking = buildRanking(associadoLeads);
 
+      // Combined view (também retornamos um data único agregado para tabelas/gráficos legados)
+      const combined = buildRanking(leads || []);
+
       console.log('✅ Ranking by funnel:', consultorRanking.list.length, 'consultor /', associadoRanking.list.length, 'associado');
 
       return new Response(
         JSON.stringify({
           success: true,
           mode: 'all',
+          // ➜ formato novo (UI por funil)
+          grouped: {
+            consultor: consultorRanking.list,
+            associado: associadoRanking.list,
+          },
+          groupedTotals: {
+            consultor: consultorRanking.totals,
+            associado: associadoRanking.totals,
+          },
+          // ➜ retrocompat — manter campos antigos consultor/associado
           consultor: { data: consultorRanking.list, totals: consultorRanking.totals },
           associado: { data: associadoRanking.list, totals: associadoRanking.totals },
+          // ➜ visão combinada (necessária para tabela única e métricas agregadas)
+          data: combined.list,
+          totals: combined.totals,
           currentUserId,
           currentUserRole,
         }),

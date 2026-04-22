@@ -5,6 +5,7 @@ import { getCurrentConsultant } from '@/lib/consultant-context';
 import { Navigate } from 'react-router-dom';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { CreateConsultantDialog } from '@/components/super-admin/CreateConsultantDialog';
+import { EditConsultantFunnelDialog } from '@/components/super-admin/EditConsultantFunnelDialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { 
   Table,
@@ -33,7 +34,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Target, Flame, Loader2, MoreVertical, Copy, ExternalLink, UserX, UserCheck, Trash2, Users, CheckSquare, XSquare, Bot, BotOff, MessageSquare, BarChart3 } from 'lucide-react';
+import { Target, Flame, Loader2, MoreVertical, Copy, ExternalLink, UserX, UserCheck, Trash2, Users, CheckSquare, XSquare, Bot, BotOff, MessageSquare, BarChart3, Layers } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { calculateLeadPoints, NOVOS_CONSULTORES_BONUS } from '@/lib/ranking-service';
@@ -45,6 +46,7 @@ export default function ConsultantsManagement() {
   const [consultantToDelete, setConsultantToDelete] = useState<{ id: string; name: string } | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
+  const [funnelEdit, setFunnelEdit] = useState<{ id: string; name: string } | null>(null);
 
   const { data: currentUser, isLoading: loadingUser } = useQuery({
     queryKey: ['current-user-consultants'],
@@ -404,6 +406,7 @@ export default function ConsultantsManagement() {
                   <TableHead className="text-center hidden md:table-cell">Ranking</TableHead>
                   <TableHead className="text-center hidden md:table-cell">Status</TableHead>
                   <TableHead className="text-center hidden md:table-cell">IA</TableHead>
+                  <TableHead className="text-center hidden md:table-cell">Funis</TableHead>
                   <TableHead className="text-center">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -480,6 +483,35 @@ export default function ConsultantsManagement() {
                           <BotOff className="w-4 h-4 text-muted-foreground mx-auto" />
                         )}
                       </TableCell>
+                      <TableCell className="text-center hidden md:table-cell">
+                        <button
+                          type="button"
+                          onClick={() => setFunnelEdit({ id: consultant.id, name: consultant.full_name })}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md hover:bg-muted/60 transition-colors"
+                          title="Editar funis de acesso"
+                        >
+                          {(['consultor', 'associado'] as const).map((f) => {
+                            const allowed = ((consultant as any).allowed_funnels ?? ['consultor']).includes(f);
+                            const isDefault = (consultant as any).default_funnel === f;
+                            return (
+                              <span
+                                key={f}
+                                className={
+                                  'inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold ' +
+                                  (allowed
+                                    ? isDefault
+                                      ? 'bg-primary text-primary-foreground'
+                                      : 'bg-primary/15 text-primary'
+                                    : 'bg-muted text-muted-foreground/40 line-through')
+                                }
+                                title={`${f === 'consultor' ? 'Consultor' : 'Associado'}${isDefault ? ' (padrão)' : ''}`}
+                              >
+                                {f === 'consultor' ? 'C' : 'A'}
+                              </span>
+                            );
+                          })}
+                        </button>
+                      </TableCell>
                       <TableCell className="text-center">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -537,6 +569,12 @@ export default function ConsultantsManagement() {
                                 </>
                               )}
                             </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => setFunnelEdit({ id: consultant.id, name: consultant.full_name })}
+                            >
+                              <Layers className="mr-2 h-4 w-4" />
+                              Editar funis de acesso
+                            </DropdownMenuItem>
                             {!isSelf && (
                               <>
                                 <DropdownMenuSeparator />
@@ -557,7 +595,7 @@ export default function ConsultantsManagement() {
                 })}
                 {consultants?.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                       Nenhum consultor cadastrado
                     </TableCell>
                   </TableRow>
@@ -629,6 +667,15 @@ export default function ConsultantsManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {funnelEdit && (
+        <EditConsultantFunnelDialog
+          open={!!funnelEdit}
+          onOpenChange={(o) => !o && setFunnelEdit(null)}
+          consultantId={funnelEdit.id}
+          consultantName={funnelEdit.name}
+        />
+      )}
     </AdminLayout>
   );
 }

@@ -8,91 +8,136 @@ import { Users, TrendingUp, Flame, UserPlus } from 'lucide-react';
 import { ConsultantsTable } from '@/components/super-admin/ConsultantsTable';
 import { SuperAdminCharts } from '@/components/super-admin/SuperAdminCharts';
 import { AdminLayout } from '@/components/admin/AdminLayout';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import type { FunnelType } from '@/lib/funnel-types';
+
+interface FunnelMetrics {
+  totalConsultants: number;
+  totalLeads: number;
+  hotLeads: number;
+  totalEvents: number;
+  convertedLeads: number;
+  conversionRate: string;
+}
+
+async function loadMetrics(orgId: string, funnel?: FunnelType): Promise<FunnelMetrics> {
+  // Consultores ativos por funil (allowed_funnels contém o funil)
+  let consultantsQuery = supabase
+    .from('users')
+    .select('*', { count: 'exact', head: true })
+    .eq('organization_id', orgId)
+    .in('role', ['admin', 'consultor']);
+  if (funnel) {
+    consultantsQuery = consultantsQuery.contains('allowed_funnels', [funnel] as any);
+  }
+  const { count: totalConsultants } = await consultantsQuery;
+
+  // Leads completos por funil
+  let leadsQuery = supabase
+    .from('quiz_submissions_new')
+    .select('*', { count: 'exact', head: true })
+    .eq('organization_id', orgId)
+    .eq('completion_percentage', 100);
+  if (funnel) leadsQuery = leadsQuery.eq('funnel_type', funnel);
+  const { count: totalLeads } = await leadsQuery;
+
+  // Stages de conversão
+  let stagesQuery = supabase
+    .from('pipeline_stages')
+    .select('id, name, funnel_type')
+    .eq('organization_id', orgId)
+    .or('name.ilike.%convertido%,name.ilike.%consultor%');
+  if (funnel) stagesQuery = stagesQuery.eq('funnel_type', funnel);
+  const { data: conversionStages } = await stagesQuery;
+
+  const conversionStageIds = conversionStages?.map(s => s.id) || [];
+
+  let convertedLeadsCount = 0;
+  if (conversionStageIds.length > 0) {
+    let convertedQuery = supabase
+      .from('quiz_submissions_new')
+      .select('*', { count: 'exact', head: true })
+      .eq('organization_id', orgId)
+      .in('pipeline_stage_id', conversionStageIds);
+    if (funnel) convertedQuery = convertedQuery.eq('funnel_type', funnel);
+    const { count } = await convertedQuery;
+    convertedLeadsCount = count || 0;
+  }
+
+  let hotQuery = supabase
+    .from('quiz_submissions_new')
+    .select('*', { count: 'exact', head: true })
+    .eq('organization_id', orgId)
+    .eq('temperature', 'hot');
+  if (funnel) hotQuery = hotQuery.eq('funnel_type', funnel);
+  const { count: hotLeads } = await hotQuery;
+
+  const { count: totalEvents } = await supabase
+    .from('events')
+    .select('*', { count: 'exact', head: true })
+    .eq('organization_id', orgId);
+
+  return {
+    totalConsultants: totalConsultants || 0,
+    totalLeads: totalLeads || 0,
+    hotLeads: hotLeads || 0,
+    totalEvents: totalEvents || 0,
+    convertedLeads: convertedLeadsCount,
+    conversionRate: totalLeads && totalLeads > 0
+      ? ((convertedLeadsCount) / totalLeads * 100).toFixed(1)
+      : '0.0',
+  };
+}
+
+function MetricsBlock({ metrics }: { metrics: FunnelMetrics | undefined }) {
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <StatCard title="Consultores Ativos" value={metrics?.totalConsultants || 0} icon={Users} />
+      <StatCard title="Total de Leads" value={metrics?.totalLeads || 0} icon={TrendingUp} />
+      <StatCard
+        title="Novos Consultores"
+        value={metrics?.convertedLeads || 0}
+        subtitle={`${metrics?.conversionRate}% conversão`}
+        icon={UserPlus}
+        variant="success"
+      />
+      <StatCard title="Leads Quentes" value={metrics?.hotLeads || 0} icon={Flame} variant="warning" />
+    </div>
+  );
+}
 
 export default function AdminSuperAdmin() {
   const navigate = useNavigate();
-  
+
   const { data: currentUser, isLoading: loadingUser } = useQuery({
     queryKey: ['current-user'],
     queryFn: getCurrentConsultant,
   });
 
-  // Redirecionar se não for super admin
   useEffect(() => {
     if (!loadingUser && currentUser && !isSuperAdmin(currentUser.role)) {
       navigate('/admin/dashboard', { replace: true });
     }
   }, [currentUser, loadingUser, navigate]);
 
-  const { data: metrics } = useQuery({
-    queryKey: ['super-admin-metrics', currentUser?.organization_id],
-    queryFn: async () => {
-      if (!currentUser) return null;
+  const orgId = currentUser?.organization_id;
 
-      // Total de consultores
-      const { count: totalConsultants } = await supabase
-        .from('users')
-        .select('*', { count: 'exact', head: true })
-        .eq('organization_id', currentUser.organization_id)
-        .in('role', ['admin', 'consultor']);
-
-      // Total de leads completos
-      const { count: totalLeads } = await supabase
-        .from('quiz_submissions_new')
-        .select('*', { count: 'exact', head: true })
-        .eq('organization_id', currentUser.organization_id)
-        .eq('completion_percentage', 100);
-
-      // Buscar stages de conversão (incluindo "novos consultores")
-      const { data: conversionStages } = await supabase
-        .from('pipeline_stages')
-        .select('id, name')
-        .eq('organization_id', currentUser.organization_id)
-        .or('name.ilike.%convertido%,name.ilike.%consultor%');
-
-      const conversionStageIds = conversionStages?.map(s => s.id) || [];
-
-      // Contar leads nos stages de conversão
-      let convertedLeadsCount = 0;
-      if (conversionStageIds.length > 0) {
-        const { count } = await supabase
-          .from('quiz_submissions_new')
-          .select('*', { count: 'exact', head: true })
-          .eq('organization_id', currentUser.organization_id)
-          .in('pipeline_stage_id', conversionStageIds);
-        convertedLeadsCount = count || 0;
-      }
-
-      // Leads HOT
-      const { count: hotLeads } = await supabase
-        .from('quiz_submissions_new')
-        .select('*', { count: 'exact', head: true })
-        .eq('organization_id', currentUser.organization_id)
-        .eq('temperature', 'hot');
-
-      // Total de eventos
-      const { count: totalEvents } = await supabase
-        .from('events')
-        .select('*', { count: 'exact', head: true })
-        .eq('organization_id', currentUser.organization_id);
-
-      // Remover cálculo antigo de conversionRate (será feito abaixo)
-
-      return {
-        totalConsultants: totalConsultants || 0,
-        totalLeads: totalLeads || 0,
-        hotLeads: hotLeads || 0,
-        totalEvents: totalEvents || 0,
-        convertedLeads: convertedLeadsCount,
-        conversionRate: totalLeads && totalLeads > 0 
-          ? ((convertedLeadsCount) / totalLeads * 100).toFixed(1)
-          : '0.0',
-      };
-    },
-    enabled: !!currentUser,
+  const { data: metricsAll } = useQuery({
+    queryKey: ['super-admin-metrics', orgId, 'all'],
+    queryFn: () => loadMetrics(orgId!),
+    enabled: !!orgId,
+  });
+  const { data: metricsConsultor } = useQuery({
+    queryKey: ['super-admin-metrics', orgId, 'consultor'],
+    queryFn: () => loadMetrics(orgId!, 'consultor'),
+    enabled: !!orgId,
+  });
+  const { data: metricsAssociado } = useQuery({
+    queryKey: ['super-admin-metrics', orgId, 'associado'],
+    queryFn: () => loadMetrics(orgId!, 'associado'),
+    enabled: !!orgId,
   });
 
-  // Loading ou não é super admin (aguardando redirect)
   if (loadingUser || (currentUser && !isSuperAdmin(currentUser.role))) {
     return (
       <AdminLayout>
@@ -106,45 +151,37 @@ export default function AdminSuperAdmin() {
   return (
     <AdminLayout>
       <div className="p-4 md:p-6 space-y-6 overflow-x-hidden max-w-full">
-        {/* Header */}
         <div className="min-w-0">
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
             Painel Super Admin
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Visão geral de todos os consultores e métricas consolidadas
+            Visão geral por funil e consolidada
           </p>
         </div>
 
-        {/* Métricas gerais */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <StatCard
-            title="Consultores Ativos"
-            value={metrics?.totalConsultants || 0}
-            icon={Users}
-          />
-          <StatCard
-            title="Total de Leads"
-            value={metrics?.totalLeads || 0}
-            icon={TrendingUp}
-          />
-          <StatCard
-            title="Novos Consultores"
-            value={metrics?.convertedLeads || 0}
-            subtitle={`${metrics?.conversionRate}% conversão`}
-            icon={UserPlus}
-            variant="success"
-          />
-          <StatCard
-            title="Leads Quentes"
-            value={metrics?.hotLeads || 0}
-            icon={Flame}
-            variant="warning"
-          />
-        </div>
+        <Tabs defaultValue="all" className="w-full">
+          <TabsList className="w-full sm:w-auto overflow-x-auto">
+            <TabsTrigger value="all" className="text-xs sm:text-sm">Geral</TabsTrigger>
+            <TabsTrigger value="consultor" className="text-xs sm:text-sm">Funil de Consultores</TabsTrigger>
+            <TabsTrigger value="associado" className="text-xs sm:text-sm">Funil de Associados</TabsTrigger>
+          </TabsList>
 
-        {/* Gráficos */}
-        <SuperAdminCharts />
+          <TabsContent value="all" className="space-y-6 mt-4">
+            <MetricsBlock metrics={metricsAll} />
+            <SuperAdminCharts />
+          </TabsContent>
+
+          <TabsContent value="consultor" className="space-y-6 mt-4">
+            <MetricsBlock metrics={metricsConsultor} />
+            <SuperAdminCharts funnel="consultor" />
+          </TabsContent>
+
+          <TabsContent value="associado" className="space-y-6 mt-4">
+            <MetricsBlock metrics={metricsAssociado} />
+            <SuperAdminCharts funnel="associado" />
+          </TabsContent>
+        </Tabs>
 
         {/* Tabela de consultores */}
         <ConsultantsTable />

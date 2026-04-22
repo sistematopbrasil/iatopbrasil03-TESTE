@@ -15,8 +15,8 @@ interface FunnelSwitcherProps {
 export function FunnelSwitcher({ variant = 'sidebar', className }: FunnelSwitcherProps) {
   const { activeFunnel, availableFunnels, canSeeAll, setActiveFunnel } = useFunnel();
 
-  // Esconder se só tem 1 funil disponível e não é super admin
-  if (availableFunnels.length <= 1 && !canSeeAll) return null;
+  // ✅ Esconder sempre que o usuário só tem 1 funil — independente do role
+  if (availableFunnels.length <= 1) return null;
 
   const options: Array<{ value: ActiveFunnel; label: string }> = [
     ...availableFunnels.map((f) => ({ value: f as ActiveFunnel, label: FUNNEL_LABELS[f] })),
