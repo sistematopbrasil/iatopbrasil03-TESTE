@@ -1,83 +1,176 @@
 
-# Plano — Toggle de funil e edição de funis para consultores
+# Plano de correções — funis, edição de consultores, tráfego e visão separada no Super Admin
 
-Investiguei o código e o estado do banco. Identifiquei exatamente o que está acontecendo. **A funcionalidade de edição de funis JÁ EXISTE e está integrada**, mas há um detalhe que está escondendo o toggle e a percepção de que a edição não está disponível.
+Nada de rota, slug ou funcionalidade existente será removido. As correções são pontuais e aditivas.
 
----
+## 1. Corrigir o toggle de funil aparecendo em contas com apenas 1 funil
 
-## O que está acontecendo de fato
+### Problema real
+O comportamento incorreto não está no banco. Os consultores recém-criados já estão salvos corretamente com:
+- `allowed_funnels = {associado}` quando só associado foi marcado
+- `default_funnel = associado` quando só associado foi marcado
 
-### 1. Toggle de funil não aparece pra você (super admin)
+O erro está no estado do frontend:
+- o `FunnelProvider` inicializa apenas uma vez
+- ao trocar de usuário na mesma sessão, ele pode manter estado do login anterior
+- por isso um consultor com 1 funil pode herdar o toggle visível de uma conta anterior que tinha 2 funis ou perfil super admin
 
-Você está logado como **`topbrasil@gmail.com`** (super admin). Consultei o banco:
+### Implementação
+- Refatorar `src/contexts/FunnelContext.tsx` para reinicializar quando a sessão/usuário mudar.
+- Validar o valor salvo em `localStorage` contra o usuário atual:
+  - se o usuário tem só 1 funil, forçar `activeFunnel` para esse funil
+  - remover qualquer valor inválido herdado (`all`, `consultor` ou `associado` que não pertença ao usuário)
+- Garantir que:
+  - 1 funil ativo => sem toggle
+  - 2 funis ativos => toggle entre os dois
+  - super admin com 2 funis => toggle com `Consultor | Associado | Todos`
 
-```
-super_admin: allowed_funnels = {consultor}   ← só 1 funil
-```
+## 2. Liberar edição de funis também na aba “Consultores”
 
-O `FunnelSwitcher` (sidebar) tem a regra: "se só tem 1 funil disponível e não tem opção 'Todos', esconde". Como o seu super admin só tem `{consultor}` no `allowed_funnels`, o switcher esconde.
+### Problema real
+Hoje a edição de funis está visível no dashboard do super admin, mas a página `/admin/consultants` ainda não expõe essa ação.
 
-Os consultores que você criou **estão corretos** no banco:
-```
-teste4:           {consultor, associado}   ✅
-teste 2 funis:    {consultor, associado}   ✅
-teste associados: {associado}              ✅
-```
+### Implementação
+- Integrar `EditConsultantFunnelDialog` também em `src/pages/ConsultantsManagement.tsx`.
+- Fazer a listagem da aba de consultores carregar e exibir:
+  - `allowed_funnels`
+  - `default_funnel`
+- Adicionar na tabela:
+  - coluna/indicador visual de funis
+  - ação direta “Editar funis de acesso”
+  - badges clicáveis ou item no menu de ações, igual ao dashboard
+- Reutilizar o mesmo diálogo já existente, sem criar fluxo paralelo.
 
-Se você logar como `teste4@gmail.com` ou `teste2@gmail.com`, o toggle vai aparecer normalmente na sidebar (canto inferior, acima do nome do usuário, em formato de pill segmentado "Consultor | Associado").
+### Resultado esperado
+Será possível editar contas já existentes e novas contas:
+- no dashboard do super admin
+- na aba de consultores
 
-### 2. Edição de funis "não aparece" nos perfis existentes
+## 3. Garantir regra correta de criação/edição dos funis
 
-Já existe e está integrada. No painel **Super Admin → Consultores**, na coluna "Ações" (ícone de 3 pontinhos `⋮` ao final de cada linha), o menu já tem o item **"Editar funis de acesso"** (com ícone de camadas), entre "Ativar/Desativar" e "Excluir". Ele abre o `EditConsultantFunnelDialog` que carrega `allowed_funnels` + `default_funnel` atuais e permite alterar.
+### Regra que ficará garantida
+- Se marcar só **Associados**:
+  - a conta entra apenas com `associado`
+  - sem toggle
+  - `default_funnel = associado`
+- Se marcar só **Consultores**:
+  - a conta entra apenas com `consultor`
+  - sem toggle
+  - `default_funnel = consultor`
+- Se marcar os dois:
+  - a conta entra com os dois
+  - com toggle
+  - com funil padrão configurável
 
-O problema é apenas de **descoberta**: o item está dentro do dropdown e fica em destaque baixo.
+### Implementação
+- Revisar consistência entre:
+  - `CreateConsultantDialog`
+  - `create-consultant`
+  - `EditConsultantFunnelDialog`
+  - `update-consultant-funnel-access`
+- Manter retrocompatibilidade dos usuários atuais, sem regravar contas já corretas.
 
----
+## 4. Mostrar no painel Super Admin os dados separados por funil
 
-## O que vou fazer
+### Problema real
+Hoje o painel super admin (`/admin/super`) usa métricas agregadas/mistas. Você pediu duas visões:
+- dados do funil de consultores
+- dados do funil de associados
 
-### A. Garantir o toggle pro super admin
+### Implementação
+- Atualizar `AdminSuperAdmin.tsx` e `SuperAdminCharts.tsx` para mostrar dados separados por funil.
+- Estruturar a tela com duas áreas claras:
+  - **Funil de Consultores**
+  - **Funil de Associados**
+- Separar:
+  - cards de métricas
+  - gráficos
+  - totais por funil
+- Manter visão geral consolidada onde fizer sentido, mas com blocos distintos por funil.
 
-Atualizar o `allowed_funnels` do super admin (`topbrasil@gmail.com`) para `{consultor, associado}` e `default_funnel = consultor`. Assim o switcher passa a mostrar **3 opções**: `Consultor | Associado | Todos` na sidebar, e você consegue alternar visões a partir da própria conta admin sem precisar logar como consultor.
+### Ajuste necessário no backend/hook
+Há um desalinhamento entre o retorno do `ranking-get` em modo `all` e o que `useRankingData` espera hoje.
+Vou corrigir isso para suportar corretamente:
+- dados agrupados por funil
+- totais por funil
+- consumo consistente em ranking e super admin
 
-### B. Tornar a edição de funis óbvia e descoberta
+## 5. Corrigir a atualização incompleta do módulo de tráfego
 
-1. **Coluna dedicada "Funis" na tabela** (desktop): mostra dois badges coloridos (`C` para Consultor, `A` para Associado) destacando o `default_funnel` com cor primária. Ao clicar no badge, abre o `EditConsultantFunnelDialog` direto. Sem precisar passar pelo dropdown.
+### Problemas identificados
+Há vários pontos causando atualização parcial:
 
-2. **Botão direto "Editar funis" visível no card mobile** (não escondido no dropdown) — uma linha extra com `Layers` + texto "Funis: Consultor, Associado ▸" clicável.
+1. `useAdAccounts` não filtra por `organization_id` ao ler contas  
+   Isso pode misturar contas fora da organização atual.
 
-3. **Manter o item no dropdown** como está (atalho secundário).
+2. `useTrafficMetrics` não filtra por `organization_id` ao ler métricas  
+   Isso pode trazer métricas incompletas ou misturadas.
 
-### C. Confirmar o fluxo de criação
+3. `sync-history` hoje sincroniza só `last_30d`, não 90 dias.
 
-O `CreateConsultantDialog` já tem a seção "Acesso a Funis" com checkboxes. Vou verificar se está visível ao criar e ajustar o realce visual da seção pra ficar inconfundível (borda mais forte, cabeçalho destacado).
+4. `list-meta-ad-accounts` pega apenas a primeira página do Meta  
+   então, se existirem muitas contas, nem todas são importadas.
 
----
+5. A UI informa sincronização automática diária, mas preciso validar/alinhar a implementação real para garantir o comportamento prometido.
 
-## Arquivos alterados
+### Implementação
+- Corrigir `src/hooks/useAdAccounts.ts` para sempre filtrar por `organization_id`.
+- Corrigir `src/hooks/useTrafficMetrics.ts` para sempre filtrar por `organization_id`.
+- Atualizar `supabase/functions/sync-history/index.ts` para sincronizar 90 dias.
+- Melhorar `supabase/functions/sync-all-accounts/index.ts` para:
+  - atualizar todas as contas monitoradas da organização correta
+  - fazer backfill inicial de 90 dias
+  - depois manter incremental eficiente
+  - retornar resultado por conta, não só contagem inflada por múltiplas chamadas
+- Atualizar `supabase/functions/list-meta-ad-accounts/index.ts` para buscar todas as páginas do Meta.
+- Revisar `TrafficDashboard`, `TrafficAccounts` e `TrafficAccountDetail` para expor melhor:
+  - sincronização completa de 90 dias
+  - status de atualização
+  - comportamento previsível por conta
 
-- **Migration**: `UPDATE public.users SET allowed_funnels = ARRAY['consultor','associado']::funnel_type[], default_funnel = 'consultor' WHERE role = 'super_admin' AND email = 'topbrasil@gmail.com';`
-- `src/components/super-admin/ConsultantsTable.tsx`:
-  - Nova coluna "Funis" (desktop) com badges clicáveis
-  - Bloco "Funis" clicável no card mobile (acima dos toggles CRM/Ranking)
-  - Mantém item "Editar funis de acesso" no dropdown
-- `src/components/super-admin/CreateConsultantDialog.tsx`:
-  - Reforço visual no bloco "Acesso a Funis" (borda primária leve, label maior)
+### Resultado esperado
+- atualização mais completa
+- cobertura mínima dos últimos 90 dias
+- mais contas sincronizadas corretamente
+- sem mistura de dados entre organizações
 
-Nada mais é alterado. Sem mudança em rotas, slugs, edge functions, RLS ou tipos.
+## 6. Arquivos principais envolvidos
 
----
+### Frontend
+- `src/contexts/FunnelContext.tsx`
+- `src/pages/ConsultantsManagement.tsx`
+- `src/components/super-admin/EditConsultantFunnelDialog.tsx`
+- `src/components/super-admin/ConsultantsTable.tsx`
+- `src/pages/AdminSuperAdmin.tsx`
+- `src/components/super-admin/SuperAdminCharts.tsx`
+- `src/hooks/useRankingData.ts`
+- `src/hooks/useAdAccounts.ts`
+- `src/hooks/useTrafficMetrics.ts`
+- `src/components/traffic/TrafficDashboard.tsx`
+- `src/components/traffic/TrafficAccounts.tsx`
+- `src/components/traffic/TrafficAccountDetail.tsx`
 
-## Detalhes técnicos
+### Backend
+- `supabase/functions/ranking-get/index.ts`
+- `supabase/functions/list-meta-ad-accounts/index.ts`
+- `supabase/functions/sync-history/index.ts`
+- `supabase/functions/sync-all-accounts/index.ts`
 
-- A coluna nova consome `consultant.allowed_funnels` e `consultant.default_funnel` que precisam ser expostos pelo `useRankingData` / `ranking-get`. **Verificar:** se a edge `ranking-get` ainda não retorna esses campos, adicionar `allowed_funnels, default_funnel` no SELECT da query principal e na interface `ConsultantRankingData`. Sem mudança de comportamento — apenas inclusão de colunas.
-- O switcher `FunnelSwitcher` não precisa ser tocado: assim que o super admin tiver `allowed_funnels` com 2 valores, a regra `availableFunnels.length > 1 && canSeeAll` libera a opção "Todos" automaticamente.
-- A migration toca apenas no super admin específico. Demais usuários permanecem como estão.
+## 7. Escopo de segurança e compatibilidade
 
----
+- Nenhuma rota será alterada.
+- Nenhum slug será alterado.
+- Nenhuma configuração já salva da Meta será apagada.
+- Nenhuma conta existente será quebrada.
+- Não há necessidade de mudar schema do banco para essas correções principais; o foco é ajuste de frontend, hooks e edge functions.
+- Se eu confirmar ausência do agendamento automático real, implemento o agendamento corretamente sem afetar os dados existentes.
 
-## Riscos
+## 8. Ordem de execução
 
-- Zero. A migration ajusta apenas a configuração do próprio super admin (ele já é super_admin e enxerga tudo via RLS — `allowed_funnels` só governa o switcher, não filtros de banco). Os componentes alterados são aditivos: a coluna nova aparece, o dropdown continua igual, e o card mobile ganha um bloco a mais.
-
-Posso começar?
+1. Corrigir `FunnelContext` para eliminar toggle indevido entre logins.
+2. Levar “Editar funis” para a aba `/admin/consultants`.
+3. Garantir regra final de exibição do toggle conforme 1 ou 2 funis.
+4. Corrigir `ranking-get` + `useRankingData` para suportar agrupamento por funil.
+5. Atualizar `/admin/super` para exibir consultor vs associado separadamente.
+6. Corrigir hooks e edge functions do tráfego para filtro por organização, 90 dias e paginação completa.
+7. Validar tudo sem quebrar dashboard, ranking, consultores e tráfego já existentes.
