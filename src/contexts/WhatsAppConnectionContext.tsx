@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { crmService, WhatsAppInstance } from '@/lib/crm-service';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
+import { useFunnel } from '@/contexts/FunnelContext';
 
 interface WhatsAppConnectionContextType {
   instance: WhatsAppInstance | null;
