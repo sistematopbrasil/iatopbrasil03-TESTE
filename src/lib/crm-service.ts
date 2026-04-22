@@ -58,10 +58,11 @@ class CRMService {
   // INSTÂNCIA WHATSAPP
   // ============================================
 
-  async createInstance(): Promise<{ success: boolean; data?: WhatsAppInstance; error?: string }> {
+  async createInstance(funnelType?: 'consultor' | 'associado'): Promise<{ success: boolean; data?: WhatsAppInstance; error?: string }> {
     try {
       const { data, error } = await supabase.functions.invoke('crm-create-instance', {
         method: 'POST',
+        body: funnelType ? { funnel_type: funnelType } : {},
       });
 
       // Extrair mensagem de erro do backend se houver FunctionsHttpError
