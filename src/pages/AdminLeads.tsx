@@ -23,7 +23,10 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Badge } from "@/components/ui/badge";
 import { TemperatureBadge } from "@/components/ui/temperature-badge";
 import { LeadScoreDisplay } from "@/components/leads/LeadScoreDisplay";
+import { FunnelBadge } from "@/components/leads/FunnelBadge";
 import type { LeadTemperature } from "@/lib/lead-scoring";
+import { useFunnel } from "@/contexts/FunnelContext";
+import type { FunnelType } from "@/lib/funnel-types";
 
 interface Lead {
   id: string;
@@ -47,6 +50,7 @@ interface Lead {
   lead_score: number | null;
   temperature: LeadTemperature | null;
   lead_source: string;
+  funnel_type?: FunnelType;
   extra_answers?: any;
   pipeline_stage_id?: string | null;
 }
@@ -90,6 +94,7 @@ export default function AdminLeads() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
+  const { activeFunnel } = useFunnel();
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -131,16 +136,21 @@ export default function AdminLeads() {
     staleTime: 5 * 60 * 1000, // 5 minutos
   });
 
-  // Buscar leads com useQuery e cache agressivo
+  // Buscar leads com useQuery e cache agressivo (filtra por funil ativo)
   const { data: leads = [], isLoading: loading, refetch: fetchLeads } = useQuery({
-    queryKey: ['leads', currentUser?.id, currentUser?.role, currentUser?.organization_id],
+    queryKey: ['leads', currentUser?.id, currentUser?.role, currentUser?.organization_id, activeFunnel],
     queryFn: async () => {
       if (!currentUser) return [];
-      
+
       let query = supabase
         .from('quiz_submissions_new')
         .select('*')
         .order('created_at', { ascending: false });
+
+      // Filtrar por funil (super admin em "all" não filtra)
+      if (activeFunnel !== 'all') {
+        query = query.eq('funnel_type', activeFunnel);
+      }
 
       // Filtrar por consultant_id se não for super admin
       if (!isSuperAdmin(currentUser.role)) {
@@ -815,6 +825,7 @@ export default function AdminLeads() {
                     {lead.temperature && (
                       <TemperatureBadge temperature={lead.temperature} size="sm" />
                     )}
+                    <FunnelBadge funnel={(lead as any).funnel_type} size="xs" />
                     <Badge variant="outline" className={`text-[10px] ${getSourceBadgeClass(lead.lead_source)}`}>
                       {getSourceLabel(lead.lead_source)}
                     </Badge>
@@ -868,6 +879,7 @@ export default function AdminLeads() {
                   </TableHead>
                   <TableHead className="px-4">Nome</TableHead>
                   <TableHead className="px-4">Telefone</TableHead>
+                  <TableHead className="text-center px-4">Funil</TableHead>
                   <TableHead className="text-center px-4">Origem</TableHead>
                   <TableHead className="text-center px-4">Temp.</TableHead>
                   <TableHead className="text-center px-4">% Conclusão</TableHead>
@@ -879,13 +891,13 @@ export default function AdminLeads() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
+                    <TableCell colSpan={10} className="text-center py-8">
                       Carregando...
                     </TableCell>
                   </TableRow>
                 ) : filteredLeads.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                       Nenhum lead encontrado
                     </TableCell>
                   </TableRow>
@@ -907,6 +919,9 @@ export default function AdminLeads() {
                       </TableCell>
                       <TableCell className="px-4 text-sm">
                         {lead.phone || '-'}
+                      </TableCell>
+                      <TableCell className="text-center px-4">
+                        <FunnelBadge funnel={(lead as any).funnel_type} size="xs" />
                       </TableCell>
                       <TableCell className="text-center px-4">
                         <Badge variant="outline" className={`text-[10px] ${getSourceBadgeClass(lead.lead_source)}`}>

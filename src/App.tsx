@@ -24,6 +24,7 @@ import AdminInstagram from "./pages/AdminInstagram";
 import AdminTraffic from "./pages/AdminTraffic";
 import CapturePage from "./pages/CapturePage";
 import { ProtectedRoute } from "./components/admin/ProtectedRoute";
+import { FunnelProvider } from "./contexts/FunnelContext";
 
 // QueryClient com cache otimizado para evitar recarregamentos desnecessários
 export const queryClient = new QueryClient({
@@ -47,6 +48,7 @@ const App = () => {
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <FunnelProvider>
             <Routes>
               <Route path="/" element={<LandingPage />} />
               <Route path="/quiz/:slug" element={<QuizPage />} />
@@ -160,6 +162,7 @@ const App = () => {
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </FunnelProvider>
           </BrowserRouter>
         </TooltipProvider>
       </ThemeProvider>

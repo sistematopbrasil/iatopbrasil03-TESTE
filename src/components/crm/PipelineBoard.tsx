@@ -15,6 +15,8 @@ import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useFunnel } from '@/contexts/FunnelContext';
+import { FunnelType } from '@/lib/funnel-types';
 
 // Sem fallback com IDs falsos - stages DEVEM existir no banco
 
@@ -36,6 +38,9 @@ export function PipelineBoard() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [selectedLead, setSelectedLead] = useState<any>(null);
+  // Pipeline sempre opera em UM funil (Decisão: modo "Todos" cai no defaultFunnel)
+  const { resolvedFunnel } = useFunnel();
+  const activePipelineFunnel: FunnelType = resolvedFunnel;
 
   // ✅ Realtime subscription para atualizações automáticas
   useEffect(() => {
@@ -60,18 +65,19 @@ export function PipelineBoard() {
     queryFn: getCurrentConsultant,
   });
 
-  // Buscar stages customizados do banco - SOMENTE após ter usuário e organização
+  // Buscar stages customizados do banco - filtrados por funil
   const { data: customStages, isLoading: stagesLoading } = useQuery({
-    queryKey: ['pipeline-stages', currentUser?.organization_id],
+    queryKey: ['pipeline-stages', currentUser?.organization_id, activePipelineFunnel],
     queryFn: async () => {
       if (!currentUser?.organization_id) return null;
-      
+
       const { data, error } = await supabase
         .from('pipeline_stages')
         .select('*')
         .eq('organization_id', currentUser.organization_id)
+        .eq('funnel_type', activePipelineFunnel)
         .order('order_index', { ascending: true });
-      
+
       if (error) throw error;
       return data;
     },
@@ -86,16 +92,16 @@ export function PipelineBoard() {
     icon: s.icon 
   }));
 
-  // ✅ Busca TODOS os leads - incluindo os sem pipeline_stage_id
+  // ✅ Busca TODOS os leads do funil ativo - incluindo os sem pipeline_stage_id
   const { data: leads, isLoading, error } = useQuery({
-    queryKey: ['pipeline-leads', currentUser?.id],
+    queryKey: ['pipeline-leads', currentUser?.id, activePipelineFunnel],
     queryFn: async () => {
       if (!currentUser) return [];
 
       let query = supabase
         .from('quiz_submissions_new')
         .select('*')
-        // ✅ REMOVIDO .not('pipeline_stage_id', 'is', null) - agora mostra TODOS
+        .eq('funnel_type', activePipelineFunnel)
         .order('created_at', { ascending: false });
 
       if (!isSuperAdmin(currentUser.role)) {
@@ -205,10 +211,10 @@ export function PipelineBoard() {
     if (oldStageId === newStageId) return;
 
     // ✅ Optimistic update - atualizar imediatamente na UI
-    queryClient.setQueryData(['pipeline-leads', currentUser?.id], (oldData: any[] | undefined) => {
+    queryClient.setQueryData(['pipeline-leads', currentUser?.id, activePipelineFunnel], (oldData: any[] | undefined) => {
       if (!oldData) return oldData;
-      return oldData.map(lead => 
-        lead.id === leadId 
+      return oldData.map(lead =>
+        lead.id === leadId
           ? { ...lead, pipeline_stage_id: newStageId }
           : lead
       );

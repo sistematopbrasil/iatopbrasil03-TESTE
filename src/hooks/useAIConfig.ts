@@ -2,11 +2,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getCurrentConsultant } from '@/lib/consultant-context';
 import { toast } from 'sonner';
+import { useFunnel } from '@/contexts/FunnelContext';
+import type { FunnelType } from '@/lib/funnel-types';
 
 export interface AIAgentConfig {
   id: string;
   user_id: string;
   organization_id: string;
+  funnel_type: FunnelType;
   agent_name: string;
   description: string | null;
   persona: string | null;
@@ -31,7 +34,7 @@ export interface AIAgentConfig {
   analyze_images: boolean;
 }
 
-export type AIConfigFormData = Omit<AIAgentConfig, 'id' | 'user_id' | 'organization_id'>;
+export type AIConfigFormData = Omit<AIAgentConfig, 'id' | 'user_id' | 'organization_id' | 'funnel_type'>;
 
 const DEFAULT_CONFIG: AIConfigFormData = {
   agent_name: 'Assistente',
@@ -71,9 +74,11 @@ async function encryptApiKey(plainKey: string): Promise<string> {
 
 export function useAIConfig() {
   const queryClient = useQueryClient();
+  const { resolvedFunnel } = useFunnel();
+  const activeFunnel: FunnelType = resolvedFunnel;
 
   const { data: config, isLoading } = useQuery({
-    queryKey: ['ai-agent-config'],
+    queryKey: ['ai-agent-config', activeFunnel],
     queryFn: async () => {
       const consultant = await getCurrentConsultant();
       if (!consultant) return null;
@@ -82,6 +87,7 @@ export function useAIConfig() {
         .from('ai_agent_configs')
         .select('*')
         .eq('user_id', consultant.id)
+        .eq('funnel_type', activeFunnel)
         .maybeSingle();
 
       if (error) throw error;
@@ -114,11 +120,12 @@ export function useAIConfig() {
         api_key_encrypted: apiKeyToSave,
         user_id: consultant.id,
         organization_id: consultant.organization_id,
+        funnel_type: activeFunnel,
       };
 
       const { error } = await supabase
         .from('ai_agent_configs')
-        .upsert(payload, { onConflict: 'user_id' });
+        .upsert(payload as any, { onConflict: 'user_id,funnel_type' });
 
       if (error) throw error;
     },
@@ -131,11 +138,39 @@ export function useAIConfig() {
     },
   });
 
+  // Cria um registro vazio para habilitar IA neste funil
+  const enableForFunnel = useMutation({
+    mutationFn: async () => {
+      const consultant = await getCurrentConsultant();
+      if (!consultant) throw new Error('Usuário não autenticado');
+      const payload = {
+        ...DEFAULT_CONFIG,
+        user_id: consultant.id,
+        organization_id: consultant.organization_id,
+        funnel_type: activeFunnel,
+      };
+      const { error } = await supabase
+        .from('ai_agent_configs')
+        .upsert(payload as any, { onConflict: 'user_id,funnel_type' });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ai-agent-config'] });
+      toast.success('IA habilitada para este funil!');
+    },
+    onError: (error: Error) => {
+      toast.error('Erro ao habilitar: ' + error.message);
+    },
+  });
+
   return {
     config,
     isLoading,
     defaultConfig: DEFAULT_CONFIG,
     save: saveMutation.mutate,
     isSaving: saveMutation.isPending,
+    enableForFunnel: enableForFunnel.mutate,
+    isEnabling: enableForFunnel.isPending,
+    activeFunnel,
   };
 }
