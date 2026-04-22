@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getIntegrationValue, getIntegrationValueOrDefault } from "../_shared/integration-config.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,18 +33,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    const token = Deno.env.get("META_ACCESS_TOKEN")!;
-    const preset = date_preset || "last_3d";
-
-    const fields = "impressions,clicks,spend,cpc,ctr,reach,frequency,actions,action_values";
-    const url = `https://graph.facebook.com/v21.0/act_${ad_account_id}/insights?fields=${fields}&time_increment=1&date_preset=${preset}&limit=100&access_token=${token}`;
-
-    const rows = await fetchAllPages(url);
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
+    const token = await getIntegrationValue("META_ACCESS_TOKEN", supabase);
+    if (!token) throw new Error("META_ACCESS_TOKEN não configurado");
+    const version = await getIntegrationValueOrDefault("META_GRAPH_VERSION", "v21.0", supabase);
+    const preset = date_preset || "last_3d";
+
+    const fields = "impressions,clicks,spend,cpc,ctr,reach,frequency,actions,action_values";
+    const url = `https://graph.facebook.com/${version}/act_${ad_account_id}/insights?fields=${fields}&time_increment=1&date_preset=${preset}&limit=100&access_token=${token}`;
+
+    const rows = await fetchAllPages(url);
 
     let synced = 0;
     for (const row of rows) {

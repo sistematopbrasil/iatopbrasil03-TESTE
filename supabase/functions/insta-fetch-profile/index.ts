@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getIntegrationValue, getIntegrationValueOrDefault } from "../_shared/integration-config.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -26,16 +27,25 @@ Deno.serve(async (req) => {
       .replace(/\/$/, "")
       .trim();
 
-    const apifyKey = Deno.env.get("APIFY_API_KEY");
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+    const apifyKey = await getIntegrationValue("APIFY_API_KEY", supabaseAdmin);
     if (!apifyKey) {
       return new Response(JSON.stringify({ error: "APIFY_API_KEY não configurada" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const actorId = await getIntegrationValueOrDefault(
+      "APIFY_ACTOR_ID",
+      "apify~instagram-profile-scraper",
+      supabaseAdmin,
+    );
 
     // Call Apify Instagram Profile Scraper
-    const apifyUrl = `https://api.apify.com/v2/acts/apify~instagram-profile-scraper/run-sync-get-dataset-items?token=${apifyKey}`;
+    const apifyUrl = `https://api.apify.com/v2/acts/${actorId}/run-sync-get-dataset-items?token=${apifyKey}`;
     const apifyResponse = await fetch(apifyUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
