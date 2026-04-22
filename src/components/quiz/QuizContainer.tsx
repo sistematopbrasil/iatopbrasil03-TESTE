@@ -198,10 +198,15 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
 
       const leadId = uuidv4();
 
+      // ✅ Funil que o quiz alimenta — configurável por consultor (default 'consultor')
+      const quizFunnel: 'consultor' | 'associado' =
+        (consultant as any)?.quiz_funnel_type === 'associado' ? 'associado' : 'consultor';
+
       const submissionData = {
         id: leadId,
         organization_id: orgId,
         consultant_id: consultant?.id || propConsultantId || null,
+        funnel_type: quizFunnel,
         name,
         lead_score: 0,
         temperature: 'cold' as const,

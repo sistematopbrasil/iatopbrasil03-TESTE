@@ -20,6 +20,7 @@ export interface ConsultantUser {
   pixel_id: string | null;
   username: string | null;
   ranking_visible: boolean;
+  quiz_funnel_type: 'consultor' | 'associado';
 }
 
 export async function getCurrentConsultant(): Promise<ConsultantUser | null> {
@@ -46,7 +47,8 @@ export async function getCurrentConsultant(): Promise<ConsultantUser | null> {
       whatsapp_button_url,
       pixel_id,
       username,
-      ranking_visible
+      ranking_visible,
+      quiz_funnel_type
     `)
     .eq('auth_user_id', authUser.user.id)
     .maybeSingle();
