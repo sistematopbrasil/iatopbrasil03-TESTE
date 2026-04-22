@@ -249,8 +249,9 @@ export function EditConsultantFunnelDialog({
               )}
             </div>
           )}
+          </div>
 
-          <DialogFooter className="gap-2 sm:gap-2">
+          <DialogFooter className="gap-2 sm:gap-2 px-6 py-4 border-t border-border bg-background shrink-0">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>

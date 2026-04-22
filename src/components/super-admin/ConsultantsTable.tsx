@@ -276,7 +276,7 @@ export function ConsultantsTable() {
                         })}
                       >
                         <Layers className="w-4 h-4 mr-2" />
-                        Acesso a Funis
+                        Editar funis de acesso
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
@@ -438,7 +438,7 @@ export function ConsultantsTable() {
                             })}
                           >
                             <Layers className="w-4 h-4 mr-2" />
-                            Acesso a Funis
+                            Editar funis de acesso
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
