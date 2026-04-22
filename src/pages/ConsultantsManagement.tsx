@@ -406,6 +406,7 @@ export default function ConsultantsManagement() {
                   <TableHead className="text-center hidden md:table-cell">Ranking</TableHead>
                   <TableHead className="text-center hidden md:table-cell">Status</TableHead>
                   <TableHead className="text-center hidden md:table-cell">IA</TableHead>
+                  <TableHead className="text-center hidden md:table-cell">Funis</TableHead>
                   <TableHead className="text-center">Ações</TableHead>
                 </TableRow>
               </TableHeader>
