@@ -270,6 +270,16 @@ export function ConsultantsTable() {
                         {consultant.is_active ? 'Desativar' : 'Ativar'}
                       </DropdownMenuItem>
                       <DropdownMenuItem
+                        onClick={() => setFunnelEdit({
+                          id: consultant.consultant_id,
+                          name: consultant.full_name,
+                        })}
+                      >
+                        <Layers className="w-4 h-4 mr-2" />
+                        Acesso a Funis
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
                         className="text-destructive focus:text-destructive"
                         onClick={() => setConsultantToDelete({ 
                           id: consultant.consultant_id, 
@@ -422,6 +432,16 @@ export function ConsultantsTable() {
                             {consultant.is_active ? 'Desativar' : 'Ativar'}
                           </DropdownMenuItem>
                           <DropdownMenuItem
+                            onClick={() => setFunnelEdit({
+                              id: consultant.consultant_id,
+                              name: consultant.full_name,
+                            })}
+                          >
+                            <Layers className="w-4 h-4 mr-2" />
+                            Acesso a Funis
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
                             className="text-destructive focus:text-destructive"
                             onClick={() => setConsultantToDelete({ 
                               id: consultant.consultant_id, 
@@ -452,6 +472,15 @@ export function ConsultantsTable() {
         open={isCreateOpen}
         onOpenChange={setIsCreateOpen}
       />
+
+      {funnelEdit && (
+        <EditConsultantFunnelDialog
+          open={!!funnelEdit}
+          onOpenChange={(o) => !o && setFunnelEdit(null)}
+          consultantId={funnelEdit.id}
+          consultantName={funnelEdit.name}
+        />
+      )}
 
       <AlertDialog open={!!consultantToDelete} onOpenChange={() => setConsultantToDelete(null)}>
         <AlertDialogContent>
