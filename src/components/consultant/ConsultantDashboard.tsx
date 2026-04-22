@@ -45,6 +45,7 @@ export function ConsultantDashboard() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const { resolvedFunnel } = useFunnel();
 
   const { data: currentUser } = useQuery({
     queryKey: ['current-user-consultant'],
@@ -52,14 +53,16 @@ export function ConsultantDashboard() {
   });
 
   // ✅ REMOVIDO filtro completion_percentage=100 para mostrar leads incompletos também
+  // ✅ Filtra por funnel_type para que o toggle de funil afete o dashboard
   const { data: leads } = useQuery({
-    queryKey: ['all-leads-consultant', currentUser?.id],
+    queryKey: ['all-leads-consultant', currentUser?.id, resolvedFunnel],
     queryFn: async () => {
       if (!currentUser) return [];
       const { data } = await supabase
         .from('quiz_submissions_new')
         .select('id, name, phone, created_at, temperature, lead_score, location, has_vehicle, has_driver_license, sales_experience, employment_status, pipeline_stage_id, relationship_status, vehicle_protection_experience, current_income, completion_percentage')
         .eq('consultant_id', currentUser.id)
+        .eq('funnel_type', resolvedFunnel)
         .order('created_at', { ascending: false });
       return (data || []) as Lead[];
     },
@@ -67,13 +70,14 @@ export function ConsultantDashboard() {
   });
 
   const { data: pipelineStages } = useQuery({
-    queryKey: ['pipeline-stages', currentUser?.organization_id],
+    queryKey: ['pipeline-stages', currentUser?.organization_id, resolvedFunnel],
     queryFn: async () => {
       if (!currentUser) return [];
       const { data } = await supabase
         .from('pipeline_stages')
         .select('*')
         .eq('organization_id', currentUser.organization_id)
+        .eq('funnel_type', resolvedFunnel)
         .order('order_index');
       return data || [];
     },
