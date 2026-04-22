@@ -131,19 +131,20 @@ class CRMService {
     }
   }
 
-  async getInstance(): Promise<WhatsAppInstance | null> {
+  async getInstance(funnelType?: 'consultor' | 'associado'): Promise<WhatsAppInstance | null> {
     try {
-      const { data, error } = await supabase
-        .from('whatsapp_instances')
-        .select('*')
-        .single();
+      let query: any = supabase.from('whatsapp_instances').select('*');
+      if (funnelType) {
+        query = query.eq('funnel_type', funnelType);
+      }
+      const { data, error } = await query.maybeSingle();
 
       if (error) {
         if (error.code === 'PGRST116') return null;
         throw error;
       }
 
-      return data as WhatsAppInstance;
+      return (data as WhatsAppInstance) ?? null;
     } catch (error: any) {
       console.error('❌ Erro ao buscar instância:', error);
       return null;
