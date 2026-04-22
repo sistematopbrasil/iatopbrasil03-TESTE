@@ -90,7 +90,7 @@ serve(async (req) => {
     // Não filtrar por is_active para mostrar todos os consultores
     const { data: consultants, error: consultantsError } = await supabaseAdmin
       .from('users')
-      .select('id, full_name, email, quiz_slug, profile_photo, is_active, crm_enabled, ai_enabled, ranking_visible')
+      .select('id, full_name, email, quiz_slug, profile_photo, is_active, crm_enabled, ai_enabled, ranking_visible, allowed_funnels, default_funnel')
       .eq('organization_id', organizationId)
       .in('role', ['admin', 'consultor']);
 
@@ -182,6 +182,8 @@ serve(async (req) => {
           crm_enabled: consultant.crm_enabled ?? false,
           ai_enabled: consultant.ai_enabled ?? false,
           ranking_visible: consultant.ranking_visible ?? true,
+          allowed_funnels: (consultant as any).allowed_funnels ?? ['consultor'],
+          default_funnel: (consultant as any).default_funnel ?? 'consultor',
           total_leads: m.total,
           hot_leads: m.hot,
           warm_leads: m.warm,

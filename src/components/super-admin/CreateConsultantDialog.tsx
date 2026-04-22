@@ -201,10 +201,10 @@ export function CreateConsultantDialog({ open: controlledOpen, onOpenChange: con
             </p>
           </div>
 
-          <div className="space-y-3 p-3 rounded-lg border border-border bg-muted/30">
-            <Label className="text-sm font-semibold flex items-center gap-2">
+          <div className="space-y-3 p-4 rounded-lg border-2 border-primary/30 bg-primary/5">
+            <Label className="text-sm font-semibold flex items-center gap-2 text-foreground">
               <Layers className="w-4 h-4 text-primary" />
-              Acesso a Funis
+              Acesso a Funis <span className="text-xs font-normal text-muted-foreground">(obrigatório)</span>
             </Label>
             <div className="space-y-2">
               {FUNNEL_VALUES.map((funnel) => {
