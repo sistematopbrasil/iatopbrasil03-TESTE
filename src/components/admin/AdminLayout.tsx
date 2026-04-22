@@ -13,6 +13,7 @@ import logoLight from "@/assets/logo-top-brasil-dark.png";
 import logoDark from "@/assets/logo-top-brasil.png";
 import { queryClient } from "@/App";
 import { usePrefetchAdminData } from "@/hooks/usePrefetchAdminData";
+import { FunnelSwitcher } from "@/components/admin/FunnelSwitcher";
 
 
 interface AdminLayoutProps {
@@ -150,6 +151,7 @@ export const AdminLayout = ({ children, disableVerticalScroll = false }: AdminLa
               {renderNavButtons()}
             </nav>
             <div className="p-4 border-t border-border space-y-3">
+              <FunnelSwitcher variant="sidebar" />
               {renderUserInfo()}
               <Button variant="outline" className="w-full justify-start" onClick={handleLogout}>
                 <LogOut className="mr-2 h-5 w-5" />
@@ -179,6 +181,7 @@ export const AdminLayout = ({ children, disableVerticalScroll = false }: AdminLa
                       {renderNavButtons()}
                     </nav>
                     <div className="p-4 border-t border-border space-y-3">
+                      <FunnelSwitcher variant="sidebar" />
                       {renderUserInfo()}
                       <Button variant="outline" className="w-full justify-start" onClick={handleLogout}>
                         <LogOut className="mr-2 h-5 w-5" />
@@ -189,6 +192,7 @@ export const AdminLayout = ({ children, disableVerticalScroll = false }: AdminLa
                 </SheetContent>
               </Sheet>
               <img src={logoSrc} alt="TOP Brasil" className="h-8 w-auto" loading="eager" />
+              <FunnelSwitcher variant="compact" className="hidden xs:inline-flex" />
               <div className="w-10" />
             </div>
           </header>
