@@ -112,13 +112,6 @@ serve(async (req) => {
       org_id: organizationId
     });
 
-    // 3. Fetch ALL leads in the organization (with period filter)
-    // IMPORTANTE: Não filtrar por completion_percentage para incluir leads frios
-    let leadsQuery = supabaseAdmin
-      .from('quiz_submissions_new')
-      .select('id, consultant_id, temperature, pipeline_stage_id, created_at')
-      .eq('organization_id', organizationId);
-
     // 3. Fetch leads with optional funnel filter
     // IMPORTANTE: Não filtrar por completion_percentage para incluir leads frios
     let leadsQuery = supabaseAdmin
