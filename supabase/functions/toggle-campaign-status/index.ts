@@ -1,3 +1,6 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getIntegrationValue, getIntegrationValueOrDefault } from "../_shared/integration-config.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -34,10 +37,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    const META_ACCESS_TOKEN = Deno.env.get("META_ACCESS_TOKEN");
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+    const META_ACCESS_TOKEN = await getIntegrationValue("META_ACCESS_TOKEN", supabaseAdmin);
     if (!META_ACCESS_TOKEN) throw new Error("META_ACCESS_TOKEN não configurado");
+    const version = await getIntegrationValueOrDefault("META_GRAPH_VERSION", "v21.0", supabaseAdmin);
 
-    const url = `https://graph.facebook.com/v21.0/${targetId}`;
+    const url = `https://graph.facebook.com/${version}/${targetId}`;
     const resp = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

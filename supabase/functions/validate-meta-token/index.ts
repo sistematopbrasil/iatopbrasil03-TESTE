@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getIntegrationValue, getIntegrationValueOrDefault } from "../_shared/integration-config.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,14 +10,19 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const token = Deno.env.get("META_ACCESS_TOKEN");
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+    const token = await getIntegrationValue("META_ACCESS_TOKEN", supabaseAdmin);
     if (!token) {
       return new Response(JSON.stringify({ valid: false, error: "META_ACCESS_TOKEN not configured" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const version = await getIntegrationValueOrDefault("META_GRAPH_VERSION", "v21.0", supabaseAdmin);
 
-    const res = await fetch(`https://graph.facebook.com/v21.0/me?access_token=${token}`);
+    const res = await fetch(`https://graph.facebook.com/${version}/me?access_token=${token}`);
     const data = await res.json();
 
     if (data.error) {

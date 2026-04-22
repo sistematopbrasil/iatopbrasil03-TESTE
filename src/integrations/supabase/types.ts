@@ -1314,6 +1314,42 @@ export type Database = {
           },
         ]
       }
+      integration_settings: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          is_secret: boolean
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value_encrypted: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_secret?: boolean
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value_encrypted?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_secret?: boolean
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value_encrypted?: string | null
+        }
+        Relationships: []
+      }
       organizations: {
         Row: {
           created_at: string
@@ -2201,6 +2237,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      clear_integration_value: { Args: { p_key: string }; Returns: undefined }
       create_admin_user: { Args: never; Returns: undefined }
       create_audit_log: {
         Args: {
@@ -2280,6 +2317,7 @@ export type Database = {
         Args: { org_id: string }
         Returns: string
       }
+      get_integration_value: { Args: { p_key: string }; Returns: string }
       get_my_funnel_access: {
         Args: never
         Returns: {
@@ -2314,11 +2352,36 @@ export type Database = {
       }
       get_user_organization_id: { Args: never; Returns: string }
       is_super_admin: { Args: never; Returns: boolean }
+      list_integration_settings_metadata: {
+        Args: never
+        Returns: {
+          category: string
+          description: string
+          has_value: boolean
+          id: string
+          is_secret: boolean
+          key: string
+          updated_at: string
+          updated_by: string
+          updated_by_name: string
+        }[]
+      }
       map_stage_enum_to_uuid: {
         Args: { org_id: string; stage_name: string }
         Returns: string
       }
       normalize_br_phone: { Args: { phone: string }; Returns: string }
+      reveal_integration_value: { Args: { p_key: string }; Returns: string }
+      set_integration_value: {
+        Args: {
+          p_category: string
+          p_description?: string
+          p_is_secret?: boolean
+          p_key: string
+          p_value: string
+        }
+        Returns: string
+      }
       try_acquire_ai_lock: {
         Args: { p_contact_phone: string; p_conversation_id: string }
         Returns: boolean

@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getIntegrationValue, getIntegrationValueOrDefault } from "../_shared/integration-config.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,7 +23,9 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const token = Deno.env.get("META_ACCESS_TOKEN")!;
+    const token = await getIntegrationValue("META_ACCESS_TOKEN", supabase);
+    if (!token) throw new Error("META_ACCESS_TOKEN não configurado");
+    const version = await getIntegrationValueOrDefault("META_GRAPH_VERSION", "v21.0", supabase);
     const results: any[] = [];
 
     for (const acc of accounts) {
@@ -30,7 +33,7 @@ Deno.serve(async (req) => {
       let page_id = null, page_name = null, instagram_user_id = null, instagram_username = null;
       try {
         const pagesRes = await fetch(
-          `https://graph.facebook.com/v21.0/act_${acc.ad_account_id}/promote_pages?fields=id,name,instagram_business_account{id,username}&access_token=${token}`
+          `https://graph.facebook.com/${version}/act_${acc.ad_account_id}/promote_pages?fields=id,name,instagram_business_account{id,username}&access_token=${token}`
         );
         const pagesData = await pagesRes.json();
         if (pagesData.data?.[0]) {
