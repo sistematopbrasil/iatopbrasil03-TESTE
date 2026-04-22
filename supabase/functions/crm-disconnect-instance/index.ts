@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getIntegrationValue } from "../_shared/integration-config.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -45,8 +46,8 @@ serve(async (req) => {
     console.log(`Desconectando instância: ${instance.instance_name}`);
 
     // Desconectar na Evolution API
-    const evolutionApiUrl = Deno.env.get("EVOLUTION_API_URL");
-    const evolutionApiKey = Deno.env.get("EVOLUTION_API_KEY");
+    const evolutionApiUrl = await getIntegrationValue("EVOLUTION_API_URL", supabaseAdmin);
+    const evolutionApiKey = await getIntegrationValue("EVOLUTION_API_KEY", supabaseAdmin);
 
     if (evolutionApiUrl && evolutionApiKey) {
       try {

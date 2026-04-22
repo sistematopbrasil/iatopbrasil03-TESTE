@@ -145,7 +145,7 @@ serve(async (req) => {
     if (reallyConnected) {
       try {
         const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/crm-webhook`;
-        const webhookSecret = Deno.env.get('EVOLUTION_WEBHOOK_SECRET') || '';
+        const webhookSecret = (await getIntegrationValue('EVOLUTION_WEBHOOK_SECRET', supabaseAdmin)) || '';
         
         const webhookCheckResponse = await fetch(`${EVOLUTION_API_URL}/webhook/find/${instance.instance_name}`, {
           headers: {

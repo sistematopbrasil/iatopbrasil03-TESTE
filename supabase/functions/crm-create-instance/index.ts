@@ -169,7 +169,7 @@ serve(async (req) => {
       
       // Reconfigurar webhook com webhookByEvents: true (sub-paths funcionam no Edge Functions)
       const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/crm-webhook`;
-      const webhookSecret = Deno.env.get('EVOLUTION_WEBHOOK_SECRET') || '';
+      const webhookSecret = (await getIntegrationValue('EVOLUTION_WEBHOOK_SECRET', supabaseAdmin)) || '';
       console.log('🔧 Reconfigurando webhook para instância existente...');
       try {
         await evolutionRequest(`/webhook/set/${existingInstance.instance_name}`, {
@@ -285,7 +285,7 @@ serve(async (req) => {
     console.log('🔵 Nome da instância:', instanceName);
 
     const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/crm-webhook`;
-    const webhookSecret = Deno.env.get('EVOLUTION_WEBHOOK_SECRET') || '';
+    const webhookSecret = (await getIntegrationValue('EVOLUTION_WEBHOOK_SECRET', supabaseAdmin)) || '';
     console.log('🔵 Webhook URL:', webhookUrl);
 
     // Criar instância na Evolution - incluir TODOS os eventos relevantes
