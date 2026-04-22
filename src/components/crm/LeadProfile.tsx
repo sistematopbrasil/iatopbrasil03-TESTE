@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { Conversation } from '@/lib/crm-service';
 import { TemperatureBadge } from '@/components/ui/temperature-badge';
+import { FunnelBadge } from '@/components/leads/FunnelBadge';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizePhone } from '@/lib/phone-utils';
 import { format } from 'date-fns';
@@ -64,6 +65,7 @@ interface LeadData {
   completion_percentage: number | null;
   extra_answers?: Record<string, string> | null;
   lead_source?: string | null;
+  funnel_type?: string | null;
 }
 
 export function LeadProfile({ conversation, onClose }: LeadProfileProps) {
@@ -377,9 +379,12 @@ export function LeadProfile({ conversation, onClose }: LeadProfileProps) {
                   </Badge>
                 )}
                 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap justify-center">
                   {leadData.temperature && (
                     <TemperatureBadge temperature={leadData.temperature} />
+                  )}
+                  {leadData.funnel_type && (
+                    <FunnelBadge funnel={leadData.funnel_type} size="xs" />
                   )}
                 </div>
               </div>
