@@ -9,21 +9,27 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { ad_account_id, organization_id } = await req.json();
+    let body: any = {};
+    try { body = await req.json(); } catch { body = {}; }
+    const { ad_account_id, organization_id } = body;
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // If specific account, sync just that one; otherwise sync all monitored
-    const accounts = ad_account_id
-      ? [{ ad_account_id, organization_id }]
-      : await supabase
-          .from("ad_accounts")
-          .select("ad_account_id, organization_id")
-          .eq("is_monitored", true)
-          .then(({ data }) => data || []);
+    let accounts: { ad_account_id: string; organization_id: string }[] = [];
+    if (ad_account_id) {
+      accounts = [{ ad_account_id, organization_id }];
+    } else {
+      let q = supabase
+        .from("ad_accounts")
+        .select("ad_account_id, organization_id")
+        .eq("is_monitored", true);
+      if (organization_id) q = q.eq("organization_id", organization_id);
+      const { data } = await q;
+      accounts = data || [];
+    }
 
     const baseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -40,7 +46,7 @@ Deno.serve(async (req) => {
           body: JSON.stringify({
             ad_account_id: acc.ad_account_id,
             organization_id: acc.organization_id,
-            date_preset: "last_30d",
+            date_preset: "last_90d",
           }),
         });
         const data = await res.json();

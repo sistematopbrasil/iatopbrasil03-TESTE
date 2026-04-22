@@ -9,19 +9,26 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    let body: any = {};
+    try { body = await req.json(); } catch { body = {}; }
+    const { organization_id } = body;
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { data: accounts, error: accErr } = await supabase
+    let q = supabase
       .from("ad_accounts")
       .select("ad_account_id, organization_id, days_synced")
       .eq("is_monitored", true);
+    if (organization_id) q = q.eq("organization_id", organization_id);
+
+    const { data: accounts, error: accErr } = await q;
 
     if (accErr) throw accErr;
     if (!accounts?.length) {
-      return new Response(JSON.stringify({ message: "No monitored accounts" }), {
+      return new Response(JSON.stringify({ message: "No monitored accounts", synced: 0 }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -32,7 +39,7 @@ Deno.serve(async (req) => {
 
     for (const acc of accounts) {
       try {
-        // Smart sync: first time = 60d history, subsequent = last 2 days only
+        // Smart sync: first time = 90d backfill, subsequent = last 3 days only
         const isFirstSync = !acc.days_synced || acc.days_synced === 0;
         const datePreset = isFirstSync ? "last_90d" : "last_3d";
 
@@ -83,7 +90,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ synced: results.length, results }), {
+    return new Response(JSON.stringify({ synced: accounts.length, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e: any) {

@@ -23,24 +23,35 @@ Deno.serve(async (req) => {
     }
     const version = await getIntegrationValueOrDefault("META_GRAPH_VERSION", "v21.0", supabaseAdmin);
 
-    const url = `https://graph.facebook.com/${version}/me/adaccounts?fields=id,name,account_status,timezone_name,currency,business_name&limit=100&access_token=${token}`;
-    const res = await fetch(url);
-    const data = await res.json();
+    const accounts: any[] = [];
+    let nextUrl: string | null =
+      `https://graph.facebook.com/${version}/me/adaccounts?fields=id,name,account_status,timezone_name,currency,business_name&limit=100&access_token=${token}`;
 
-    if (data.error) {
-      return new Response(JSON.stringify({ error: data.error.message }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    let safetyGuard = 0;
+    while (nextUrl && safetyGuard < 50) {
+      safetyGuard++;
+      const res = await fetch(nextUrl);
+      const data = await res.json();
+
+      if (data.error) {
+        return new Response(JSON.stringify({ error: data.error.message }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      for (const acc of data.data || []) {
+        accounts.push({
+          ad_account_id: String(acc.id).replace("act_", ""),
+          name: acc.name || acc.business_name || acc.id,
+          account_status: acc.account_status,
+          timezone: acc.timezone_name,
+          currency: acc.currency,
+        });
+      }
+
+      nextUrl = data?.paging?.next || null;
     }
-
-    const accounts = (data.data || []).map((acc: any) => ({
-      ad_account_id: acc.id.replace("act_", ""),
-      name: acc.name || acc.business_name || acc.id,
-      account_status: acc.account_status,
-      timezone: acc.timezone_name,
-      currency: acc.currency,
-    }));
 
     return new Response(JSON.stringify({ accounts }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
