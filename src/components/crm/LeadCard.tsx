@@ -3,7 +3,9 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
+import { FunnelBadge } from '@/components/leads/FunnelBadge';
 import type { LeadTemperature } from '@/lib/lead-scoring';
+import type { FunnelType } from '@/lib/funnel-types';
 
 interface LeadCardProps {
   lead: {
@@ -16,6 +18,7 @@ interface LeadCardProps {
     created_at: string;
     utm_source: string | null;
     lead_source?: string;
+    funnel_type?: FunnelType;
     has_vehicle?: string | null;
     has_driver_license?: string | null;
     sales_experience?: string | null;
@@ -89,7 +92,9 @@ export function LeadCard({ lead, onWhatsAppClick, onOpenConversation, onClick }:
                 </p>
               </div>
               
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 flex-wrap justify-end">
+                {/* Funnel badge */}
+                <FunnelBadge funnel={lead.funnel_type} size="xs" />
                 {/* Source badge */}
                 {lead.lead_source && lead.lead_source !== 'quiz' && (
                   <span className={`text-[9px] px-1 py-0.5 rounded ${
