@@ -48,47 +48,55 @@ serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Não autorizado' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Usuário não autenticado' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Apenas super_admin pode executar
-    const { data: callerRow } = await supabase
-      .from('users')
-      .select('id, role')
-      .eq('auth_user_id', user.id)
-      .single();
-
-    if (!callerRow || callerRow.role !== 'super_admin') {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Apenas super admin pode executar este reparo.' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
     await loadEvolutionCreds(supabaseAdmin);
+
+    // Dois caminhos de auth aceitos:
+    // 1) header x-internal-secret == EVOLUTION_WEBHOOK_SECRET (uso pontual operacional)
+    // 2) Authorization Bearer com usuário super_admin
+    const internalSecretHeader = req.headers.get('x-internal-secret') || '';
+    const expectedInternal = (await getIntegrationValue('EVOLUTION_WEBHOOK_SECRET', supabaseAdmin)) || '';
+    const internalAuthOk = !!expectedInternal && internalSecretHeader === expectedInternal;
+
+    if (!internalAuthOk) {
+      const authHeader = req.headers.get('Authorization');
+      if (!authHeader) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Não autorizado' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: authHeader } } }
+      );
+
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Usuário não autenticado' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { data: callerRow } = await supabase
+        .from('users')
+        .select('id, role')
+        .eq('auth_user_id', user.id)
+        .single();
+
+      if (!callerRow || callerRow.role !== 'super_admin') {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Apenas super admin pode executar este reparo.' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
 
     let body: any = {};
     try { body = await req.json(); } catch { /* ignore */ }
