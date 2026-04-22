@@ -4,13 +4,15 @@ import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Trophy, TrendingUp, Users, Calendar, Star, UserPlus } from 'lucide-react';
 import { TableSkeleton } from '@/components/ui/page-skeleton';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { isSuperAdmin } from '@/lib/consultant-context';
-import { useRankingData } from '@/hooks/useRankingData';
+import { useRankingData, type ConsultantRankingData } from '@/hooks/useRankingData';
+import { useFunnel } from '@/contexts/FunnelContext';
 
 export default function AdminRanking() {
   const [period, setPeriod] = useState('all');
