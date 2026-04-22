@@ -58,10 +58,11 @@ class CRMService {
   // INSTÂNCIA WHATSAPP
   // ============================================
 
-  async createInstance(): Promise<{ success: boolean; data?: WhatsAppInstance; error?: string }> {
+  async createInstance(funnelType?: 'consultor' | 'associado'): Promise<{ success: boolean; data?: WhatsAppInstance; error?: string }> {
     try {
       const { data, error } = await supabase.functions.invoke('crm-create-instance', {
         method: 'POST',
+        body: funnelType ? { funnel_type: funnelType } : {},
       });
 
       // Extrair mensagem de erro do backend se houver FunctionsHttpError
@@ -131,19 +132,20 @@ class CRMService {
     }
   }
 
-  async getInstance(): Promise<WhatsAppInstance | null> {
+  async getInstance(funnelType?: 'consultor' | 'associado'): Promise<WhatsAppInstance | null> {
     try {
-      const { data, error } = await supabase
-        .from('whatsapp_instances')
-        .select('*')
-        .single();
+      let query: any = supabase.from('whatsapp_instances').select('*');
+      if (funnelType) {
+        query = query.eq('funnel_type', funnelType);
+      }
+      const { data, error } = await query.maybeSingle();
 
       if (error) {
         if (error.code === 'PGRST116') return null;
         throw error;
       }
 
-      return data as WhatsAppInstance;
+      return (data as WhatsAppInstance) ?? null;
     } catch (error: any) {
       console.error('❌ Erro ao buscar instância:', error);
       return null;

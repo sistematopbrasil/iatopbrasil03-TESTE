@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { crmService, WhatsAppInstance } from '@/lib/crm-service';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
+import { useFunnel } from '@/contexts/FunnelContext';
 
 interface WhatsAppConnectionContextType {
   instance: WhatsAppInstance | null;
@@ -35,6 +36,11 @@ const QR_EXPIRATION_SECONDS = 45;
 
 export function WhatsAppConnectionProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
+  const { resolvedFunnel } = useFunnel();
+  const resolvedFunnelRef = useRef(resolvedFunnel);
+  useEffect(() => {
+    resolvedFunnelRef.current = resolvedFunnel;
+  }, [resolvedFunnel]);
   const [instance, setInstance] = useState<WhatsAppInstance | null>(null);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -80,7 +86,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
   useEffect(() => {
     mountedRef.current = true;
     loadInstance();
-    
+
     return () => {
       mountedRef.current = false;
       stopPolling();
@@ -89,6 +95,24 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
       clearConnectTimeout();
     };
   }, []);
+
+  // Reload instance when active funnel changes (multi-funnel users)
+  const prevFunnelRef = useRef(resolvedFunnel);
+  const loadInstanceRef = useRef<() => Promise<void>>(async () => {});
+  useEffect(() => {
+    if (prevFunnelRef.current === resolvedFunnel) return;
+    prevFunnelRef.current = resolvedFunnel;
+    // Reset state for new funnel
+    setInstance(null);
+    setQrCode(null);
+    setIsConnecting(false);
+    setConnectionVerified(false);
+    setIsNewConnection(false);
+    isCreatingRef.current = false;
+    isConnectingRef.current = false;
+    setIsLoading(true);
+    loadInstanceRef.current?.();
+  }, [resolvedFunnel]);
 
   function startPolling() {
     if (pollRef.current) return;
@@ -283,9 +307,11 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
 
   const loadInstance = useCallback(async () => {
     if (!mountedRef.current) return;
-    
+
+    const funnel = resolvedFunnelRef.current;
+
     // Primeiro, tentar usar dados do cache para carregar instantaneamente
-    const cachedInstance = queryClient.getQueryData<WhatsAppInstance>(['whatsapp-instance']);
+    const cachedInstance = queryClient.getQueryData<WhatsAppInstance>(['whatsapp-instance', funnel]);
     if (cachedInstance) {
       console.log('📦 Usando instância do cache:', cachedInstance.status);
       setInstance(cachedInstance);
@@ -306,15 +332,15 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
     } else {
       setIsLoading(true);
     }
-    
+
     try {
-      const data = await crmService.getInstance();
+      const data = await crmService.getInstance(funnel);
       if (!mountedRef.current) return;
       setInstance(data);
-      
+
       // Atualizar cache
       if (data) {
-        queryClient.setQueryData(['whatsapp-instance'], data);
+        queryClient.setQueryData(['whatsapp-instance', funnel], data);
       }
 
       if (data?.status === 'connecting') {
@@ -345,9 +371,14 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
     }
   }, [queryClient]);
 
+  // Sync ref so the funnel-change effect can call loadInstance without triggering hoisting issues
+  useEffect(() => {
+    loadInstanceRef.current = loadInstance;
+  }, [loadInstance]);
+
   const refreshFromDatabase = useCallback(async () => {
     try {
-      const instanceData = await crmService.getInstance();
+      const instanceData = await crmService.getInstance(resolvedFunnelRef.current);
       if (!instanceData || !mountedRef.current) return;
       
       setInstance(instanceData);
@@ -451,7 +482,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
     // NÃO setar isConnectingRef aqui - deixar para connectInstance
     
     try {
-      const result = await crmService.createInstance();
+      const result = await crmService.createInstance(resolvedFunnelRef.current);
 
       if (!result.success) {
         toast.error(result.error || 'Erro ao criar instância');
@@ -564,7 +595,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
           }
           
           try {
-            const instanceData = await crmService.getInstance();
+            const instanceData = await crmService.getInstance(resolvedFunnelRef.current);
             if (instanceData?.qr_code) {
               console.log(`✅ QR capturado na tentativa ${attempts}!`);
               updateQrCode(instanceData.qr_code);
@@ -648,7 +679,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
           }
           
           try {
-            const instanceData = await crmService.getInstance();
+            const instanceData = await crmService.getInstance(resolvedFunnelRef.current);
             if (instanceData?.qr_code) {
               console.log(`✅ QR capturado na tentativa ${attempts}!`);
               updateQrCode(instanceData.qr_code);
