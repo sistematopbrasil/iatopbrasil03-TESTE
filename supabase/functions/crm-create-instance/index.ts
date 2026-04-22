@@ -191,7 +191,6 @@ serve(async (req) => {
                 'MESSAGES_UPDATE',
                 'MESSAGES_SET',
                 'MESSAGES_DELETE',
-                'MESSAGE_ACK',
                 'SEND_MESSAGE',
               ],
             },
@@ -304,7 +303,6 @@ serve(async (req) => {
       'MESSAGES_SET',
       'MESSAGES_DELETE',
       'SEND_MESSAGE',
-      'MESSAGE_ACK',
     ];
     
     const evolutionResponse = await evolutionRequest('/instance/create', {
