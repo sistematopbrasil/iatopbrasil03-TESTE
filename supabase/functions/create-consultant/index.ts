@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getIntegrationValue } from '../_shared/integration-config.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -284,8 +285,8 @@ serve(async (req) => {
     // =========================================
     // Criar instância WhatsApp automaticamente
     // =========================================
-    const EVOLUTION_API_URL = Deno.env.get('EVOLUTION_API_URL');
-    const EVOLUTION_API_KEY = Deno.env.get('EVOLUTION_API_KEY');
+    const EVOLUTION_API_URL = await getIntegrationValue('EVOLUTION_API_URL', supabaseAdmin);
+    const EVOLUTION_API_KEY = await getIntegrationValue('EVOLUTION_API_KEY', supabaseAdmin);
     
     if (EVOLUTION_API_URL && EVOLUTION_API_KEY) {
     try {
