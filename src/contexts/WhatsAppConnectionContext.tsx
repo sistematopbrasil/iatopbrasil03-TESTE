@@ -36,6 +36,11 @@ const QR_EXPIRATION_SECONDS = 45;
 
 export function WhatsAppConnectionProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
+  const { resolvedFunnel } = useFunnel();
+  const resolvedFunnelRef = useRef(resolvedFunnel);
+  useEffect(() => {
+    resolvedFunnelRef.current = resolvedFunnel;
+  }, [resolvedFunnel]);
   const [instance, setInstance] = useState<WhatsAppInstance | null>(null);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
