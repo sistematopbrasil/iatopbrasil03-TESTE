@@ -136,6 +136,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+    await loadEvolutionCreds(supabaseAdmin);
 
     // ✅ Validar acesso ao funil solicitado
     const { data: hasAccess } = await supabaseAdmin.rpc('user_has_funnel_access', {

@@ -164,6 +164,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+    await loadEvolutionCreds(supabaseAdmin);
 
     // Buscar status da instância
     let connectionState = 'close';

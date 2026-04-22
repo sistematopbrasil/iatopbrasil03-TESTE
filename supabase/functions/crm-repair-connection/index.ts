@@ -201,6 +201,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+    await loadEvolutionCreds(supabaseAdmin);
 
     const steps: string[] = [];
     let qrCode: string | null = null;

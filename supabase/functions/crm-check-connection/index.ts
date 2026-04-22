@@ -81,6 +81,12 @@ serve(async (req) => {
 
     console.log('🔍 Verificando conexão:', instance.instance_name);
 
+    const supabaseAdminEarly = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+    await loadEvolutionCreds(supabaseAdminEarly);
+
     let realState = 'close';
     let evolutionError = null;
     

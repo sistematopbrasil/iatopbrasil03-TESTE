@@ -171,6 +171,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+    await loadEvolutionCreds(supabaseAdmin);
 
     // ⚡ PRIMEIRO: Verificar conexão real na Evolution API ANTES de checar o banco
     let realConnectionState = 'unknown';
