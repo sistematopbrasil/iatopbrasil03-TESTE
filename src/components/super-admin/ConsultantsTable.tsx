@@ -416,6 +416,35 @@ export function ConsultantsTable() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-center">
+                      <button
+                        type="button"
+                        onClick={() => setFunnelEdit({ id: consultant.consultant_id, name: consultant.full_name })}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md hover:bg-muted/60 transition-colors"
+                        title="Editar funis de acesso"
+                      >
+                        {(['consultor','associado'] as const).map((f) => {
+                          const allowed = (consultant.allowed_funnels ?? ['consultor']).includes(f);
+                          const isDefault = consultant.default_funnel === f;
+                          return (
+                            <span
+                              key={f}
+                              className={
+                                'inline-flex items-center justify-center w-6 h-6 rounded text-[11px] font-bold ' +
+                                (allowed
+                                  ? isDefault
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'bg-primary/15 text-primary'
+                                  : 'bg-muted text-muted-foreground/40 line-through')
+                              }
+                              title={`${f === 'consultor' ? 'Consultor' : 'Associado'}${isDefault ? ' (padrão)' : ''}${!allowed ? ' — sem acesso' : ''}`}
+                            >
+                              {f === 'consultor' ? 'C' : 'A'}
+                            </span>
+                          );
+                        })}
+                      </button>
+                    </td>
+                    <td className="px-4 py-3 text-center">
                       <Switch
                         checked={consultant.crm_enabled}
                         onCheckedChange={() => toggleCrmMutation.mutate({ consultantId: consultant.consultant_id, crmEnabled: consultant.crm_enabled })}
