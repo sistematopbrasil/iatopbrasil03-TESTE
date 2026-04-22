@@ -86,7 +86,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
   useEffect(() => {
     mountedRef.current = true;
     loadInstance();
-    
+
     return () => {
       mountedRef.current = false;
       stopPolling();
@@ -95,6 +95,23 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
       clearConnectTimeout();
     };
   }, []);
+
+  // Reload instance when active funnel changes (multi-funnel users)
+  const prevFunnelRef = useRef(resolvedFunnel);
+  useEffect(() => {
+    if (prevFunnelRef.current === resolvedFunnel) return;
+    prevFunnelRef.current = resolvedFunnel;
+    // Reset state for new funnel
+    setInstance(null);
+    setQrCode(null);
+    setIsConnecting(false);
+    setConnectionVerified(false);
+    setIsNewConnection(false);
+    isCreatingRef.current = false;
+    isConnectingRef.current = false;
+    setIsLoading(true);
+    loadInstance();
+  }, [resolvedFunnel, loadInstance]);
 
   function startPolling() {
     if (pollRef.current) return;
@@ -355,7 +372,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
 
   const refreshFromDatabase = useCallback(async () => {
     try {
-      const instanceData = await crmService.getInstance();
+      const instanceData = await crmService.getInstance(resolvedFunnelRef.current);
       if (!instanceData || !mountedRef.current) return;
       
       setInstance(instanceData);
