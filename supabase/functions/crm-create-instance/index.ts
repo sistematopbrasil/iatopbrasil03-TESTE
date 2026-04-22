@@ -1,13 +1,22 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getIntegrationValue } from '../_shared/integration-config.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const EVOLUTION_API_URL = Deno.env.get('EVOLUTION_API_URL') || '';
-const EVOLUTION_API_KEY = Deno.env.get('EVOLUTION_API_KEY') || '';
+let EVOLUTION_API_URL = Deno.env.get('EVOLUTION_API_URL') || '';
+let EVOLUTION_API_KEY = Deno.env.get('EVOLUTION_API_KEY') || '';
+
+async function loadEvolutionCreds(supabaseAdmin: any) {
+  const url = await getIntegrationValue('EVOLUTION_API_URL', supabaseAdmin);
+  const key = await getIntegrationValue('EVOLUTION_API_KEY', supabaseAdmin);
+  if (url) EVOLUTION_API_URL = url;
+  if (key) EVOLUTION_API_KEY = key;
+}
+
 
 async function evolutionRequest(endpoint: string, options: RequestInit = {}) {
   const baseUrl = EVOLUTION_API_URL.replace(/\/$/, '');
