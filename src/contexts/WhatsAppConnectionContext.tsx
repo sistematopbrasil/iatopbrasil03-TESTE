@@ -375,6 +375,8 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
   useEffect(() => {
     loadInstanceRef.current = loadInstance;
   }, [loadInstance]);
+
+  const refreshFromDatabase = useCallback(async () => {
     try {
       const instanceData = await crmService.getInstance(resolvedFunnelRef.current);
       if (!instanceData || !mountedRef.current) return;
