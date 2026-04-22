@@ -482,7 +482,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
     // NÃO setar isConnectingRef aqui - deixar para connectInstance
     
     try {
-      const result = await crmService.createInstance();
+      const result = await crmService.createInstance(resolvedFunnelRef.current);
 
       if (!result.success) {
         toast.error(result.error || 'Erro ao criar instância');
@@ -595,7 +595,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
           }
           
           try {
-            const instanceData = await crmService.getInstance();
+            const instanceData = await crmService.getInstance(resolvedFunnelRef.current);
             if (instanceData?.qr_code) {
               console.log(`✅ QR capturado na tentativa ${attempts}!`);
               updateQrCode(instanceData.qr_code);
@@ -679,7 +679,7 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
           }
           
           try {
-            const instanceData = await crmService.getInstance();
+            const instanceData = await crmService.getInstance(resolvedFunnelRef.current);
             if (instanceData?.qr_code) {
               console.log(`✅ QR capturado na tentativa ${attempts}!`);
               updateQrCode(instanceData.qr_code);
