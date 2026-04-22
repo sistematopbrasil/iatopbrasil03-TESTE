@@ -138,6 +138,7 @@ export function useRankingData(options: UseRankingDataOptions = {}) {
 
   return {
     ranking: response?.data || [],
+    grouped: response?.grouped || null,
     isLoading,
     error,
     currentUser,
