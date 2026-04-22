@@ -22,6 +22,7 @@ import AdminCRM from "./pages/AdminCRM";
 import AdminAIConfig from "./pages/AdminAIConfig";
 import AdminInstagram from "./pages/AdminInstagram";
 import AdminTraffic from "./pages/AdminTraffic";
+import AdminIntegrations from "./pages/AdminIntegrations";
 import CapturePage from "./pages/CapturePage";
 import { ProtectedRoute } from "./components/admin/ProtectedRoute";
 import { FunnelProvider } from "./contexts/FunnelContext";
@@ -156,6 +157,14 @@ const App = () => {
                 element={
                   <ProtectedRoute>
                     <AdminTraffic />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/integracoes"
+                element={
+                  <ProtectedRoute>
+                    <AdminIntegrations />
                   </ProtectedRoute>
                 }
               />
