@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      _encryption_keyring: {
+        Row: {
+          created_at: string
+          id: boolean
+          master_key: string
+        }
+        Insert: {
+          created_at?: string
+          id?: boolean
+          master_key: string
+        }
+        Update: {
+          created_at?: string
+          id?: boolean
+          master_key?: string
+        }
+        Relationships: []
+      }
       ad_accounts: {
         Row: {
           ad_account_id: string
@@ -2237,6 +2255,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _get_master_encryption_key: { Args: never; Returns: string }
       clear_integration_value: { Args: { p_key: string }; Returns: undefined }
       create_admin_user: { Args: never; Returns: undefined }
       create_audit_log: {
