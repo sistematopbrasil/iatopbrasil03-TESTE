@@ -1,176 +1,96 @@
 
-# Plano de correções — funis, edição de consultores, tráfego e visão separada no Super Admin
 
-Nada de rota, slug ou funcionalidade existente será removido. As correções são pontuais e aditivas.
+# Diagnóstico do estado atual — antes de qualquer alteração
 
-## 1. Corrigir o toggle de funil aparecendo em contas com apenas 1 funil
+Este é um relatório read-only. Nenhuma alteração foi feita. Após sua aprovação eu sigo para a parte que ficou pendente.
 
-### Problema real
-O comportamento incorreto não está no banco. Os consultores recém-criados já estão salvos corretamente com:
-- `allowed_funnels = {associado}` quando só associado foi marcado
-- `default_funnel = associado` quando só associado foi marcado
+---
 
-O erro está no estado do frontend:
-- o `FunnelProvider` inicializa apenas uma vez
-- ao trocar de usuário na mesma sessão, ele pode manter estado do login anterior
-- por isso um consultor com 1 funil pode herdar o toggle visível de uma conta anterior que tinha 2 funis ou perfil super admin
+## 1. O que está 100% concluído e funcionando
 
-### Implementação
-- Refatorar `src/contexts/FunnelContext.tsx` para reinicializar quando a sessão/usuário mudar.
-- Validar o valor salvo em `localStorage` contra o usuário atual:
-  - se o usuário tem só 1 funil, forçar `activeFunnel` para esse funil
-  - remover qualquer valor inválido herdado (`all`, `consultor` ou `associado` que não pertença ao usuário)
-- Garantir que:
-  - 1 funil ativo => sem toggle
-  - 2 funis ativos => toggle entre os dois
-  - super admin com 2 funis => toggle com `Consultor | Associado | Todos`
+### 1.1. Toggle de funil corrigido (`FunnelContext.tsx` + `FunnelSwitcher.tsx`)
+- O `FunnelProvider` agora reinicializa em login/logout via `supabase.auth.onAuthStateChange`.
+- O `localStorage` é validado contra o `user.id` atual (chave `top-brasil:active-funnel-owner`). Se o valor pertence a outro usuário, é descartado.
+- Regra blindada em 3 camadas:
+  - se `availableFunnels.length === 1`, força esse único funil.
+  - se `'all'` foi escolhido mas o usuário não é super admin OU só tem 1 funil, faz fallback para o default.
+  - `setActiveFunnel` rejeita valores fora de `availableFunnels`.
+- `FunnelSwitcher` esconde o pill quando `availableFunnels.length <= 1`, independente do role.
+- **Resultado:** conta com só "associado" não vê mais toggle nenhum. Conta com os dois vê o toggle. Super admin com os dois vê `Consultor | Associado | Todos`.
 
-## 2. Liberar edição de funis também na aba “Consultores”
+### 1.2. Edição de funis na aba `/admin/consultants`
+- `ConsultantsManagement.tsx` carrega `select('*')`, então `allowed_funnels` e `default_funnel` já vêm.
+- Coluna **"Funis"** com badges clicáveis `C` / `A` (default em destaque, removido riscado) — abre o `EditConsultantFunnelDialog`.
+- Item no menu de ações: **"Editar funis de acesso"** (ícone `Layers`).
+- Dialog reutilizado é o mesmo do dashboard super admin — uma única fonte de verdade.
 
-### Problema real
-Hoje a edição de funis está visível no dashboard do super admin, mas a página `/admin/consultants` ainda não expõe essa ação.
+### 1.3. Painel super admin com visões separadas (`AdminSuperAdmin.tsx` + `SuperAdminCharts.tsx`)
+- Três abas: **Geral / Funil de Consultores / Funil de Associados**.
+- `loadMetrics(orgId, funnel?)` filtra `consultores` (via `contains allowed_funnels`), `leads`, `convertidos`, `quentes` por funil.
+- `SuperAdminCharts` aceita prop `funnel?` e filtra os 3 gráficos (leads/dia, top consultores, distribuição de temperatura) por funil.
+- Aba "Geral" mantém visão consolidada (sem filtro), preservando o comportamento legado.
 
-### Implementação
-- Integrar `EditConsultantFunnelDialog` também em `src/pages/ConsultantsManagement.tsx`.
-- Fazer a listagem da aba de consultores carregar e exibir:
-  - `allowed_funnels`
-  - `default_funnel`
-- Adicionar na tabela:
-  - coluna/indicador visual de funis
-  - ação direta “Editar funis de acesso”
-  - badges clicáveis ou item no menu de ações, igual ao dashboard
-- Reutilizar o mesmo diálogo já existente, sem criar fluxo paralelo.
+### 1.4. Migration de funis do super admin
+- `topbrasil@gmail.com` recebeu `allowed_funnels = {consultor, associado}`. Toggle aparece e funciona.
 
-### Resultado esperado
-Será possível editar contas já existentes e novas contas:
-- no dashboard do super admin
-- na aba de consultores
+### 1.5. Edge function `ranking-get` + hook `useRankingData`
+- Já retornam `groupedTotals` por funil. Funcional para o painel super admin consumir agregação por funil.
 
-## 3. Garantir regra correta de criação/edição dos funis
+---
 
-### Regra que ficará garantida
-- Se marcar só **Associados**:
-  - a conta entra apenas com `associado`
-  - sem toggle
-  - `default_funnel = associado`
-- Se marcar só **Consultores**:
-  - a conta entra apenas com `consultor`
-  - sem toggle
-  - `default_funnel = consultor`
-- Se marcar os dois:
-  - a conta entra com os dois
-  - com toggle
-  - com funil padrão configurável
+## 2. O que ficou pela metade (interrompido pelo token)
 
-### Implementação
-- Revisar consistência entre:
-  - `CreateConsultantDialog`
-  - `create-consultant`
-  - `EditConsultantFunnelDialog`
-  - `update-consultant-funnel-access`
-- Manter retrocompatibilidade dos usuários atuais, sem regravar contas já corretas.
+A fase 6 do plano (Tráfego Meta Ads) **não foi tocada**. Os arquivos seguem exatamente como antes da intervenção:
 
-## 4. Mostrar no painel Super Admin os dados separados por funil
+| Item | Arquivo | Estado |
+|---|---|---|
+| Filtro `organization_id` em ad_accounts | `src/hooks/useAdAccounts.ts` | ❌ não filtra (`select('*')` sem `.eq('organization_id', ...)`) |
+| Filtro `organization_id` em ad_metrics | `src/hooks/useTrafficMetrics.ts` | ❌ não filtra |
+| Sync history 90 dias | `supabase/functions/sync-history/index.ts` | ❌ ainda em `last_30d` |
+| Backfill 90d + incremental por org | `supabase/functions/sync-all-accounts/index.ts` | ⚠️ já faz `last_90d` no primeiro sync e `last_3d` depois, mas não filtra por organização da requisição (sincroniza TODAS as monitoradas globalmente em qualquer chamada) |
+| Paginação Meta API | `supabase/functions/list-meta-ad-accounts/index.ts` | ❌ pega só a 1ª página (`limit=100`, sem seguir `paging.next`) |
 
-### Problema real
-Hoje o painel super admin (`/admin/super`) usa métricas agregadas/mistas. Você pediu duas visões:
-- dados do funil de consultores
-- dados do funil de associados
+---
 
-### Implementação
-- Atualizar `AdminSuperAdmin.tsx` e `SuperAdminCharts.tsx` para mostrar dados separados por funil.
-- Estruturar a tela com duas áreas claras:
-  - **Funil de Consultores**
-  - **Funil de Associados**
-- Separar:
-  - cards de métricas
-  - gráficos
-  - totais por funil
-- Manter visão geral consolidada onde fizer sentido, mas com blocos distintos por funil.
+## 3. Origem dos problemas de tráfego — pré-existentes vs. introduzidos
 
-### Ajuste necessário no backend/hook
-Há um desalinhamento entre o retorno do `ranking-get` em modo `all` e o que `useRankingData` espera hoje.
-Vou corrigir isso para suportar corretamente:
-- dados agrupados por funil
-- totais por funil
-- consumo consistente em ranking e super admin
+Confirmado por leitura dos arquivos atuais e do histórico do projeto:
 
-## 5. Corrigir a atualização incompleta do módulo de tráfego
+| Problema | Pré-existente? | Justificativa |
+|---|---|---|
+| `useAdAccounts` sem filtro `organization_id` | **Pré-existente** | A própria assinatura recebe `organizationId` apenas para `enabled`, nunca foi usado no `select`. Padrão antigo do módulo. |
+| `useTrafficMetrics` sem filtro `organization_id` | **Pré-existente** | Mesmo padrão — o módulo de tráfego confiava em `is_super_admin()` na RLS para filtrar globalmente, sem isolar por org. |
+| `sync-history` em `last_30d` | **Pré-existente** | Função criada com 30 dias como default; nunca foi alterada para 90. |
+| `list-meta-ad-accounts` sem paginação | **Pré-existente** | Implementação mínima com `limit=100`; nunca implementou follow do `paging.next`. |
+| `sync-all-accounts` ignorando organização da requisição | **Pré-existente** | Função sempre operou globalmente sobre `is_monitored=true`. |
 
-### Problemas identificados
-Há vários pontos causando atualização parcial:
+**Nenhum desses problemas foi introduzido pelas fases A/B/C/D.** As fases A–D mexeram em criptografia, edição de funis, toggle de funnel e visualização do super admin — não tocaram em `ad_accounts`, `ad_metrics`, `sync-*`, `list-meta-ad-accounts`, `useAdAccounts` ou `useTrafficMetrics`. Validei abrindo cada um dos 5 arquivos de tráfego: o conteúdo é o original.
 
-1. `useAdAccounts` não filtra por `organization_id` ao ler contas  
-   Isso pode misturar contas fora da organização atual.
+---
 
-2. `useTrafficMetrics` não filtra por `organization_id` ao ler métricas  
-   Isso pode trazer métricas incompletas ou misturadas.
+## 4. O que falta executar (fase 6 do plano original)
 
-3. `sync-history` hoje sincroniza só `last_30d`, não 90 dias.
+Mantém escopo aditivo, sem quebrar rota, slug ou funcionalidade:
 
-4. `list-meta-ad-accounts` pega apenas a primeira página do Meta  
-   então, se existirem muitas contas, nem todas são importadas.
+1. **`useAdAccounts.ts`** — adicionar `.eq('organization_id', organizationId)` no `select` e em `toggleMonitoring` (verificar dono antes de update).
+2. **`useTrafficMetrics.ts`** — adicionar `.eq('organization_id', organizationId)` no `select`.
+3. **`sync-history/index.ts`** — trocar `last_30d` por `last_90d`; aceitar `organization_id` no body para filtrar contas; remover linhas duplicadas de organization_id ao listar.
+4. **`sync-all-accounts/index.ts`** — aceitar `organization_id` no body (opcional); quando presente, filtrar `eq("organization_id", org)` antes de iterar; manter comportamento global quando ausente (compat).
+5. **`list-meta-ad-accounts/index.ts`** — implementar loop de paginação seguindo `data.paging.next` até esgotar.
+6. **`AdminTraffic.tsx`** — passar `organization_id` no `invoke('sync-all-accounts')` automático e no `syncHistory` para isolar por org.
 
-5. A UI informa sincronização automática diária, mas preciso validar/alinhar a implementação real para garantir o comportamento prometido.
+Sem mudanças de schema, sem mudanças de rota, sem migrations adicionais. Apenas 6 arquivos editados.
 
-### Implementação
-- Corrigir `src/hooks/useAdAccounts.ts` para sempre filtrar por `organization_id`.
-- Corrigir `src/hooks/useTrafficMetrics.ts` para sempre filtrar por `organization_id`.
-- Atualizar `supabase/functions/sync-history/index.ts` para sincronizar 90 dias.
-- Melhorar `supabase/functions/sync-all-accounts/index.ts` para:
-  - atualizar todas as contas monitoradas da organização correta
-  - fazer backfill inicial de 90 dias
-  - depois manter incremental eficiente
-  - retornar resultado por conta, não só contagem inflada por múltiplas chamadas
-- Atualizar `supabase/functions/list-meta-ad-accounts/index.ts` para buscar todas as páginas do Meta.
-- Revisar `TrafficDashboard`, `TrafficAccounts` e `TrafficAccountDetail` para expor melhor:
-  - sincronização completa de 90 dias
-  - status de atualização
-  - comportamento previsível por conta
+---
 
-### Resultado esperado
-- atualização mais completa
-- cobertura mínima dos últimos 90 dias
-- mais contas sincronizadas corretamente
-- sem mistura de dados entre organizações
+## 5. Garantias
 
-## 6. Arquivos principais envolvidos
+- Nenhuma rota é alterada.
+- Nenhum slug é alterado.
+- Nenhuma chave/segredo é modificada.
+- Compatibilidade preservada: `sync-all-accounts` e `sync-history` continuam funcionando sem `organization_id` no body (modo global legado preservado para o cron, se houver).
+- Sem alteração em `fetch-meta-ads-data`, `validate-meta-token`, `sync-ad-accounts` ou nas tabelas `ad_accounts`/`ad_metrics`.
+- Nenhum dado é apagado ou regravado.
 
-### Frontend
-- `src/contexts/FunnelContext.tsx`
-- `src/pages/ConsultantsManagement.tsx`
-- `src/components/super-admin/EditConsultantFunnelDialog.tsx`
-- `src/components/super-admin/ConsultantsTable.tsx`
-- `src/pages/AdminSuperAdmin.tsx`
-- `src/components/super-admin/SuperAdminCharts.tsx`
-- `src/hooks/useRankingData.ts`
-- `src/hooks/useAdAccounts.ts`
-- `src/hooks/useTrafficMetrics.ts`
-- `src/components/traffic/TrafficDashboard.tsx`
-- `src/components/traffic/TrafficAccounts.tsx`
-- `src/components/traffic/TrafficAccountDetail.tsx`
+Posso executar a fase 6 quando você aprovar.
 
-### Backend
-- `supabase/functions/ranking-get/index.ts`
-- `supabase/functions/list-meta-ad-accounts/index.ts`
-- `supabase/functions/sync-history/index.ts`
-- `supabase/functions/sync-all-accounts/index.ts`
-
-## 7. Escopo de segurança e compatibilidade
-
-- Nenhuma rota será alterada.
-- Nenhum slug será alterado.
-- Nenhuma configuração já salva da Meta será apagada.
-- Nenhuma conta existente será quebrada.
-- Não há necessidade de mudar schema do banco para essas correções principais; o foco é ajuste de frontend, hooks e edge functions.
-- Se eu confirmar ausência do agendamento automático real, implemento o agendamento corretamente sem afetar os dados existentes.
-
-## 8. Ordem de execução
-
-1. Corrigir `FunnelContext` para eliminar toggle indevido entre logins.
-2. Levar “Editar funis” para a aba `/admin/consultants`.
-3. Garantir regra final de exibição do toggle conforme 1 ou 2 funis.
-4. Corrigir `ranking-get` + `useRankingData` para suportar agrupamento por funil.
-5. Atualizar `/admin/super` para exibir consultor vs associado separadamente.
-6. Corrigir hooks e edge functions do tráfego para filtro por organização, 90 dias e paginação completa.
-7. Validar tudo sem quebrar dashboard, ranking, consultores e tráfego já existentes.
