@@ -5,6 +5,7 @@ import { getCurrentConsultant } from '@/lib/consultant-context';
 import { Navigate } from 'react-router-dom';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { CreateConsultantDialog } from '@/components/super-admin/CreateConsultantDialog';
+import { EditConsultantFunnelDialog } from '@/components/super-admin/EditConsultantFunnelDialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { 
   Table,
@@ -33,7 +34,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Target, Flame, Loader2, MoreVertical, Copy, ExternalLink, UserX, UserCheck, Trash2, Users, CheckSquare, XSquare, Bot, BotOff, MessageSquare, BarChart3 } from 'lucide-react';
+import { Target, Flame, Loader2, MoreVertical, Copy, ExternalLink, UserX, UserCheck, Trash2, Users, CheckSquare, XSquare, Bot, BotOff, MessageSquare, BarChart3, Layers } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { calculateLeadPoints, NOVOS_CONSULTORES_BONUS } from '@/lib/ranking-service';
@@ -45,6 +46,7 @@ export default function ConsultantsManagement() {
   const [consultantToDelete, setConsultantToDelete] = useState<{ id: string; name: string } | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
+  const [funnelEdit, setFunnelEdit] = useState<{ id: string; name: string } | null>(null);
 
   const { data: currentUser, isLoading: loadingUser } = useQuery({
     queryKey: ['current-user-consultants'],
