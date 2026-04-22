@@ -25,7 +25,7 @@ export default function AdminAIConfig() {
     queryFn: getCurrentConsultant,
   });
 
-  const { config, isLoading, defaultConfig, save, isSaving } = useAIConfig();
+  const { config, isLoading, defaultConfig, save, isSaving, enableForFunnel, isEnabling, activeFunnel } = useAIConfig();
   const [formData, setFormData] = useState<AIConfigFormData>(defaultConfig);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
@@ -114,9 +114,48 @@ export default function AdminAIConfig() {
     );
   }
 
-
-
-
+  // Empty state: usuário tem acesso a IA mas ainda não configurou para o funil ativo
+  if (!config) {
+    const funnelLabel = activeFunnel === 'associado' ? 'Associados' : 'Consultores';
+    return (
+      <AdminLayout>
+        <div className="p-4 md:p-6 flex items-center justify-center min-h-[60vh]">
+          <Card className="max-w-md w-full text-center">
+            <CardContent className="pt-8 pb-8 space-y-4">
+              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                <Sparkles className="w-8 h-8 text-primary" />
+              </div>
+              <h2 className="text-xl font-bold text-foreground">
+                IA não configurada para este funil
+              </h2>
+              <p className="text-muted-foreground text-sm">
+                A IA ainda não foi configurada para o funil <strong>{funnelLabel}</strong>.
+                Habilite agora para começar a personalizar.
+              </p>
+              <Button
+                size="lg"
+                onClick={() => enableForFunnel()}
+                disabled={isEnabling}
+                className="w-full"
+              >
+                {isEnabling ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Habilitando...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Habilitar IA para {funnelLabel}
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </AdminLayout>
+    );
+  }
   const modelOptions: Record<string, { label: string; value: string }[]> = {
     lovable: [
       { label: 'Gemini 3 Flash (Rápido)', value: 'google/gemini-3-flash-preview' },

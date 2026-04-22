@@ -4,13 +4,15 @@ import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Trophy, TrendingUp, Users, Calendar, Star, UserPlus } from 'lucide-react';
 import { TableSkeleton } from '@/components/ui/page-skeleton';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { isSuperAdmin } from '@/lib/consultant-context';
-import { useRankingData } from '@/hooks/useRankingData';
+import { useRankingData, type ConsultantRankingData } from '@/hooks/useRankingData';
+import { useFunnel } from '@/contexts/FunnelContext';
 
 export default function AdminRanking() {
   const [period, setPeriod] = useState('all');
@@ -48,10 +50,11 @@ export default function AdminRanking() {
   }, [period]);
 
   // Usar hook centralizado com queryKey estável (dados pré-carregados em usePrefetchAdminData)
-  const { ranking, isLoading, error, currentUser, currentUserRole, totals, myData, refetch } = useRankingData({
+  const { ranking, grouped, isLoading, error, currentUser, currentUserRole, totals, myData, refetch } = useRankingData({
     periodStart,
     periodEnd,
   });
+  const { activeFunnel } = useFunnel();
 
   const queryClient = useQueryClient();
 
@@ -189,115 +192,136 @@ export default function AdminRanking() {
         </div>
 
         {/* Ranking - Mobile Cards / Desktop Table */}
-        <Card className="p-4 md:p-6 overflow-hidden">
-          <h2 className="text-xl font-semibold text-foreground mb-4">Classificação</h2>
-          
-          {ranking && ranking.length > 0 ? (
-            <>
-              {/* Mobile: Cards */}
-              <div className="md:hidden space-y-3">
-                {ranking.map((consultant) => (
-                  <div 
-                    key={consultant.consultant_id}
-                    className={cn(
-                      "flex items-center gap-3 p-3 rounded-lg border border-border bg-card",
-                      consultant.consultant_id === currentUser?.id && "ring-2 ring-primary"
-                    )}
-                  >
-                    <div className={cn(
-                      "w-10 h-10 rounded-full flex items-center justify-center font-bold text-white flex-shrink-0",
-                      getMedalColor(consultant.ranking_position)
-                    )}>
-                      {getMedalIcon(consultant.ranking_position)}
-                    </div>
-                    <Avatar className="w-10 h-10 flex-shrink-0">
-                      <AvatarImage src={consultant.profile_photo || undefined} alt={consultant.full_name} />
-                      <AvatarFallback className="bg-primary/10 text-primary font-bold">
-                        {consultant.full_name?.[0]?.toUpperCase() || '?'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-foreground truncate">
-                        {consultant.full_name}
-                        {consultant.consultant_id === currentUser?.id && ' (Você)'}
-                      </p>
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="text-primary font-bold">
-                          {(consultant.total_points || 0).toLocaleString()} pts
-                        </span>
-                        {(consultant.novos_consultores_count || 0) > 0 && (
-                          <span className="text-muted-foreground text-xs">
-                            (+{consultant.novos_consultores_count} consultores)
+        {(() => {
+          const renderTable = (items: ConsultantRankingData[] | undefined) => (
+            items && items.length > 0 ? (
+              <>
+                {/* Mobile: Cards */}
+                <div className="md:hidden space-y-3">
+                  {items.map((consultant) => (
+                    <div
+                      key={consultant.consultant_id}
+                      className={cn(
+                        "flex items-center gap-3 p-3 rounded-lg border border-border bg-card",
+                        consultant.consultant_id === currentUser?.id && "ring-2 ring-primary"
+                      )}
+                    >
+                      <div className={cn(
+                        "w-10 h-10 rounded-full flex items-center justify-center font-bold text-white flex-shrink-0",
+                        getMedalColor(consultant.ranking_position)
+                      )}>
+                        {getMedalIcon(consultant.ranking_position)}
+                      </div>
+                      <Avatar className="w-10 h-10 flex-shrink-0">
+                        <AvatarImage src={consultant.profile_photo || undefined} alt={consultant.full_name} />
+                        <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                          {consultant.full_name?.[0]?.toUpperCase() || '?'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-foreground truncate">
+                          {consultant.full_name}
+                          {consultant.consultant_id === currentUser?.id && ' (Você)'}
+                        </p>
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="text-primary font-bold">
+                            {(consultant.total_points || 0).toLocaleString()} pts
                           </span>
-                        )}
+                          {(consultant.novos_consultores_count || 0) > 0 && (
+                            <span className="text-muted-foreground text-xs">
+                              (+{consultant.novos_consultores_count} consultores)
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
 
-              {/* Desktop: Table */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left py-4 px-4 text-muted-foreground font-medium">Posição</th>
-                      <th className="text-left py-4 px-4 text-muted-foreground font-medium">Consultor</th>
-                      {isAdmin ? (
-                        <>
-                          <th className="text-center py-4 px-4 text-muted-foreground font-medium">Pontuação</th>
-                          <th className="text-center py-4 px-4 text-muted-foreground font-medium">Total Leads</th>
-                          <th className="text-center py-4 px-4 text-muted-foreground font-medium">Quentes</th>
-                          <th className="text-center py-4 px-4 text-muted-foreground font-medium">Mornos</th>
-                          <th className="text-center py-4 px-4 text-muted-foreground font-medium">Frios</th>
-                          <th className="text-center py-4 px-4 text-muted-foreground font-medium">Novos Cons.</th>
-                        </>
-                      ) : (
-                        <th className="text-center py-4 px-4 text-muted-foreground font-medium">Pontuação</th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {ranking.map((consultant) => (
-                      <tr 
-                        key={consultant.consultant_id}
-                        className={cn(
-                          "border-b border-border hover:bg-muted/50 transition-colors",
-                          consultant.consultant_id === currentUser?.id && "bg-primary/5"
-                        )}
-                      >
-                        {/* Position */}
-                        <td className="py-4 px-4">
-                          <div className={cn(
-                            "w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg text-white",
-                            getMedalColor(consultant.ranking_position)
-                          )}>
-                            {getMedalIcon(consultant.ranking_position)}
-                          </div>
-                        </td>
-
-                        {/* Name with Photo */}
-                        <td className="py-4 px-4">
-                          <div className="flex items-center gap-3">
-                            <Avatar className="w-10 h-10">
-                              <AvatarImage src={consultant.profile_photo || undefined} alt={consultant.full_name} />
-                              <AvatarFallback className="bg-primary/10 text-primary font-bold">
-                                {consultant.full_name?.[0]?.toUpperCase() || '?'}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="font-semibold text-foreground">
-                                {consultant.full_name}
-                                {consultant.consultant_id === currentUser?.id && ' (Você)'}
-                              </p>
-                              <p className="text-sm text-muted-foreground">@{consultant.quiz_slug}</p>
-                            </div>
-                          </div>
-                        </td>
-
+                {/* Desktop: Table */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left py-4 px-4 text-muted-foreground font-medium">Posição</th>
+                        <th className="text-left py-4 px-4 text-muted-foreground font-medium">Consultor</th>
                         {isAdmin ? (
                           <>
-                            {/* Points */}
+                            <th className="text-center py-4 px-4 text-muted-foreground font-medium">Pontuação</th>
+                            <th className="text-center py-4 px-4 text-muted-foreground font-medium">Total Leads</th>
+                            <th className="text-center py-4 px-4 text-muted-foreground font-medium">Quentes</th>
+                            <th className="text-center py-4 px-4 text-muted-foreground font-medium">Mornos</th>
+                            <th className="text-center py-4 px-4 text-muted-foreground font-medium">Frios</th>
+                            <th className="text-center py-4 px-4 text-muted-foreground font-medium">Novos Cons.</th>
+                          </>
+                        ) : (
+                          <th className="text-center py-4 px-4 text-muted-foreground font-medium">Pontuação</th>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {items.map((consultant) => (
+                        <tr
+                          key={consultant.consultant_id}
+                          className={cn(
+                            "border-b border-border hover:bg-muted/50 transition-colors",
+                            consultant.consultant_id === currentUser?.id && "bg-primary/5"
+                          )}
+                        >
+                          <td className="py-4 px-4">
+                            <div className={cn(
+                              "w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg text-white",
+                              getMedalColor(consultant.ranking_position)
+                            )}>
+                              {getMedalIcon(consultant.ranking_position)}
+                            </div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="flex items-center gap-3">
+                              <Avatar className="w-10 h-10">
+                                <AvatarImage src={consultant.profile_photo || undefined} alt={consultant.full_name} />
+                                <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                                  {consultant.full_name?.[0]?.toUpperCase() || '?'}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="font-semibold text-foreground">
+                                  {consultant.full_name}
+                                  {consultant.consultant_id === currentUser?.id && ' (Você)'}
+                                </p>
+                                <p className="text-sm text-muted-foreground">@{consultant.quiz_slug}</p>
+                              </div>
+                            </div>
+                          </td>
+                          {isAdmin ? (
+                            <>
+                              <td className="text-center py-4 px-4">
+                                <div className="flex items-center justify-center gap-1">
+                                  <Star className="w-5 h-5 text-primary" />
+                                  <span className="text-xl font-bold text-foreground">
+                                    {(consultant.total_points || 0).toLocaleString()}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="text-center py-4 px-4">
+                                <span className="text-xl font-bold text-foreground">{consultant.total_leads}</span>
+                              </td>
+                              <td className="text-center py-4 px-4">
+                                <span className="text-lg font-semibold text-red-500">{consultant.hot_leads}</span>
+                              </td>
+                              <td className="text-center py-4 px-4">
+                                <span className="text-lg font-semibold text-yellow-500">{consultant.warm_leads}</span>
+                              </td>
+                              <td className="text-center py-4 px-4">
+                                <span className="text-lg font-semibold text-blue-500">{consultant.cold_leads}</span>
+                              </td>
+                              <td className="text-center py-4 px-4">
+                                <span className="text-lg font-semibold text-purple-500">
+                                  {consultant.novos_consultores_count || 0}
+                                </span>
+                              </td>
+                            </>
+                          ) : (
                             <td className="text-center py-4 px-4">
                               <div className="flex items-center justify-center gap-1">
                                 <Star className="w-5 h-5 text-primary" />
@@ -306,59 +330,51 @@ export default function AdminRanking() {
                                 </span>
                               </div>
                             </td>
-
-                            {/* Total Leads */}
-                            <td className="text-center py-4 px-4">
-                              <span className="text-xl font-bold text-foreground">{consultant.total_leads}</span>
-                            </td>
-
-                            {/* Hot Leads */}
-                            <td className="text-center py-4 px-4">
-                              <span className="text-lg font-semibold text-red-500">{consultant.hot_leads}</span>
-                            </td>
-
-                            {/* Warm Leads */}
-                            <td className="text-center py-4 px-4">
-                              <span className="text-lg font-semibold text-yellow-500">{consultant.warm_leads}</span>
-                            </td>
-
-                            {/* Cold Leads */}
-                            <td className="text-center py-4 px-4">
-                              <span className="text-lg font-semibold text-blue-500">{consultant.cold_leads}</span>
-                            </td>
-
-                            {/* Novos Consultores */}
-                            <td className="text-center py-4 px-4">
-                              <span className="text-lg font-semibold text-purple-500">
-                                {consultant.novos_consultores_count || 0}
-                              </span>
-                            </td>
-                          </>
-                        ) : (
-                          <td className="text-center py-4 px-4">
-                            <div className="flex items-center justify-center gap-1">
-                              <Star className="w-5 h-5 text-primary" />
-                              <span className="text-xl font-bold text-foreground">
-                                {(consultant.total_points || 0).toLocaleString()}
-                              </span>
-                            </div>
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-12">
+                <Trophy className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                <p className="text-lg text-muted-foreground">
+                  Nenhum dado de ranking disponível
+                </p>
               </div>
-            </>
-          ) : (
-            <div className="text-center py-12">
-              <Trophy className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-              <p className="text-lg text-muted-foreground">
-                Nenhum dado de ranking disponível
-              </p>
-            </div>
-          )}
-        </Card>
+            )
+          );
+
+          // Modo "Todos" do super admin: mostra Tabs com Consultores / Associados se há grouped
+          if (activeFunnel === 'all' && grouped) {
+            return (
+              <Card className="p-4 md:p-6 overflow-hidden">
+                <h2 className="text-xl font-semibold text-foreground mb-4">Classificação</h2>
+                <Tabs defaultValue="consultor" className="w-full">
+                  <TabsList>
+                    <TabsTrigger value="consultor">Consultores</TabsTrigger>
+                    <TabsTrigger value="associado">Associados</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="consultor" className="mt-4">
+                    {renderTable(grouped.consultor)}
+                  </TabsContent>
+                  <TabsContent value="associado" className="mt-4">
+                    {renderTable(grouped.associado)}
+                  </TabsContent>
+                </Tabs>
+              </Card>
+            );
+          }
+
+          return (
+            <Card className="p-4 md:p-6 overflow-hidden">
+              <h2 className="text-xl font-semibold text-foreground mb-4">Classificação</h2>
+              {renderTable(ranking)}
+            </Card>
+          );
+        })()}
 
         {/* Points Legend - Only for consultants */}
         {!isAdmin && (
