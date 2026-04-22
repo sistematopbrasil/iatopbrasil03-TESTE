@@ -1167,6 +1167,7 @@ export function ConsultantSettings() {
     whatsapp_button_url: '',
     pixel_id: '',
     username: '',
+    quiz_funnel_type: 'consultor' as 'consultor' | 'associado',
   });
 
   useEffect(() => {
