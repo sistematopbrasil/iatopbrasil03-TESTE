@@ -21,7 +21,10 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { UserPlus } from 'lucide-react';
+import { UserPlus, Layers } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { FUNNEL_LABELS, FUNNEL_VALUES, FunnelType } from '@/lib/funnel-types';
 
 const consultantSchema = z.object({
   full_name: z.string().min(3, 'Nome deve ter pelo menos 3 caracteres').max(100),
@@ -48,6 +51,8 @@ export function CreateConsultantDialog({ open: controlledOpen, onOpenChange: con
     password: '',
     role: 'consultor' as 'admin' | 'consultor',
   });
+  const [allowedFunnels, setAllowedFunnels] = useState<FunnelType[]>(['consultor']);
+  const [defaultFunnel, setDefaultFunnel] = useState<FunnelType>('consultor');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const { data: currentUser } = useQuery({
@@ -80,6 +85,8 @@ export function CreateConsultantDialog({ open: controlledOpen, onOpenChange: con
           full_name: data.full_name,
           organization_id: currentUser.organization_id,
           role: data.role,
+          allowed_funnels: allowedFunnels,
+          default_funnel: defaultFunnel,
         },
       });
 
