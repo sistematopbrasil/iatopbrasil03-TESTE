@@ -289,9 +289,11 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
 
   const loadInstance = useCallback(async () => {
     if (!mountedRef.current) return;
-    
+
+    const funnel = resolvedFunnelRef.current;
+
     // Primeiro, tentar usar dados do cache para carregar instantaneamente
-    const cachedInstance = queryClient.getQueryData<WhatsAppInstance>(['whatsapp-instance']);
+    const cachedInstance = queryClient.getQueryData<WhatsAppInstance>(['whatsapp-instance', funnel]);
     if (cachedInstance) {
       console.log('📦 Usando instância do cache:', cachedInstance.status);
       setInstance(cachedInstance);
@@ -312,15 +314,15 @@ export function WhatsAppConnectionProvider({ children }: { children: ReactNode }
     } else {
       setIsLoading(true);
     }
-    
+
     try {
-      const data = await crmService.getInstance();
+      const data = await crmService.getInstance(funnel);
       if (!mountedRef.current) return;
       setInstance(data);
-      
+
       // Atualizar cache
       if (data) {
-        queryClient.setQueryData(['whatsapp-instance'], data);
+        queryClient.setQueryData(['whatsapp-instance', funnel], data);
       }
 
       if (data?.status === 'connecting') {
