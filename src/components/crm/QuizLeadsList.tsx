@@ -25,6 +25,8 @@ import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getCurrentConsultant, isSuperAdmin } from '@/lib/consultant-context';
+import { useFunnel } from '@/contexts/FunnelContext';
+import { FunnelBadge } from '@/components/leads/FunnelBadge';
 
 interface QuizLeadsListProps {
   onStartConversation: (phone: string, leadData: any) => void;
@@ -39,6 +41,7 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [temperatureFilter, setTemperatureFilter] = useState<TemperatureFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const { activeFunnel } = useFunnel();
 
   useEffect(() => {
     loadLeads();
@@ -59,7 +62,7 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [activeFunnel]);
 
   const loadLeads = async () => {
     try {
@@ -86,6 +89,11 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
       } else {
         // Super admin vê todos da organização
         query = query.eq('organization_id', currentUser.organization_id);
+      }
+
+      // Filtrar por funil ativo (apenas se não for "all")
+      if (activeFunnel !== 'all') {
+        query = query.eq('funnel_type', activeFunnel);
       }
 
       const { data, error } = await query;
@@ -258,11 +266,12 @@ export function QuizLeadsList({ onStartConversation }: QuizLeadsListProps) {
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <h3 className="font-semibold text-foreground truncate text-sm">
                           {lead.name || 'Sem nome'}
                         </h3>
                         <TemperatureBadge temperature={lead.temperature} />
+                        <FunnelBadge funnel={lead.funnel_type} size="xs" />
                       </div>
 
                       <div className="space-y-0.5 text-xs text-muted-foreground">
