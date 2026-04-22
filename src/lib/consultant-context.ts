@@ -47,7 +47,8 @@ export async function getCurrentConsultant(): Promise<ConsultantUser | null> {
       whatsapp_button_url,
       pixel_id,
       username,
-      ranking_visible
+      ranking_visible,
+      quiz_funnel_type
     `)
     .eq('auth_user_id', authUser.user.id)
     .maybeSingle();
