@@ -486,30 +486,35 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
             <CardDescription>Configure sua página de captura de leads</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5 overflow-x-hidden min-w-0">
-            {/* 0. Purpose selector */}
+            {/* 0. Banner: a finalidade segue o funil ativo no menu lateral */}
             <div className="space-y-2">
-              <Label>Finalidade da Página</Label>
-              <div className="grid grid-cols-2 gap-3">
-                <button type="button" onClick={() => setPagePurpose('protection')}
-                  className={cn("p-3 rounded-xl border-2 text-left transition-all", pagePurpose === 'protection' ? "border-primary bg-primary/10" : "border-border hover:border-primary/30")}>
-                  <Shield className="w-4 h-4 mb-1 text-primary" />
-                  <p className="text-sm font-semibold">Proteção Veicular</p>
-                  <p className="text-[10px] text-muted-foreground">Captar associados</p>
-                </button>
-                <button type="button" onClick={() => setPagePurpose('recruitment')}
-                  className={cn("p-3 rounded-xl border-2 text-left transition-all", pagePurpose === 'recruitment' ? "border-primary bg-primary/10" : "border-border hover:border-primary/30")}>
-                  <Users className="w-4 h-4 mb-1 text-primary" />
-                  <p className="text-sm font-semibold">Recrutamento</p>
-                  <p className="text-[10px] text-muted-foreground">Captar consultores</p>
-                </button>
+              <div className={cn(
+                "rounded-xl border-2 p-4 flex items-start gap-3",
+                pagePurpose === 'recruitment'
+                  ? "border-primary/40 bg-primary/5"
+                  : "border-primary/40 bg-primary/5"
+              )}>
+                {pagePurpose === 'recruitment' ? (
+                  <Users className="w-5 h-5 mt-0.5 text-primary flex-shrink-0" />
+                ) : (
+                  <Shield className="w-5 h-5 mt-0.5 text-primary flex-shrink-0" />
+                )}
+                <div className="space-y-1 min-w-0">
+                  <p className="text-sm font-semibold">
+                    Editando: {pagePurpose === 'recruitment' ? 'Página de Recrutamento de Consultores' : 'Página de Captação de Associados'}
+                  </p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    A finalidade desta página é definida pelo <strong>funil ativo</strong> no menu lateral. Para configurar a outra página, troque o funil em "Funil ativo".
+                  </p>
+                </div>
               </div>
               <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground leading-relaxed">
-                A finalidade define o conteúdo desta página. O <strong>funil</strong> em que o lead entra é definido pela <strong>rota</strong>:
+                A rota da página é definida automaticamente:
                 <span className="block mt-1">
-                  • <code className="text-foreground">/c/{'{seu-slug}'}</code> → cria leads no funil de <strong>Associados</strong>
+                  • <code className="text-foreground">/c/{'{seu-slug}'}</code> → leads no funil de <strong>Associados</strong>
                 </span>
                 <span className="block">
-                  • <code className="text-foreground">/r/{'{seu-slug}'}</code> → cria leads no funil de <strong>Consultores</strong>
+                  • <code className="text-foreground">/r/{'{seu-slug}'}</code> → leads no funil de <strong>Consultores</strong>
                 </span>
                 <span className="block mt-1">
                   Para o quiz (<code className="text-foreground">/quiz/{'{seu-slug}'}</code>), configure o funil na aba <strong>Quiz</strong>.
