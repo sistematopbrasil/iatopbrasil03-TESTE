@@ -1180,6 +1180,8 @@ export function ConsultantSettings() {
     pixel_id: '',
     username: '',
     quiz_funnel_type: 'consultor' as 'consultor' | 'associado',
+    quiz_enabled_consultor: true,
+    quiz_enabled_associado: false,
   });
 
   useEffect(() => {
@@ -1198,6 +1200,8 @@ export function ConsultantSettings() {
         pixel_id: consultant.pixel_id || '',
         username: consultant.username || '',
         quiz_funnel_type: (consultant.quiz_funnel_type as 'consultor' | 'associado') || 'consultor',
+        quiz_enabled_consultor: (consultant as any).quiz_enabled_consultor ?? true,
+        quiz_enabled_associado: (consultant as any).quiz_enabled_associado ?? false,
       });
     }
   }, [consultant]);
@@ -1395,7 +1399,9 @@ export function ConsultantSettings() {
           pixel_id: data.pixel_id,
           username: data.username || undefined,
           quiz_funnel_type: data.quiz_funnel_type,
-        })
+          quiz_enabled_consultor: data.quiz_enabled_consultor,
+          quiz_enabled_associado: data.quiz_enabled_associado,
+        } as any)
         .eq('id', consultant.id);
 
       if (error) {
