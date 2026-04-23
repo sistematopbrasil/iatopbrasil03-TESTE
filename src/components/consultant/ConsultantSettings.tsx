@@ -1230,6 +1230,7 @@ export function ConsultantSettings() {
       });
       setFormData({
         quiz_slug: consultant.quiz_slug || '',
+        quiz_slug_associado: (consultant as any).quiz_slug_associado || '',
         quiz_cover_image: consultant.quiz_cover_image || '',
         quiz_image_position: consultant.quiz_image_position || 'center',
         quiz_image_size: consultant.quiz_image_size || 'medium',
@@ -1237,7 +1238,6 @@ export function ConsultantSettings() {
         whatsapp_button_url: consultant.whatsapp_button_url || '',
         pixel_id: consultant.pixel_id || '',
         username: consultant.username || '',
-        quiz_funnel_type: (consultant.quiz_funnel_type as 'consultor' | 'associado') || 'consultor',
         quiz_enabled_consultor: (consultant as any).quiz_enabled_consultor ?? true,
         quiz_enabled_associado: (consultant as any).quiz_enabled_associado ?? false,
       });
@@ -1429,6 +1429,7 @@ export function ConsultantSettings() {
         .from('users')
         .update({
           quiz_slug: data.quiz_slug,
+          quiz_slug_associado: data.quiz_slug_associado || null,
           quiz_cover_image: data.quiz_cover_image,
           quiz_image_position: data.quiz_image_position,
           quiz_image_size: data.quiz_image_size,
@@ -1436,7 +1437,6 @@ export function ConsultantSettings() {
           whatsapp_button_url: data.whatsapp_button_url,
           pixel_id: data.pixel_id,
           username: data.username || undefined,
-          quiz_funnel_type: data.quiz_funnel_type,
           quiz_enabled_consultor: data.quiz_enabled_consultor,
           quiz_enabled_associado: data.quiz_enabled_associado,
         } as any)
