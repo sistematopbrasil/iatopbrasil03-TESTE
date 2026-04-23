@@ -98,11 +98,7 @@ const AdminAnalytics = () => {
         .select("*")
         .eq("organization_id", currentUser.organization_id)
         .eq("funnel_type", resolvedFunnel);
-
-      // No funil de Consultores mantemos o foco em quiz; em Associados consideramos todas as origens
-      if (!isAssociado) {
-        query = query.eq("lead_source", "quiz");
-      }
+      // Mostramos todas as origens em ambos os funis para refletir o que existe no Pipeline/CRM
 
       if (!isSuperAdmin(currentUser.role)) {
         query = query.eq("consultant_id", currentUser.id);
@@ -542,18 +538,22 @@ const AdminAnalytics = () => {
               {renderDonutChart(locationData, "Localização", "Distribuição por cidade/estado dos associados")}
             </div>
           )}
-          <div className="animate-fade-in" style={{ animationDelay: "200ms" }}>
-            {renderDonutChart(relationshipData, "Estado Civil", "Distribuição por estado civil")}
-          </div>
+          {!isAssociado && (
+            <div className="animate-fade-in" style={{ animationDelay: "200ms" }}>
+              {renderDonutChart(relationshipData, "Estado Civil", "Distribuição por estado civil")}
+            </div>
+          )}
           <div className="animate-fade-in" style={{ animationDelay: "250ms" }}>
             {renderDonutChart(vehicleData, "Possui Veículo", "Leads com veículo próprio")}
           </div>
           <div className="animate-fade-in" style={{ animationDelay: "300ms" }}>
             {renderDonutChart(licenseData, "Possui CNH", "Carteira de motorista")}
           </div>
-          <div className="animate-fade-in" style={{ animationDelay: "350ms" }}>
-            {renderDonutChart(employmentData, "Situação Profissional", "Distribuição por emprego")}
-          </div>
+          {!isAssociado && (
+            <div className="animate-fade-in" style={{ animationDelay: "350ms" }}>
+              {renderDonutChart(employmentData, "Situação Profissional", "Distribuição por emprego")}
+            </div>
+          )}
           {!isAssociado && (
             <>
               <div className="animate-fade-in" style={{ animationDelay: "400ms" }}>
