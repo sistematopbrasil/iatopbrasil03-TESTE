@@ -2103,6 +2103,8 @@ export type Database = {
           pixel_id: string | null
           profile_photo: string | null
           quiz_cover_image: string | null
+          quiz_enabled_associado: boolean
+          quiz_enabled_consultor: boolean
           quiz_funnel_type: Database["public"]["Enums"]["funnel_type"]
           quiz_image_position: string | null
           quiz_image_shape: string | null
@@ -2130,6 +2132,8 @@ export type Database = {
           pixel_id?: string | null
           profile_photo?: string | null
           quiz_cover_image?: string | null
+          quiz_enabled_associado?: boolean
+          quiz_enabled_consultor?: boolean
           quiz_funnel_type?: Database["public"]["Enums"]["funnel_type"]
           quiz_image_position?: string | null
           quiz_image_shape?: string | null
@@ -2157,6 +2161,8 @@ export type Database = {
           pixel_id?: string | null
           profile_photo?: string | null
           quiz_cover_image?: string | null
+          quiz_enabled_associado?: boolean
+          quiz_enabled_consultor?: boolean
           quiz_funnel_type?: Database["public"]["Enums"]["funnel_type"]
           quiz_image_position?: string | null
           quiz_image_shape?: string | null
@@ -2289,6 +2295,8 @@ export type Database = {
           pixel_id: string
           profile_photo: string
           quiz_cover_image: string
+          quiz_enabled_associado: boolean
+          quiz_enabled_consultor: boolean
           quiz_funnel_type: Database["public"]["Enums"]["funnel_type"]
           quiz_image_position: string
           quiz_image_shape: string
