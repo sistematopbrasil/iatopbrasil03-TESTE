@@ -201,6 +201,23 @@ export function TrafficSettings({ organizationId }: Props) {
               <span className="font-medium text-foreground">Últimos 3 dias + hoje (incremental)</span>
             </div>
           </div>
+          {isSuper && (
+            <div className="pt-2">
+              <Button
+                onClick={repairHistory}
+                disabled={repairing}
+                variant="outline"
+                size="sm"
+                className="w-full"
+              >
+                {repairing ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Wrench className="h-4 w-4 mr-1.5" />}
+                Reparar histórico (preencher dias faltantes)
+              </Button>
+              <p className="text-[11px] text-muted-foreground mt-1.5">
+                Detecta lacunas nos últimos 90 dias e busca os dias faltantes da Meta API.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
