@@ -63,7 +63,7 @@ export function useRankingData(options: UseRankingDataOptions = {}) {
   const { activeFunnel } = useFunnel();
 
   // Query principal de ranking via backend
-  const { data: response, isLoading, error, refetch } = useQuery({
+  const { data: response, isLoading, isFetching, error, refetch } = useQuery({
     // QueryKey estável: usar 'now' como string em vez de timestamp dinâmico
     queryKey: ['unified-ranking', periodStart ?? 'all', periodEnd ?? 'now', activeFunnel],
     queryFn: async (): Promise<RankingResponse> => {
@@ -89,6 +89,8 @@ export function useRankingData(options: UseRankingDataOptions = {}) {
     staleTime: 30 * 1000, // Cache por 30 segundos - dados de ranking não mudam rápido
     gcTime: 5 * 60 * 1000,
     retry: 2,
+    placeholderData: (prev) => prev, // Mantém dados antigos enquanto refaz (sem flash de zero)
+    refetchOnMount: false, // Usa cache se houver
   });
 
   // Real-time updates - invalidate query when leads change

@@ -78,8 +78,8 @@ export default function AdminPipeline() {
           className="flex-1 min-h-0 px-4 md:px-6 pb-3 pipeline-scroll cursor-grab active:cursor-grabbing"
         >
           <div 
-            className="inline-flex gap-3 md:gap-4"
-            style={{ minWidth: 'max-content', height: '100%' }}
+            className="inline-flex gap-3 md:gap-4 h-full"
+            style={{ minWidth: 'max-content' }}
           >
             <PipelineBoard />
             <div className="w-4 md:w-6 shrink-0" aria-hidden="true" />

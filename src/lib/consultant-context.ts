@@ -7,6 +7,7 @@ export interface ConsultantUser {
   role: 'super_admin' | 'admin' | 'consultor' | 'viewer';
   organization_id: string;
   quiz_slug: string | null;
+  quiz_slug_associado: string | null;
   is_active: boolean;
   profile_photo: string | null;
   ai_enabled: boolean;
@@ -21,6 +22,9 @@ export interface ConsultantUser {
   username: string | null;
   ranking_visible: boolean;
   quiz_funnel_type: 'consultor' | 'associado';
+  quiz_enabled_consultor: boolean;
+  quiz_enabled_associado: boolean;
+  allowed_funnels: ('consultor' | 'associado')[];
 }
 
 export async function getCurrentConsultant(): Promise<ConsultantUser | null> {
@@ -35,7 +39,8 @@ export async function getCurrentConsultant(): Promise<ConsultantUser | null> {
       email, 
       role, 
       organization_id, 
-      quiz_slug, 
+      quiz_slug,
+      quiz_slug_associado,
       is_active, 
       profile_photo,
       ai_enabled,
@@ -48,13 +53,16 @@ export async function getCurrentConsultant(): Promise<ConsultantUser | null> {
       pixel_id,
       username,
       ranking_visible,
-      quiz_funnel_type
+      quiz_funnel_type,
+      quiz_enabled_consultor,
+      quiz_enabled_associado,
+      allowed_funnels
     `)
     .eq('auth_user_id', authUser.user.id)
     .maybeSingle();
 
   if (error || !user) return null;
-  return user as ConsultantUser;
+  return user as unknown as ConsultantUser;
 }
 
 export function isSuperAdmin(role: string): boolean {

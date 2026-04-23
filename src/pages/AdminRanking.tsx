@@ -60,8 +60,9 @@ export default function AdminRanking() {
 
   // Dados já são pré-carregados pelo usePrefetchAdminData com a mesma queryKey
 
-  // ✅ Se já tem dados no cache, não mostrar loading
-  const showLoading = isLoading && !ranking;
+  // ✅ Só mostrar loading se realmente não tem nada (cache vazio E primeira carga)
+  const hasAnyData = (ranking && ranking.length > 0) || (grouped && (grouped.consultor?.length || grouped.associado?.length));
+  const showLoading = isLoading && !hasAnyData;
 
   // Usar currentUserRole diretamente (funciona para super admin que não está no array)
   const isAdmin = currentUserRole ? isSuperAdmin(currentUserRole) : false;

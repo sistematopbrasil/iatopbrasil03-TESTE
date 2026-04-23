@@ -24,16 +24,18 @@ export function usePrefetchAdminData() {
         const orgId = currentUser.organization_id;
 
         // =============================================
-        // PREFETCH RANKING - com query key correta
+        // PREFETCH RANKING - 3 funis em paralelo (consultor, associado, all)
         // =============================================
-        // Prefetch ranking com query key estável: ['unified-ranking', 'all', 'now']
-        // Bate com AdminRanking period='all' que passa periodStart=null, periodEnd=null
-        supabase.functions.invoke('ranking-get', {
-          body: { periodStart: null, periodEnd: new Date().toISOString() }
-        }).then(({ data }) => {
-          if (data?.success) {
-            queryClient.setQueryData(['unified-ranking', 'all', 'now'], data);
-          }
+        // Bate com a queryKey de useRankingData: ['unified-ranking', 'all', 'now', activeFunnel]
+        const funnels: Array<'consultor' | 'associado' | 'all'> = ['consultor', 'associado', 'all'];
+        funnels.forEach((f) => {
+          supabase.functions.invoke('ranking-get', {
+            body: { periodStart: null, periodEnd: new Date().toISOString(), funnel_type: f }
+          }).then(({ data }) => {
+            if (data?.success) {
+              queryClient.setQueryData(['unified-ranking', 'all', 'now', f], data);
+            }
+          });
         });
 
         // =============================================

@@ -1134,6 +1134,8 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
 
 export function ConsultantSettings() {
   const queryClient = useQueryClient();
+  const { resolvedFunnel } = useFunnel();
+  const isAssociadoQuiz = resolvedFunnel === 'associado';
   const fileInputRef = useRef<HTMLInputElement>(null);
   const profilePhotoInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -1147,9 +1149,16 @@ export function ConsultantSettings() {
     queryFn: getCurrentConsultant,
   });
   
-  // Função para verificar se o slug está disponível
+  // Função para verificar se o slug está disponível (verifica os dois campos)
   const checkSlugAvailability = async (slug: string): Promise<boolean> => {
-    if (!slug || !consultant || slug === consultant.quiz_slug) {
+    if (!slug || !consultant) {
+      setSlugError(null);
+      return true;
+    }
+    const currentOwnSlug = isAssociadoQuiz
+      ? (consultant as any).quiz_slug_associado
+      : consultant.quiz_slug;
+    if (slug === currentOwnSlug) {
       setSlugError(null);
       return true;
     }
@@ -1159,8 +1168,8 @@ export function ConsultantSettings() {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('id')
-        .eq('quiz_slug', slug)
+        .select('id, quiz_slug, quiz_slug_associado' as any)
+        .or(`quiz_slug.eq.${slug},quiz_slug_associado.eq.${slug}` as any)
         .neq('id', consultant.id)
         .maybeSingle();
 
@@ -1183,6 +1192,7 @@ export function ConsultantSettings() {
 
   const [formData, setFormData] = useState({
     quiz_slug: '',
+    quiz_slug_associado: '',
     quiz_cover_image: '',
     quiz_image_position: 'center',
     quiz_image_size: 'medium',
@@ -1190,10 +1200,27 @@ export function ConsultantSettings() {
     whatsapp_button_url: '',
     pixel_id: '',
     username: '',
-    quiz_funnel_type: 'consultor' as 'consultor' | 'associado',
     quiz_enabled_consultor: true,
     quiz_enabled_associado: false,
   });
+
+  // Slug "ativo" (do funil sendo editado)
+  const activeSlug = isAssociadoQuiz ? formData.quiz_slug_associado : formData.quiz_slug;
+  const setActiveSlug = (value: string) => {
+    if (isAssociadoQuiz) {
+      setFormData((prev) => ({ ...prev, quiz_slug_associado: value }));
+    } else {
+      setFormData((prev) => ({ ...prev, quiz_slug: value }));
+    }
+  };
+  const activeQuizEnabled = isAssociadoQuiz ? formData.quiz_enabled_associado : formData.quiz_enabled_consultor;
+  const setActiveQuizEnabled = (checked: boolean) => {
+    if (isAssociadoQuiz) {
+      setFormData((prev) => ({ ...prev, quiz_enabled_associado: checked }));
+    } else {
+      setFormData((prev) => ({ ...prev, quiz_enabled_consultor: checked }));
+    }
+  };
 
   useEffect(() => {
     if (consultant) {
@@ -1203,6 +1230,7 @@ export function ConsultantSettings() {
       });
       setFormData({
         quiz_slug: consultant.quiz_slug || '',
+        quiz_slug_associado: (consultant as any).quiz_slug_associado || '',
         quiz_cover_image: consultant.quiz_cover_image || '',
         quiz_image_position: consultant.quiz_image_position || 'center',
         quiz_image_size: consultant.quiz_image_size || 'medium',
@@ -1210,7 +1238,6 @@ export function ConsultantSettings() {
         whatsapp_button_url: consultant.whatsapp_button_url || '',
         pixel_id: consultant.pixel_id || '',
         username: consultant.username || '',
-        quiz_funnel_type: (consultant.quiz_funnel_type as 'consultor' | 'associado') || 'consultor',
         quiz_enabled_consultor: (consultant as any).quiz_enabled_consultor ?? true,
         quiz_enabled_associado: (consultant as any).quiz_enabled_associado ?? false,
       });
@@ -1402,6 +1429,7 @@ export function ConsultantSettings() {
         .from('users')
         .update({
           quiz_slug: data.quiz_slug,
+          quiz_slug_associado: data.quiz_slug_associado || null,
           quiz_cover_image: data.quiz_cover_image,
           quiz_image_position: data.quiz_image_position,
           quiz_image_size: data.quiz_image_size,
@@ -1409,7 +1437,6 @@ export function ConsultantSettings() {
           whatsapp_button_url: data.whatsapp_button_url,
           pixel_id: data.pixel_id,
           username: data.username || undefined,
-          quiz_funnel_type: data.quiz_funnel_type,
           quiz_enabled_consultor: data.quiz_enabled_consultor,
           quiz_enabled_associado: data.quiz_enabled_associado,
         } as any)
@@ -1494,89 +1521,62 @@ export function ConsultantSettings() {
               <CardDescription>Configure seu quiz personalizado para capturar leads</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 overflow-x-hidden min-w-0">
-              {/* Habilitação do Quiz por funil */}
+              {/* Disponibilidade do Quiz — só do funil ativo */}
               {(() => {
                 const allowed = ((consultant as any)?.allowed_funnels as string[] | undefined) || ['consultor'];
-                const showConsultor = allowed.includes('consultor');
-                const showAssociado = allowed.includes('associado');
-                if (!showConsultor && !showAssociado) return null;
+                if (!allowed.includes(resolvedFunnel)) return null;
+                const funnelLabel = isAssociadoQuiz ? 'Associados' : 'Consultores';
                 return (
-                  <div className="space-y-3 p-4 bg-muted/30 border border-border rounded-lg">
-                    <div className="space-y-1">
-                      <Label className="text-base font-semibold">Disponibilidade do Quiz</Label>
-                      <p className="text-xs text-muted-foreground">
-                        Controle em quais funis o seu quiz está ativo. Quando desativado, o link <code className="text-foreground">/quiz/{'{seu-slug}'}</code> mostra "Quiz indisponível"
-                        e o atalho do quiz não aparece no Dashboard daquele funil. <strong>O quiz para Associados vem desativado por padrão.</strong>
-                      </p>
+                  <div className="space-y-2 p-4 bg-muted/30 border border-border rounded-lg">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <Label className="text-base font-semibold">Quiz para {funnelLabel}</Label>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          Ative ou desative o quiz deste funil. Quando desativado, o link mostra "Quiz indisponível".
+                        </p>
+                      </div>
+                      <Switch
+                        checked={activeQuizEnabled}
+                        onCheckedChange={setActiveQuizEnabled}
+                      />
                     </div>
-                    {showConsultor && (
-                      <div className="flex items-center justify-between p-3 rounded-lg bg-background/50 border border-border/60">
-                        <div className="min-w-0 pr-3">
-                          <p className="text-sm font-medium">Quiz para Consultores</p>
-                          <p className="text-[11px] text-muted-foreground">Captura de leads no funil de Consultores via quiz.</p>
-                        </div>
-                        <Switch
-                          checked={formData.quiz_enabled_consultor}
-                          onCheckedChange={(checked) => setFormData({ ...formData, quiz_enabled_consultor: checked })}
-                        />
-                      </div>
-                    )}
-                    {showAssociado && (
-                      <div className="flex items-center justify-between p-3 rounded-lg bg-background/50 border border-border/60">
-                        <div className="min-w-0 pr-3">
-                          <p className="text-sm font-medium">Quiz para Associados</p>
-                          <p className="text-[11px] text-muted-foreground">Use o quiz para captar associados (opcional).</p>
-                        </div>
-                        <Switch
-                          checked={formData.quiz_enabled_associado}
-                          onCheckedChange={(checked) => setFormData({ ...formData, quiz_enabled_associado: checked })}
-                        />
-                      </div>
-                    )}
                   </div>
                 );
               })()}
 
               <div className="space-y-2">
                 <Label htmlFor="quiz_slug">
-                  Slug do Quiz
+                  Slug do Quiz de {isAssociadoQuiz ? 'Associados' : 'Consultores'}
                   <span className="text-xs text-muted-foreground ml-2">
                     (apenas letras, números e hífens)
                   </span>
                 </Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Cada funil tem seu próprio slug. Para configurar o outro, troque o funil no menu lateral.
+                </p>
                 <div className="relative">
                   <Input
                     id="quiz_slug"
-                    value={formData.quiz_slug}
+                    value={activeSlug}
                     onChange={(e) => {
-                      // Validar: apenas letras minúsculas, números e hífens
                       const slug = e.target.value
                         .toLowerCase()
                         .replace(/[^a-z0-9-]/g, '-')
                         .replace(/--+/g, '-')
                         .replace(/^-+/, '');
-                      setFormData({ ...formData, quiz_slug: slug });
-                      
-                      // Verificar disponibilidade após 500ms
-                      if (slugCheckTimeoutRef.current) {
-                        clearTimeout(slugCheckTimeoutRef.current);
-                      }
-                      slugCheckTimeoutRef.current = setTimeout(() => {
-                        checkSlugAvailability(slug);
-                      }, 500);
+                      setActiveSlug(slug);
+                      if (slugCheckTimeoutRef.current) clearTimeout(slugCheckTimeoutRef.current);
+                      slugCheckTimeoutRef.current = setTimeout(() => { checkSlugAvailability(slug); }, 500);
                     }}
-                    placeholder="seu-nome"
-                    className={cn(
-                      "font-mono pr-10",
-                      slugError && "border-destructive"
-                    )}
+                    placeholder={isAssociadoQuiz ? 'seu-nome-associado' : 'seu-nome'}
+                    className={cn("font-mono pr-10", slugError && "border-destructive")}
                   />
                   {isCheckingSlug && (
                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
                       <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                     </div>
                   )}
-                  {!isCheckingSlug && formData.quiz_slug && !slugError && consultant?.quiz_slug !== formData.quiz_slug && (
+                  {!isCheckingSlug && activeSlug && !slugError && (
                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
                       <Check className="h-4 w-4 text-green-500" />
                     </div>
@@ -1589,15 +1589,20 @@ export function ConsultantSettings() {
                   <Label>Link do Quiz</Label>
                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full overflow-x-hidden">
                     <code className="text-xs bg-muted px-3 py-2 rounded flex-1 min-w-0 break-all">
-                      {getQuizUrl(formData.quiz_slug || 'seu-slug')}
+                      {getQuizUrl(activeSlug || 'seu-slug')}
                     </code>
 
                     <div className="flex gap-2 w-full sm:w-auto">
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={copyQuizLink}
-                        disabled={!formData.quiz_slug}
+                        onClick={() => {
+                          if (activeSlug) {
+                            navigator.clipboard.writeText(getQuizUrl(activeSlug));
+                            toast.success('Link copiado!');
+                          }
+                        }}
+                        disabled={!activeSlug}
                         className="shrink-0 w-full sm:w-auto"
                       >
                         <Copy className="w-4 h-4 mr-2" />
@@ -1606,8 +1611,10 @@ export function ConsultantSettings() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={openQuizLink}
-                        disabled={!formData.quiz_slug}
+                        onClick={() => {
+                          if (activeSlug) window.open(getQuizUrl(activeSlug), '_blank');
+                        }}
+                        disabled={!activeSlug}
                         className="shrink-0 w-full sm:w-auto"
                       >
                         <ExternalLink className="w-4 h-4 mr-2" />
@@ -1885,38 +1892,7 @@ export function ConsultantSettings() {
                 </p>
               </div>
 
-              {/* Funil que o Quiz alimenta */}
-              <div className="space-y-3 p-4 bg-muted/30 border border-border rounded-lg">
-                <div className="space-y-1">
-                  <Label className="text-base font-semibold">Funil que o Quiz alimenta</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Por padrão, o quiz captura para o funil de <strong>Consultores</strong>.
-                    Você pode mudar para <strong>Associados</strong> se estiver usando o quiz para esse fim.
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { value: 'consultor' as const, label: 'Consultores', desc: 'Captar consultores via quiz', icon: Users },
-                    { value: 'associado' as const, label: 'Associados', desc: 'Captar associados via quiz', icon: Shield },
-                  ].map(({ value, label, desc, icon: Icon }) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, quiz_funnel_type: value })}
-                      className={cn(
-                        "p-3 rounded-xl border-2 text-left transition-all",
-                        formData.quiz_funnel_type === value
-                          ? "border-primary bg-primary/10"
-                          : "border-border hover:border-primary/30"
-                      )}
-                    >
-                      <Icon className="w-4 h-4 mb-1 text-primary" />
-                      <p className="text-sm font-semibold">{label}</p>
-                      <p className="text-[10px] text-muted-foreground">{desc}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
+              {/* Funil que o Quiz alimenta — removido: agora controlado pelo funil ativo do sidebar via slug separado */}
 
               <Button 
                 onClick={() => updateMutation.mutate(formData)} 
