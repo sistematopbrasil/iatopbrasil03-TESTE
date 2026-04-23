@@ -31,6 +31,7 @@ import { toast } from 'sonner';
 import { useTags, CRMTag } from './TagsManager';
 import { NotesSection } from './NotesSection';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useFunnel } from '@/contexts/FunnelContext';
 
 interface LeadProfileProps {
   conversation: Conversation;
@@ -74,16 +75,21 @@ export function LeadProfile({ conversation, onClose }: LeadProfileProps) {
   const [leadTags, setLeadTags] = useState<string[]>([]);
   const { tags: allTags, isLoading: tagsLoading } = useTags();
   const queryClient = useQueryClient();
+  const { resolvedFunnel } = useFunnel();
 
-  // ✅ Buscar stages do pipeline FILTRADO POR ORGANIZAÇÃO
+  // ✅ Buscar stages do pipeline FILTRADO POR ORGANIZAÇÃO + FUNIL
+  // Usa o funil do lead quando disponível; cai para o funil ativo do contexto
+  const leadFunnelForStages = (leadData?.funnel_type as 'consultor' | 'associado' | undefined)
+    || (resolvedFunnel as 'consultor' | 'associado');
   const { data: pipelineStages = [] } = useQuery({
-    queryKey: ['pipeline-stages', conversation.organization_id],
+    queryKey: ['pipeline-stages', conversation.organization_id, leadFunnelForStages],
     queryFn: async () => {
       if (!conversation.organization_id) return [];
       const { data } = await supabase
         .from('pipeline_stages')
         .select('*')
         .eq('organization_id', conversation.organization_id)
+        .eq('funnel_type', leadFunnelForStages)
         .order('order_index', { ascending: true });
       return data || [];
     },
