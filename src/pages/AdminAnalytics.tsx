@@ -356,6 +356,7 @@ const AdminAnalytics = () => {
   const protectionExpData = aggregateData("vehicle_protection_experience");
   const currentIncomeData = aggregateData("current_income");
   const desiredIncomeData = aggregateData("desired_income");
+  const sourceData = aggregateData("lead_source");
 
   return (
     <AdminLayout>
@@ -413,7 +414,7 @@ const AdminAnalytics = () => {
                   <UserPlus className="h-5 w-5 sm:h-6 sm:w-6 text-green-500" />
                 </div>
                 <div>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-medium">Novos Consultores</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider font-medium">{isAssociado ? 'Novos Associados' : 'Novos Consultores'}</p>
                   <p className="text-2xl sm:text-3xl font-black text-foreground mt-1">{additionalMetrics.novosConsultores}</p>
                   <p className="text-xs text-muted-foreground">convertidos</p>
                 </div>
@@ -530,6 +531,11 @@ const AdminAnalytics = () => {
 
         {/* Charts Grid - Todos os gráficos de respostas */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+          {isAssociado && (
+            <div className="animate-fade-in" style={{ animationDelay: "180ms" }}>
+              {renderDonutChart(sourceData, "Origem do Lead", "De onde vieram os leads (quiz, captura, whatsapp...)")}
+            </div>
+          )}
           <div className="animate-fade-in" style={{ animationDelay: "200ms" }}>
             {renderDonutChart(relationshipData, "Estado Civil", "Distribuição por estado civil")}
           </div>
@@ -542,18 +548,22 @@ const AdminAnalytics = () => {
           <div className="animate-fade-in" style={{ animationDelay: "350ms" }}>
             {renderDonutChart(employmentData, "Situação Profissional", "Distribuição por emprego")}
           </div>
-          <div className="animate-fade-in" style={{ animationDelay: "400ms" }}>
-            {renderDonutChart(salesExpData, "Experiência com Vendas", "Experiência em vendas")}
-          </div>
-          <div className="animate-fade-in" style={{ animationDelay: "450ms" }}>
-            {renderDonutChart(protectionExpData, "Exp. Proteção Veicular", "Experiência no ramo")}
-          </div>
-          <div className="animate-fade-in" style={{ animationDelay: "500ms" }}>
-            {renderDonutChart(currentIncomeData, "Faixa de Ganhos Atual", "Renda atual")}
-          </div>
-          <div className="animate-fade-in" style={{ animationDelay: "550ms" }}>
-            {renderDonutChart(desiredIncomeData, "Ganhos Desejados", "Expectativa de ganhos")}
-          </div>
+          {!isAssociado && (
+            <>
+              <div className="animate-fade-in" style={{ animationDelay: "400ms" }}>
+                {renderDonutChart(salesExpData, "Experiência com Vendas", "Experiência em vendas")}
+              </div>
+              <div className="animate-fade-in" style={{ animationDelay: "450ms" }}>
+                {renderDonutChart(protectionExpData, "Exp. Proteção Veicular", "Experiência no ramo")}
+              </div>
+              <div className="animate-fade-in" style={{ animationDelay: "500ms" }}>
+                {renderDonutChart(currentIncomeData, "Faixa de Ganhos Atual", "Renda atual")}
+              </div>
+              <div className="animate-fade-in" style={{ animationDelay: "550ms" }}>
+                {renderDonutChart(desiredIncomeData, "Ganhos Desejados", "Expectativa de ganhos")}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Conversion Funnel - At the end */}
