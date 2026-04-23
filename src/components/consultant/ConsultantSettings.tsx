@@ -1180,6 +1180,8 @@ export function ConsultantSettings() {
     pixel_id: '',
     username: '',
     quiz_funnel_type: 'consultor' as 'consultor' | 'associado',
+    quiz_enabled_consultor: true,
+    quiz_enabled_associado: false,
   });
 
   useEffect(() => {
@@ -1198,6 +1200,8 @@ export function ConsultantSettings() {
         pixel_id: consultant.pixel_id || '',
         username: consultant.username || '',
         quiz_funnel_type: (consultant.quiz_funnel_type as 'consultor' | 'associado') || 'consultor',
+        quiz_enabled_consultor: (consultant as any).quiz_enabled_consultor ?? true,
+        quiz_enabled_associado: (consultant as any).quiz_enabled_associado ?? false,
       });
     }
   }, [consultant]);
@@ -1395,7 +1399,9 @@ export function ConsultantSettings() {
           pixel_id: data.pixel_id,
           username: data.username || undefined,
           quiz_funnel_type: data.quiz_funnel_type,
-        })
+          quiz_enabled_consultor: data.quiz_enabled_consultor,
+          quiz_enabled_associado: data.quiz_enabled_associado,
+        } as any)
         .eq('id', consultant.id);
 
       if (error) {
@@ -1477,6 +1483,49 @@ export function ConsultantSettings() {
               <CardDescription>Configure seu quiz personalizado para capturar leads</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 overflow-x-hidden min-w-0">
+              {/* Habilitação do Quiz por funil */}
+              {(() => {
+                const allowed = ((consultant as any)?.allowed_funnels as string[] | undefined) || ['consultor'];
+                const showConsultor = allowed.includes('consultor');
+                const showAssociado = allowed.includes('associado');
+                if (!showConsultor && !showAssociado) return null;
+                return (
+                  <div className="space-y-3 p-4 bg-muted/30 border border-border rounded-lg">
+                    <div className="space-y-1">
+                      <Label className="text-base font-semibold">Disponibilidade do Quiz</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Controle em quais funis o seu quiz está ativo. Quando desativado, o link <code className="text-foreground">/quiz/{'{seu-slug}'}</code> mostra "Quiz indisponível"
+                        e o atalho do quiz não aparece no Dashboard daquele funil. <strong>O quiz para Associados vem desativado por padrão.</strong>
+                      </p>
+                    </div>
+                    {showConsultor && (
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-background/50 border border-border/60">
+                        <div className="min-w-0 pr-3">
+                          <p className="text-sm font-medium">Quiz para Consultores</p>
+                          <p className="text-[11px] text-muted-foreground">Captura de leads no funil de Consultores via quiz.</p>
+                        </div>
+                        <Switch
+                          checked={formData.quiz_enabled_consultor}
+                          onCheckedChange={(checked) => setFormData({ ...formData, quiz_enabled_consultor: checked })}
+                        />
+                      </div>
+                    )}
+                    {showAssociado && (
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-background/50 border border-border/60">
+                        <div className="min-w-0 pr-3">
+                          <p className="text-sm font-medium">Quiz para Associados</p>
+                          <p className="text-[11px] text-muted-foreground">Use o quiz para captar associados (opcional).</p>
+                        </div>
+                        <Switch
+                          checked={formData.quiz_enabled_associado}
+                          onCheckedChange={(checked) => setFormData({ ...formData, quiz_enabled_associado: checked })}
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
               <div className="space-y-2">
                 <Label htmlFor="quiz_slug">
                   Slug do Quiz

@@ -10,6 +10,7 @@ import { SuperAdminCharts } from '@/components/super-admin/SuperAdminCharts';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { FunnelType } from '@/lib/funnel-types';
+import { useFunnel } from '@/contexts/FunnelContext';
 
 interface FunnelMetrics {
   totalConsultants: number;
@@ -160,28 +161,11 @@ export default function AdminSuperAdmin() {
           </p>
         </div>
 
-        <Tabs defaultValue="all" className="w-full">
-          <TabsList className="w-full sm:w-auto overflow-x-auto">
-            <TabsTrigger value="all" className="text-xs sm:text-sm">Geral</TabsTrigger>
-            <TabsTrigger value="consultor" className="text-xs sm:text-sm">Funil de Consultores</TabsTrigger>
-            <TabsTrigger value="associado" className="text-xs sm:text-sm">Funil de Associados</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="all" className="space-y-6 mt-4">
-            <MetricsBlock metrics={metricsAll} />
-            <SuperAdminCharts />
-          </TabsContent>
-
-          <TabsContent value="consultor" className="space-y-6 mt-4">
-            <MetricsBlock metrics={metricsConsultor} />
-            <SuperAdminCharts funnel="consultor" />
-          </TabsContent>
-
-          <TabsContent value="associado" className="space-y-6 mt-4">
-            <MetricsBlock metrics={metricsAssociado} />
-            <SuperAdminCharts funnel="associado" />
-          </TabsContent>
-        </Tabs>
+        <SuperAdminContent
+          metricsAll={metricsAll}
+          metricsConsultor={metricsConsultor}
+          metricsAssociado={metricsAssociado}
+        />
 
         {/* Tabela de consultores */}
         <ConsultantsTable />

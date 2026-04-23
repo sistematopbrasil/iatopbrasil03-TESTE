@@ -113,9 +113,17 @@ export default function AdminRanking() {
           <div className="flex items-center gap-3">
             <Trophy className="w-10 h-10 text-primary" />
             <div>
-              <h1 className="text-3xl font-bold text-foreground">Ranking de Consultores</h1>
+              <h1 className="text-3xl font-bold text-foreground">
+                {activeFunnel === 'associado'
+                  ? 'Ranking de Associados'
+                  : activeFunnel === 'all'
+                  ? 'Ranking Geral'
+                  : 'Ranking de Consultores'}
+              </h1>
               <p className="text-muted-foreground">
-                {isAdmin ? 'Desempenho detalhado dos consultores' : 'Classificação por pontuação'}
+                {isAdmin
+                  ? (activeFunnel === 'associado' ? 'Desempenho no funil de Associados' : 'Desempenho detalhado dos consultores')
+                  : 'Classificação por pontuação'}
               </p>
             </div>
           </div>

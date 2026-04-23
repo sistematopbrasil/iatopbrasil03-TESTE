@@ -17,6 +17,8 @@ import {
 import { ConversionFunnel } from "@/components/admin/ConversionFunnel";
 import { TemporalChart } from "@/components/admin/TemporalChart";
 import { getCurrentConsultant, isSuperAdmin } from "@/lib/consultant-context";
+import { useFunnel } from "@/contexts/FunnelContext";
+import { FUNNEL_LABELS } from "@/lib/funnel-types";
 
 // Paleta moderna com gradientes - cores tecnológicas
 const COLORS = [
@@ -73,6 +75,8 @@ const abbreviateText = (text: string): string => {
 
 const AdminAnalytics = () => {
   const [period, setPeriod] = useState<PeriodFilter>("30");
+  const { resolvedFunnel } = useFunnel();
+  const isAssociado = resolvedFunnel === 'associado';
 
   const { data: currentUser, isLoading: isLoadingUser } = useQuery({
     queryKey: ['current-user-analytics'],
@@ -85,7 +89,7 @@ const AdminAnalytics = () => {
   // Buscar submissões da tabela correta (quiz_submissions_new)
   // ✅ Usa dados pré-carregados do usePrefetchAdminData
   const { data: allSubmissions, isLoading: isLoadingData } = useQuery({
-    queryKey: ["quiz-submissions-analytics", period, currentUser?.id],
+    queryKey: ["quiz-submissions-analytics", period, currentUser?.id, resolvedFunnel],
     queryFn: async () => {
       if (!currentUser) return [];
 
@@ -93,9 +97,13 @@ const AdminAnalytics = () => {
         .from("quiz_submissions_new")
         .select("*")
         .eq("organization_id", currentUser.organization_id)
-        .eq("lead_source", "quiz");
+        .eq("funnel_type", resolvedFunnel);
 
-      // Se não for super admin, filtrar apenas leads do consultor
+      // No funil de Consultores mantemos o foco em quiz; em Associados consideramos todas as origens
+      if (!isAssociado) {
+        query = query.eq("lead_source", "quiz");
+      }
+
       if (!isSuperAdmin(currentUser.role)) {
         query = query.eq("consultant_id", currentUser.id);
       }
@@ -111,9 +119,9 @@ const AdminAnalytics = () => {
       return data;
     },
     enabled: !!currentUser,
-    staleTime: 2 * 60 * 1000, // 2 minutos
-    placeholderData: (previousData) => previousData, // ✅ Evita flash de loading
-    refetchOnMount: false, // ✅ Usar cache se disponível - evita piscada
+    staleTime: 2 * 60 * 1000,
+    placeholderData: (previousData) => previousData,
+    refetchOnMount: false,
   });
 
   // Só mostrar loading se não tiver dados ainda (evita piscada)
@@ -356,10 +364,12 @@ const AdminAnalytics = () => {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 animate-fade-in">
           <div className="min-w-0">
             <h1 className="text-2xl sm:text-3xl font-black bg-gradient-to-r from-foreground via-foreground to-foreground/70 bg-clip-text text-transparent">
-              Analytics
+              Analytics — {FUNNEL_LABELS[resolvedFunnel]}
             </h1>
             <p className="text-muted-foreground text-xs sm:text-sm mt-1">
-              Estatísticas detalhadas das respostas do quiz
+              {isAssociado
+                ? 'Estatísticas dos leads do funil de Associados'
+                : 'Estatísticas detalhadas das respostas do quiz de Consultores'}
             </p>
           </div>
           <Select value={period} onValueChange={(v) => setPeriod(v as PeriodFilter)}>
