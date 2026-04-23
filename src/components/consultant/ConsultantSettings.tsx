@@ -1134,6 +1134,8 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
 
 export function ConsultantSettings() {
   const queryClient = useQueryClient();
+  const { resolvedFunnel } = useFunnel();
+  const isAssociadoQuiz = resolvedFunnel === 'associado';
   const fileInputRef = useRef<HTMLInputElement>(null);
   const profilePhotoInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -1147,9 +1149,16 @@ export function ConsultantSettings() {
     queryFn: getCurrentConsultant,
   });
   
-  // Função para verificar se o slug está disponível
+  // Função para verificar se o slug está disponível (verifica os dois campos)
   const checkSlugAvailability = async (slug: string): Promise<boolean> => {
-    if (!slug || !consultant || slug === consultant.quiz_slug) {
+    if (!slug || !consultant) {
+      setSlugError(null);
+      return true;
+    }
+    const currentOwnSlug = isAssociadoQuiz
+      ? (consultant as any).quiz_slug_associado
+      : consultant.quiz_slug;
+    if (slug === currentOwnSlug) {
       setSlugError(null);
       return true;
     }
@@ -1159,8 +1168,8 @@ export function ConsultantSettings() {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('id')
-        .eq('quiz_slug', slug)
+        .select('id, quiz_slug, quiz_slug_associado' as any)
+        .or(`quiz_slug.eq.${slug},quiz_slug_associado.eq.${slug}` as any)
         .neq('id', consultant.id)
         .maybeSingle();
 
@@ -1183,6 +1192,7 @@ export function ConsultantSettings() {
 
   const [formData, setFormData] = useState({
     quiz_slug: '',
+    quiz_slug_associado: '',
     quiz_cover_image: '',
     quiz_image_position: 'center',
     quiz_image_size: 'medium',
@@ -1190,10 +1200,27 @@ export function ConsultantSettings() {
     whatsapp_button_url: '',
     pixel_id: '',
     username: '',
-    quiz_funnel_type: 'consultor' as 'consultor' | 'associado',
     quiz_enabled_consultor: true,
     quiz_enabled_associado: false,
   });
+
+  // Slug "ativo" (do funil sendo editado)
+  const activeSlug = isAssociadoQuiz ? formData.quiz_slug_associado : formData.quiz_slug;
+  const setActiveSlug = (value: string) => {
+    if (isAssociadoQuiz) {
+      setFormData((prev) => ({ ...prev, quiz_slug_associado: value }));
+    } else {
+      setFormData((prev) => ({ ...prev, quiz_slug: value }));
+    }
+  };
+  const activeQuizEnabled = isAssociadoQuiz ? formData.quiz_enabled_associado : formData.quiz_enabled_consultor;
+  const setActiveQuizEnabled = (checked: boolean) => {
+    if (isAssociadoQuiz) {
+      setFormData((prev) => ({ ...prev, quiz_enabled_associado: checked }));
+    } else {
+      setFormData((prev) => ({ ...prev, quiz_enabled_consultor: checked }));
+    }
+  };
 
   useEffect(() => {
     if (consultant) {
