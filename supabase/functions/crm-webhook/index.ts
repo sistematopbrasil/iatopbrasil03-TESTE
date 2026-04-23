@@ -766,17 +766,28 @@ serve(async (req) => {
           
           // ✅ Inserir mensagem com instance_id para unicidade por instância
           // ✅ PRESERVAR metadata.sent_by_ai se já existir no banco (evita sobrescrever flag da IA)
+          // ✅ PRESERVAR media_url/media_filename/media_mimetype/media_size do app
+          //    (a Evolution só ecoa o .enc do WhatsApp, sem URL pública usável)
           let finalMetadata: any = message;
+          let finalMediaUrl: string | null = mediaUrl ?? null;
+          let finalMediaMimetype: string | null = mediaMimetype ?? null;
+          let finalMediaFilename: string | null = mediaFilename ?? null;
+          let finalMediaSize: number | null = mediaSize ?? null;
           if (direction === 'outgoing') {
             const { data: existingMsg } = await supabaseAdmin
               .from('crm_messages')
-              .select('metadata')
+              .select('metadata, media_url, media_mimetype, media_filename, media_size')
               .eq('instance_id', instance.id)
               .eq('message_id', key.id)
               .maybeSingle();
             if (existingMsg?.metadata?.sent_by_ai) {
               finalMetadata = { ...message, sent_by_ai: true, ai_agent: existingMsg.metadata.ai_agent };
             }
+            // 🔒 Preserva os campos de mídia do envio original quando o webhook chega vazio
+            if (!finalMediaUrl && existingMsg?.media_url) finalMediaUrl = existingMsg.media_url;
+            if (!finalMediaMimetype && existingMsg?.media_mimetype) finalMediaMimetype = existingMsg.media_mimetype;
+            if (!finalMediaFilename && existingMsg?.media_filename) finalMediaFilename = existingMsg.media_filename;
+            if (!finalMediaSize && existingMsg?.media_size) finalMediaSize = existingMsg.media_size;
           }
 
           const messageData = {
@@ -786,10 +797,10 @@ serve(async (req) => {
             direction,
             type,
             content,
-            media_url: mediaUrl,
-            media_mimetype: mediaMimetype,
-            media_filename: mediaFilename,
-            media_size: mediaSize,
+            media_url: finalMediaUrl,
+            media_mimetype: finalMediaMimetype,
+            media_filename: finalMediaFilename,
+            media_size: finalMediaSize,
             status: direction === 'outgoing' ? 'sent' : 'delivered',
             timestamp: (() => {
               try {
