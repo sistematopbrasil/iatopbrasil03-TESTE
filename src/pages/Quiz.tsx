@@ -7,12 +7,11 @@ import { Loader2 } from 'lucide-react';
 export default function QuizPage() {
   const { slug } = useParams<{ slug: string }>();
 
-  // Query unificada que busca tudo em paralelo
   const { data: quizData, isLoading } = useQuery({
     queryKey: ['quiz-data', slug],
     queryFn: () => getQuizDataBySlug(slug!),
     enabled: !!slug,
-    staleTime: 1000 * 60 * 5, // 5 minutos de cache
+    staleTime: 1000 * 60 * 5,
   });
   
   if (isLoading) {
@@ -26,7 +25,6 @@ export default function QuizPage() {
     );
   }
 
-  // Organização não encontrada ou inativa
   if (!quizData?.organization) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-background">
@@ -51,7 +49,32 @@ export default function QuizPage() {
     );
   }
 
-  // Renderizar quiz personalizado
+  // Gate: o quiz pode estar desativado para o funil que ele alimenta
+  if (quizData.consultant) {
+    const funnel = quizData.consultant.quiz_funnel_type || 'consultor';
+    const enabled = funnel === 'associado'
+      ? (quizData.consultant.quiz_enabled_associado ?? false)
+      : (quizData.consultant.quiz_enabled_consultor ?? true);
+
+    if (!enabled) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-background">
+          <div className="text-center max-w-md mx-auto p-8">
+            <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mx-auto mb-6">
+              <span className="text-4xl">⏸️</span>
+            </div>
+            <h1 className="text-3xl font-bold text-foreground mb-4">
+              Quiz indisponível
+            </h1>
+            <p className="text-muted-foreground mb-6">
+              Este quiz está temporariamente desativado. Entre em contato pelo WhatsApp para mais informações.
+            </p>
+          </div>
+        </div>
+      );
+    }
+  }
+
   return (
     <QuizContainer
       organization={quizData.organization}

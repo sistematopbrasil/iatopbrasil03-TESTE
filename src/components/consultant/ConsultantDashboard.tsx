@@ -267,29 +267,36 @@ export function ConsultantDashboard() {
     );
   }
 
+  // Quiz card só aparece se o quiz estiver habilitado para o funil ativo
+  const quizEnabledForFunnel = resolvedFunnel === 'associado'
+    ? ((currentUser as any)?.quiz_enabled_associado ?? false)
+    : ((currentUser as any)?.quiz_enabled_consultor ?? true);
+
   return (
     <div className="space-y-6 overflow-x-hidden max-w-full">
       {/* Links do Quiz e Captura */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
-          <CardContent className="py-4">
-            <div className="flex flex-col gap-3">
-              <div className="min-w-0">
-                <h3 className="font-semibold text-foreground">Link do Quiz</h3>
-                <p className="text-sm text-muted-foreground">Compartilhe para capturar leads</p>
-                {currentUser?.quiz_slug && (
-                  <code className="text-xs bg-background px-2 py-1 rounded mt-1 inline-block max-w-full overflow-hidden text-ellipsis">
-                    {getQuizUrl(currentUser.quiz_slug)}
-                  </code>
-                )}
+      <div className={`grid grid-cols-1 ${quizEnabledForFunnel ? 'md:grid-cols-2' : ''} gap-4`}>
+        {quizEnabledForFunnel && (
+          <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
+            <CardContent className="py-4">
+              <div className="flex flex-col gap-3">
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-foreground">Link do Quiz</h3>
+                  <p className="text-sm text-muted-foreground">Compartilhe para capturar leads</p>
+                  {currentUser?.quiz_slug && (
+                    <code className="text-xs bg-background px-2 py-1 rounded mt-1 inline-block max-w-full overflow-hidden text-ellipsis">
+                      {getQuizUrl(currentUser.quiz_slug)}
+                    </code>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={copyQuizLink}><Copy className="w-4 h-4 mr-2" />Copiar</Button>
+                  <Button size="sm" variant="outline" onClick={openQuizLink}><ExternalLink className="w-4 h-4 mr-2" />Abrir</Button>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <Button size="sm" onClick={copyQuizLink}><Copy className="w-4 h-4 mr-2" />Copiar</Button>
-                <Button size="sm" variant="outline" onClick={openQuizLink}><ExternalLink className="w-4 h-4 mr-2" />Abrir</Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
         <Card className="bg-gradient-to-r from-[#EB6608]/10 to-[#EB6608]/5 border-[#EB6608]/20">
           <CardContent className="py-4">
             <div className="flex flex-col gap-3">
