@@ -97,7 +97,8 @@ export function FunnelProvider({ children }: { children: ReactNode }) {
       if (!allowed.includes(defF)) defF = allowed[0];
 
       // Determinar o funil inicial respeitando as restrições do usuário
-      // Prioridade: localStorage do MESMO usuário > last_active_funnel > default_funnel
+      // Prioridade: localStorage do MESMO usuário > last_active_funnel > default
+      // Para super admin sem preferência salva, default é 'all'
       const stored = readStored();
       let initial: ActiveFunnel = defF;
 
@@ -113,6 +114,9 @@ export function FunnelProvider({ children }: { children: ReactNode }) {
         }
       } else if (lastF && allowed.includes(lastF)) {
         initial = lastF;
+      } else if (superAdmin && allowed.length > 1) {
+        // ✅ Super admin sem preferência → padrão 'Todos'
+        initial = 'all';
       }
 
       // ✅ Se só tem 1 funil disponível, força esse funil (sem 'all')

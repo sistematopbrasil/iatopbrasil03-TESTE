@@ -8,9 +8,8 @@ import { Users, TrendingUp, Flame, UserPlus } from 'lucide-react';
 import { ConsultantsTable } from '@/components/super-admin/ConsultantsTable';
 import { SuperAdminCharts } from '@/components/super-admin/SuperAdminCharts';
 import { AdminLayout } from '@/components/admin/AdminLayout';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { FunnelType } from '@/lib/funnel-types';
-import { useFunnel, ActiveFunnel } from '@/contexts/FunnelContext';
+import { useFunnel } from '@/contexts/FunnelContext';
 
 interface FunnelMetrics {
   totalConsultants: number;
@@ -44,7 +43,7 @@ async function loadMetrics(orgId: string, funnel?: FunnelType): Promise<FunnelMe
     .from('pipeline_stages')
     .select('id, name, funnel_type')
     .eq('organization_id', orgId)
-    .or('name.ilike.%convertido%,name.ilike.%consultor%');
+    .or('name.ilike.%convertido%,name.ilike.%consultor%,name.ilike.%associad%,name.ilike.%fechad%,name.ilike.%ganho%');
   if (funnel) stagesQuery = stagesQuery.eq('funnel_type', funnel);
   const { data: conversionStages } = await stagesQuery;
 
@@ -107,7 +106,7 @@ function MetricsBlock({ metrics, funnel }: { metrics: FunnelMetrics | undefined;
 
 export default function AdminSuperAdmin() {
   const navigate = useNavigate();
-  const { activeFunnel, setActiveFunnel, canSeeAll, availableFunnels } = useFunnel();
+  const { activeFunnel } = useFunnel();
 
   const { data: currentUser, isLoading: loadingUser } = useQuery({
     queryKey: ['current-user'],
@@ -122,33 +121,14 @@ export default function AdminSuperAdmin() {
 
   const orgId = currentUser?.organization_id;
 
-  const { data: metricsAll } = useQuery({
-    queryKey: ['super-admin-metrics', orgId, 'all'],
-    queryFn: () => loadMetrics(orgId!),
-    enabled: !!orgId,
-  });
-  const { data: metricsConsultor } = useQuery({
-    queryKey: ['super-admin-metrics', orgId, 'consultor'],
-    queryFn: () => loadMetrics(orgId!, 'consultor'),
-    enabled: !!orgId,
-  });
-  const { data: metricsAssociado } = useQuery({
-    queryKey: ['super-admin-metrics', orgId, 'associado'],
-    queryFn: () => loadMetrics(orgId!, 'associado'),
-    enabled: !!orgId,
-  });
+  // Selecionar funil concreto para queries; 'all' → undefined (sem filtro)
+  const funnelForQuery: FunnelType | undefined = activeFunnel === 'all' ? undefined : (activeFunnel as FunnelType);
 
-  // Sincroniza Tabs internas com o FunnelSwitcher global (bidirecional)
-  const tabValue: ActiveFunnel = activeFunnel;
-  const handleTabChange = (v: string) => {
-    if (v === 'all' || v === 'consultor' || v === 'associado') {
-      setActiveFunnel(v as ActiveFunnel);
-    }
-  };
-
-  const showAllTab = canSeeAll && availableFunnels.length > 1;
-  const showConsultorTab = availableFunnels.includes('consultor');
-  const showAssociadoTab = availableFunnels.includes('associado');
+  const { data: metrics } = useQuery({
+    queryKey: ['super-admin-metrics', orgId, activeFunnel],
+    queryFn: () => loadMetrics(orgId!, funnelForQuery),
+    enabled: !!orgId,
+  });
 
   // Título dinâmico
   const headerTitle = useMemo(() => {
@@ -175,38 +155,14 @@ export default function AdminSuperAdmin() {
             {headerTitle}
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Visão geral por funil e consolidada
+            {activeFunnel === 'all'
+              ? 'Use o seletor de funil ao lado esquerdo para filtrar por Consultores ou Associados.'
+              : 'Visão consolidada do funil selecionado. Troque no menu lateral para ver outro.'}
           </p>
         </div>
 
-        <Tabs value={tabValue} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="w-full sm:w-auto overflow-x-auto">
-            {showAllTab && <TabsTrigger value="all" className="text-xs sm:text-sm">Geral</TabsTrigger>}
-            {showConsultorTab && <TabsTrigger value="consultor" className="text-xs sm:text-sm">Consultores</TabsTrigger>}
-            {showAssociadoTab && <TabsTrigger value="associado" className="text-xs sm:text-sm">Associados</TabsTrigger>}
-          </TabsList>
-
-          {showAllTab && (
-            <TabsContent value="all" className="space-y-6 mt-4">
-              <MetricsBlock metrics={metricsAll} />
-              <SuperAdminCharts />
-            </TabsContent>
-          )}
-
-          {showConsultorTab && (
-            <TabsContent value="consultor" className="space-y-6 mt-4">
-              <MetricsBlock metrics={metricsConsultor} funnel="consultor" />
-              <SuperAdminCharts funnel="consultor" />
-            </TabsContent>
-          )}
-
-          {showAssociadoTab && (
-            <TabsContent value="associado" className="space-y-6 mt-4">
-              <MetricsBlock metrics={metricsAssociado} funnel="associado" />
-              <SuperAdminCharts funnel="associado" />
-            </TabsContent>
-          )}
-        </Tabs>
+        <MetricsBlock metrics={metrics} funnel={funnelForQuery} />
+        <SuperAdminCharts funnel={funnelForQuery} />
 
         {/* Tabela de consultores */}
         <ConsultantsTable />
