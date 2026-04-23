@@ -196,7 +196,12 @@ export function QuizQuestionsEditor() {
         <div className="flex items-center justify-between">
           <div>
             <CardTitle>Perguntas do Quiz</CardTitle>
-            <CardDescription>Personalize as perguntas do seu quiz. Arraste para reordenar.</CardDescription>
+            <CardDescription>
+              Personalize as perguntas do seu quiz. Arraste para reordenar.
+              <span className="block mt-1 text-xs text-amber-600 dark:text-amber-400">
+                ⚠️ Estas perguntas são compartilhadas entre todos os funis em que você usa o quiz.
+              </span>
+            </CardDescription>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>

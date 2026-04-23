@@ -25,7 +25,8 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { ad_account_id, organization_id, date_preset } = await req.json();
+    const body = await req.json();
+    const { ad_account_id, organization_id, date_preset, time_range } = body;
     if (!ad_account_id || !organization_id) {
       return new Response(JSON.stringify({ error: "ad_account_id and organization_id required" }), {
         status: 400,
@@ -40,10 +41,20 @@ Deno.serve(async (req) => {
     const token = await getIntegrationValue("META_ACCESS_TOKEN", supabase);
     if (!token) throw new Error("META_ACCESS_TOKEN não configurado");
     const version = await getIntegrationValueOrDefault("META_GRAPH_VERSION", "v21.0", supabase);
-    const preset = date_preset || "last_3d";
 
     const fields = "impressions,clicks,spend,cpc,ctr,reach,frequency,actions,action_values";
-    const url = `https://graph.facebook.com/${version}/act_${ad_account_id}/insights?fields=${fields}&time_increment=1&date_preset=${preset}&limit=100&access_token=${token}`;
+
+    // Build URL: prefer time_range when provided, else date_preset
+    let dateParam: string;
+    if (time_range && time_range.since && time_range.until) {
+      const tr = encodeURIComponent(JSON.stringify({ since: time_range.since, until: time_range.until }));
+      dateParam = `time_range=${tr}`;
+    } else {
+      const preset = date_preset || "last_3d";
+      dateParam = `date_preset=${preset}`;
+    }
+
+    const url = `https://graph.facebook.com/${version}/act_${ad_account_id}/insights?fields=${fields}&time_increment=1&${dateParam}&limit=100&access_token=${token}`;
 
     const rows = await fetchAllPages(url);
 

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAdAccounts } from "@/hooks/useAdAccounts";
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentConsultant, isSuperAdmin } from "@/lib/consultant-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -9,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle, XCircle, RefreshCw, Loader2, Clock, Zap, Bot, Save } from "lucide-react";
+import { CheckCircle, XCircle, RefreshCw, Loader2, Clock, Zap, Bot, Save, Wrench } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Props {
@@ -52,6 +54,13 @@ export function TrafficSettings({ organizationId }: Props) {
   const [aiEnabled, setAiEnabled] = useState(false);
   const [loadingSettings, setLoadingSettings] = useState(true);
   const [savingAI, setSavingAI] = useState(false);
+  const [repairing, setRepairing] = useState(false);
+
+  const { data: currentUser } = useQuery({
+    queryKey: ['current-user-traffic-settings'],
+    queryFn: getCurrentConsultant,
+  });
+  const isSuper = currentUser ? isSuperAdmin(currentUser.role) : false;
 
   // AI config state
   const [aiModel, setAiModel] = useState("google/gemini-3-flash-preview");
@@ -123,6 +132,28 @@ export function TrafficSettings({ organizationId }: Props) {
     setSavingAI(false);
   };
 
+  const repairHistory = async () => {
+    if (!isSuper) return;
+    setRepairing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-fill-gap", {
+        body: { organization_id: organizationId, days_back: 90 },
+      });
+      if (error) throw error;
+      const filled = (data as any)?.filled || [];
+      const totalDays = filled.reduce((acc: number, r: any) => acc + (r.days_filled || 0), 0);
+      const accountsWithGaps = filled.filter((r: any) => (r.gaps || 0) > 0).length;
+      toast({
+        title: "Histórico reparado",
+        description: `${totalDays} dia(s) preenchido(s) em ${accountsWithGaps} conta(s).`,
+      });
+    } catch (e: any) {
+      toast({ title: "Erro ao reparar histórico", description: e.message, variant: "destructive" });
+    } finally {
+      setRepairing(false);
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
       {/* Token Status */}
@@ -192,6 +223,23 @@ export function TrafficSettings({ organizationId }: Props) {
               <span className="font-medium text-foreground">Últimos 3 dias + hoje (incremental)</span>
             </div>
           </div>
+          {isSuper && (
+            <div className="pt-2">
+              <Button
+                onClick={repairHistory}
+                disabled={repairing}
+                variant="outline"
+                size="sm"
+                className="w-full"
+              >
+                {repairing ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Wrench className="h-4 w-4 mr-1.5" />}
+                Reparar histórico (preencher dias faltantes)
+              </Button>
+              <p className="text-[11px] text-muted-foreground mt-1.5">
+                Detecta lacunas nos últimos 90 dias e busca os dias faltantes da Meta API.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 

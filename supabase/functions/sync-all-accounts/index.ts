@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
 
     let q = supabase
       .from("ad_accounts")
-      .select("ad_account_id, organization_id, days_synced")
+      .select("ad_account_id, organization_id, days_synced, last_synced_at")
       .eq("is_monitored", true);
     if (organization_id) q = q.eq("organization_id", organization_id);
 
@@ -36,12 +36,20 @@ Deno.serve(async (req) => {
     const baseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const results: any[] = [];
+    const now = Date.now();
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
     for (const acc of accounts) {
       try {
-        // Smart sync: first time = 90d backfill, subsequent = last 3 days only
+        // Smart sync heuristic:
+        // - First time / never synced => last_90d (full backfill)
+        // - last_synced_at older than 7 days => last_30d (cover gaps)
+        // - Otherwise => last_3d (incremental)
         const isFirstSync = !acc.days_synced || acc.days_synced === 0;
-        const datePreset = isFirstSync ? "last_90d" : "last_3d";
+        const lastSyncedMs = acc.last_synced_at ? new Date(acc.last_synced_at).getTime() : 0;
+        const isStale = !lastSyncedMs || (now - lastSyncedMs) > SEVEN_DAYS_MS;
+
+        const datePreset = isFirstSync ? "last_90d" : (isStale ? "last_30d" : "last_3d");
 
         const res = await fetch(`${baseUrl}/functions/v1/fetch-meta-ads-data`, {
           method: "POST",
@@ -76,11 +84,12 @@ Deno.serve(async (req) => {
 
         // Only update days_synced if data was actually synced
         if (data.synced > 0) {
+          const incrementDays = isFirstSync ? 90 : (isStale ? 30 : 3);
           await supabase
             .from("ad_accounts")
             .update({
               last_synced_at: new Date().toISOString(),
-              days_synced: isFirstSync ? 90 : (acc.days_synced || 0) + 3,
+              days_synced: isFirstSync ? 90 : (acc.days_synced || 0) + incrementDays,
             })
             .eq("ad_account_id", acc.ad_account_id)
             .eq("organization_id", acc.organization_id);
