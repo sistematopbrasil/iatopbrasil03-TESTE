@@ -78,17 +78,18 @@ export function CreateLeadFromConversation({ conversation, onLeadCreated }: Crea
       // Normalizar telefone antes de salvar
       const normalizedPhone = normalizePhone(conversation.contact_phone);
       
-      // Criar lead na tabela quiz_submissions_new
+      // Criar lead na tabela quiz_submissions_new — herda funil ativo
       const { data: lead, error: leadError } = await supabase
         .from('quiz_submissions_new')
         .insert({
           name: name.trim(),
-          phone: normalizedPhone, // Telefone normalizado
+          phone: normalizedPhone,
           organization_id: conversation.organization_id,
           consultant_id: conversation.user_id,
           pipeline_stage_id: selectedStage || pipelineStages[0]?.id,
           stage: 'novo',
-          temperature: 'cold',
+          funnel_type: stagesFunnel,
+          temperature: stagesFunnel === 'associado' ? 'warm' : 'cold',
           completion_percentage: 0,
           lead_score: 0,
           lead_source: 'whatsapp',
