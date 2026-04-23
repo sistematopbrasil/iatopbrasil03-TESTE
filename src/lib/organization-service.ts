@@ -38,6 +38,9 @@ export interface ConsultantInfo {
   quiz_image_shape?: string | null;
   quiz_image_size?: string | null;
   pixel_id?: string | null;
+  quiz_funnel_type?: 'consultor' | 'associado' | null;
+  quiz_enabled_consultor?: boolean | null;
+  quiz_enabled_associado?: boolean | null;
 }
 
 export interface QuizData {
