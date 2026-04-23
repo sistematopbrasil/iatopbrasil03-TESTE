@@ -132,6 +132,28 @@ export function TrafficSettings({ organizationId }: Props) {
     setSavingAI(false);
   };
 
+  const repairHistory = async () => {
+    if (!isSuper) return;
+    setRepairing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-fill-gap", {
+        body: { organization_id: organizationId, days_back: 90 },
+      });
+      if (error) throw error;
+      const filled = (data as any)?.filled || [];
+      const totalDays = filled.reduce((acc: number, r: any) => acc + (r.days_filled || 0), 0);
+      const accountsWithGaps = filled.filter((r: any) => (r.gaps || 0) > 0).length;
+      toast({
+        title: "Histórico reparado",
+        description: `${totalDays} dia(s) preenchido(s) em ${accountsWithGaps} conta(s).`,
+      });
+    } catch (e: any) {
+      toast({ title: "Erro ao reparar histórico", description: e.message, variant: "destructive" });
+    } finally {
+      setRepairing(false);
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
       {/* Token Status */}
