@@ -361,7 +361,7 @@ serve(async (req) => {
         media_filename: file_name || null,
         status: 'sent',
         timestamp: new Date().toISOString(),
-        metadata: sendResult.response,
+        metadata: { ...sendResult.response, sent_via: 'app' },
       }, { onConflict: 'instance_id,message_id' });
 
     if (msgError) {
