@@ -360,10 +360,10 @@ export function PipelineBoard() {
                     {/* Lista de Leads com scroll vertical - mouse wheel habilitado */}
                     <div 
                       data-pipeline-vertical-scroll="true"
-                      className="flex-1 overflow-hidden"
+                      className="flex-1 min-h-0 overflow-hidden"
                     >
-                      <ScrollArea className="h-full p-2">
-                        <div className="space-y-2">
+                      <ScrollArea className="h-full">
+                        <div className="space-y-2 p-2 pb-6">
                         {stageLeads.map((lead, index) => (
                           <Draggable key={lead.id} draggableId={lead.id} index={index}>
                             {(provided, snapshot) => (
