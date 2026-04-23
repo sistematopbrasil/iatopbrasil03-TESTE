@@ -232,6 +232,7 @@ function CapturePagePreview({ config }: { config: any }) {
 
 function CaptureSettingsTab({ consultant }: { consultant: any }) {
   const queryClient = useQueryClient();
+  const { resolvedFunnel } = useFunnel();
   const heroInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [uploadingHero, setUploadingHero] = useState(false);
@@ -239,7 +240,11 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
   const [videoUrlInput, setVideoUrlInput] = useState('');
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [linkSuffix, setLinkSuffix] = useState('');
-  const [pagePurpose, setPagePurpose] = useState<'protection' | 'recruitment'>('protection');
+  // pagePurpose agora é determinado pelo funil ativo no sidebar:
+  // funnel = 'consultor' → recrutamento (/r/)
+  // funnel = 'associado' → proteção veicular (/c/)
+  const pagePurpose: 'protection' | 'recruitment' =
+    resolvedFunnel === 'consultor' ? 'recruitment' : 'protection';
   const linkPrefix = pagePurpose === 'recruitment' ? `${window.location.origin}/r/` : `${window.location.origin}/c/`;
   const recruitLinkPrefix = `${window.location.origin}/r/`;
   const [captureForm, setCaptureForm] = useState({
