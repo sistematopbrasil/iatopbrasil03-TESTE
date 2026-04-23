@@ -149,7 +149,11 @@ export default function AdminRanking() {
             <div className="flex items-center gap-3">
               <Users className="w-8 h-8 text-blue-500" />
               <div>
-                <p className="text-sm text-muted-foreground">Total de Consultores</p>
+                <p className="text-sm text-muted-foreground">
+                  {activeFunnel === 'associado' ? 'Total de Associados (captadores)'
+                    : activeFunnel === 'all' ? 'Total Geral'
+                    : 'Total de Consultores'}
+                </p>
                 <p className="text-2xl font-bold text-foreground">{ranking?.length || 0}</p>
               </div>
             </div>
