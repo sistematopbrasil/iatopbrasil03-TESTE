@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAdAccounts } from "@/hooks/useAdAccounts";
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentConsultant, isSuperAdmin } from "@/lib/consultant-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -9,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle, XCircle, RefreshCw, Loader2, Clock, Zap, Bot, Save } from "lucide-react";
+import { CheckCircle, XCircle, RefreshCw, Loader2, Clock, Zap, Bot, Save, Wrench } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Props {
@@ -52,6 +54,13 @@ export function TrafficSettings({ organizationId }: Props) {
   const [aiEnabled, setAiEnabled] = useState(false);
   const [loadingSettings, setLoadingSettings] = useState(true);
   const [savingAI, setSavingAI] = useState(false);
+  const [repairing, setRepairing] = useState(false);
+
+  const { data: currentUser } = useQuery({
+    queryKey: ['current-user-traffic-settings'],
+    queryFn: getCurrentConsultant,
+  });
+  const isSuper = currentUser ? isSuperAdmin(currentUser.role) : false;
 
   // AI config state
   const [aiModel, setAiModel] = useState("google/gemini-3-flash-preview");
