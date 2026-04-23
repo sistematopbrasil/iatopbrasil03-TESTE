@@ -91,17 +91,22 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
   // Inicializar Meta Pixel do consultor (só quando carregado)
   const { trackEvent } = useMetaPixel({ pixelId: consultant?.pixel_id || undefined });
 
-  // Fetch ALL questions for the consultant - com cache
+  // Funil que o quiz alimenta para este consultor (default consultor)
+  const quizFunnelType: 'consultor' | 'associado' =
+    (consultant as any)?.quiz_funnel_type === 'associado' ? 'associado' : 'consultor';
+
+  // Fetch ALL questions for the consultant - filtradas pelo funil ativo do quiz
   const { data: questions, isLoading: loadingQuestions } = useQuery({
-    queryKey: ["quiz-questions-public", consultant?.id],
+    queryKey: ["quiz-questions-public", consultant?.id, quizFunnelType],
     queryFn: async () => {
       if (!consultant?.id) return [];
 
-      const { data, error } = await supabase
+      const { data, error } = await (supabase
         .from("quiz_questions")
         .select("id, question_text, question_type, options, order_index")
         .eq("consultant_id", consultant.id)
-        .eq("is_active", true)
+        .eq("is_active", true) as any)
+        .eq("funnel_type", quizFunnelType)
         .order("order_index", { ascending: true });
 
       if (error) throw error;
@@ -198,9 +203,8 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
 
       const leadId = uuidv4();
 
-      // ✅ Funil que o quiz alimenta — configurável por consultor (default 'consultor')
-      const quizFunnel: 'consultor' | 'associado' =
-        (consultant as any)?.quiz_funnel_type === 'associado' ? 'associado' : 'consultor';
+      // ✅ Funil que o quiz alimenta — já calculado acima
+      const quizFunnel: 'consultor' | 'associado' = quizFunnelType;
 
       const submissionData = {
         id: leadId,
