@@ -203,9 +203,8 @@ export const QuizContainer = ({ organization, config, consultantId: propConsulta
 
       const leadId = uuidv4();
 
-      // ✅ Funil que o quiz alimenta — configurável por consultor (default 'consultor')
-      const quizFunnel: 'consultor' | 'associado' =
-        (consultant as any)?.quiz_funnel_type === 'associado' ? 'associado' : 'consultor';
+      // ✅ Funil que o quiz alimenta — já calculado acima
+      const quizFunnel: 'consultor' | 'associado' = quizFunnelType;
 
       const submissionData = {
         id: leadId,
