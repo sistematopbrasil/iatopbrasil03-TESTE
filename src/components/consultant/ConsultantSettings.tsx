@@ -11,8 +11,9 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Save, Copy, ExternalLink, Upload, Trash2, Check, User, Plus, X, GripVertical, ArrowUp, ArrowDown, FileText, Globe, Image, Users, Shield } from 'lucide-react';
+import { Loader2, Save, Copy, ExternalLink, Upload, Trash2, Check, User, Plus, X, GripVertical, ArrowUp, ArrowDown, FileText, Globe, Image, Users, Shield, Info } from 'lucide-react';
 import { QuizQuestionsEditor } from './QuizQuestionsEditor';
+import { useFunnel } from '@/contexts/FunnelContext';
 import { cn } from '@/lib/utils';
 
 function ThemeSelector() {

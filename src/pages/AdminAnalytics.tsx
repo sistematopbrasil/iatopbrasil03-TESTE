@@ -357,6 +357,7 @@ const AdminAnalytics = () => {
   const currentIncomeData = aggregateData("current_income");
   const desiredIncomeData = aggregateData("desired_income");
   const sourceData = aggregateData("lead_source");
+  const locationData = aggregateData("location");
 
   return (
     <AdminLayout>
@@ -534,6 +535,11 @@ const AdminAnalytics = () => {
           {isAssociado && (
             <div className="animate-fade-in" style={{ animationDelay: "180ms" }}>
               {renderDonutChart(sourceData, "Origem do Lead", "De onde vieram os leads (quiz, captura, whatsapp...)")}
+            </div>
+          )}
+          {isAssociado && (
+            <div className="animate-fade-in" style={{ animationDelay: "190ms" }}>
+              {renderDonutChart(locationData, "Localização", "Distribuição por cidade/estado dos associados")}
             </div>
           )}
           <div className="animate-fade-in" style={{ animationDelay: "200ms" }}>
