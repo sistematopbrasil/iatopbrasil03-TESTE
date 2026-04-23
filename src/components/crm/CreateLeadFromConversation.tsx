@@ -24,6 +24,7 @@ import { toast } from 'sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Conversation } from '@/lib/crm-service';
 import { normalizePhone } from '@/lib/phone-utils';
+import { useFunnel } from '@/contexts/FunnelContext';
 
 interface CreateLeadFromConversationProps {
   conversation: Conversation;
@@ -36,15 +37,18 @@ export function CreateLeadFromConversation({ conversation, onLeadCreated }: Crea
   const [name, setName] = useState(conversation.contact_name || '');
   const [selectedStage, setSelectedStage] = useState<string>('');
   const queryClient = useQueryClient();
+  const { resolvedFunnel } = useFunnel();
+  const stagesFunnel = resolvedFunnel as 'consultor' | 'associado';
 
-  // Buscar stages do pipeline FILTRADO POR ORGANIZAÇÃO
+  // Buscar stages do pipeline FILTRADO POR ORGANIZAÇÃO + FUNIL
   const { data: pipelineStages = [] } = useQuery({
-    queryKey: ['pipeline-stages', conversation.organization_id],
+    queryKey: ['pipeline-stages', conversation.organization_id, stagesFunnel],
     queryFn: async () => {
       const { data } = await supabase
         .from('pipeline_stages')
         .select('*')
         .eq('organization_id', conversation.organization_id)
+        .eq('funnel_type', stagesFunnel)
         .order('order_index', { ascending: true });
       return data || [];
     },

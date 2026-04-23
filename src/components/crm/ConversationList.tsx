@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useConversations } from '@/hooks/useConversations';
+import { useFunnel } from '@/contexts/FunnelContext';
 import { useWhatsAppConnectionContext } from '@/contexts/WhatsAppConnectionContext';
 import { Conversation } from '@/lib/crm-service';
 import { Card } from '@/components/ui/card';
@@ -82,15 +83,20 @@ export function ConversationList({
   
   const [showNewContactDialog, setShowNewContactDialog] = useState(false);
   const [stageFilter, setStageFilter] = useState<string | null>(null);
+  const { resolvedFunnel } = useFunnel();
+  const stagesFunnel = resolvedFunnel as 'consultor' | 'associado';
 
-  // Buscar stages do pipeline
+  // Buscar stages do pipeline (filtrado por organização + funil ativo)
   const { data: pipelineStages } = useQuery({
-    queryKey: ['pipeline-stages-filter'],
+    queryKey: ['pipeline-stages-filter', organizationId, stagesFunnel],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('pipeline_stages')
         .select('id, name, color, order_index')
+        .eq('funnel_type', stagesFunnel)
         .order('order_index');
+      if (organizationId) query = query.eq('organization_id', organizationId);
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     }
