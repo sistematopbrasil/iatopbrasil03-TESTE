@@ -18,6 +18,8 @@ import {
 } from '@/components/ui/dialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import { useFunnel } from '@/contexts/FunnelContext';
+import { FUNNEL_LABELS } from '@/lib/funnel-types';
 
 type QuestionType = 'multiple_choice' | 'open_text' | 'yes_no';
 
@@ -35,15 +37,17 @@ export function QuizQuestionsEditor() {
   const queryClient = useQueryClient();
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { resolvedFunnel } = useFunnel();
+  const funnelType = resolvedFunnel as 'consultor' | 'associado';
 
   const { data: consultant } = useQuery({
     queryKey: ['current-consultant-questions'],
     queryFn: getCurrentConsultant,
   });
 
-  // Fetch all questions (including inactive ones to allow reactivation)
+  // Fetch all questions for the consultant + funil ativo
   const { data: questions, isLoading } = useQuery({
-    queryKey: ['quiz-questions', consultant?.id],
+    queryKey: ['quiz-questions', consultant?.id, funnelType],
     queryFn: async () => {
       if (!consultant?.id) return [];
       
@@ -51,6 +55,7 @@ export function QuizQuestionsEditor() {
         .from('quiz_questions')
         .select('*')
         .eq('consultant_id', consultant.id)
+        .eq('funnel_type', funnelType)
         .order('order_index');
 
       if (error) throw error;
@@ -83,8 +88,9 @@ export function QuizQuestionsEditor() {
             question_type: question.question_type,
             options: question.options,
             order_index: (questions?.length || 0) + 1,
-            is_default: false, // User-created questions are not default
-          });
+            is_default: false,
+            funnel_type: funnelType,
+          } as any);
 
         if (error) throw error;
       }
@@ -195,11 +201,11 @@ export function QuizQuestionsEditor() {
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle>Perguntas do Quiz</CardTitle>
+            <CardTitle>Perguntas do Quiz — {FUNNEL_LABELS[funnelType]}</CardTitle>
             <CardDescription>
               Personalize as perguntas do seu quiz. Arraste para reordenar.
-              <span className="block mt-1 text-xs text-amber-600 dark:text-amber-400">
-                ⚠️ Estas perguntas são compartilhadas entre todos os funis em que você usa o quiz.
+              <span className="block mt-1 text-xs text-muted-foreground">
+                Cada funil tem seu próprio conjunto de perguntas. Troque o funil no menu lateral para editar o outro.
               </span>
             </CardDescription>
           </div>

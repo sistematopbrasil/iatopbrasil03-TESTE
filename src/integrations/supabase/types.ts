@@ -1554,6 +1554,7 @@ export type Database = {
         Row: {
           consultant_id: string
           created_at: string | null
+          funnel_type: Database["public"]["Enums"]["funnel_type"]
           id: string
           is_active: boolean | null
           is_default: boolean | null
@@ -1566,6 +1567,7 @@ export type Database = {
         Insert: {
           consultant_id: string
           created_at?: string | null
+          funnel_type?: Database["public"]["Enums"]["funnel_type"]
           id?: string
           is_active?: boolean | null
           is_default?: boolean | null
@@ -1578,6 +1580,7 @@ export type Database = {
         Update: {
           consultant_id?: string
           created_at?: string | null
+          funnel_type?: Database["public"]["Enums"]["funnel_type"]
           id?: string
           is_active?: boolean | null
           is_default?: boolean | null

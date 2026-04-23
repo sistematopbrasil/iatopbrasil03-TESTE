@@ -87,12 +87,19 @@ serve(async (req) => {
     );
 
     // 1. Fetch all consultants in the organization (including email for display)
-    // Não filtrar por is_active para mostrar todos os consultores
-    const { data: consultants, error: consultantsError } = await supabaseAdmin
+    // Filter by allowed_funnels when funnelFilter is single
+    let consultantsQuery = supabaseAdmin
       .from('users')
       .select('id, full_name, email, quiz_slug, profile_photo, is_active, crm_enabled, ai_enabled, ranking_visible, allowed_funnels, default_funnel')
       .eq('organization_id', organizationId)
       .in('role', ['admin', 'consultor']);
+
+    if (funnelFilter === 'consultor' || funnelFilter === 'associado') {
+      // Postgres array contains: only consultores que têm o funil ativo nos seus allowed_funnels
+      consultantsQuery = consultantsQuery.contains('allowed_funnels', [funnelFilter]);
+    }
+
+    const { data: consultants, error: consultantsError } = await consultantsQuery;
 
     if (consultantsError) {
       console.error('❌ Consultants error:', consultantsError);

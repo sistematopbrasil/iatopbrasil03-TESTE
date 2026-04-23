@@ -17,6 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatPhoneDisplay, normalizePhone } from '@/lib/phone-utils';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useFunnel } from '@/contexts/FunnelContext';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,6 +50,7 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
   const [showProfile, setShowProfile] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const queryClient = useQueryClient();
+  const { resolvedFunnel } = useFunnel();
 
   // Check if current consultant has AI enabled AND auto_reply is on
   const { data: currentUserAI } = useQuery({
@@ -75,15 +77,33 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
     refetchOnMount: 'always',
   });
 
-  // Buscar stages do pipeline FILTRADO POR ORGANIZAÇÃO
+  // Buscar lead vinculado para descobrir funnel_type — usado no filtro de stages
+  const { data: leadFunnelData } = useQuery({
+    queryKey: ['lead-funnel-for-stages', conversation?.lead_id],
+    queryFn: async () => {
+      if (!conversation?.lead_id) return null;
+      const { data } = await supabase
+        .from('quiz_submissions_new')
+        .select('funnel_type')
+        .eq('id', conversation.lead_id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!conversation?.lead_id,
+  });
+  const stagesFunnel = ((leadFunnelData?.funnel_type as 'consultor' | 'associado' | undefined)
+    || (resolvedFunnel as 'consultor' | 'associado'));
+
+  // Buscar stages do pipeline FILTRADO POR ORGANIZAÇÃO + FUNIL
   const { data: pipelineStages = [] } = useQuery({
-    queryKey: ['pipeline-stages', conversation?.organization_id],
+    queryKey: ['pipeline-stages', conversation?.organization_id, stagesFunnel],
     queryFn: async () => {
       if (!conversation?.organization_id) return [];
       const { data } = await supabase
         .from('pipeline_stages')
         .select('*')
         .eq('organization_id', conversation.organization_id)
+        .eq('funnel_type', stagesFunnel)
         .order('order_index', { ascending: true });
       return data || [];
     },
@@ -145,7 +165,7 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
         // Normalizar telefone antes de criar lead
         const normalizedPhone = normalizePhone(conversation?.contact_phone || '');
         
-        // Criar lead com dados da conversa
+        // Criar lead com dados da conversa — herda funil ativo do contexto
         const { data: newLead, error: createError } = await supabase
           .from('quiz_submissions_new')
           .insert({
@@ -154,8 +174,11 @@ export function ChatWindow({ conversation, onClose }: ChatWindowProps) {
             organization_id: userData.organization_id,
             consultant_id: userData.id,
             pipeline_stage_id: newStageId,
-            temperature: 'cold', // ✅ Lead manual = Frio
+            funnel_type: stagesFunnel,
+            // Associados-non-quiz começam morno (gerenciado pelo trigger calculate_lead_score)
+            temperature: stagesFunnel === 'associado' ? 'warm' : 'cold',
             completion_percentage: 0,
+            lead_source: 'whatsapp',
           })
           .select()
           .single();
