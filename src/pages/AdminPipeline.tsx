@@ -75,7 +75,7 @@ export default function AdminPipeline() {
         {/* Pipeline Board - scrollbar nativa estilizada */}
         <div 
           ref={scrollRef}
-          className="flex-1 min-h-0 px-4 md:px-6 pb-3 pipeline-scroll cursor-grab active:cursor-grabbing"
+          className="flex-1 min-h-0 px-4 md:px-6 pb-6 pipeline-scroll cursor-grab active:cursor-grabbing"
         >
           <div 
             className="inline-flex gap-3 md:gap-4 h-full"
