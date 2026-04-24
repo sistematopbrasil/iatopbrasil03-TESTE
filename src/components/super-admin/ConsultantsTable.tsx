@@ -10,6 +10,7 @@ import { CreateConsultantDialog } from './CreateConsultantDialog';
 import { EditConsultantFunnelDialog } from './EditConsultantFunnelDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useRankingData } from '@/hooks/useRankingData';
+import { useFunnel } from '@/contexts/FunnelContext';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,6 +37,11 @@ export function ConsultantsTable() {
   
   // Usar hook centralizado para dados de ranking
   const { ranking, isLoading, currentUser } = useRankingData();
+  const { activeFunnel } = useFunnel();
+  const novosLabel =
+    activeFunnel === 'associado' ? 'Novos Assoc.'
+    : activeFunnel === 'consultor' ? 'Novos Cons.'
+    : 'Novos Cons./Assoc.';
 
   // Mutation para ativar/desativar consultor
   const toggleActiveMutation = useMutation({
@@ -189,7 +195,7 @@ export function ConsultantsTable() {
                     <p className="text-sm font-semibold">{consultant.total_leads}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Novos Cons.</p>
+                    <p className="text-xs text-muted-foreground">{novosLabel}</p>
                     <p className="text-sm font-semibold text-green-600">{consultant.novos_consultores_count}</p>
                   </div>
                   <div>
@@ -345,7 +351,7 @@ export function ConsultantsTable() {
                     Leads
                   </th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
-                    Novos Cons.
+                    {novosLabel}
                   </th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
                     Quentes 🔥

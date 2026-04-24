@@ -114,10 +114,14 @@ serve(async (req) => {
       );
     }
 
-    // 2. Get "Novos Consultores" stage ID
-    const { data: novosStageId } = await supabaseAdmin.rpc('get_novos_consultores_stage_id', {
-      org_id: organizationId
-    });
+    // 2. Get conversion stage IDs for BOTH funnels
+    // Consultor → stage "Consultor" / Associado → stage "Novos Associados"
+    const [{ data: consultorStageId }, { data: associadoStageId }] = await Promise.all([
+      supabaseAdmin.rpc('get_conversion_stage_id_by_funnel', { org_id: organizationId, p_funnel: 'consultor' }),
+      supabaseAdmin.rpc('get_conversion_stage_id_by_funnel', { org_id: organizationId, p_funnel: 'associado' }),
+    ]);
+    // Backward-compat: stage usado para "novosConsultores" no modo legado/consultor
+    const novosStageId = consultorStageId;
 
     // 3. Fetch leads with optional funnel filter
     // IMPORTANTE: Não filtrar por completion_percentage para incluir leads frios
@@ -161,8 +165,11 @@ serve(async (req) => {
         const metrics = metricsMap.get(lead.consultant_id);
         if (!metrics) return;
         metrics.total++;
-        const isNovosConsultores = novosStageId && lead.pipeline_stage_id === novosStageId;
-        if (isNovosConsultores) {
+        // ✅ Stage de conversão depende do funil do lead
+        const leadFunnel = lead.funnel_type ?? 'consultor';
+        const conversionStageId = leadFunnel === 'associado' ? associadoStageId : consultorStageId;
+        const isConvertido = conversionStageId && lead.pipeline_stage_id === conversionStageId;
+        if (isConvertido) {
           metrics.novosConsultores++;
         } else {
           if (lead.temperature === 'hot') metrics.hot++;

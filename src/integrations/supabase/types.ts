@@ -2342,6 +2342,13 @@ export type Database = {
           whatsapp_button_url: string
         }[]
       }
+      get_conversion_stage_id_by_funnel: {
+        Args: {
+          org_id: string
+          p_funnel?: Database["public"]["Enums"]["funnel_type"]
+        }
+        Returns: string
+      }
       get_current_consultant_id: { Args: never; Returns: string }
       get_default_pipeline_stage_for_funnel: {
         Args: {
