@@ -165,8 +165,11 @@ serve(async (req) => {
         const metrics = metricsMap.get(lead.consultant_id);
         if (!metrics) return;
         metrics.total++;
-        const isNovosConsultores = novosStageId && lead.pipeline_stage_id === novosStageId;
-        if (isNovosConsultores) {
+        // ✅ Stage de conversão depende do funil do lead
+        const leadFunnel = lead.funnel_type ?? 'consultor';
+        const conversionStageId = leadFunnel === 'associado' ? associadoStageId : consultorStageId;
+        const isConvertido = conversionStageId && lead.pipeline_stage_id === conversionStageId;
+        if (isConvertido) {
           metrics.novosConsultores++;
         } else {
           if (lead.temperature === 'hot') metrics.hot++;
