@@ -2,11 +2,22 @@ import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
-  CheckCircle2, 
-  XCircle, 
-  Loader2, 
-  Phone, 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  Phone,
   Calendar,
   AlertCircle,
   LogOut,
@@ -15,13 +26,16 @@ import {
   QrCode,
   Activity,
   Clock,
-  Download
+  Download,
+  Trash2,
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useWhatsAppConnectionContext } from '@/contexts/WhatsAppConnectionContext';
 import { QrCodeRenderer } from './QrCodeRenderer';
 import { crmService } from '@/lib/crm-service';
+import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 interface WhatsAppConnectionSettingsProps {
@@ -42,6 +56,8 @@ export function WhatsAppConnectionSettings({ onOpenConversations }: WhatsAppConn
   } = useWhatsAppConnectionContext();
 
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
+  const queryClient = useQueryClient();
 
   const handleSync = async () => {
     setIsSyncing(true);
@@ -56,6 +72,26 @@ export function WhatsAppConnectionSettings({ onOpenConversations }: WhatsAppConn
       toast.error(err.message || 'Erro ao sincronizar');
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  const handleClearWhatsApp = async () => {
+    setIsClearing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('crm-clear-whatsapp');
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const d = data?.deleted || {};
+      toast.success(
+        `Limpeza concluída: ${d.conversations || 0} conversas e ${d.messages || 0} mensagens removidas. Os leads foram preservados.`
+      );
+      // Atualizar UI
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      queryClient.invalidateQueries({ queryKey: ['crm-messages'] });
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao limpar conversas');
+    } finally {
+      setIsClearing(false);
     }
   };
 
