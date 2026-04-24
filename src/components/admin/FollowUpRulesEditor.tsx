@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 interface Props {
   userId?: string;
   organizationId?: string;
+  funnelType?: 'consultor' | 'associado';
 }
 
 interface FollowUpRule {
@@ -56,18 +57,19 @@ function formatDelay(totalMinutes: number): string {
   return `${value} ${value === 1 ? singular : plural}`;
 }
 
-export function FollowUpRulesEditor({ userId, organizationId }: Props) {
+export function FollowUpRulesEditor({ userId, organizationId, funnelType = 'consultor' }: Props) {
   const queryClient = useQueryClient();
   const [expandedRule, setExpandedRule] = useState<string | null>(null);
 
   const { data: rules, isLoading } = useQuery({
-    queryKey: ['followup-rules', userId],
+    queryKey: ['followup-rules', userId, funnelType],
     queryFn: async () => {
       if (!userId) return [];
       const { data } = await supabase
         .from('followup_rules')
         .select('*')
         .eq('user_id', userId)
+        .eq('funnel_type', funnelType)
         .order('created_at');
       return (data || []) as FollowUpRule[];
     },
@@ -75,13 +77,14 @@ export function FollowUpRulesEditor({ userId, organizationId }: Props) {
   });
 
   const { data: stages } = useQuery({
-    queryKey: ['pipeline-stages-followup', organizationId],
+    queryKey: ['pipeline-stages-followup', organizationId, funnelType],
     queryFn: async () => {
       if (!organizationId) return [];
       const { data } = await supabase
         .from('pipeline_stages')
         .select('id, name, order_index')
         .eq('organization_id', organizationId)
+        .eq('funnel_type', funnelType)
         .order('order_index');
       return data || [];
     },
@@ -105,6 +108,7 @@ export function FollowUpRulesEditor({ userId, organizationId }: Props) {
         name: `Follow-up ${(rules?.length || 0) + 1}`,
         delay_minutes: 60,
         exclude_stages: excludeIds,
+        funnel_type: funnelType,
         ai_prompt: 'Envie uma mensagem de acompanhamento amigável perguntando se o lead ainda tem interesse.',
       });
       if (error) throw error;
