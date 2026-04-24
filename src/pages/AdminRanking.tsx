@@ -172,7 +172,11 @@ export default function AdminRanking() {
                           : 'Novos Consultores'}
                     </p>
                     <p className="text-2xl font-bold text-foreground">
-                      {totals.novosConsultores}
+                      {activeFunnel === 'all'
+                        ? ((totals.novosConsultores || 0) + ((totals as any).novosAssociados || 0))
+                        : activeFunnel === 'associado'
+                          ? ((totals as any).novosAssociados || 0)
+                          : (totals.novosConsultores || 0)}
                     </p>
                   </div>
                 </>
@@ -244,11 +248,19 @@ export default function AdminRanking() {
                           <span className="text-primary font-bold">
                             {(consultant.total_points || 0).toLocaleString()} pts
                           </span>
-                          {(consultant.novos_consultores_count || 0) > 0 && (
-                            <span className="text-muted-foreground text-xs">
-                              (+{consultant.novos_consultores_count} {activeFunnel === 'associado' ? 'associados' : 'consultores'})
-                            </span>
-                          )}
+                          {(() => {
+                            const novos = activeFunnel === 'associado'
+                              ? (consultant.novos_associados_count || 0)
+                              : activeFunnel === 'consultor'
+                                ? (consultant.novos_consultores_count || 0)
+                                : (consultant.novos_consultores_count || 0) + (consultant.novos_associados_count || 0);
+                            const label = activeFunnel === 'associado' ? 'associados' : activeFunnel === 'consultor' ? 'consultores' : 'novos';
+                            return novos > 0 ? (
+                              <span className="text-muted-foreground text-xs">
+                                (+{novos} {label})
+                              </span>
+                            ) : null;
+                          })()}
                         </div>
                       </div>
                     </div>
