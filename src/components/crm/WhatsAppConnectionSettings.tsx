@@ -371,6 +371,70 @@ export function WhatsAppConnectionSettings({ onOpenConversations }: WhatsAppConn
           </div>
         </div>
       </Card>
+
+      {/* Danger Zone */}
+      <Card className="p-4 sm:p-6 border-2 border-destructive/30 bg-destructive/5">
+        <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+          <div className="flex items-start gap-3 min-w-0 flex-1">
+            <div className="w-10 h-10 rounded-full bg-destructive/20 flex items-center justify-center flex-shrink-0">
+              <Trash2 className="w-5 h-5 text-destructive" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h4 className="text-sm sm:text-base font-bold text-foreground mb-1">
+                Zona de Perigo — Limpar Conversas WhatsApp
+              </h4>
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                Remove permanentemente todas as conversas e mensagens do WhatsApp da sua organização.
+                Os <span className="font-semibold text-foreground">leads serão preservados</span> — apenas o histórico de chat será apagado.
+                Esta ação não pode ser desfeita.
+              </p>
+            </div>
+          </div>
+
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isClearing}
+                className="text-destructive border-destructive/40 hover:bg-destructive/20 hover:text-destructive h-8 text-xs flex-shrink-0"
+              >
+                {isClearing ? (
+                  <>
+                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                    <span>Limpando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3 h-3 sm:mr-1" />
+                    <span className="hidden sm:inline">Limpar Conversas</span>
+                  </>
+                )}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Limpar todas as conversas do WhatsApp?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Esta ação removerá <strong>todas as conversas e mensagens</strong> do WhatsApp da sua organização de forma permanente.
+                  Os leads cadastrados <strong>não serão afetados</strong>, apenas o histórico de chat será apagado.
+                  <br /><br />
+                  Esta operação não pode ser desfeita. Deseja continuar?
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleClearWhatsApp}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Sim, limpar tudo
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </Card>
     </div>
   );
 }
