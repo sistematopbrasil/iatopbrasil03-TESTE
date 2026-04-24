@@ -43,6 +43,38 @@ export function ConsultantsTable() {
     : activeFunnel === 'consultor' ? 'Novos Cons.'
     : 'Novos Cons./Assoc.';
 
+  // Helper: contagem de "novos" segundo o funil ativo
+  const getNovosCount = (c: ConsultantRankingData) => {
+    if (activeFunnel === 'consultor') return c.novos_consultores_count || 0;
+    if (activeFunnel === 'associado') return c.novos_associados_count || 0;
+    return (c.novos_consultores_count || 0) + (c.novos_associados_count || 0);
+  };
+
+  // Helper: badges compactos de origem (Q/C/W/R)
+  const renderSources = (c: ConsultantRankingData) => {
+    const s = c.lead_sources || { quiz: 0, capture: 0, whatsapp: 0, recruitment: 0 };
+    const items: { key: string; label: string; count: number; cls: string; title: string }[] = [
+      { key: 'q', label: 'Q', count: s.quiz, cls: 'bg-primary/15 text-primary', title: 'Quiz' },
+      { key: 'c', label: 'C', count: s.capture, cls: 'bg-blue-500/15 text-blue-500', title: 'Captura' },
+      { key: 'w', label: 'W', count: s.whatsapp, cls: 'bg-green-500/15 text-green-600', title: 'WhatsApp' },
+      { key: 'r', label: 'R', count: s.recruitment, cls: 'bg-purple-500/15 text-purple-500', title: 'Recrutamento' },
+    ];
+    return (
+      <div className="flex items-center justify-center gap-1 flex-wrap">
+        {items.map((i) => (
+          <span
+            key={i.key}
+            title={`${i.title}: ${i.count}`}
+            className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold ${i.count > 0 ? i.cls : 'bg-muted text-muted-foreground/50'}`}
+          >
+            <span>{i.label}</span>
+            <span>{i.count}</span>
+          </span>
+        ))}
+      </div>
+    );
+  };
+
   // Mutation para ativar/desativar consultor
   const toggleActiveMutation = useMutation({
     mutationFn: async ({ consultantId, isActive }: { consultantId: string; isActive: boolean }) => {
