@@ -191,7 +191,7 @@ export function SuperAdminCharts({ funnel }: SuperAdminChartsProps = {}) {
 
       <Card className="overflow-hidden">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base sm:text-lg">🏆 Top 5 Consultores</CardTitle>
+          <CardTitle className="text-base sm:text-lg">🏆 Top 5 Consultores{funnel === 'associado' ? ' (Funil Associados)' : funnel === 'consultor' ? ' (Funil Consultores)' : ''}</CardTitle>
         </CardHeader>
         <CardContent className="px-2 sm:px-6">
           {topConsultants && topConsultants.length > 0 ? (
