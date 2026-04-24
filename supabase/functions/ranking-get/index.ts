@@ -167,11 +167,14 @@ serve(async (req) => {
       const globalMetrics = { total: 0, hot: 0, warm: 0, cold: 0, novosConsultores: 0 };
 
       leadsArr.forEach(lead => {
+        // ✅ Ignorar leads sem consultor (órfãos) — não devem aparecer em nenhuma métrica
+        if (!lead.consultant_id) return;
+
         const leadFunnel = lead.funnel_type ?? 'consultor';
         const conversionStageId = leadFunnel === 'associado' ? associadoStageId : consultorStageId;
         const isConvertido = conversionStageId && lead.pipeline_stage_id === conversionStageId;
 
-        // 1) Globais (sempre conta)
+        // 1) Globais (apenas leads atribuídos)
         globalMetrics.total++;
         if (isConvertido) {
           globalMetrics.novosConsultores++;
@@ -181,8 +184,7 @@ serve(async (req) => {
           else globalMetrics.cold++;
         }
 
-        // 2) Por consultor (só se atribuído)
-        if (!lead.consultant_id) return;
+        // 2) Por consultor
         const metrics = metricsMap.get(lead.consultant_id);
         if (!metrics) return;
         metrics.total++;
