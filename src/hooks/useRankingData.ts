@@ -20,6 +20,8 @@ export interface ConsultantRankingData {
   warm_leads: number;
   cold_leads: number;
   novos_consultores_count: number;
+  novos_associados_count: number;
+  lead_sources?: { quiz: number; capture: number; whatsapp: number; recruitment: number };
   total_points: number;
   ranking_position: number;
 }
@@ -37,6 +39,8 @@ interface FunnelTotals {
   cold: number;
   points: number;
   novosConsultores: number;
+  novosAssociados: number;
+  sources?: { quiz: number; capture: number; whatsapp: number; recruitment: number };
 }
 
 interface RankingResponse {
@@ -135,7 +139,7 @@ export function useRankingData(options: UseRankingDataOptions = {}) {
   }, [response]);
 
   // Métricas agregadas
-  const totals = response?.totals || { leads: 0, hot: 0, warm: 0, cold: 0, points: 0, novosConsultores: 0 };
+  const totals = response?.totals || { leads: 0, hot: 0, warm: 0, cold: 0, points: 0, novosConsultores: 0, novosAssociados: 0 };
 
   // Pontos do usuário atual
   const myData = useMemo(() => {

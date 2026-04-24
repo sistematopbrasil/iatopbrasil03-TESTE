@@ -424,7 +424,8 @@ serve(async (req) => {
                 consultant_id: instance.user_id,
                 pipeline_stage_id: firstStageId,
                 stage: 'novo',
-                temperature: 'cold',
+                temperature: 'warm',
+                temperature_override: true, // ✅ Lead WhatsApp começa morno (engajamento ativo)
                 completion_percentage: 0,
                 lead_score: 0,
                 lead_source: 'whatsapp',

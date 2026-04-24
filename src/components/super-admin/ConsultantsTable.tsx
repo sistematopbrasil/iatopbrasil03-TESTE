@@ -9,7 +9,7 @@ import { useState } from 'react';
 import { CreateConsultantDialog } from './CreateConsultantDialog';
 import { EditConsultantFunnelDialog } from './EditConsultantFunnelDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useRankingData } from '@/hooks/useRankingData';
+import { useRankingData, type ConsultantRankingData } from '@/hooks/useRankingData';
 import { useFunnel } from '@/contexts/FunnelContext';
 import {
   DropdownMenu,
@@ -42,6 +42,38 @@ export function ConsultantsTable() {
     activeFunnel === 'associado' ? 'Novos Assoc.'
     : activeFunnel === 'consultor' ? 'Novos Cons.'
     : 'Novos Cons./Assoc.';
+
+  // Helper: contagem de "novos" segundo o funil ativo
+  const getNovosCount = (c: ConsultantRankingData) => {
+    if (activeFunnel === 'consultor') return c.novos_consultores_count || 0;
+    if (activeFunnel === 'associado') return c.novos_associados_count || 0;
+    return (c.novos_consultores_count || 0) + (c.novos_associados_count || 0);
+  };
+
+  // Helper: badges compactos de origem (Q/C/W/R)
+  const renderSources = (c: ConsultantRankingData) => {
+    const s = c.lead_sources || { quiz: 0, capture: 0, whatsapp: 0, recruitment: 0 };
+    const items: { key: string; label: string; count: number; cls: string; title: string }[] = [
+      { key: 'q', label: 'Q', count: s.quiz, cls: 'bg-primary/15 text-primary', title: 'Quiz' },
+      { key: 'c', label: 'C', count: s.capture, cls: 'bg-blue-500/15 text-blue-500', title: 'Captura' },
+      { key: 'w', label: 'W', count: s.whatsapp, cls: 'bg-green-500/15 text-green-600', title: 'WhatsApp' },
+      { key: 'r', label: 'R', count: s.recruitment, cls: 'bg-purple-500/15 text-purple-500', title: 'Recrutamento' },
+    ];
+    return (
+      <div className="flex items-center justify-center gap-1 flex-wrap">
+        {items.map((i) => (
+          <span
+            key={i.key}
+            title={`${i.title}: ${i.count}`}
+            className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold ${i.count > 0 ? i.cls : 'bg-muted text-muted-foreground/50'}`}
+          >
+            <span>{i.label}</span>
+            <span>{i.count}</span>
+          </span>
+        ))}
+      </div>
+    );
+  };
 
   // Mutation para ativar/desativar consultor
   const toggleActiveMutation = useMutation({
@@ -196,12 +228,18 @@ export function ConsultantsTable() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">{novosLabel}</p>
-                    <p className="text-sm font-semibold text-green-600">{consultant.novos_consultores_count}</p>
+                    <p className="text-sm font-semibold text-green-600">{getNovosCount(consultant)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Quentes</p>
                     <p className="text-sm font-semibold text-orange-500">{consultant.hot_leads}</p>
                   </div>
+                </div>
+
+                {/* Origens dos leads (mobile) */}
+                <div className="pt-1">
+                  <p className="text-[10px] text-muted-foreground mb-1 text-center uppercase tracking-wide">Origens</p>
+                  {renderSources(consultant)}
                 </div>
 
                 {/* Funis row (mobile) */}
@@ -354,6 +392,9 @@ export function ConsultantsTable() {
                     {novosLabel}
                   </th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+                    Origens
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
                     Quentes 🔥
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
@@ -404,8 +445,11 @@ export function ConsultantsTable() {
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className="text-sm font-semibold text-green-600">
-                        {consultant.novos_consultores_count}
+                        {getNovosCount(consultant)}
                       </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {renderSources(consultant)}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className="text-sm font-semibold text-orange-500">

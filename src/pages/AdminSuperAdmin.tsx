@@ -1,7 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
 import { getCurrentConsultant, isSuperAdmin } from '@/lib/consultant-context';
 import { StatCard } from '@/components/ui/stat-card';
 import { Users, TrendingUp, Flame, UserPlus } from 'lucide-react';
@@ -10,122 +9,8 @@ import { SuperAdminCharts } from '@/components/super-admin/SuperAdminCharts';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import type { FunnelType } from '@/lib/funnel-types';
 import { useFunnel } from '@/contexts/FunnelContext';
-
-interface FunnelMetrics {
-  totalConsultants: number;
-  totalLeads: number;
-  hotLeads: number;
-  totalEvents: number;
-  convertedLeads: number;
-  conversionRate: string;
-}
-
-async function loadMetrics(orgId: string, funnel?: FunnelType): Promise<FunnelMetrics> {
-  let consultantsQuery = supabase
-    .from('users')
-    .select('*', { count: 'exact', head: true })
-    .eq('organization_id', orgId)
-    .in('role', ['admin', 'consultor']);
-  if (funnel) {
-    consultantsQuery = consultantsQuery.contains('allowed_funnels', [funnel] as any);
-  }
-  const { count: totalConsultants } = await consultantsQuery;
-
-  // ✅ Total de Leads — apenas leads atribuídos a algum consultor (exclui órfãos)
-  let leadsQuery = supabase
-    .from('quiz_submissions_new')
-    .select('*', { count: 'exact', head: true })
-    .eq('organization_id', orgId)
-    .not('consultant_id', 'is', null);
-  if (funnel) leadsQuery = leadsQuery.eq('funnel_type', funnel);
-  const { count: totalLeads } = await leadsQuery;
-
-  // ✅ Stage de conversão por funil — usa RPC oficial (alinhado com edge function ranking-get)
-  const stageIds: string[] = [];
-  if (funnel) {
-    const { data: stageId } = await supabase.rpc('get_conversion_stage_id_by_funnel', {
-      org_id: orgId,
-      p_funnel: funnel,
-    });
-    if (stageId) stageIds.push(stageId as unknown as string);
-  } else {
-    const [{ data: cId }, { data: aId }] = await Promise.all([
-      supabase.rpc('get_conversion_stage_id_by_funnel', { org_id: orgId, p_funnel: 'consultor' }),
-      supabase.rpc('get_conversion_stage_id_by_funnel', { org_id: orgId, p_funnel: 'associado' }),
-    ]);
-    if (cId) stageIds.push(cId as unknown as string);
-    if (aId) stageIds.push(aId as unknown as string);
-  }
-
-  let convertedLeadsCount = 0;
-  if (stageIds.length > 0) {
-    let convertedQuery = supabase
-      .from('quiz_submissions_new')
-      .select('*', { count: 'exact', head: true })
-      .eq('organization_id', orgId)
-      .not('consultant_id', 'is', null)
-      .in('pipeline_stage_id', stageIds);
-    if (funnel) convertedQuery = convertedQuery.eq('funnel_type', funnel);
-    const { count } = await convertedQuery;
-    convertedLeadsCount = count || 0;
-  }
-
-  let hotQuery = supabase
-    .from('quiz_submissions_new')
-    .select('*', { count: 'exact', head: true })
-    .eq('organization_id', orgId)
-    .not('consultant_id', 'is', null)
-    .eq('temperature', 'hot');
-  if (funnel) hotQuery = hotQuery.eq('funnel_type', funnel);
-  const { count: hotLeads } = await hotQuery;
-
-  const { count: totalEvents } = await supabase
-    .from('events')
-    .select('*', { count: 'exact', head: true })
-    .eq('organization_id', orgId);
-
-  return {
-    totalConsultants: totalConsultants || 0,
-    totalLeads: totalLeads || 0,
-    hotLeads: hotLeads || 0,
-    totalEvents: totalEvents || 0,
-    convertedLeads: convertedLeadsCount,
-    conversionRate: totalLeads && totalLeads > 0
-      ? ((convertedLeadsCount) / totalLeads * 100).toFixed(1)
-      : '0.0',
-  };
-}
-
-function MetricsBlock({ metrics, funnel }: { metrics: FunnelMetrics | undefined; funnel?: FunnelType }) {
-  const isAssoc = funnel === 'associado';
-  const isAll = !funnel;
-  // No funil de Associados, quem capta sao os mesmos Consultores; entao mantemos o label "Consultores Ativos"
-  const consultantsTitle = 'Consultores Ativos';
-  const novosTitle = isAll
-    ? 'Novos Consultores + Associados'
-    : isAssoc
-      ? 'Novos Associados'
-      : 'Novos Consultores';
-  const novosSubtitle = isAll
-    ? 'Total convertido nos dois funis'
-    : isAssoc
-      ? 'Leads convertidos em Associados (proteção veicular)'
-      : 'Leads convertidos em Consultores Top Brasil';
-  return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-      <StatCard title={consultantsTitle} value={metrics?.totalConsultants || 0} icon={Users} />
-      <StatCard title="Total de Leads" value={metrics?.totalLeads || 0} icon={TrendingUp} />
-      <StatCard
-        title={novosTitle}
-        value={metrics?.convertedLeads || 0}
-        subtitle={`${metrics?.conversionRate}% conversão · ${novosSubtitle}`}
-        icon={UserPlus}
-        variant="success"
-      />
-      <StatCard title="Leads Quentes" value={metrics?.hotLeads || 0} icon={Flame} variant="warning" />
-    </div>
-  );
-}
+import { useRankingData } from '@/hooks/useRankingData';
+import { Card } from '@/components/ui/card';
 
 export default function AdminSuperAdmin() {
   const navigate = useNavigate();
@@ -142,23 +27,48 @@ export default function AdminSuperAdmin() {
     }
   }, [currentUser, loadingUser, navigate]);
 
-  const orgId = currentUser?.organization_id;
+  // ✅ Usa MESMA fonte de dados do Ranking (edge function ranking-get) — garante consistência total
+  const { ranking, totals } = useRankingData();
 
-  // Selecionar funil concreto para queries; 'all' → undefined (sem filtro)
-  const funnelForQuery: FunnelType | undefined = activeFunnel === 'all' ? undefined : (activeFunnel as FunnelType);
+  const funnelForQuery: FunnelType | undefined =
+    activeFunnel === 'all' ? undefined : (activeFunnel as FunnelType);
 
-  const { data: metrics } = useQuery({
-    queryKey: ['super-admin-metrics', orgId, activeFunnel],
-    queryFn: () => loadMetrics(orgId!, funnelForQuery),
-    enabled: !!orgId,
-  });
+  // Métricas derivadas dos mesmos dados do Ranking
+  const metrics = useMemo(() => {
+    const totalConsultants = ranking?.length || 0;
+    const totalLeads = totals.leads || 0;
+    const hotLeads = totals.hot || 0;
+    const novosConsultores = totals.novosConsultores || 0;
+    const novosAssociados = (totals as any).novosAssociados || 0;
+    const converted =
+      activeFunnel === 'associado'
+        ? novosAssociados
+        : activeFunnel === 'consultor'
+          ? novosConsultores
+          : novosConsultores + novosAssociados;
+    const conversionRate = totalLeads > 0 ? ((converted / totalLeads) * 100).toFixed(1) : '0.0';
+    const sources = (totals as any).sources || { quiz: 0, capture: 0, whatsapp: 0, recruitment: 0 };
+    return { totalConsultants, totalLeads, hotLeads, converted, conversionRate, sources };
+  }, [ranking, totals, activeFunnel]);
 
-  // Título dinâmico
   const headerTitle = useMemo(() => {
     if (activeFunnel === 'all') return 'Painel Super Admin — Visão Geral';
     if (activeFunnel === 'associado') return 'Painel Super Admin — Associados';
     return 'Painel Super Admin — Consultores';
   }, [activeFunnel]);
+
+  const isAssoc = activeFunnel === 'associado';
+  const isAll = activeFunnel === 'all';
+  const novosTitle = isAll
+    ? 'Novos Consultores + Associados'
+    : isAssoc
+      ? 'Novos Associados'
+      : 'Novos Consultores';
+  const novosSubtitle = isAll
+    ? 'Total convertido nos dois funis'
+    : isAssoc
+      ? 'Leads convertidos em Associados (proteção veicular)'
+      : 'Leads convertidos em Consultores Top Brasil';
 
   if (loadingUser || (currentUser && !isSuperAdmin(currentUser.role))) {
     return (
@@ -174,9 +84,7 @@ export default function AdminSuperAdmin() {
     <AdminLayout>
       <div className="p-4 md:p-6 space-y-6 overflow-x-hidden max-w-full">
         <div className="min-w-0">
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-            {headerTitle}
-          </h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">{headerTitle}</h1>
           <p className="text-muted-foreground mt-1 text-sm">
             {activeFunnel === 'all'
               ? 'Use o seletor de funil ao lado esquerdo para filtrar por Consultores ou Associados.'
@@ -184,7 +92,39 @@ export default function AdminSuperAdmin() {
           </p>
         </div>
 
-        <MetricsBlock metrics={metrics} funnel={funnelForQuery} />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <StatCard title="Consultores Ativos" value={metrics.totalConsultants} icon={Users} />
+          <StatCard title="Total de Leads" value={metrics.totalLeads} icon={TrendingUp} />
+          <StatCard
+            title={novosTitle}
+            value={metrics.converted}
+            subtitle={`${metrics.conversionRate}% conversão · ${novosSubtitle}`}
+            icon={UserPlus}
+            variant="success"
+          />
+          <StatCard title="Leads Quentes" value={metrics.hotLeads} icon={Flame} variant="warning" />
+        </div>
+
+        {/* Card de Origens dos Leads */}
+        <Card className="p-4 sm:p-5">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground mb-3">
+            Origens dos Leads {isAll ? '(todos os funis)' : `(funil ${isAssoc ? 'Associados' : 'Consultores'})`}
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { key: 'quiz', label: 'Quiz', val: metrics.sources.quiz, cls: 'text-primary bg-primary/10 border-primary/30' },
+              { key: 'capture', label: 'Captura', val: metrics.sources.capture, cls: 'text-blue-500 bg-blue-500/10 border-blue-500/30' },
+              { key: 'whatsapp', label: 'WhatsApp', val: metrics.sources.whatsapp, cls: 'text-green-600 bg-green-500/10 border-green-500/30' },
+              { key: 'recruitment', label: 'Recrutamento', val: metrics.sources.recruitment, cls: 'text-purple-500 bg-purple-500/10 border-purple-500/30' },
+            ].map((s) => (
+              <div key={s.key} className={`rounded-lg border p-3 ${s.cls}`}>
+                <p className="text-xs font-medium opacity-80">{s.label}</p>
+                <p className="text-2xl font-bold">{s.val}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+
         <SuperAdminCharts funnel={funnelForQuery} />
 
         {/* Tabela de consultores */}
