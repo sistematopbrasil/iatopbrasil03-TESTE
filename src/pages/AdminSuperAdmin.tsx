@@ -88,12 +88,23 @@ async function loadMetrics(orgId: string, funnel?: FunnelType): Promise<FunnelMe
 
 function MetricsBlock({ metrics, funnel }: { metrics: FunnelMetrics | undefined; funnel?: FunnelType }) {
   const isAssoc = funnel === 'associado';
+  const isAll = !funnel;
+  const novosTitle = isAll
+    ? 'Novos Consultores/Associados'
+    : isAssoc
+      ? 'Novos Associados'
+      : 'Novos Consultores';
+  const consultantsTitle = isAll
+    ? 'Consultores/Captadores Ativos'
+    : isAssoc
+      ? 'Captadores Ativos'
+      : 'Consultores Ativos';
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-      <StatCard title={isAssoc ? 'Captadores Ativos' : 'Consultores Ativos'} value={metrics?.totalConsultants || 0} icon={Users} />
+      <StatCard title={consultantsTitle} value={metrics?.totalConsultants || 0} icon={Users} />
       <StatCard title="Total de Leads" value={metrics?.totalLeads || 0} icon={TrendingUp} />
       <StatCard
-        title={isAssoc ? 'Novos Associados' : 'Novos Consultores'}
+        title={novosTitle}
         value={metrics?.convertedLeads || 0}
         subtitle={`${metrics?.conversionRate}% conversão`}
         icon={UserPlus}
