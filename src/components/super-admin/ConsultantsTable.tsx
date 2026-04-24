@@ -195,7 +195,7 @@ export function ConsultantsTable() {
                     <p className="text-sm font-semibold">{consultant.total_leads}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Novos Cons.</p>
+                    <p className="text-xs text-muted-foreground">{novosLabel}</p>
                     <p className="text-sm font-semibold text-green-600">{consultant.novos_consultores_count}</p>
                   </div>
                   <div>
