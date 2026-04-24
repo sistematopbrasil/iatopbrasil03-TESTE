@@ -625,9 +625,16 @@ export function LeadProfile({ conversation, onClose }: LeadProfileProps) {
               {/* Notes Section */}
               <NotesSection conversationId={conversation.id} />
 
-              {/* Personal Info - always shown */}
+              {/* Informações Pessoais - apenas mostra campos existentes */}
               {(() => {
-                const hasPersonalInfo = leadData.email || leadData.age || leadData.location || leadData.has_vehicle || leadData.has_driver_license;
+                const personalFields = [
+                  leadData.email && { icon: Mail, label: 'Email', value: leadData.email },
+                  leadData.age && { icon: Calendar, label: 'Idade', value: `${leadData.age} anos` },
+                  leadData.location && { icon: MapPin, label: 'Localização', value: leadData.location },
+                  leadData.has_vehicle && { icon: Car, label: 'Veículo', value: leadData.has_vehicle },
+                  leadData.has_driver_license && { icon: Car, label: 'CNH', value: leadData.has_driver_license },
+                ].filter(Boolean) as Array<{ icon: any; label: string; value: string }>;
+
                 return (
                   <div className="space-y-3">
                     <h5 className="font-semibold text-foreground text-sm border-b border-border pb-2 flex items-center gap-2">
@@ -636,17 +643,15 @@ export function LeadProfile({ conversation, onClose }: LeadProfileProps) {
                     </h5>
                     <div className="space-y-2">
                       <InfoRow icon={Phone} label="Telefone" value={conversation.contact_phone} />
-                      {leadData.email && <InfoRow icon={Mail} label="Email" value={leadData.email} />}
-                      {leadData.age && <InfoRow icon={Calendar} label="Idade" value={`${leadData.age} anos`} />}
-                      {leadData.location && <InfoRow icon={MapPin} label="Localização" value={leadData.location} />}
-                      {leadData.has_vehicle && <InfoRow icon={Car} label="Veículo" value={leadData.has_vehicle} />}
-                      {leadData.has_driver_license && <InfoRow icon={Car} label="CNH" value={leadData.has_driver_license} />}
+                      {personalFields.map((f) => (
+                        <InfoRow key={f.label} icon={f.icon} label={f.label} value={f.value} />
+                      ))}
                     </div>
                   </div>
                 );
               })()}
 
-              {/* Extra Answers (from landing page forms) - shown for all sources */}
+              {/* Extra Answers (formulários da landing page de captura/recrutamento) */}
               {leadData.extra_answers && Object.keys(leadData.extra_answers).length > 0 && (
                 <div className="space-y-3">
                   <h5 className="font-semibold text-foreground text-sm border-b border-border pb-2 flex items-center gap-2">
@@ -656,14 +661,16 @@ export function LeadProfile({ conversation, onClose }: LeadProfileProps) {
                      'Respostas Adicionais'}
                   </h5>
                   <div className="space-y-2">
-                    {Object.entries(leadData.extra_answers).map(([question, answer]) => (
-                      <InfoRow key={question} icon={MessageSquare} label={question} value={answer} />
-                    ))}
+                    {Object.entries(leadData.extra_answers)
+                      .filter(([, v]) => v != null && String(v).trim() !== '')
+                      .map(([question, answer]) => (
+                        <InfoRow key={question} icon={MessageSquare} label={question} value={String(answer)} />
+                      ))}
                   </div>
                 </div>
               )}
 
-              {/* Professional Info - only for quiz leads */}
+              {/* Experiência Profissional - apenas leads de quiz que tenham dados */}
               {leadData.lead_source === 'quiz' && (leadData.employment_status || leadData.current_job || leadData.sales_experience || leadData.vehicle_protection_experience) && (
                 <div className="space-y-3">
                   <h5 className="font-semibold text-foreground text-sm border-b border-border pb-2 flex items-center gap-2">
@@ -679,7 +686,7 @@ export function LeadProfile({ conversation, onClose }: LeadProfileProps) {
                 </div>
               )}
 
-              {/* Expectations - only for quiz leads */}
+              {/* Expectativas - apenas leads de quiz */}
               {leadData.lead_source === 'quiz' && (leadData.desired_income || leadData.motivation) && (
                 <div className="space-y-3">
                   <h5 className="font-semibold text-foreground text-sm border-b border-border pb-2 flex items-center gap-2">
