@@ -392,6 +392,9 @@ export function ConsultantsTable() {
                     {novosLabel}
                   </th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+                    Origens
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
                     Quentes 🔥
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
@@ -442,8 +445,11 @@ export function ConsultantsTable() {
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className="text-sm font-semibold text-green-600">
-                        {consultant.novos_consultores_count}
+                        {getNovosCount(consultant)}
                       </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {renderSources(consultant)}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className="text-sm font-semibold text-orange-500">
