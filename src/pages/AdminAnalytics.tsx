@@ -14,7 +14,6 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import { ConversionFunnel } from "@/components/admin/ConversionFunnel";
 import { TemporalChart } from "@/components/admin/TemporalChart";
 import { getCurrentConsultant, isSuperAdmin } from "@/lib/consultant-context";
 import { useFunnel } from "@/contexts/FunnelContext";
@@ -83,7 +82,7 @@ const AdminAnalytics = () => {
     queryFn: getCurrentConsultant,
     staleTime: 5 * 60 * 1000,
     placeholderData: (prev) => prev,
-    refetchOnMount: false, // Usar cache se disponível
+    refetchOnMount: true,
   });
 
   // Buscar submissões da tabela correta (quiz_submissions_new)
@@ -117,11 +116,11 @@ const AdminAnalytics = () => {
     enabled: !!currentUser,
     staleTime: 2 * 60 * 1000,
     placeholderData: (previousData) => previousData,
-    refetchOnMount: false,
+    refetchOnMount: true,
   });
 
   // Só mostrar loading se não tiver dados ainda (evita piscada)
-  const isLoading = (isLoadingUser || isLoadingData) && !allSubmissions;
+  const isLoading = isLoadingData && !allSubmissions;
 
   const stats = useMemo(() => {
     if (!allSubmissions) return { total: 0, completed: 0, rate: 0, abandoned: 0, abandonRate: 0 };
@@ -572,10 +571,6 @@ const AdminAnalytics = () => {
           )}
         </div>
 
-        {/* Conversion Funnel - At the end */}
-        <div className="animate-fade-in" style={{ animationDelay: "600ms" }}>
-          <ConversionFunnel submissions={allSubmissions} isLoading={isLoading} />
-        </div>
       </div>
     </AdminLayout>
   );
