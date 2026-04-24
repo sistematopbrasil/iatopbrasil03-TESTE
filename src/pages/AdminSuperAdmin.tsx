@@ -63,6 +63,7 @@ async function loadMetrics(orgId: string, funnel?: FunnelType): Promise<FunnelMe
       .from('quiz_submissions_new')
       .select('*', { count: 'exact', head: true })
       .eq('organization_id', orgId)
+      .not('consultant_id', 'is', null)
       .in('pipeline_stage_id', stageIds);
     if (funnel) convertedQuery = convertedQuery.eq('funnel_type', funnel);
     const { count } = await convertedQuery;
@@ -73,6 +74,7 @@ async function loadMetrics(orgId: string, funnel?: FunnelType): Promise<FunnelMe
     .from('quiz_submissions_new')
     .select('*', { count: 'exact', head: true })
     .eq('organization_id', orgId)
+    .not('consultant_id', 'is', null)
     .eq('temperature', 'hot');
   if (funnel) hotQuery = hotQuery.eq('funnel_type', funnel);
   const { count: hotLeads } = await hotQuery;
