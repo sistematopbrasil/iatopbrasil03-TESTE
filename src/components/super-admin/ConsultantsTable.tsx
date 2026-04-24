@@ -10,6 +10,7 @@ import { CreateConsultantDialog } from './CreateConsultantDialog';
 import { EditConsultantFunnelDialog } from './EditConsultantFunnelDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useRankingData } from '@/hooks/useRankingData';
+import { useFunnel } from '@/contexts/FunnelContext';
 import {
   DropdownMenu,
   DropdownMenuContent,
