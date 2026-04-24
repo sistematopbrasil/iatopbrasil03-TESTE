@@ -166,7 +166,9 @@ export default function AdminRanking() {
                 <>
                   <UserPlus className="w-8 h-8 text-green-500" />
                   <div>
-                    <p className="text-sm text-muted-foreground">Novos Consultores</p>
+                    <p className="text-sm text-muted-foreground">
+                      {activeFunnel === 'associado' ? 'Novos Associados' : 'Novos Consultores'}
+                    </p>
                     <p className="text-2xl font-bold text-foreground">
                       {totals.novosConsultores}
                     </p>
@@ -265,7 +267,7 @@ export default function AdminRanking() {
                             <th className="text-center py-4 px-4 text-muted-foreground font-medium">Quentes</th>
                             <th className="text-center py-4 px-4 text-muted-foreground font-medium">Mornos</th>
                             <th className="text-center py-4 px-4 text-muted-foreground font-medium">Frios</th>
-                            <th className="text-center py-4 px-4 text-muted-foreground font-medium">Novos Cons.</th>
+                            <th className="text-center py-4 px-4 text-muted-foreground font-medium">{activeFunnel === 'associado' ? 'Novos Assoc.' : 'Novos Cons.'}</th>
                           </>
                         ) : (
                           <th className="text-center py-4 px-4 text-muted-foreground font-medium">Pontuação</th>
