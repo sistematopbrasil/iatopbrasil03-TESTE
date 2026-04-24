@@ -220,16 +220,34 @@ export function ConsultantDashboard() {
 
   const recentLeads = leads?.slice(0, 5) || [];
 
+  // Slug do quiz por funil ativo (associado tem slug próprio; consultor usa o slug padrão)
+  const quizSlugForFunnel = resolvedFunnel === 'associado'
+    ? (currentUser?.quiz_slug_associado || currentUser?.quiz_slug || '')
+    : (currentUser?.quiz_slug || '');
+
+  // Link da página de captura por funil ativo:
+  //  • Associados → /c/{slug}
+  //  • Consultores → /r/{slug}
+  const captureUrlForFunnel = currentUser?.quiz_slug
+    ? (resolvedFunnel === 'associado'
+        ? `${window.location.origin}/c/${currentUser.quiz_slug}`
+        : `${window.location.origin}/r/${currentUser.quiz_slug}`)
+    : '';
+
+  const captureLabelForFunnel = resolvedFunnel === 'associado'
+    ? 'Página de Captura (Associados)'
+    : 'Página de Recrutamento (Consultores)';
+
   const copyQuizLink = () => {
-    if (currentUser?.quiz_slug) {
-      navigator.clipboard.writeText(getQuizUrl(currentUser.quiz_slug));
+    if (quizSlugForFunnel) {
+      navigator.clipboard.writeText(getQuizUrl(quizSlugForFunnel));
       toast.success('Link do seu quiz copiado!');
     }
   };
 
   const openQuizLink = () => {
-    if (currentUser?.quiz_slug) {
-      window.open(getQuizUrl(currentUser.quiz_slug), '_blank');
+    if (quizSlugForFunnel) {
+      window.open(getQuizUrl(quizSlugForFunnel), '_blank');
     }
   };
 
