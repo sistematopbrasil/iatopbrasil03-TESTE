@@ -244,7 +244,7 @@ export default function AdminRanking() {
                           </span>
                           {(consultant.novos_consultores_count || 0) > 0 && (
                             <span className="text-muted-foreground text-xs">
-                              (+{consultant.novos_consultores_count} consultores)
+                              (+{consultant.novos_consultores_count} {activeFunnel === 'associado' ? 'associados' : 'consultores'})
                             </span>
                           )}
                         </div>
@@ -259,7 +259,7 @@ export default function AdminRanking() {
                     <thead>
                       <tr className="border-b border-border">
                         <th className="text-left py-4 px-4 text-muted-foreground font-medium">Posição</th>
-                        <th className="text-left py-4 px-4 text-muted-foreground font-medium">Consultor</th>
+                        <th className="text-left py-4 px-4 text-muted-foreground font-medium">{activeFunnel === 'associado' ? 'Associado' : 'Consultor'}</th>
                         {isAdmin ? (
                           <>
                             <th className="text-center py-4 px-4 text-muted-foreground font-medium">Pontuação</th>
