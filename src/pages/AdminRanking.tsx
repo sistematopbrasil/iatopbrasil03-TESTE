@@ -269,7 +269,7 @@ export default function AdminRanking() {
                             <th className="text-center py-4 px-4 text-muted-foreground font-medium">Quentes</th>
                             <th className="text-center py-4 px-4 text-muted-foreground font-medium">Mornos</th>
                             <th className="text-center py-4 px-4 text-muted-foreground font-medium">Frios</th>
-                            <th className="text-center py-4 px-4 text-muted-foreground font-medium">{activeFunnel === 'associado' ? 'Novos Assoc.' : 'Novos Cons.'}</th>
+                            <th className="text-center py-4 px-4 text-muted-foreground font-medium">{activeFunnel === 'associado' ? 'Novos Assoc.' : activeFunnel === 'consultor' ? 'Novos Cons.' : 'Novos C./A.'}</th>
                           </>
                         ) : (
                           <th className="text-center py-4 px-4 text-muted-foreground font-medium">Pontuação</th>
