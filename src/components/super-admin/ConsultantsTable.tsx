@@ -351,7 +351,7 @@ export function ConsultantsTable() {
                     Leads
                   </th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
-                    Novos Cons.
+                    {novosLabel}
                   </th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
                     Quentes 🔥
