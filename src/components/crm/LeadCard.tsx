@@ -92,9 +92,9 @@ export function LeadCard({ lead, onWhatsAppClick, onOpenConversation, onClick }:
                 </p>
               </div>
               
-              <div className="flex items-center gap-1 flex-wrap justify-end">
-                {/* Funnel badge */}
-                <FunnelBadge funnel={lead.funnel_type} size="xs" />
+              <div className="flex items-center gap-1 flex-wrap justify-end max-w-[60%]">
+                {/* Funnel badge (compact para caber no card estreito do pipeline) */}
+                <FunnelBadge funnel={lead.funnel_type} size="xs" compact />
                 {/* Source badge */}
                 {lead.lead_source && lead.lead_source !== 'quiz' && (
                   <span className={`text-[9px] px-1 py-0.5 rounded ${
