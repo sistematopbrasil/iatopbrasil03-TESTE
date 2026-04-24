@@ -228,12 +228,18 @@ export function ConsultantsTable() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">{novosLabel}</p>
-                    <p className="text-sm font-semibold text-green-600">{consultant.novos_consultores_count}</p>
+                    <p className="text-sm font-semibold text-green-600">{getNovosCount(consultant)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Quentes</p>
                     <p className="text-sm font-semibold text-orange-500">{consultant.hot_leads}</p>
                   </div>
+                </div>
+
+                {/* Origens dos leads (mobile) */}
+                <div className="pt-1">
+                  <p className="text-[10px] text-muted-foreground mb-1 text-center uppercase tracking-wide">Origens</p>
+                  {renderSources(consultant)}
                 </div>
 
                 {/* Funis row (mobile) */}
