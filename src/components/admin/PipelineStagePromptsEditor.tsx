@@ -33,21 +33,23 @@ function getDefaultPrompt(stageName: string): string {
 interface Props {
   userId?: string;
   organizationId?: string;
+  funnelType?: 'consultor' | 'associado';
 }
 
-export function PipelineStagePromptsEditor({ userId, organizationId }: Props) {
+export function PipelineStagePromptsEditor({ userId, organizationId, funnelType = 'consultor' }: Props) {
   const queryClient = useQueryClient();
   const [prompts, setPrompts] = useState<Record<string, string>>({});
   const [open, setOpen] = useState(false);
 
   const { data: stages } = useQuery({
-    queryKey: ['pipeline-stages-prompts', organizationId],
+    queryKey: ['pipeline-stages-prompts', organizationId, funnelType],
     queryFn: async () => {
       if (!organizationId) return [];
       const { data } = await supabase
         .from('pipeline_stages')
         .select('id, name, order_index')
         .eq('organization_id', organizationId)
+        .eq('funnel_type', funnelType)
         .order('order_index');
       return data || [];
     },
@@ -55,13 +57,14 @@ export function PipelineStagePromptsEditor({ userId, organizationId }: Props) {
   });
 
   const { data: savedPrompts, isLoading } = useQuery({
-    queryKey: ['pipeline-stage-prompts', userId],
+    queryKey: ['pipeline-stage-prompts', userId, funnelType],
     queryFn: async () => {
       if (!userId) return [];
       const { data } = await supabase
         .from('pipeline_stage_prompts')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .eq('funnel_type', funnelType);
       return data || [];
     },
     enabled: !!userId,
@@ -96,6 +99,7 @@ export function PipelineStagePromptsEditor({ userId, organizationId }: Props) {
               user_id: userId,
               organization_id: organizationId,
               description: desc,
+              funnel_type: funnelType,
             });
         }
       }

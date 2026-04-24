@@ -457,13 +457,12 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
         updated_at: new Date().toISOString(),
       };
 
-      if (existingConfig) {
-        const { error } = await supabase.from('capture_page_configs').update(payload as any).eq('id', existingConfig.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from('capture_page_configs').insert(payload as any);
-        if (error) throw error;
-      }
+      // UPSERT garante que cada (consultant_id, page_purpose) só tenha 1 registro,
+      // isolando "Captura" e "Recrutamento" de forma definitiva.
+      const { error } = await supabase
+        .from('capture_page_configs')
+        .upsert(payload as any, { onConflict: 'consultant_id,page_purpose' });
+      if (error) throw error;
 
       queryClient.invalidateQueries({ queryKey: ['capture-config'] });
       toast.success('Configurações de captura salvas!');

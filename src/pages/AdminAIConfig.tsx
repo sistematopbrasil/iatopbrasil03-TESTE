@@ -616,13 +616,13 @@ export default function AdminAIConfig() {
                     <Switch checked={formData.auto_pipeline} onCheckedChange={v => update('auto_pipeline', v)} />
                   </div>
                   {formData.auto_pipeline && (
-                    <PipelineStagePromptsEditor userId={currentUser?.id} organizationId={currentUser?.organization_id} />
+                    <PipelineStagePromptsEditor userId={currentUser?.id} organizationId={currentUser?.organization_id} funnelType={activeFunnel} />
                   )}
                 </div>
 
                 {/* Follow-up Section */}
                 <div className="space-y-4 pt-4 border-t">
-                  <FollowUpRulesEditor userId={currentUser?.id} organizationId={currentUser?.organization_id} />
+                  <FollowUpRulesEditor userId={currentUser?.id} organizationId={currentUser?.organization_id} funnelType={activeFunnel} />
                 </div>
               </CardContent>
             </Card>

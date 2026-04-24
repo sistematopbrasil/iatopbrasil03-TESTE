@@ -434,63 +434,64 @@ export default function AdminLeads() {
     }
   };
 
-  const exportToCSV = () => {
-    // Get pipeline stage names map
+  const exportToXLSX = async () => {
+    const XLSX = await import('xlsx');
     const stageMap = new Map(pipelineStages.map(s => [s.id, s.name]));
-    
-    const headers = [
-      'Nome',
-      'Telefone',
-      'Email',
-      'Origem',
-      'Idade',
-      'Estado Civil',
-      'Localização',
-      'Possui Veículo',
-      'Possui CNH',
-      'Situação Profissional',
-      'Trabalho Atual',
-      'Experiência em Vendas',
-      'Experiência com Proteção Veicular',
-      'Renda Atual',
-      'Renda Desejada',
-      'Motivação',
-      'Temperatura',
-      'Quadro Pipeline',
-      '% Conclusão',
-      'Data'
-    ];
-    
-    const rows = filteredLeads.map(lead => [
-      lead.name || '',
-      lead.phone || '',
-      (lead as any).email || '',
-      getSourceLabel(lead.lead_source),
-      lead.age || '',
-      lead.relationship_status || '',
-      lead.location || '',
-      lead.has_vehicle || '',
-      lead.has_driver_license || '',
-      lead.employment_status || '',
-      lead.current_job || '',
-      lead.sales_experience || '',
-      lead.vehicle_protection_experience || '',
-      lead.current_income || '',
-      lead.desired_income || '',
-      lead.motivation || '',
-      lead.temperature === 'hot' ? 'Quente' : lead.temperature === 'warm' ? 'Morno' : lead.temperature === 'cold' ? 'Frio' : '',
-      lead.pipeline_stage_id ? (stageMap.get(lead.pipeline_stage_id) || '') : '',
-      lead.completion_percentage,
-      format(new Date(lead.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })
-    ]);
+    const exportLeads = selectedLeads.length > 0
+      ? filteredLeads.filter(l => selectedLeads.includes(l.id))
+      : filteredLeads;
 
-    // Use semicolon as separator for better Excel pt-BR compatibility
-    const csv = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(';')).join('\n');
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `leads_${format(new Date(), 'yyyy-MM-dd')}.csv`;
-    link.click();
+    const rows = exportLeads.map(lead => {
+      const base: Record<string, any> = {
+        'Nome': lead.name || '',
+        'Telefone': lead.phone || '',
+        'Email': (lead as any).email || '',
+        'Origem': getSourceLabel(lead.lead_source),
+        'Funil': (lead as any).funnel_type === 'associado' ? 'Associados' : 'Consultores',
+        'Idade': lead.age || '',
+        'Localização': lead.location || '',
+        'Temperatura': lead.temperature === 'hot' ? 'Quente' : lead.temperature === 'warm' ? 'Morno' : lead.temperature === 'cold' ? 'Frio' : '',
+        'Quadro Pipeline': lead.pipeline_stage_id ? (stageMap.get(lead.pipeline_stage_id) || '') : '',
+        'Data': format(new Date(lead.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR }),
+      };
+
+      // Quiz: campos completos
+      if (lead.lead_source === 'quiz') {
+        Object.assign(base, {
+          'Estado Civil': lead.relationship_status || '',
+          'Possui Veículo': lead.has_vehicle || '',
+          'Possui CNH': lead.has_driver_license || '',
+          'Situação Profissional': lead.employment_status || '',
+          'Profissão': lead.current_job || '',
+          'Exp. Vendas': lead.sales_experience || '',
+          'Exp. Proteção Veicular': lead.vehicle_protection_experience || '',
+          'Renda Atual': lead.current_income || '',
+          'Renda Desejada': lead.desired_income || '',
+          'Motivação': lead.motivation || '',
+          '% Conclusão': lead.completion_percentage,
+        });
+      }
+
+      // Captura/Recrutamento: respostas extras viram colunas
+      if (lead.extra_answers && typeof lead.extra_answers === 'object') {
+        for (const [k, v] of Object.entries(lead.extra_answers)) {
+          if (v != null && String(v).trim() !== '') base[k] = String(v);
+        }
+      }
+
+      return base;
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Leads');
+    const filename = `leads_${format(new Date(), 'yyyy-MM-dd_HHmm')}.xlsx`;
+    XLSX.writeFile(wb, filename);
+
+    toast({
+      title: 'Exportação concluída',
+      description: `${rows.length} leads exportados para ${filename}`,
+    });
   };
 
   // Count leads by temperature
@@ -784,9 +785,9 @@ export default function AdminLeads() {
               Atualizar
             </Button>
 
-            <Button onClick={exportToCSV} variant="outline" className="w-full sm:w-auto">
+            <Button onClick={exportToXLSX} variant="outline" className="w-full sm:w-auto">
               <Download className="mr-2 h-4 w-4" />
-              Exportar CSV
+              Exportar XLSX{selectedLeads.length > 0 ? ` (${selectedLeads.length})` : ''}
             </Button>
           </div>
         </div>
