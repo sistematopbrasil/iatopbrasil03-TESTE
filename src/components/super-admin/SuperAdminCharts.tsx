@@ -42,6 +42,7 @@ export function SuperAdminCharts({ funnel }: SuperAdminChartsProps = {}) {
         .from('quiz_submissions_new')
         .select('created_at, funnel_type')
         .eq('organization_id', currentUser.organization_id)
+        .not('consultant_id', 'is', null)
         .gte('created_at', thirtyDaysAgo.toISOString());
 
       if (funnel) {
@@ -119,7 +120,8 @@ export function SuperAdminCharts({ funnel }: SuperAdminChartsProps = {}) {
       let query = supabase
         .from('quiz_submissions_new')
         .select('temperature, funnel_type')
-        .eq('organization_id', currentUser.organization_id);
+        .eq('organization_id', currentUser.organization_id)
+        .not('consultant_id', 'is', null);
 
       if (funnel) {
         query = query.eq('funnel_type', funnel);
