@@ -346,7 +346,11 @@ export default function AdminRanking() {
                               </td>
                               <td className="text-center py-4 px-4">
                                 <span className="text-lg font-semibold text-purple-500">
-                                  {consultant.novos_consultores_count || 0}
+                                  {activeFunnel === 'associado'
+                                    ? (consultant.novos_associados_count || 0)
+                                    : activeFunnel === 'consultor'
+                                      ? (consultant.novos_consultores_count || 0)
+                                      : (consultant.novos_consultores_count || 0) + (consultant.novos_associados_count || 0)}
                                 </span>
                               </td>
                             </>
