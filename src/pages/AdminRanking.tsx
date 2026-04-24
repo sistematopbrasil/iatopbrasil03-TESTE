@@ -167,7 +167,11 @@ export default function AdminRanking() {
                   <UserPlus className="w-8 h-8 text-green-500" />
                   <div>
                     <p className="text-sm text-muted-foreground">
-                      {activeFunnel === 'associado' ? 'Novos Associados' : 'Novos Consultores'}
+                      {activeFunnel === 'all'
+                        ? 'Novos Consultores/Associados'
+                        : activeFunnel === 'associado'
+                          ? 'Novos Associados'
+                          : 'Novos Consultores'}
                     </p>
                     <p className="text-2xl font-bold text-foreground">
                       {totals.novosConsultores}
@@ -362,30 +366,9 @@ export default function AdminRanking() {
             )
           );
 
-          // Modo "Todos" do super admin: mostra Tabs com Consultores / Associados se há grouped
-          if (activeFunnel === 'all' && grouped) {
-            return (
-              <Card className="p-4 md:p-6 overflow-hidden">
-                <h2 className="text-xl font-semibold text-foreground mb-4">Classificação</h2>
-                <Tabs defaultValue="consultor" className="w-full">
-                  <TabsList>
-                    <TabsTrigger value="consultor">Consultores</TabsTrigger>
-                    <TabsTrigger value="associado">Associados</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="consultor" className="mt-4">
-                    {renderTable(grouped.consultor)}
-                  </TabsContent>
-                  <TabsContent value="associado" className="mt-4">
-                    {renderTable(grouped.associado)}
-                  </TabsContent>
-                </Tabs>
-              </Card>
-            );
-          }
-
+          // Modo "Todos" do super admin: mostra tabela combinada (a troca por funil é feita na sidebar)
           return (
             <Card className="p-4 md:p-6 overflow-hidden">
-              <h2 className="text-xl font-semibold text-foreground mb-4">Classificação</h2>
               {renderTable(ranking)}
             </Card>
           );
@@ -410,7 +393,9 @@ export default function AdminRanking() {
               </div>
               <div className="bg-purple-500/10 p-4 rounded-lg text-center">
                 <p className="text-2xl font-bold text-purple-500">+100</p>
-                <p className="text-sm text-muted-foreground">Novo Consultor 👥</p>
+                <p className="text-sm text-muted-foreground">
+                  {activeFunnel === 'associado' ? 'Novo Associado 👥' : 'Novo Consultor 👥'}
+                </p>
               </div>
             </div>
           </Card>
