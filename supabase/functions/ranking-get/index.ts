@@ -127,8 +127,9 @@ serve(async (req) => {
     // IMPORTANTE: Não filtrar por completion_percentage para incluir leads frios
     let leadsQuery = supabaseAdmin
       .from('quiz_submissions_new')
-      .select('id, consultant_id, temperature, pipeline_stage_id, created_at, funnel_type')
-      .eq('organization_id', organizationId);
+      .select('id, consultant_id, temperature, pipeline_stage_id, created_at, funnel_type, lead_source')
+      .eq('organization_id', organizationId)
+      .not('consultant_id', 'is', null); // ✅ excluir órfãos sempre
 
     if (periodStart) {
       leadsQuery = leadsQuery.gte('created_at', periodStart);
@@ -151,33 +152,41 @@ serve(async (req) => {
     console.log('📊 Found', consultants.length, 'consultants and', leads?.length || 0, 'leads (funnelFilter:', funnelFilter, ')');
 
     // ✅ Helper: aggregate ranking from a leads array
-    // IMPORTANTE: per-consultant agrega só leads atribuídos (consultant_id);
-    // os totals globais incluem TAMBÉM leads sem consultant_id (órfãos),
-    // para alinhar com Dashboard Super Admin (visão organizacional completa).
     function buildRanking(leadsArr: any[]) {
       const metricsMap = new Map<string, {
-        total: number; hot: number; warm: number; cold: number; novosConsultores: number;
+        total: number; hot: number; warm: number; cold: number;
+        novosConsultores: number; novosAssociados: number;
+        sources: { quiz: number; capture: number; whatsapp: number; recruitment: number };
       }>();
 
       consultants!.forEach(c => {
-        metricsMap.set(c.id, { total: 0, hot: 0, warm: 0, cold: 0, novosConsultores: 0 });
+        metricsMap.set(c.id, {
+          total: 0, hot: 0, warm: 0, cold: 0,
+          novosConsultores: 0, novosAssociados: 0,
+          sources: { quiz: 0, capture: 0, whatsapp: 0, recruitment: 0 },
+        });
       });
 
-      // Métricas globais (incluem leads sem consultant_id)
-      const globalMetrics = { total: 0, hot: 0, warm: 0, cold: 0, novosConsultores: 0 };
+      const globalMetrics = {
+        total: 0, hot: 0, warm: 0, cold: 0,
+        novosConsultores: 0, novosAssociados: 0,
+        sources: { quiz: 0, capture: 0, whatsapp: 0, recruitment: 0 },
+      };
 
       leadsArr.forEach(lead => {
-        // ✅ Ignorar leads sem consultor (órfãos) — não devem aparecer em nenhuma métrica
         if (!lead.consultant_id) return;
 
         const leadFunnel = lead.funnel_type ?? 'consultor';
         const conversionStageId = leadFunnel === 'associado' ? associadoStageId : consultorStageId;
         const isConvertido = conversionStageId && lead.pipeline_stage_id === conversionStageId;
+        const src = (lead.lead_source ?? 'quiz') as 'quiz' | 'capture' | 'whatsapp' | 'recruitment';
 
-        // 1) Globais (apenas leads atribuídos)
+        // 1) Globais
         globalMetrics.total++;
+        if (globalMetrics.sources[src] !== undefined) globalMetrics.sources[src]++;
         if (isConvertido) {
-          globalMetrics.novosConsultores++;
+          if (leadFunnel === 'associado') globalMetrics.novosAssociados++;
+          else globalMetrics.novosConsultores++;
         } else {
           if (lead.temperature === 'hot') globalMetrics.hot++;
           else if (lead.temperature === 'warm') globalMetrics.warm++;
@@ -188,8 +197,10 @@ serve(async (req) => {
         const metrics = metricsMap.get(lead.consultant_id);
         if (!metrics) return;
         metrics.total++;
+        if (metrics.sources[src] !== undefined) metrics.sources[src]++;
         if (isConvertido) {
-          metrics.novosConsultores++;
+          if (leadFunnel === 'associado') metrics.novosAssociados++;
+          else metrics.novosConsultores++;
         } else {
           if (lead.temperature === 'hot') metrics.hot++;
           else if (lead.temperature === 'warm') metrics.warm++;
@@ -198,13 +209,17 @@ serve(async (req) => {
       });
 
       const list = consultants!.map(consultant => {
-        const m = metricsMap.get(consultant.id) || { total: 0, hot: 0, warm: 0, cold: 0, novosConsultores: 0 };
+        const m = metricsMap.get(consultant.id) || {
+          total: 0, hot: 0, warm: 0, cold: 0,
+          novosConsultores: 0, novosAssociados: 0,
+          sources: { quiz: 0, capture: 0, whatsapp: 0, recruitment: 0 },
+        };
         const temperaturePoints =
           (m.hot * LEAD_TEMPERATURE_POINTS.hot) +
           (m.warm * LEAD_TEMPERATURE_POINTS.warm) +
           (m.cold * LEAD_TEMPERATURE_POINTS.cold);
-        const novosConsultoresPoints = m.novosConsultores * NOVOS_CONSULTORES_BONUS;
-        const totalPoints = temperaturePoints + novosConsultoresPoints;
+        const novosPoints = (m.novosConsultores + m.novosAssociados) * NOVOS_CONSULTORES_BONUS;
+        const totalPoints = temperaturePoints + novosPoints;
         return {
           consultant_id: consultant.id,
           full_name: consultant.full_name,
@@ -222,6 +237,8 @@ serve(async (req) => {
           warm_leads: m.warm,
           cold_leads: m.cold,
           novos_consultores_count: m.novosConsultores,
+          novos_associados_count: m.novosAssociados,
+          lead_sources: m.sources,
           total_points: totalPoints,
           ranking_position: 0,
         };
@@ -230,13 +247,14 @@ serve(async (req) => {
       list.sort((a, b) => b.total_points - a.total_points);
       list.forEach((entry, index) => { entry.ranking_position = index + 1; });
 
-      // ✅ Totals globais (org-wide, incluindo órfãos)
       const totals = {
         leads: globalMetrics.total,
         hot: globalMetrics.hot,
         warm: globalMetrics.warm,
         cold: globalMetrics.cold,
         novosConsultores: globalMetrics.novosConsultores,
+        novosAssociados: globalMetrics.novosAssociados,
+        sources: globalMetrics.sources,
         points: list.reduce((s, c) => s + c.total_points, 0),
       };
 
