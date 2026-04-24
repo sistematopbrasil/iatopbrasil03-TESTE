@@ -10,10 +10,10 @@ async function deleteConsultantData(supabaseAdmin: any, consultantId: string, co
   try {
     console.log(`🗑️ Deleting consultant: ${consultantName} (${consultantId})`);
 
-    // 1. Desassociar leads (quiz_submissions_new)
+    // 1. Deletar leads (quiz_submissions_new) do consultor
     await supabaseAdmin
       .from('quiz_submissions_new')
-      .update({ consultant_id: null })
+      .delete()
       .eq('consultant_id', consultantId);
 
     // 2. Get conversation IDs
