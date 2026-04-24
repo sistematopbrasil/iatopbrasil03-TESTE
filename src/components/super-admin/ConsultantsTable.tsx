@@ -37,6 +37,11 @@ export function ConsultantsTable() {
   
   // Usar hook centralizado para dados de ranking
   const { ranking, isLoading, currentUser } = useRankingData();
+  const { activeFunnel } = useFunnel();
+  const novosLabel =
+    activeFunnel === 'associado' ? 'Novos Assoc.'
+    : activeFunnel === 'consultor' ? 'Novos Cons.'
+    : 'Novos Cons./Assoc.';
 
   // Mutation para ativar/desativar consultor
   const toggleActiveMutation = useMutation({
