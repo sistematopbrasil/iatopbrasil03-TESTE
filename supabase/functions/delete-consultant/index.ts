@@ -97,15 +97,15 @@ serve(async (req) => {
     // DELETE RELATED DATA IN CORRECT ORDER
     // ============================================
 
-    // 2. Desassociar leads (quiz_submissions_new) - SET consultant_id = NULL
-    console.log('📝 Desassociando leads...');
+    // 2. Deletar leads (quiz_submissions_new) do consultor
+    console.log('🗑️ Deletando leads do consultor...');
     const { error: leadsError } = await supabaseAdmin
       .from('quiz_submissions_new')
-      .update({ consultant_id: null })
+      .delete()
       .eq('consultant_id', consultant_id);
     
     if (leadsError) {
-      console.warn('⚠️ Erro ao desassociar leads:', leadsError.message);
+      console.warn('⚠️ Erro ao deletar leads:', leadsError.message);
     }
 
     // 3. Get conversation IDs to delete messages
