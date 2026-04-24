@@ -363,7 +363,7 @@ export function PipelineBoard() {
                       className="flex-1 min-h-0 overflow-hidden"
                     >
                       <ScrollArea className="h-full">
-                        <div className="space-y-2 p-2 pt-2 pb-20">
+                        <div className="space-y-2 p-2 pt-2 pb-32">
                         {stageLeads.map((lead, index) => (
                           <Draggable key={lead.id} draggableId={lead.id} index={index}>
                             {(provided, snapshot) => (
