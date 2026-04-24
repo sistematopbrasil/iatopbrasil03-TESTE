@@ -151,6 +151,9 @@ serve(async (req) => {
     console.log('📊 Found', consultants.length, 'consultants and', leads?.length || 0, 'leads (funnelFilter:', funnelFilter, ')');
 
     // ✅ Helper: aggregate ranking from a leads array
+    // IMPORTANTE: per-consultant agrega só leads atribuídos (consultant_id);
+    // os totals globais incluem TAMBÉM leads sem consultant_id (órfãos),
+    // para alinhar com Dashboard Super Admin (visão organizacional completa).
     function buildRanking(leadsArr: any[]) {
       const metricsMap = new Map<string, {
         total: number; hot: number; warm: number; cold: number; novosConsultores: number;
@@ -160,15 +163,29 @@ serve(async (req) => {
         metricsMap.set(c.id, { total: 0, hot: 0, warm: 0, cold: 0, novosConsultores: 0 });
       });
 
+      // Métricas globais (incluem leads sem consultant_id)
+      const globalMetrics = { total: 0, hot: 0, warm: 0, cold: 0, novosConsultores: 0 };
+
       leadsArr.forEach(lead => {
+        const leadFunnel = lead.funnel_type ?? 'consultor';
+        const conversionStageId = leadFunnel === 'associado' ? associadoStageId : consultorStageId;
+        const isConvertido = conversionStageId && lead.pipeline_stage_id === conversionStageId;
+
+        // 1) Globais (sempre conta)
+        globalMetrics.total++;
+        if (isConvertido) {
+          globalMetrics.novosConsultores++;
+        } else {
+          if (lead.temperature === 'hot') globalMetrics.hot++;
+          else if (lead.temperature === 'warm') globalMetrics.warm++;
+          else globalMetrics.cold++;
+        }
+
+        // 2) Por consultor (só se atribuído)
         if (!lead.consultant_id) return;
         const metrics = metricsMap.get(lead.consultant_id);
         if (!metrics) return;
         metrics.total++;
-        // ✅ Stage de conversão depende do funil do lead
-        const leadFunnel = lead.funnel_type ?? 'consultor';
-        const conversionStageId = leadFunnel === 'associado' ? associadoStageId : consultorStageId;
-        const isConvertido = conversionStageId && lead.pipeline_stage_id === conversionStageId;
         if (isConvertido) {
           metrics.novosConsultores++;
         } else {
@@ -211,14 +228,15 @@ serve(async (req) => {
       list.sort((a, b) => b.total_points - a.total_points);
       list.forEach((entry, index) => { entry.ranking_position = index + 1; });
 
-      const totals = list.reduce((acc, c) => ({
-        leads: acc.leads + c.total_leads,
-        hot: acc.hot + c.hot_leads,
-        warm: acc.warm + c.warm_leads,
-        cold: acc.cold + c.cold_leads,
-        points: acc.points + c.total_points,
-        novosConsultores: acc.novosConsultores + c.novos_consultores_count,
-      }), { leads: 0, hot: 0, warm: 0, cold: 0, points: 0, novosConsultores: 0 });
+      // ✅ Totals globais (org-wide, incluindo órfãos)
+      const totals = {
+        leads: globalMetrics.total,
+        hot: globalMetrics.hot,
+        warm: globalMetrics.warm,
+        cold: globalMetrics.cold,
+        novosConsultores: globalMetrics.novosConsultores,
+        points: list.reduce((s, c) => s + c.total_points, 0),
+      };
 
       return { list, totals };
     }

@@ -31,31 +31,39 @@ async function loadMetrics(orgId: string, funnel?: FunnelType): Promise<FunnelMe
   }
   const { count: totalConsultants } = await consultantsQuery;
 
+  // ✅ Total de Leads — TODOS os leads da org (alinhado com Ranking)
+  // Não filtramos por completion_percentage para incluir leads de WhatsApp/captura/etc
   let leadsQuery = supabase
     .from('quiz_submissions_new')
     .select('*', { count: 'exact', head: true })
-    .eq('organization_id', orgId)
-    .eq('completion_percentage', 100);
+    .eq('organization_id', orgId);
   if (funnel) leadsQuery = leadsQuery.eq('funnel_type', funnel);
   const { count: totalLeads } = await leadsQuery;
 
-  let stagesQuery = supabase
-    .from('pipeline_stages')
-    .select('id, name, funnel_type')
-    .eq('organization_id', orgId)
-    .or('name.ilike.%convertido%,name.ilike.%consultor%,name.ilike.%associad%,name.ilike.%fechad%,name.ilike.%ganho%');
-  if (funnel) stagesQuery = stagesQuery.eq('funnel_type', funnel);
-  const { data: conversionStages } = await stagesQuery;
-
-  const conversionStageIds = conversionStages?.map(s => s.id) || [];
+  // ✅ Stage de conversão por funil — usa RPC oficial (alinhado com edge function ranking-get)
+  const stageIds: string[] = [];
+  if (funnel) {
+    const { data: stageId } = await supabase.rpc('get_conversion_stage_id_by_funnel', {
+      org_id: orgId,
+      p_funnel: funnel,
+    });
+    if (stageId) stageIds.push(stageId as unknown as string);
+  } else {
+    const [{ data: cId }, { data: aId }] = await Promise.all([
+      supabase.rpc('get_conversion_stage_id_by_funnel', { org_id: orgId, p_funnel: 'consultor' }),
+      supabase.rpc('get_conversion_stage_id_by_funnel', { org_id: orgId, p_funnel: 'associado' }),
+    ]);
+    if (cId) stageIds.push(cId as unknown as string);
+    if (aId) stageIds.push(aId as unknown as string);
+  }
 
   let convertedLeadsCount = 0;
-  if (conversionStageIds.length > 0) {
+  if (stageIds.length > 0) {
     let convertedQuery = supabase
       .from('quiz_submissions_new')
       .select('*', { count: 'exact', head: true })
       .eq('organization_id', orgId)
-      .in('pipeline_stage_id', conversionStageIds);
+      .in('pipeline_stage_id', stageIds);
     if (funnel) convertedQuery = convertedQuery.eq('funnel_type', funnel);
     const { count } = await convertedQuery;
     convertedLeadsCount = count || 0;
