@@ -199,7 +199,8 @@ export function WhatsAppLeadsList({ onStartConversation }: WhatsAppLeadsListProp
           consultant_id: currentUser.id,
           pipeline_stage_id: firstStageId,
           stage: 'novo',
-          temperature: 'cold',
+          temperature: 'warm',
+          temperature_override: true, // ✅ Lead WhatsApp começa morno (engajamento ativo)
           completion_percentage: 0,
           lead_score: 0,
           lead_source: 'whatsapp',
