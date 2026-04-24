@@ -299,11 +299,13 @@ export function ConsultantDashboard() {
             <CardContent className="py-4">
               <div className="flex flex-col gap-3">
                 <div className="min-w-0">
-                  <h3 className="font-semibold text-foreground">Link do Quiz</h3>
+                  <h3 className="font-semibold text-foreground">
+                    Link do Quiz {resolvedFunnel === 'associado' ? '(Associados)' : '(Consultores)'}
+                  </h3>
                   <p className="text-sm text-muted-foreground">Compartilhe para capturar leads</p>
-                  {currentUser?.quiz_slug && (
+                  {quizSlugForFunnel && (
                     <code className="text-xs bg-background px-2 py-1 rounded mt-1 inline-block max-w-full overflow-hidden text-ellipsis">
-                      {getQuizUrl(currentUser.quiz_slug)}
+                      {getQuizUrl(quizSlugForFunnel)}
                     </code>
                   )}
                 </div>
@@ -319,20 +321,20 @@ export function ConsultantDashboard() {
           <CardContent className="py-4">
             <div className="flex flex-col gap-3">
               <div className="min-w-0">
-                <h3 className="font-semibold text-foreground">Página de Captura</h3>
+                <h3 className="font-semibold text-foreground">{captureLabelForFunnel}</h3>
                 <p className="text-sm text-muted-foreground">Formulário simplificado de leads</p>
-                {currentUser?.quiz_slug && (
+                {captureUrlForFunnel && (
                   <code className="text-xs bg-background px-2 py-1 rounded mt-1 inline-block max-w-full overflow-hidden text-ellipsis">
-                    {getCaptureUrl(currentUser.quiz_slug)}
+                    {captureUrlForFunnel}
                   </code>
                 )}
               </div>
               <div className="flex gap-2">
                 <Button size="sm" className="bg-[#EB6608] hover:bg-[#d45a07]" onClick={() => {
-                  if (currentUser?.quiz_slug) { navigator.clipboard.writeText(getCaptureUrl(currentUser.quiz_slug)); toast.success('Link copiado!'); }
+                  if (captureUrlForFunnel) { navigator.clipboard.writeText(captureUrlForFunnel); toast.success('Link copiado!'); }
                 }}><Copy className="w-4 h-4 mr-2" />Copiar</Button>
                 <Button size="sm" variant="outline" onClick={() => {
-                  if (currentUser?.quiz_slug) window.open(getCaptureUrl(currentUser.quiz_slug), '_blank');
+                  if (captureUrlForFunnel) window.open(captureUrlForFunnel, '_blank');
                 }}><ExternalLink className="w-4 h-4 mr-2" />Abrir</Button>
               </div>
             </div>
