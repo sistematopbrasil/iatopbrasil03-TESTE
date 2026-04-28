@@ -116,7 +116,7 @@ export function PipelineStageManager() {
     },
     onSuccess: () => {
       toast.success('Quadro excluído!');
-      queryClient.invalidateQueries({ queryKey: ['pipeline-stages'] });
+      queryClient.invalidateQueries({ queryKey: ['pipeline-stages'], exact: false });
     },
     onError: () => {
       toast.error('Erro ao excluir quadro');
