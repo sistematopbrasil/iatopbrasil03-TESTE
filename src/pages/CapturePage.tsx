@@ -95,9 +95,9 @@ function getDefaultConfig(isRecruitment: boolean): CaptureConfig {
     };
   }
   return {
-    title: 'Seu carro protegido do jeito certo.\nSem burocracia. Sem pegadinhas.',
-    subtitle: 'A Top Brasil Campinas oferece proteção veicular completa com assistência 24h, cobertura contra roubo, furto e colisão, tudo com atendimento ágil e verdadeiro.',
-    button_text: 'Quero proteger meu veículo agora →',
+    title: 'Proteja seu veículo por até 70% menos.\nSem burocracia, sem consulta de crédito.',
+    subtitle: 'Cobertura completa contra roubo, furto, colisão e assistência 24h. Solicite uma cotação grátis e descubra quanto você pode economizar todo mês.',
+    button_text: 'Quero minha cotação grátis →',
     button_color: '#EB6608',
     hero_image: '',
     hero_image_size: 'medium',
