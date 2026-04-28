@@ -63,34 +63,66 @@ interface ConsultantData {
   pixel_id: string | null;
 }
 
-const DEFAULT_CONFIG: CaptureConfig = {
-  title: 'Seu carro protegido do jeito certo.\nSem burocracia. Sem pegadinhas.',
-  subtitle: 'A Top Brasil Campinas oferece proteção veicular completa com assistência 24h, cobertura contra roubo, furto e colisão, tudo com atendimento ágil e verdadeiro.',
-  button_text: 'Quero proteger meu veículo agora →',
-  button_color: '#EB6608',
-  hero_image: '',
-  hero_image_size: 'medium',
-  hero_image_position: 'top',
-  hero_image_shape: 'rounded',
-  redirect_type: 'thank_you',
-  redirect_url: '',
-  whatsapp_message: 'Olá!',
-  whatsapp_number: '',
-  email_enabled: true,
-  custom_questions: [],
-  template_type: 'standard',
-  gallery_images: [],
-  gallery_title: 'Veja nossos resultados',
-  logo_image: '',
-  compare_enabled: false,
-  compare_title: 'Por que pagar caro no seguro se você pode pagar muito menos?',
-  compare_traditional_items: [
-    'Consulta de crédito', 'Processo burocrático', 'Atendimento demorado', 'Preço varia pelo seu perfil', 'Franquia obrigatória', 'Renovação anual forçada'
-  ],
-  compare_topbrasil_items: [
-    'Sem consulta de crédito', 'Aprovação na hora', 'Assistência 24h inclusa', 'Preço justo pra todos', 'Sem franquia surpresa', 'Atendimento humanizado'
-  ]
-};
+function getDefaultConfig(isRecruitment: boolean): CaptureConfig {
+  if (isRecruitment) {
+    return {
+      title: 'Quer uma renda extra ou mudar de vida?',
+      subtitle: 'Faça parte do nosso time de consultores Top Brasil e tenha liberdade financeira vendendo proteção veicular com a maior referência da região.',
+      button_text: 'Quero fazer parte do time →',
+      button_color: '#EB6608',
+      hero_image: '',
+      hero_image_size: 'medium',
+      hero_image_position: 'top',
+      hero_image_shape: 'rounded',
+      redirect_type: 'thank_you',
+      redirect_url: '',
+      whatsapp_message: 'Olá! Vim pela página de recrutamento e quero saber mais sobre a oportunidade.',
+      whatsapp_number: '',
+      email_enabled: true,
+      custom_questions: [],
+      template_type: 'landing',
+      gallery_images: [],
+      gallery_title: 'Conheça nosso time',
+      logo_image: '',
+      compare_enabled: false,
+      compare_title: 'Por que ser consultor Top Brasil é melhor que um emprego comum?',
+      compare_traditional_items: [
+        'Salário fixo limitado', 'Horário rígido', 'Sem crescimento real', 'Chefe no pé', 'Bater meta dos outros', 'Demissão a qualquer momento'
+      ],
+      compare_topbrasil_items: [
+        'Comissões sem teto', 'Horário flexível', 'Plano de carreira claro', 'Você é seu chefe', 'Trabalhe pelos seus sonhos', 'Estabilidade do seu jeito'
+      ]
+    };
+  }
+  return {
+    title: 'Seu carro protegido do jeito certo.\nSem burocracia. Sem pegadinhas.',
+    subtitle: 'A Top Brasil Campinas oferece proteção veicular completa com assistência 24h, cobertura contra roubo, furto e colisão, tudo com atendimento ágil e verdadeiro.',
+    button_text: 'Quero proteger meu veículo agora →',
+    button_color: '#EB6608',
+    hero_image: '',
+    hero_image_size: 'medium',
+    hero_image_position: 'top',
+    hero_image_shape: 'rounded',
+    redirect_type: 'thank_you',
+    redirect_url: '',
+    whatsapp_message: 'Olá!',
+    whatsapp_number: '',
+    email_enabled: true,
+    custom_questions: [],
+    template_type: 'standard',
+    gallery_images: [],
+    gallery_title: 'Veja nossos resultados',
+    logo_image: '',
+    compare_enabled: false,
+    compare_title: 'Por que pagar caro no seguro se você pode pagar muito menos?',
+    compare_traditional_items: [
+      'Consulta de crédito', 'Processo burocrático', 'Atendimento demorado', 'Preço varia pelo seu perfil', 'Franquia obrigatória', 'Renovação anual forçada'
+    ],
+    compare_topbrasil_items: [
+      'Sem consulta de crédito', 'Aprovação na hora', 'Assistência 24h inclusa', 'Preço justo pra todos', 'Sem franquia surpresa', 'Atendimento humanizado'
+    ]
+  };
+}
 
 /* ─── Country data ─── */
 const COUNTRIES = [
