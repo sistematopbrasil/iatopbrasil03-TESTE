@@ -704,16 +704,16 @@ export default function CapturePage() {
         }
       : {
           badge: 'PROTEÇÃO VEICULAR | CAMPINAS & REGIÃO',
-          subtitleFallback: 'A Top Brasil Campinas oferece proteção veicular completa com assistência 24h, cobertura contra roubo, furto e colisão — tudo com atendimento ágil e de verdade.',
-          subtitleHighlight: 'Sem consulta de crédito. Aprovação na hora.',
+          subtitleFallback: 'A Top Brasil oferece proteção veicular completa com assistência 24h, cobertura contra roubo, furto e colisão — atendimento humano, sem burocracia e sem pegadinha.',
+          subtitleHighlight: 'Sem consulta de crédito. Cotação na hora.',
           compareEyebrow: 'Proteção que cabe no bolso',
           compareIntro: 'O seguro tradicional cobra até 3x mais pela mesma proteção — e ainda usa seu CPF e seu bairro pra definir o preço. Com a Top Brasil você protege seu veículo com um valor justo, sem consulta de crédito e sem surpresa no bolso.',
-          formHeading: 'Descubra o plano ideal para o seu veículo!',
-          submitCta: 'Quero minha proteção agora',
+          formHeading: 'Preencha e receba sua cotação grátis',
+          submitCta: 'Quero minha cotação agora',
           socialNumber: '+75.000',
           socialLabel: 'veículos protegidos em todo o Brasil',
-          socialDescription: 'Junte-se a mais de 75.000 associados que já protegem seu veículo com tranquilidade.',
-          socialCta: 'Quero fazer parte agora',
+          socialDescription: 'Junte-se a mais de 75.000 associados que protegem seu veículo com tranquilidade e economia real.',
+          socialCta: 'Quero minha cotação agora',
         };
 
     const isYouTubeOrVimeo = (url: string) => 
