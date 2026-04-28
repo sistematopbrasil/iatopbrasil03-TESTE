@@ -275,15 +275,29 @@ serve(async (req) => {
       );
     }
 
-    // Criar nova instância
-    const instanceName = userData.username || (
-      userData.full_name
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-z0-9]/g, '')
-        .substring(0, 15) + Date.now()
-    );
+    // Criar nova instância — nome legível com sufixo do funil
+    const funnelSuffix = funnelType === 'associado' ? 'associados' : 'consultor';
+    const baseSlug = (userData.username || userData.full_name)
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, '')
+      .substring(0, 18) || 'consultor';
+    const desiredBase = `${baseSlug}-${funnelSuffix}`;
+
+    // Garantir unicidade na tabela whatsapp_instances
+    let instanceName = desiredBase;
+    let counter = 1;
+    for (let i = 0; i < 50; i++) {
+      const { data: clash } = await supabaseAdmin
+        .from('whatsapp_instances')
+        .select('id')
+        .eq('instance_name', instanceName)
+        .maybeSingle();
+      if (!clash) break;
+      counter += 1;
+      instanceName = `${desiredBase}-${counter}`;
+    }
     console.log('🔵 Nome da instância:', instanceName);
 
     const webhookSecret = (await getIntegrationValue('EVOLUTION_WEBHOOK_SECRET', supabaseAdmin)) || '';
