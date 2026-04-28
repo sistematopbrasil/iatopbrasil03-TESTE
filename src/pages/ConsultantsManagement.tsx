@@ -6,6 +6,7 @@ import { Navigate } from 'react-router-dom';
 import { AdminLayout } from '@/components/admin/AdminLayout';
 import { CreateConsultantDialog } from '@/components/super-admin/CreateConsultantDialog';
 import { EditConsultantFunnelDialog } from '@/components/super-admin/EditConsultantFunnelDialog';
+import { EditConsultantCredentialsDialog } from '@/components/super-admin/EditConsultantCredentialsDialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { 
   Table,
@@ -34,7 +35,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Target, Flame, Loader2, MoreVertical, Copy, ExternalLink, UserX, UserCheck, Trash2, Users, CheckSquare, XSquare, Bot, BotOff, MessageSquare, BarChart3, Layers } from 'lucide-react';
+import { Target, Flame, Loader2, MoreVertical, Copy, ExternalLink, UserX, UserCheck, Trash2, Users, CheckSquare, XSquare, Bot, BotOff, MessageSquare, BarChart3, Layers, KeyRound } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { calculateLeadPoints, NOVOS_CONSULTORES_BONUS } from '@/lib/ranking-service';
@@ -47,6 +48,7 @@ export default function ConsultantsManagement() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
   const [funnelEdit, setFunnelEdit] = useState<{ id: string; name: string } | null>(null);
+  const [credEdit, setCredEdit] = useState<{ id: string; name: string } | null>(null);
 
   const { data: currentUser, isLoading: loadingUser } = useQuery({
     queryKey: ['current-user-consultants'],
@@ -575,6 +577,12 @@ export default function ConsultantsManagement() {
                               <Layers className="mr-2 h-4 w-4" />
                               Editar funis de acesso
                             </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => setCredEdit({ id: consultant.id, name: consultant.full_name })}
+                            >
+                              <KeyRound className="mr-2 h-4 w-4" />
+                              Editar email/senha
+                            </DropdownMenuItem>
                             {!isSelf && (
                               <>
                                 <DropdownMenuSeparator />
@@ -676,6 +684,13 @@ export default function ConsultantsManagement() {
           consultantName={funnelEdit.name}
         />
       )}
+
+      <EditConsultantCredentialsDialog
+        open={!!credEdit}
+        onOpenChange={(o) => !o && setCredEdit(null)}
+        consultantId={credEdit?.id ?? null}
+        consultantName={credEdit?.name ?? ''}
+      />
     </AdminLayout>
   );
 }
