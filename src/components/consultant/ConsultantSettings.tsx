@@ -366,14 +366,10 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
         logo_image: (existingConfig as any).logo_image || '',
         logo_position: (existingConfig as any).logo_position || 'left',
         logo_size: (existingConfig as any).logo_size || 'medium',
-        compare_enabled: (existingConfig as any).compare_enabled ?? false,
-        compare_title: (existingConfig as any).compare_title || 'Por que pagar caro no seguro se você pode pagar muito menos?',
-        compare_traditional_items: (existingConfig as any).compare_traditional_items || [
-          'Consulta de crédito', 'Processo burocrático', 'Atendimento demorado', 'Preço varia pelo seu perfil', 'Franquia obrigatória', 'Renovação anual forçada'
-        ],
-        compare_topbrasil_items: (existingConfig as any).compare_topbrasil_items || [
-          'Sem consulta de crédito', 'Aprovação na hora', 'Assistência 24h inclusa', 'Preço justo pra todos', 'Sem franquia surpresa', 'Atendimento humanizado'
-        ],
+        compare_enabled: (existingConfig as any).compare_enabled ?? getDefaults(pagePurpose).compare_enabled,
+        compare_title: (existingConfig as any).compare_title || getDefaults(pagePurpose).compare_title,
+        compare_traditional_items: (existingConfig as any).compare_traditional_items || getDefaults(pagePurpose).compare_traditional_items,
+        compare_topbrasil_items: (existingConfig as any).compare_topbrasil_items || getDefaults(pagePurpose).compare_topbrasil_items,
       });
     } else {
       // No existing config, load defaults for this purpose
@@ -385,6 +381,10 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
         button_text: defaults.button_text,
         template_type: defaults.template_type,
         custom_questions: defaults.custom_questions,
+        compare_enabled: defaults.compare_enabled,
+        compare_title: defaults.compare_title,
+        compare_traditional_items: defaults.compare_traditional_items,
+        compare_topbrasil_items: defaults.compare_topbrasil_items,
       }));
     }
   }, [existingConfig, pagePurpose]);
