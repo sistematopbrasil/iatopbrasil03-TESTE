@@ -567,6 +567,15 @@ export function ConsultantsTable() {
                             <Layers className="w-4 h-4 mr-2" />
                             Editar funis de acesso
                           </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setCredEdit({
+                              id: consultant.consultant_id,
+                              name: consultant.full_name,
+                            })}
+                          >
+                            <KeyRound className="w-4 h-4 mr-2" />
+                            Editar email/senha
+                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             className="text-destructive focus:text-destructive"
