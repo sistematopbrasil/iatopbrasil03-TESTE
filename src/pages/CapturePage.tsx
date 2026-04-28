@@ -889,7 +889,7 @@ export default function CapturePage() {
             <section className="px-4 sm:px-6 py-14 md:py-20 max-w-5xl mx-auto w-full">
               <div className="space-y-8 md:space-y-10">
               <div className="text-left space-y-3 max-w-3xl">
-                  <p className="lp-reveal text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase" style={{ color: config.button_color }}>Proteção que cabe no bolso</p>
+                  <p className="lp-reveal text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase" style={{ color: config.button_color }}>{copy.compareEyebrow}</p>
                   <h2 className="lp-reveal text-2xl sm:text-3xl md:text-4xl font-bold text-white leading-[1.15]">
                     {config.compare_title}
                   </h2>
