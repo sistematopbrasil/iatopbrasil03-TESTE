@@ -618,6 +618,13 @@ export function ConsultantsTable() {
         />
       )}
 
+      <EditConsultantCredentialsDialog
+        open={!!credEdit}
+        onOpenChange={(o) => !o && setCredEdit(null)}
+        consultantId={credEdit?.id ?? null}
+        consultantName={credEdit?.name ?? ''}
+      />
+
       <AlertDialog open={!!consultantToDelete} onOpenChange={() => setConsultantToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
