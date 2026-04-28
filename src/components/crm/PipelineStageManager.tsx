@@ -15,6 +15,8 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Plus, Edit2, Trash2, Loader2, GripVertical } from 'lucide-react';
+import { useFunnel } from '@/contexts/FunnelContext';
+import { FUNNEL_LABELS, FUNNEL_VALUES, FunnelType } from '@/lib/funnel-types';
 
 interface PipelineStage {
   id: string;
@@ -36,16 +38,18 @@ export function PipelineStageManager() {
   const [stageColor, setStageColor] = useState(PRESET_COLORS[0]);
   const [isSaving, setIsSaving] = useState(false);
   const queryClient = useQueryClient();
+  const { resolvedFunnel, availableFunnels, setActiveFunnel } = useFunnel();
 
-  // Buscar stages do banco
+  // Buscar stages do funil ativo
   const { data: stages = [], isLoading } = useQuery({
-    queryKey: ['pipeline-stages'],
+    queryKey: ['pipeline-stages', resolvedFunnel],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('pipeline_stages')
         .select('*')
+        .eq('funnel_type', resolvedFunnel)
         .order('order_index', { ascending: true });
-      
+
       if (error) throw error;
       return data as PipelineStage[];
     },
@@ -85,13 +89,14 @@ export function PipelineStageManager() {
             color: stageColor,
             order_index: maxOrder + 1,
             organization_id: userData.organization_id,
+            funnel_type: resolvedFunnel,
           });
         if (error) throw error;
       }
     },
     onSuccess: () => {
       toast.success(editingStage ? 'Quadro atualizado!' : 'Quadro criado!');
-      queryClient.invalidateQueries({ queryKey: ['pipeline-stages'] });
+      queryClient.invalidateQueries({ queryKey: ['pipeline-stages'], exact: false });
       closeDialog();
     },
     onError: (error) => {
@@ -111,7 +116,7 @@ export function PipelineStageManager() {
     },
     onSuccess: () => {
       toast.success('Quadro excluído!');
-      queryClient.invalidateQueries({ queryKey: ['pipeline-stages'] });
+      queryClient.invalidateQueries({ queryKey: ['pipeline-stages'], exact: false });
     },
     onError: () => {
       toast.error('Erro ao excluir quadro');
@@ -156,18 +161,37 @@ export function PipelineStageManager() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
           <h3 className="text-lg font-semibold text-foreground">Quadros do Pipeline</h3>
           <p className="text-sm text-muted-foreground">
-            Personalize os quadros do seu pipeline de vendas
+            Configurando funil:{' '}
+            <span className="font-semibold text-primary">{FUNNEL_LABELS[resolvedFunnel]}</span>
           </p>
         </div>
-        <Button onClick={openNewDialog} className="bg-primary gap-2">
+        <Button onClick={openNewDialog} className="bg-primary gap-2 shrink-0">
           <Plus className="w-4 h-4" />
           Novo Quadro
         </Button>
       </div>
+
+      {/* Funnel switcher (only when user has access to more than one) */}
+      {availableFunnels.length > 1 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-muted-foreground">Trocar funil:</span>
+          {availableFunnels.map((f) => (
+            <Button
+              key={f}
+              size="sm"
+              variant={f === resolvedFunnel ? 'default' : 'outline'}
+              className="h-7 text-xs"
+              onClick={() => setActiveFunnel(f)}
+            >
+              {FUNNEL_LABELS[f]}
+            </Button>
+          ))}
+        </div>
+      )}
 
       {/* Lista de stages */}
       <div className="flex flex-wrap gap-3">

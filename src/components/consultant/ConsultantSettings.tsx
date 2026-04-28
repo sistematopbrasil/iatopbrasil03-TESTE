@@ -248,9 +248,9 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
   const linkPrefix = pagePurpose === 'recruitment' ? `${window.location.origin}/r/` : `${window.location.origin}/c/`;
   const recruitLinkPrefix = `${window.location.origin}/r/`;
   const [captureForm, setCaptureForm] = useState({
-    title: 'Seu carro protegido do jeito certo.\nSem burocracia. Sem pegadinhas.',
-    subtitle: 'A Top Brasil Campinas oferece proteção veicular completa com assistência 24h, cobertura contra roubo, furto e colisão, tudo com atendimento ágil e verdadeiro.',
-    button_text: 'Quero proteger meu veículo agora →',
+    title: 'Proteja seu veículo por até 70% menos.\nSem burocracia, sem consulta de crédito.',
+    subtitle: 'Cobertura completa contra roubo, furto, colisão e assistência 24h. Solicite uma cotação grátis e descubra quanto você pode economizar todo mês.',
+    button_text: 'Quero minha cotação grátis →',
     button_color: '#EB6608',
     hero_image: '',
     hero_image_size: 'medium',
@@ -327,9 +327,9 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
       };
     }
     return {
-      title: 'Seu carro protegido do jeito certo.\nSem burocracia. Sem pegadinhas.',
-      subtitle: 'A Top Brasil Campinas oferece proteção veicular completa com assistência 24h, cobertura contra roubo, furto e colisão, tudo com atendimento ágil e verdadeiro.',
-      button_text: 'Quero proteger meu veículo agora →',
+      title: 'Proteja seu veículo por até 70% menos.\nSem burocracia, sem consulta de crédito.',
+      subtitle: 'Cobertura completa contra roubo, furto, colisão e assistência 24h. Solicite uma cotação grátis e descubra quanto você pode economizar todo mês.',
+      button_text: 'Quero minha cotação grátis →',
       template_type: 'standard' as const,
       custom_questions: [] as Array<{ question: string; type: 'text' | 'choice'; required: boolean; options: string[] }>,
       compare_enabled: false,

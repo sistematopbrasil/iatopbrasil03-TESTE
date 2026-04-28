@@ -283,67 +283,101 @@ serve(async (req) => {
     }
 
     // =========================================
-    // Criar instância WhatsApp automaticamente
+    // Criar instância(s) WhatsApp automaticamente — uma por funil habilitado
     // =========================================
     const EVOLUTION_API_URL = await getIntegrationValue('EVOLUTION_API_URL', supabaseAdmin);
     const EVOLUTION_API_KEY = await getIntegrationValue('EVOLUTION_API_KEY', supabaseAdmin);
-    
+    const EVOLUTION_WEBHOOK_SECRET = (await getIntegrationValue('EVOLUTION_WEBHOOK_SECRET', supabaseAdmin)) || '';
+
     if (EVOLUTION_API_URL && EVOLUTION_API_KEY) {
-    try {
-        const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/crm-webhook`;
-        // Gerar nome legível baseado no nome do consultor
-        const sanitizedName = full_name
-          .toLowerCase()
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '') // Remove acentos
-          .replace(/[^a-z0-9]/g, '') // Remove caracteres especiais
-          .substring(0, 20);
-        const instanceName = sanitizedName + Date.now().toString(36).substring(0, 5);
+      const webhookBase = `${Deno.env.get('SUPABASE_URL')}/functions/v1/crm-webhook`;
+      const webhookUrl = EVOLUTION_WEBHOOK_SECRET
+        ? `${webhookBase}?secret=${encodeURIComponent(EVOLUTION_WEBHOOK_SECRET)}`
+        : webhookBase;
 
-        console.log('Creating WhatsApp instance for consultant:', instanceName);
+      // Sanitizar nome base
+      const sanitizedBase = full_name
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]/g, '')
+        .substring(0, 20) || 'consultor';
 
-        const evolutionResponse = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': EVOLUTION_API_KEY,
-          },
-          body: JSON.stringify({
-            instanceName,
-            qrcode: true,
-            integration: 'WHATSAPP-BAILEYS',
-            webhook: {
-              url: webhookUrl,
-              events: ['QRCODE_UPDATED', 'CONNECTION_UPDATE', 'MESSAGES_UPSERT', 'MESSAGES_UPDATE', 'SEND_MESSAGE'],
-            },
-          }),
-        });
+      // Sufixos por funil (legíveis)
+      const funnelSuffix: Record<string, string> = {
+        consultor: 'consultor',
+        associado: 'associados',
+      };
 
-        if (evolutionResponse.ok) {
-          // Salvar instância no banco
-          const { error: instanceError } = await supabaseAdmin
-            .from('whatsapp_instances')
-            .insert({
-              user_id: userData.id,
-              organization_id: organization_id,
-              instance_name: instanceName,
-              instance_key: instanceName,
-              status: 'disconnected',
-              webhook_url: webhookUrl,
-            });
-
-          if (instanceError) {
-            console.warn('⚠️ Erro ao salvar instância WhatsApp:', instanceError);
-          } else {
-            console.log('✅ Instância WhatsApp criada automaticamente:', instanceName);
+      for (const funnel of normalizedAllowed) {
+        try {
+          // Gera nome único: "<base>-<funil>", com sufixo numérico em colisões
+          const desiredBase = `${sanitizedBase}-${funnelSuffix[funnel] || funnel}`;
+          let candidateName = desiredBase;
+          let counter = 1;
+          // Loop até achar nome livre na tabela whatsapp_instances
+          // (constraint UNIQUE em instance_name)
+          // Limite de tentativas de segurança
+          for (let i = 0; i < 50; i++) {
+            const { data: existing } = await supabaseAdmin
+              .from('whatsapp_instances')
+              .select('id')
+              .eq('instance_name', candidateName)
+              .maybeSingle();
+            if (!existing) break;
+            counter += 1;
+            candidateName = `${desiredBase}-${counter}`;
           }
-        } else {
-          const errText = await evolutionResponse.text();
-          console.warn('⚠️ Erro na Evolution API:', errText);
+
+          console.log(`Creating WhatsApp instance "${candidateName}" for funnel ${funnel}`);
+
+          const evolutionResponse = await fetch(`${EVOLUTION_API_URL}/instance/create`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': EVOLUTION_API_KEY,
+            },
+            body: JSON.stringify({
+              instanceName: candidateName,
+              qrcode: true,
+              integration: 'WHATSAPP-BAILEYS',
+              webhook: {
+                url: webhookUrl,
+                enabled: true,
+                webhookByEvents: false,
+                webhookBase64: true,
+                headers: EVOLUTION_WEBHOOK_SECRET ? { 'x-webhook-secret': EVOLUTION_WEBHOOK_SECRET } : undefined,
+                events: ['QRCODE_UPDATED', 'CONNECTION_UPDATE', 'MESSAGES_UPSERT', 'MESSAGES_UPDATE', 'SEND_MESSAGE'],
+              },
+            }),
+          });
+
+          if (evolutionResponse.ok) {
+            const { error: instanceError } = await supabaseAdmin
+              .from('whatsapp_instances')
+              .insert({
+                user_id: userData.id,
+                organization_id: organization_id,
+                instance_name: candidateName,
+                instance_key: candidateName,
+                status: 'disconnected',
+                webhook_url: webhookUrl,
+                funnel_type: funnel,
+              });
+
+            if (instanceError) {
+              console.warn(`⚠️ Erro ao salvar instância (${funnel}):`, instanceError);
+            } else {
+              console.log(`✅ Instância "${candidateName}" criada para funil ${funnel}`);
+            }
+          } else {
+            const errText = await evolutionResponse.text();
+            console.warn(`⚠️ Erro Evolution API (${funnel}):`, errText);
+          }
+        } catch (instanceError) {
+          console.warn(`⚠️ Erro criação instância funnel ${funnel}:`, instanceError);
+          // Não falhar criação do consultor por causa disso
         }
-      } catch (instanceError) {
-        console.warn('⚠️ Erro ao criar instância WhatsApp (não crítico):', instanceError);
-        // Não falhar a criação do consultor por causa disso
       }
     } else {
       console.log('⚠️ Evolution API não configurada, pulando criação de instância WhatsApp');
