@@ -894,7 +894,7 @@ export default function CapturePage() {
                     {config.compare_title}
                   </h2>
                   <p className="lp-reveal text-gray-400 text-sm sm:text-base leading-relaxed max-w-2xl">
-                    O seguro tradicional cobra até 3x mais pela mesma proteção — e ainda usa seu CPF e seu bairro pra definir o preço. Com a Top Brasil você protege seu veículo com um valor justo, sem consulta de crédito e sem surpresa no bolso.
+                    {copy.compareIntro}
                   </p>
                 </div>
 
