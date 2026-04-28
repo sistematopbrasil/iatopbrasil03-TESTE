@@ -1,89 +1,81 @@
-## O que vou entregar
+## Problema
 
-Dois documentos PDF prontos para uso, salvos em `/mnt/documents/`:
+A rota `/r/:slug` (Recrutamento de Consultores) carrega configurações próprias do banco (`page_purpose='recruitment'`), mas o template visual em `src/pages/CapturePage.tsx` tem **vários textos hardcoded** que falam de "proteção veicular", "veículo protegido", "75.000 associados", etc. Mesmo que o consultor configure título/subtítulo, esses blocos fixos continuam vendendo proteção para associados — o que descaracteriza a página de recrutamento.
 
-1. **`top-brasil-plataforma-explicacao.pdf`** — Texto explicativo detalhado da ferramenta (para enviar por escrito aos consultores, servir de manual e base de FAQ).
-2. **`top-brasil-roteiro-video.pdf`** — Roteiro completo de vídeo híbrido com timestamps, falas, ações na tela, ganchos de retenção e CTAs.
+Além disso, o `DEFAULT_CONFIG` (fallback quando ainda não há configuração salva) está sempre falando de proteção veicular, independente da rota.
 
-Os dois materiais cobrem **todos os módulos com peso igual**, e seguem a distinção correta entre **Funil de Consultores** (recrutamento de novos consultores) e **Funil de Associados** (proteção veicular para donos de veículo).
+## Objetivo
 
----
+Quando a página for renderizada em modo recrutamento (`isRecruitment === true`, rota `/r/:slug`):
+- Toda a copy hardcoded deve falar com **candidatos a consultor** (renda, oportunidade, time, carreira).
+- O `DEFAULT_CONFIG` deve ter fallback de recrutamento.
+- Os textos editáveis pelo consultor (título, subtítulo, botão, comparativo, etc.) continuam funcionando normalmente — apenas os pedaços fixos do template mudam.
 
-## Documento 1 — Texto explicativo detalhado
+## Mudanças
 
-Estrutura em 10 seções:
+### 1. `src/pages/CapturePage.tsx`
 
-1. **O que é a Top Brasil CRM** — visão geral, problema que resolve, diferencial.
-2. **Os 2 funis** — Consultores (recrutamento) vs Associados (proteção veicular). Como escolher e alternar.
-3. **Captação de leads — 3 portas de entrada:**
-   - **Quiz personalizado** (`/quiz/:slug`) — qualificação automática por respostas
-   - **Página de Captura** (`/c/:slug` e `/r/:slug`) — landing fixa otimizada (Hero, Benefícios, Comparação, Formulário, Galeria, Prova Social) com suporte a vídeo e até 50MB por mídia
-   - **WhatsApp direto** — leads que chamam no zap entram como "morno"
-4. **CRM e Pipeline (Kanban)** — estágios customizáveis, scroll horizontal, drag & drop, estágio "Consultor" como conversão final.
-5. **WhatsApp integrado (Evolution API)** — conexão por QR Code, conversas em tempo real, áudio, imagens, respostas rápidas, criação de lead a partir de conversa.
-6. **Agente de IA** — persona configurável, ativação manual ou automática, prompts por estágio do pipeline, follow-up automático por regras.
-7. **Temperatura do lead e Lead Score** — Quente (30 pts), Morno (20), Frio (10); como a temperatura é calculada e o que faz subir.
-8. **Ranking e Gamificação** — pontuação por temperatura e conversão, níveis, ranking entre consultores.
-9. **Painel Super Admin** — visão consolidada, gestão de consultores, controle de acesso por funil, métricas globais, distribuição por origem (Q/C/W/R).
-10. **Módulos complementares:**
-    - **Instagram Analytics** (atualização 2x/dia, 8h e 23h50)
-    - **Tráfego Meta Ads** (sincronização a cada 5 min, histórico cumulativo)
-    - **Configurações** — Quiz, Pipeline, IA, Integrações, Pixel Meta individual por consultor
+**a) DEFAULT_CONFIG dinâmico por rota**
+Transformar `DEFAULT_CONFIG` em função `getDefaultConfig(isRecruitment)` e usar no `useState` inicial. Para recrutamento:
+- `title`: "Quer uma renda extra ou mudar de vida?"
+- `subtitle`: "Faça parte do nosso time de consultores Top Brasil e tenha liberdade financeira vendendo proteção veicular com a maior referência da região."
+- `button_text`: "Quero fazer parte do time →"
+- `compare_title`: "Por que ser consultor Top Brasil é melhor que um emprego comum?"
+- `compare_traditional_items`: ["Salário fixo limitado", "Horário rígido", "Sem crescimento real", "Chefe no pé", "Bater meta dos outros", "Demissão a qualquer momento"]
+- `compare_topbrasil_items`: ["Comissões sem teto", "Horário flexível", "Plano de carreira claro", "Você é seu chefe", "Trabalhe pelos seus sonhos", "Estabilidade do seu jeito"]
 
-**Tom:** direto, objetivo, em português, com exemplos práticos do dia a dia do consultor. Sem jargão técnico desnecessário.
+**b) Textos hardcoded no template "landing" — condicionais por `isRecruitment`**
 
----
+| Linha | Atual (proteção) | Novo (recrutamento) |
+|---|---|---|
+| 768 — badge | `PROTEÇÃO VEICULAR \| CAMPINAS & REGIÃO` | `OPORTUNIDADE DE CARREIRA \| TOP BRASIL` |
+| 771-772 — H1 segunda linha | `Sem burocracia. Sem pegadinhas.` | usar quebra de linha do título configurado, sem segundo span fixo (renderizar `config.title` inteiro) |
+| 775-776 — sub fallback | "A Top Brasil Campinas oferece proteção veicular completa…" | "Faça parte do time que mais cresce em proteção veicular. Comissões agressivas, treinamento completo e liberdade pra construir sua renda." (apenas quando subtítulo padrão) |
+| 817 — eyebrow comparativo | `Proteção que cabe no bolso` | `Sua nova carreira começa aqui` |
+| 822 — explicação comparativo | "O seguro tradicional cobra até 3x mais…" | "Empregos comuns te limitam. Como consultor Top Brasil você define quanto ganha, quando trabalha e até onde quer chegar — com produto que vende sozinho e suporte de quem é referência no mercado." |
+| 865 — H2 do formulário | `Descubra o plano ideal para o seu veículo!` | `Cadastre-se e fale com nosso recrutador!` |
+| 965 — texto botão submit | `Quero minha proteção agora` | `Quero entrar no time agora` |
+| 989-1011 — Social proof | "+75.000 / veículos protegidos / Junte-se a mais de 75.000 associados…" / "Quero fazer parte agora" | "+75.000 / clientes atendidos pelo time Top Brasil / Faça parte do time que já transformou centenas de carreiras vendendo proteção veicular." / "Quero ser consultor agora" |
 
-## Documento 2 — Roteiro de vídeo híbrido (estimado 14-16 min)
+Implementação: criar pequenos objetos/constantes no início do bloco `if (config.template_type === 'landing')` com os textos por modo, ex.:
 
-Formato: **Visão estratégica (3 min) → Tour prático (10 min) → Fechamento de impacto (2 min)**.
+```ts
+const copy = isRecruitment
+  ? { badge: 'OPORTUNIDADE DE CARREIRA | TOP BRASIL', formHeading: 'Cadastre-se e fale com nosso recrutador!', submitCta: 'Quero entrar no time agora', /* ... */ }
+  : { badge: 'PROTEÇÃO VEICULAR | CAMPINAS & REGIÃO',  formHeading: 'Descubra o plano ideal para o seu veículo!', submitCta: 'Quero minha proteção agora', /* ... */ };
+```
 
-Cada bloco do roteiro contém:
-- ⏱ **Timestamp**
-- 🎬 **O que aparece na tela** (gravação, zoom, animação, texto)
-- 🎙 **Fala literal** (script pronto para narrar)
-- 💡 **Gancho de retenção** (curiosidade, prova, antecipação)
+E substituir cada string hardcoded pela referência ao `copy`.
 
-### Estrutura completa do roteiro:
+**c) Hero — H1 com segundo span**
+Hoje o template renderiza: `Seu carro protegido do jeito certo. <br> [span] Sem burocracia. Sem pegadinhas. [/span]`. Mas a string fixa `"Seu carro protegido do jeito certo."` ignora o `config.title` do consultor. Vou trocar por renderizar `config.title` quebrado por `\n` (já é a convenção de DEFAULT_CONFIG), com a última linha em destaque na cor do botão. Funciona para os dois modos e respeita o que o consultor configurou.
 
-**ATO 1 — ABERTURA QUE PRENDE (0:00 – 3:00)**
-- 0:00 — Hook de 8 segundos: "Você sabia que 80% dos leads são perdidos por falta de organização? Hoje isso acaba pra você."
-- 0:30 — Apresentação da plataforma (visão geral em 5 telas rápidas tipo trailer)
-- 1:00 — Os 3 problemas que ela resolve (lead que esfria, falta de follow-up, falta de visão)
-- 2:00 — Os 2 funis explicados com clareza (Consultores vs Associados) com analogia visual
-- 2:45 — Promessa do vídeo: "nos próximos 12 minutos vou te mostrar tudo"
+**d) ThankYouPage** (linha 153)
+`buttonText` fallback `'Falar com um Consultor'` → quando recrutamento, fallback `'Falar com nosso recrutador'`. Passar `isRecruitment` como prop.
 
-**ATO 2 — TOUR PRÁTICO POR MÓDULO (3:00 – 13:00)**
-- 3:00 — Login e Dashboard (visão geral dos números)
-- 3:45 — **Captação:** Quiz + Página de Captura + link de compartilhamento personalizado
-- 5:30 — **CRM e Pipeline:** abas (Quiz, WhatsApp, Captura), card do lead, perfil completo, drag & drop no Kanban
-- 7:30 — **WhatsApp integrado:** conectar instância, conversar dentro da plataforma, áudio, respostas rápidas
-- 9:00 — **Agente de IA:** ativar IA na conversa, configurar persona, follow-up automático
-- 10:30 — **Ranking e Gamificação:** "como você sobe de nível"
-- 11:15 — **Instagram + Tráfego** (rápido, mostrando que dá visão completa)
-- 12:00 — **Painel Super Admin** (para líderes): consultores ativos, conversão, origem dos leads
-- 12:45 — Configurações essenciais: Pixel próprio, link próprio, integração Meta
+### 2. `src/components/consultant/ConsultantSettings.tsx`
 
-**ATO 3 — FECHAMENTO DE IMPACTO (13:00 – 15:00)**
-- 13:00 — Recapitulação visual (montagem rápida com legenda "tudo isso em 1 lugar")
-- 13:30 — Caso de uso real ("imagina sua semana com isso")
-- 14:00 — CTA: como começar hoje (login → conectar WhatsApp → compartilhar link → começar a captar)
-- 14:30 — Frase de encerramento forte
-- 14:45 — Tela final com instruções de suporte
+Atualizar `getDefaults('recruitment')` para incluir também os defaults de comparativo coerentes com recrutamento (hoje só preenche título/subtítulo/botão/perguntas):
 
-### Recursos extras incluídos no roteiro:
-- **Lista de B-rolls sugeridos** (cliques, zooms, animações de transição)
-- **Frases-gancho** para usar nos cortes (evita queda de retenção)
-- **Sugestões de texto na tela** (lower-thirds e callouts)
-- **Variação curta de 90s** para Stories/Reels (bônus no fim)
-- **Roteiro de descrição** pronto para postar junto do vídeo
+```ts
+compare_enabled: true,
+compare_title: 'Por que ser consultor Top Brasil é melhor que um emprego comum?',
+compare_traditional_items: [...],
+compare_topbrasil_items: [...],
+```
 
----
+E ajustar o `useEffect` que monta `captureForm` para usar esses defaults quando `pagePurpose === 'recruitment'` e o registro ainda não tem valores salvos.
 
-## Como vou gerar
+## O que NÃO muda
 
-- Vou usar Python + ReportLab para gerar dois PDFs com tipografia limpa, paleta Top Brasil (laranja `#EB6608` + preto), capa, sumário e seções bem espaçadas.
-- Sem mexer no código da aplicação — é puramente geração de artefato em `/mnt/documents/`.
-- QA visual obrigatório: vou converter cada página em imagem e revisar antes de entregar.
+- Estrutura visual, animações, layout, cores e branding (Top Brasil / laranja `#EB6608`).
+- Lógica de envio, integração com Pixel, redirecionamento WhatsApp/URL/Thank You.
+- Página `/c/:slug` (Captação de Associados) continua exatamente igual.
+- Possibilidade do consultor sobrescrever todos os textos pelo painel.
 
-Ao final você recebe os dois PDFs prontos para baixar e usar.
+## Arquivos editados
+
+- `src/pages/CapturePage.tsx`
+- `src/components/consultant/ConsultantSettings.tsx`
+
+Sem migrações de banco, sem mudanças em edge functions.

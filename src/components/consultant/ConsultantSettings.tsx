@@ -308,13 +308,21 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
     if (purpose === 'recruitment') {
       return {
         title: 'Quer uma renda extra ou mudar de vida?',
-        subtitle: 'Faça parte do nosso time de consultores e conquiste sua independência financeira com proteção veicular.',
+        subtitle: 'Faça parte do nosso time de consultores Top Brasil e tenha liberdade financeira vendendo proteção veicular com a maior referência da região.',
         button_text: 'Quero fazer parte do time →',
         template_type: 'landing' as const,
         custom_questions: [
           { question: 'Você tem experiência com vendas?', type: 'choice' as const, required: true, options: ['Sim, já trabalho com vendas', 'Já trabalhei mas parei', 'Nunca trabalhei mas tenho interesse', 'Não tenho experiência'] },
           { question: 'Qual sua disponibilidade?', type: 'choice' as const, required: true, options: ['Período integral', 'Meio período', 'Apenas finais de semana', 'Horários flexíveis'] },
           { question: 'Qual renda mensal você busca?', type: 'choice' as const, required: true, options: ['R$ 2.000 a R$ 4.000', 'R$ 4.000 a R$ 8.000', 'R$ 8.000 a R$ 12.000', 'Acima de R$ 12.000'] },
+        ],
+        compare_enabled: true,
+        compare_title: 'Por que ser consultor Top Brasil é melhor que um emprego comum?',
+        compare_traditional_items: [
+          'Salário fixo limitado', 'Horário rígido', 'Sem crescimento real', 'Chefe no pé', 'Bater meta dos outros', 'Demissão a qualquer momento'
+        ],
+        compare_topbrasil_items: [
+          'Comissões sem teto', 'Horário flexível', 'Plano de carreira claro', 'Você é seu chefe', 'Trabalhe pelos seus sonhos', 'Estabilidade do seu jeito'
         ],
       };
     }
@@ -324,6 +332,14 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
       button_text: 'Quero proteger meu veículo agora →',
       template_type: 'standard' as const,
       custom_questions: [] as Array<{ question: string; type: 'text' | 'choice'; required: boolean; options: string[] }>,
+      compare_enabled: false,
+      compare_title: 'Por que pagar caro no seguro se você pode pagar muito menos?',
+      compare_traditional_items: [
+        'Consulta de crédito', 'Processo burocrático', 'Atendimento demorado', 'Preço varia pelo seu perfil', 'Franquia obrigatória', 'Renovação anual forçada'
+      ],
+      compare_topbrasil_items: [
+        'Sem consulta de crédito', 'Aprovação na hora', 'Assistência 24h inclusa', 'Preço justo pra todos', 'Sem franquia surpresa', 'Atendimento humanizado'
+      ],
     };
   };
 
@@ -350,14 +366,10 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
         logo_image: (existingConfig as any).logo_image || '',
         logo_position: (existingConfig as any).logo_position || 'left',
         logo_size: (existingConfig as any).logo_size || 'medium',
-        compare_enabled: (existingConfig as any).compare_enabled ?? false,
-        compare_title: (existingConfig as any).compare_title || 'Por que pagar caro no seguro se você pode pagar muito menos?',
-        compare_traditional_items: (existingConfig as any).compare_traditional_items || [
-          'Consulta de crédito', 'Processo burocrático', 'Atendimento demorado', 'Preço varia pelo seu perfil', 'Franquia obrigatória', 'Renovação anual forçada'
-        ],
-        compare_topbrasil_items: (existingConfig as any).compare_topbrasil_items || [
-          'Sem consulta de crédito', 'Aprovação na hora', 'Assistência 24h inclusa', 'Preço justo pra todos', 'Sem franquia surpresa', 'Atendimento humanizado'
-        ],
+        compare_enabled: (existingConfig as any).compare_enabled ?? getDefaults(pagePurpose).compare_enabled,
+        compare_title: (existingConfig as any).compare_title || getDefaults(pagePurpose).compare_title,
+        compare_traditional_items: (existingConfig as any).compare_traditional_items || getDefaults(pagePurpose).compare_traditional_items,
+        compare_topbrasil_items: (existingConfig as any).compare_topbrasil_items || getDefaults(pagePurpose).compare_topbrasil_items,
       });
     } else {
       // No existing config, load defaults for this purpose
@@ -369,6 +381,10 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
         button_text: defaults.button_text,
         template_type: defaults.template_type,
         custom_questions: defaults.custom_questions,
+        compare_enabled: defaults.compare_enabled,
+        compare_title: defaults.compare_title,
+        compare_traditional_items: defaults.compare_traditional_items,
+        compare_topbrasil_items: defaults.compare_topbrasil_items,
       }));
     }
   }, [existingConfig, pagePurpose]);

@@ -63,34 +63,66 @@ interface ConsultantData {
   pixel_id: string | null;
 }
 
-const DEFAULT_CONFIG: CaptureConfig = {
-  title: 'Seu carro protegido do jeito certo.\nSem burocracia. Sem pegadinhas.',
-  subtitle: 'A Top Brasil Campinas oferece proteção veicular completa com assistência 24h, cobertura contra roubo, furto e colisão, tudo com atendimento ágil e verdadeiro.',
-  button_text: 'Quero proteger meu veículo agora →',
-  button_color: '#EB6608',
-  hero_image: '',
-  hero_image_size: 'medium',
-  hero_image_position: 'top',
-  hero_image_shape: 'rounded',
-  redirect_type: 'thank_you',
-  redirect_url: '',
-  whatsapp_message: 'Olá!',
-  whatsapp_number: '',
-  email_enabled: true,
-  custom_questions: [],
-  template_type: 'standard',
-  gallery_images: [],
-  gallery_title: 'Veja nossos resultados',
-  logo_image: '',
-  compare_enabled: false,
-  compare_title: 'Por que pagar caro no seguro se você pode pagar muito menos?',
-  compare_traditional_items: [
-    'Consulta de crédito', 'Processo burocrático', 'Atendimento demorado', 'Preço varia pelo seu perfil', 'Franquia obrigatória', 'Renovação anual forçada'
-  ],
-  compare_topbrasil_items: [
-    'Sem consulta de crédito', 'Aprovação na hora', 'Assistência 24h inclusa', 'Preço justo pra todos', 'Sem franquia surpresa', 'Atendimento humanizado'
-  ]
-};
+function getDefaultConfig(isRecruitment: boolean): CaptureConfig {
+  if (isRecruitment) {
+    return {
+      title: 'Quer uma renda extra ou mudar de vida?',
+      subtitle: 'Faça parte do nosso time de consultores Top Brasil e tenha liberdade financeira vendendo proteção veicular com a maior referência da região.',
+      button_text: 'Quero fazer parte do time →',
+      button_color: '#EB6608',
+      hero_image: '',
+      hero_image_size: 'medium',
+      hero_image_position: 'top',
+      hero_image_shape: 'rounded',
+      redirect_type: 'thank_you',
+      redirect_url: '',
+      whatsapp_message: 'Olá! Vim pela página de recrutamento e quero saber mais sobre a oportunidade.',
+      whatsapp_number: '',
+      email_enabled: true,
+      custom_questions: [],
+      template_type: 'landing',
+      gallery_images: [],
+      gallery_title: 'Conheça nosso time',
+      logo_image: '',
+      compare_enabled: false,
+      compare_title: 'Por que ser consultor Top Brasil é melhor que um emprego comum?',
+      compare_traditional_items: [
+        'Salário fixo limitado', 'Horário rígido', 'Sem crescimento real', 'Chefe no pé', 'Bater meta dos outros', 'Demissão a qualquer momento'
+      ],
+      compare_topbrasil_items: [
+        'Comissões sem teto', 'Horário flexível', 'Plano de carreira claro', 'Você é seu chefe', 'Trabalhe pelos seus sonhos', 'Estabilidade do seu jeito'
+      ]
+    };
+  }
+  return {
+    title: 'Seu carro protegido do jeito certo.\nSem burocracia. Sem pegadinhas.',
+    subtitle: 'A Top Brasil Campinas oferece proteção veicular completa com assistência 24h, cobertura contra roubo, furto e colisão, tudo com atendimento ágil e verdadeiro.',
+    button_text: 'Quero proteger meu veículo agora →',
+    button_color: '#EB6608',
+    hero_image: '',
+    hero_image_size: 'medium',
+    hero_image_position: 'top',
+    hero_image_shape: 'rounded',
+    redirect_type: 'thank_you',
+    redirect_url: '',
+    whatsapp_message: 'Olá!',
+    whatsapp_number: '',
+    email_enabled: true,
+    custom_questions: [],
+    template_type: 'standard',
+    gallery_images: [],
+    gallery_title: 'Veja nossos resultados',
+    logo_image: '',
+    compare_enabled: false,
+    compare_title: 'Por que pagar caro no seguro se você pode pagar muito menos?',
+    compare_traditional_items: [
+      'Consulta de crédito', 'Processo burocrático', 'Atendimento demorado', 'Preço varia pelo seu perfil', 'Franquia obrigatória', 'Renovação anual forçada'
+    ],
+    compare_topbrasil_items: [
+      'Sem consulta de crédito', 'Aprovação na hora', 'Assistência 24h inclusa', 'Preço justo pra todos', 'Sem franquia surpresa', 'Atendimento humanizado'
+    ]
+  };
+}
 
 /* ─── Country data ─── */
 const COUNTRIES = [
@@ -148,9 +180,9 @@ function AnimatedCheck() {
 }
 
 /* ─── Thank You Page (only shown for redirect_type === 'thank_you') ─── */
-function ThankYouPage({ config, form }: { config: CaptureConfig; form: { name: string } }) {
+function ThankYouPage({ config, form, isRecruitment }: { config: CaptureConfig; form: { name: string }; isRecruitment?: boolean }) {
   const firstName = form.name.split(' ')[0];
-  const buttonText = config.button_text || 'Falar com um Consultor';
+  const buttonText = config.button_text || (isRecruitment ? 'Falar com nosso recrutador' : 'Falar com um Consultor');
   
   // If redirect_url is configured, show button linking to it
   const buttonUrl = config.redirect_url 
@@ -425,7 +457,7 @@ export default function CapturePage() {
   // /c/:slug → funil de Associados; /r/:slug e /quiz/* permanecem em Consultores
   const isAssociadoCapture = location.pathname.startsWith('/c/');
   const captureFunnel: 'consultor' | 'associado' = isAssociadoCapture ? 'associado' : 'consultor';
-  const [config, setConfig] = useState<CaptureConfig>(DEFAULT_CONFIG);
+  const [config, setConfig] = useState<CaptureConfig>(() => getDefaultConfig(isRecruitment));
   const [consultant, setConsultant] = useState<ConsultantData | null>(null);
   const [loading, setLoading] = useState(false);
   const [notFound, setNotFound] = useState(false);
@@ -460,31 +492,35 @@ export default function CapturePage() {
         .eq('consultant_id', consultantData.id).eq('is_active', true) as any)
         .eq('page_purpose', pagePurpose).maybeSingle();
 
+      const defaults = getDefaultConfig(isRecruitment);
       if (captureConfig) {
         setConfig({
-          title: captureConfig.title || DEFAULT_CONFIG.title,
-          subtitle: captureConfig.subtitle || DEFAULT_CONFIG.subtitle,
-          button_text: captureConfig.button_text || DEFAULT_CONFIG.button_text,
-          button_color: captureConfig.button_color || DEFAULT_CONFIG.button_color,
+          title: captureConfig.title || defaults.title,
+          subtitle: captureConfig.subtitle || defaults.subtitle,
+          button_text: captureConfig.button_text || defaults.button_text,
+          button_color: captureConfig.button_color || defaults.button_color,
           hero_image: captureConfig.hero_image,
           hero_image_size: captureConfig.hero_image_size || 'medium',
           hero_image_position: captureConfig.hero_image_position || 'top',
           hero_image_shape: captureConfig.hero_image_shape || 'rounded',
           redirect_type: captureConfig.redirect_type || 'thank_you',
           redirect_url: captureConfig.redirect_url,
-          whatsapp_message: captureConfig.whatsapp_message || DEFAULT_CONFIG.whatsapp_message,
+          whatsapp_message: captureConfig.whatsapp_message || defaults.whatsapp_message,
           whatsapp_number: captureConfig.whatsapp_number || null,
           email_enabled: (captureConfig as any).email_enabled ?? true,
           custom_questions: (captureConfig as any).custom_questions || [],
-          template_type: (captureConfig as any).template_type || 'standard',
+          template_type: (captureConfig as any).template_type || defaults.template_type,
           gallery_images: (captureConfig as any).gallery_images || [],
-          gallery_title: (captureConfig as any).gallery_title || 'Veja nossos resultados',
+          gallery_title: (captureConfig as any).gallery_title || defaults.gallery_title,
           logo_image: (captureConfig as any).logo_image || null,
-          compare_enabled: (captureConfig as any).compare_enabled ?? DEFAULT_CONFIG.compare_enabled,
-          compare_title: (captureConfig as any).compare_title || DEFAULT_CONFIG.compare_title,
-          compare_traditional_items: (captureConfig as any).compare_traditional_items || DEFAULT_CONFIG.compare_traditional_items,
-          compare_topbrasil_items: (captureConfig as any).compare_topbrasil_items || DEFAULT_CONFIG.compare_topbrasil_items,
+          compare_enabled: (captureConfig as any).compare_enabled ?? defaults.compare_enabled,
+          compare_title: (captureConfig as any).compare_title || defaults.compare_title,
+          compare_traditional_items: (captureConfig as any).compare_traditional_items || defaults.compare_traditional_items,
+          compare_topbrasil_items: (captureConfig as any).compare_topbrasil_items || defaults.compare_topbrasil_items,
         });
+      } else {
+        // Sem registro salvo → usa defaults do modo (recrutamento ou captação)
+        setConfig(defaults);
       }
     } catch (error) {
       console.error('Erro ao carregar página de captura:', error);
@@ -628,7 +664,7 @@ export default function CapturePage() {
     );
   }
 
-  if (submitted) return <ThankYouPage config={config} form={form} />;
+  if (submitted) return <ThankYouPage config={config} form={form} isRecruitment={isRecruitment} />;
 
   const isBackground = config.hero_image_position === 'background' && config.hero_image;
   const isLeft = config.hero_image_position === 'left' && config.hero_image;
@@ -650,6 +686,35 @@ export default function CapturePage() {
       const txt = encodeURIComponent(config.whatsapp_message || 'Olá!');
       window.location.href = `https://wa.me/${config.whatsapp_number.replace(/\D/g, '')}?text=${txt}`;
     };
+
+    // Copy condicional por modo da rota: /r/ recrutamento × /c/ captação
+    const copy = isRecruitment
+      ? {
+          badge: 'OPORTUNIDADE DE CARREIRA | TOP BRASIL',
+          subtitleFallback: 'Faça parte do time que mais cresce em proteção veicular. Comissões agressivas, treinamento completo e liberdade pra construir sua renda.',
+          subtitleHighlight: 'Treinamento completo. Comissões sem teto.',
+          compareEyebrow: 'Sua nova carreira começa aqui',
+          compareIntro: 'Empregos comuns te limitam. Como consultor Top Brasil você define quanto ganha, quando trabalha e até onde quer chegar — com produto que vende sozinho e suporte de quem é referência no mercado.',
+          formHeading: 'Cadastre-se e fale com nosso recrutador!',
+          submitCta: 'Quero entrar no time agora',
+          socialNumber: '+75.000',
+          socialLabel: 'clientes atendidos pelo time Top Brasil',
+          socialDescription: 'Faça parte do time que já transformou centenas de carreiras vendendo proteção veicular.',
+          socialCta: 'Quero ser consultor agora',
+        }
+      : {
+          badge: 'PROTEÇÃO VEICULAR | CAMPINAS & REGIÃO',
+          subtitleFallback: 'A Top Brasil Campinas oferece proteção veicular completa com assistência 24h, cobertura contra roubo, furto e colisão — tudo com atendimento ágil e de verdade.',
+          subtitleHighlight: 'Sem consulta de crédito. Aprovação na hora.',
+          compareEyebrow: 'Proteção que cabe no bolso',
+          compareIntro: 'O seguro tradicional cobra até 3x mais pela mesma proteção — e ainda usa seu CPF e seu bairro pra definir o preço. Com a Top Brasil você protege seu veículo com um valor justo, sem consulta de crédito e sem surpresa no bolso.',
+          formHeading: 'Descubra o plano ideal para o seu veículo!',
+          submitCta: 'Quero minha proteção agora',
+          socialNumber: '+75.000',
+          socialLabel: 'veículos protegidos em todo o Brasil',
+          socialDescription: 'Junte-se a mais de 75.000 associados que já protegem seu veículo com tranquilidade.',
+          socialCta: 'Quero fazer parte agora',
+        };
 
     const isYouTubeOrVimeo = (url: string) => 
       url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com');
@@ -765,15 +830,25 @@ export default function CapturePage() {
             )}
             <div className="lp-reveal mb-6 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[10px] sm:text-xs font-semibold text-gray-300 tracking-wider uppercase">
               <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full" style={{ backgroundColor: config.button_color, boxShadow: `0 0 10px ${config.button_color}` }} />
-              PROTEÇÃO VEICULAR | CAMPINAS & REGIÃO
+              {copy.badge}
             </div>
             <h1 className="lp-hero-title text-[2rem] leading-[1.1] sm:text-4xl md:text-5xl xl:text-6xl font-extrabold text-white tracking-tight max-w-4xl">
-              Seu carro protegido do jeito certo.{' '}
-              <span className="block mt-1" style={{ color: config.button_color }}>Sem burocracia. Sem pegadinhas.</span>
+              {(() => {
+                const lines = (config.title || '').split('\n');
+                if (lines.length <= 1) return config.title;
+                const head = lines.slice(0, -1).join(' ');
+                const tail = lines[lines.length - 1];
+                return (
+                  <>
+                    {head}{' '}
+                    <span className="block mt-1" style={{ color: config.button_color }}>{tail}</span>
+                  </>
+                );
+              })()}
             </h1>
             <p className="lp-hero-sub text-gray-400 text-sm sm:text-base md:text-lg mt-5 max-w-2xl leading-relaxed">
-              A Top Brasil Campinas oferece proteção veicular completa com assistência 24h, cobertura contra roubo, furto e colisão — tudo com atendimento ágil e de verdade.{' '}
-              <span className="text-white font-semibold">Sem consulta de crédito. Aprovação na hora.</span>
+              {config.subtitle || copy.subtitleFallback}{' '}
+              <span className="text-white font-semibold">{copy.subtitleHighlight}</span>
             </p>
             <div className="lp-hero-btn mt-8 w-full sm:w-auto">
               <button
@@ -814,12 +889,12 @@ export default function CapturePage() {
             <section className="px-4 sm:px-6 py-14 md:py-20 max-w-5xl mx-auto w-full">
               <div className="space-y-8 md:space-y-10">
               <div className="text-left space-y-3 max-w-3xl">
-                  <p className="lp-reveal text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase" style={{ color: config.button_color }}>Proteção que cabe no bolso</p>
+                  <p className="lp-reveal text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase" style={{ color: config.button_color }}>{copy.compareEyebrow}</p>
                   <h2 className="lp-reveal text-2xl sm:text-3xl md:text-4xl font-bold text-white leading-[1.15]">
                     {config.compare_title}
                   </h2>
                   <p className="lp-reveal text-gray-400 text-sm sm:text-base leading-relaxed max-w-2xl">
-                    O seguro tradicional cobra até 3x mais pela mesma proteção — e ainda usa seu CPF e seu bairro pra definir o preço. Com a Top Brasil você protege seu veículo com um valor justo, sem consulta de crédito e sem surpresa no bolso.
+                    {copy.compareIntro}
                   </p>
                 </div>
 
@@ -862,7 +937,7 @@ export default function CapturePage() {
           <section id="formulario" className="px-4 sm:px-6 py-14 md:py-20 max-w-2xl mx-auto w-full scroll-mt-8">
             <div className="lp-reveal rounded-3xl p-6 sm:p-10 border border-white/10 bg-white/[0.03] backdrop-blur-md shadow-2xl">
               <h2 className="text-2xl sm:text-3xl font-extrabold text-white text-center mb-8 leading-tight">
-                Descubra o plano ideal para o seu veículo!
+                {copy.formHeading}
               </h2>
               <form onSubmit={handleSubmit} className="space-y-5">
                 {/* Nome */}
@@ -962,7 +1037,7 @@ export default function CapturePage() {
                     {submitting ? (
                       <><Loader2 className="w-5 h-5 animate-spin" /> Enviando...</>
                     ) : (
-                      <>Quero minha proteção agora <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></>
+                      <>{copy.submitCta} <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></>
                     )}
                   </span>
                 </button>
@@ -989,16 +1064,16 @@ export default function CapturePage() {
           <section className="px-4 sm:px-6 py-14 md:py-20 text-center max-w-3xl mx-auto">
             <div className="lp-reveal space-y-5">
               <p className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white leading-none">
-                +75.000
+                {copy.socialNumber}
               </p>
               <p className="text-base sm:text-lg font-semibold text-gray-300">
-                veículos protegidos em todo o Brasil
+                {copy.socialLabel}
               </p>
               <div className="flex justify-center gap-1 text-2xl">
                 {['⭐','⭐','⭐','⭐','⭐'].map((s, i) => <span key={i}>{s}</span>)}
               </div>
               <p className="text-gray-400 text-sm sm:text-base max-w-xl mx-auto leading-relaxed">
-                Junte-se a mais de 75.000 associados que já protegem seu veículo com tranquilidade.
+                {copy.socialDescription}
               </p>
               <button
                 type="button"
@@ -1006,7 +1081,7 @@ export default function CapturePage() {
                 className="group inline-flex items-center gap-2 px-8 py-4 rounded-full text-white font-bold text-base sm:text-lg transition-all duration-300 hover:scale-[1.03] hover:shadow-2xl active:scale-[0.97]"
                 style={{ backgroundColor: config.button_color, boxShadow: `0 12px 40px -8px ${config.button_color}BB` }}
               >
-                Quero fazer parte agora <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                {copy.socialCta} <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
             </div>
           </section>
