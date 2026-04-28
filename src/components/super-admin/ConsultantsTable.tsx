@@ -34,6 +34,7 @@ export function ConsultantsTable() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [consultantToDelete, setConsultantToDelete] = useState<{ id: string; name: string } | null>(null);
   const [funnelEdit, setFunnelEdit] = useState<{ id: string; name: string } | null>(null);
+  const [credEdit, setCredEdit] = useState<{ id: string; name: string } | null>(null);
   const queryClient = useQueryClient();
   
   // Usar hook centralizado para dados de ranking
