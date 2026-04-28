@@ -89,13 +89,14 @@ export function PipelineStageManager() {
             color: stageColor,
             order_index: maxOrder + 1,
             organization_id: userData.organization_id,
+            funnel_type: resolvedFunnel,
           });
         if (error) throw error;
       }
     },
     onSuccess: () => {
       toast.success(editingStage ? 'Quadro atualizado!' : 'Quadro criado!');
-      queryClient.invalidateQueries({ queryKey: ['pipeline-stages'] });
+      queryClient.invalidateQueries({ queryKey: ['pipeline-stages'], exact: false });
       closeDialog();
     },
     onError: (error) => {
