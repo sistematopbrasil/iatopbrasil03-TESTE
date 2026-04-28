@@ -15,6 +15,8 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Plus, Edit2, Trash2, Loader2, GripVertical } from 'lucide-react';
+import { useFunnel } from '@/contexts/FunnelContext';
+import { FUNNEL_LABELS, FUNNEL_VALUES, FunnelType } from '@/lib/funnel-types';
 
 interface PipelineStage {
   id: string;
@@ -36,16 +38,18 @@ export function PipelineStageManager() {
   const [stageColor, setStageColor] = useState(PRESET_COLORS[0]);
   const [isSaving, setIsSaving] = useState(false);
   const queryClient = useQueryClient();
+  const { resolvedFunnel, availableFunnels, setActiveFunnel } = useFunnel();
 
-  // Buscar stages do banco
+  // Buscar stages do funil ativo
   const { data: stages = [], isLoading } = useQuery({
-    queryKey: ['pipeline-stages'],
+    queryKey: ['pipeline-stages', resolvedFunnel],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('pipeline_stages')
         .select('*')
+        .eq('funnel_type', resolvedFunnel)
         .order('order_index', { ascending: true });
-      
+
       if (error) throw error;
       return data as PipelineStage[];
     },
