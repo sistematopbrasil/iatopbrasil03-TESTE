@@ -664,7 +664,7 @@ export default function CapturePage() {
     );
   }
 
-  if (submitted) return <ThankYouPage config={config} form={form} />;
+  if (submitted) return <ThankYouPage config={config} form={form} isRecruitment={isRecruitment} />;
 
   const isBackground = config.hero_image_position === 'background' && config.hero_image;
   const isLeft = config.hero_image_position === 'left' && config.hero_image;
