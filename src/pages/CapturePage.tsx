@@ -830,15 +830,25 @@ export default function CapturePage() {
             )}
             <div className="lp-reveal mb-6 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[10px] sm:text-xs font-semibold text-gray-300 tracking-wider uppercase">
               <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full" style={{ backgroundColor: config.button_color, boxShadow: `0 0 10px ${config.button_color}` }} />
-              PROTEÇÃO VEICULAR | CAMPINAS & REGIÃO
+              {copy.badge}
             </div>
             <h1 className="lp-hero-title text-[2rem] leading-[1.1] sm:text-4xl md:text-5xl xl:text-6xl font-extrabold text-white tracking-tight max-w-4xl">
-              Seu carro protegido do jeito certo.{' '}
-              <span className="block mt-1" style={{ color: config.button_color }}>Sem burocracia. Sem pegadinhas.</span>
+              {(() => {
+                const lines = (config.title || '').split('\n');
+                if (lines.length <= 1) return config.title;
+                const head = lines.slice(0, -1).join(' ');
+                const tail = lines[lines.length - 1];
+                return (
+                  <>
+                    {head}{' '}
+                    <span className="block mt-1" style={{ color: config.button_color }}>{tail}</span>
+                  </>
+                );
+              })()}
             </h1>
             <p className="lp-hero-sub text-gray-400 text-sm sm:text-base md:text-lg mt-5 max-w-2xl leading-relaxed">
-              A Top Brasil Campinas oferece proteção veicular completa com assistência 24h, cobertura contra roubo, furto e colisão — tudo com atendimento ágil e de verdade.{' '}
-              <span className="text-white font-semibold">Sem consulta de crédito. Aprovação na hora.</span>
+              {config.subtitle || copy.subtitleFallback}{' '}
+              <span className="text-white font-semibold">{copy.subtitleHighlight}</span>
             </p>
             <div className="lp-hero-btn mt-8 w-full sm:w-auto">
               <button
