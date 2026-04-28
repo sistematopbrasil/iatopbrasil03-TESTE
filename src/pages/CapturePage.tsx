@@ -687,6 +687,35 @@ export default function CapturePage() {
       window.location.href = `https://wa.me/${config.whatsapp_number.replace(/\D/g, '')}?text=${txt}`;
     };
 
+    // Copy condicional por modo da rota: /r/ recrutamento × /c/ captação
+    const copy = isRecruitment
+      ? {
+          badge: 'OPORTUNIDADE DE CARREIRA | TOP BRASIL',
+          subtitleFallback: 'Faça parte do time que mais cresce em proteção veicular. Comissões agressivas, treinamento completo e liberdade pra construir sua renda.',
+          subtitleHighlight: 'Treinamento completo. Comissões sem teto.',
+          compareEyebrow: 'Sua nova carreira começa aqui',
+          compareIntro: 'Empregos comuns te limitam. Como consultor Top Brasil você define quanto ganha, quando trabalha e até onde quer chegar — com produto que vende sozinho e suporte de quem é referência no mercado.',
+          formHeading: 'Cadastre-se e fale com nosso recrutador!',
+          submitCta: 'Quero entrar no time agora',
+          socialNumber: '+75.000',
+          socialLabel: 'clientes atendidos pelo time Top Brasil',
+          socialDescription: 'Faça parte do time que já transformou centenas de carreiras vendendo proteção veicular.',
+          socialCta: 'Quero ser consultor agora',
+        }
+      : {
+          badge: 'PROTEÇÃO VEICULAR | CAMPINAS & REGIÃO',
+          subtitleFallback: 'A Top Brasil Campinas oferece proteção veicular completa com assistência 24h, cobertura contra roubo, furto e colisão — tudo com atendimento ágil e de verdade.',
+          subtitleHighlight: 'Sem consulta de crédito. Aprovação na hora.',
+          compareEyebrow: 'Proteção que cabe no bolso',
+          compareIntro: 'O seguro tradicional cobra até 3x mais pela mesma proteção — e ainda usa seu CPF e seu bairro pra definir o preço. Com a Top Brasil você protege seu veículo com um valor justo, sem consulta de crédito e sem surpresa no bolso.',
+          formHeading: 'Descubra o plano ideal para o seu veículo!',
+          submitCta: 'Quero minha proteção agora',
+          socialNumber: '+75.000',
+          socialLabel: 'veículos protegidos em todo o Brasil',
+          socialDescription: 'Junte-se a mais de 75.000 associados que já protegem seu veículo com tranquilidade.',
+          socialCta: 'Quero fazer parte agora',
+        };
+
     const isYouTubeOrVimeo = (url: string) => 
       url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com');
 
