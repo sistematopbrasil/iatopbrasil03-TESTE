@@ -1037,7 +1037,7 @@ export default function CapturePage() {
                     {submitting ? (
                       <><Loader2 className="w-5 h-5 animate-spin" /> Enviando...</>
                     ) : (
-                      <>Quero minha proteção agora <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></>
+                      <>{copy.submitCta} <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" /></>
                     )}
                   </span>
                 </button>
