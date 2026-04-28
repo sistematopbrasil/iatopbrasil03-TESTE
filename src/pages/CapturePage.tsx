@@ -492,31 +492,35 @@ export default function CapturePage() {
         .eq('consultant_id', consultantData.id).eq('is_active', true) as any)
         .eq('page_purpose', pagePurpose).maybeSingle();
 
+      const defaults = getDefaultConfig(isRecruitment);
       if (captureConfig) {
         setConfig({
-          title: captureConfig.title || DEFAULT_CONFIG.title,
-          subtitle: captureConfig.subtitle || DEFAULT_CONFIG.subtitle,
-          button_text: captureConfig.button_text || DEFAULT_CONFIG.button_text,
-          button_color: captureConfig.button_color || DEFAULT_CONFIG.button_color,
+          title: captureConfig.title || defaults.title,
+          subtitle: captureConfig.subtitle || defaults.subtitle,
+          button_text: captureConfig.button_text || defaults.button_text,
+          button_color: captureConfig.button_color || defaults.button_color,
           hero_image: captureConfig.hero_image,
           hero_image_size: captureConfig.hero_image_size || 'medium',
           hero_image_position: captureConfig.hero_image_position || 'top',
           hero_image_shape: captureConfig.hero_image_shape || 'rounded',
           redirect_type: captureConfig.redirect_type || 'thank_you',
           redirect_url: captureConfig.redirect_url,
-          whatsapp_message: captureConfig.whatsapp_message || DEFAULT_CONFIG.whatsapp_message,
+          whatsapp_message: captureConfig.whatsapp_message || defaults.whatsapp_message,
           whatsapp_number: captureConfig.whatsapp_number || null,
           email_enabled: (captureConfig as any).email_enabled ?? true,
           custom_questions: (captureConfig as any).custom_questions || [],
-          template_type: (captureConfig as any).template_type || 'standard',
+          template_type: (captureConfig as any).template_type || defaults.template_type,
           gallery_images: (captureConfig as any).gallery_images || [],
-          gallery_title: (captureConfig as any).gallery_title || 'Veja nossos resultados',
+          gallery_title: (captureConfig as any).gallery_title || defaults.gallery_title,
           logo_image: (captureConfig as any).logo_image || null,
-          compare_enabled: (captureConfig as any).compare_enabled ?? DEFAULT_CONFIG.compare_enabled,
-          compare_title: (captureConfig as any).compare_title || DEFAULT_CONFIG.compare_title,
-          compare_traditional_items: (captureConfig as any).compare_traditional_items || DEFAULT_CONFIG.compare_traditional_items,
-          compare_topbrasil_items: (captureConfig as any).compare_topbrasil_items || DEFAULT_CONFIG.compare_topbrasil_items,
+          compare_enabled: (captureConfig as any).compare_enabled ?? defaults.compare_enabled,
+          compare_title: (captureConfig as any).compare_title || defaults.compare_title,
+          compare_traditional_items: (captureConfig as any).compare_traditional_items || defaults.compare_traditional_items,
+          compare_topbrasil_items: (captureConfig as any).compare_topbrasil_items || defaults.compare_topbrasil_items,
         });
+      } else {
+        // Sem registro salvo → usa defaults do modo (recrutamento ou captação)
+        setConfig(defaults);
       }
     } catch (error) {
       console.error('Erro ao carregar página de captura:', error);
