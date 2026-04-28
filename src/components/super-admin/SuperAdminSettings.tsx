@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, Crown, Shield } from 'lucide-react';
+import { RankingResetCard } from './RankingResetCard';
 
 export function SuperAdminSettings() {
   const { data: consultant, isLoading } = useQuery({
