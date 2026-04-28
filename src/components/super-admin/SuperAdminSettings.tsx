@@ -64,6 +64,8 @@ export function SuperAdminSettings() {
         </CardContent>
       </Card>
 
+      <RankingResetCard />
+
       <Card className="border-primary/20 bg-primary/5">
         <CardContent className="pt-6">
           <div className="flex items-start gap-3">
