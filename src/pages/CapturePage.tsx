@@ -1064,16 +1064,16 @@ export default function CapturePage() {
           <section className="px-4 sm:px-6 py-14 md:py-20 text-center max-w-3xl mx-auto">
             <div className="lp-reveal space-y-5">
               <p className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white leading-none">
-                +75.000
+                {copy.socialNumber}
               </p>
               <p className="text-base sm:text-lg font-semibold text-gray-300">
-                veículos protegidos em todo o Brasil
+                {copy.socialLabel}
               </p>
               <div className="flex justify-center gap-1 text-2xl">
                 {['⭐','⭐','⭐','⭐','⭐'].map((s, i) => <span key={i}>{s}</span>)}
               </div>
               <p className="text-gray-400 text-sm sm:text-base max-w-xl mx-auto leading-relaxed">
-                Junte-se a mais de 75.000 associados que já protegem seu veículo com tranquilidade.
+                {copy.socialDescription}
               </p>
               <button
                 type="button"
@@ -1081,7 +1081,7 @@ export default function CapturePage() {
                 className="group inline-flex items-center gap-2 px-8 py-4 rounded-full text-white font-bold text-base sm:text-lg transition-all duration-300 hover:scale-[1.03] hover:shadow-2xl active:scale-[0.97]"
                 style={{ backgroundColor: config.button_color, boxShadow: `0 12px 40px -8px ${config.button_color}BB` }}
               >
-                Quero fazer parte agora <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                {copy.socialCta} <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
             </div>
           </section>
