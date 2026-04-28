@@ -1842,6 +1842,69 @@ export type Database = {
           },
         ]
       }
+      ranking_history: {
+        Row: {
+          archived_at: string
+          archived_by: string | null
+          competition_label: string
+          consultant_id: string
+          consultants_recruited: number
+          events_hosted: number
+          funnel_type: Database["public"]["Enums"]["funnel_type"]
+          id: string
+          leads_captured: number
+          leads_contacted: number
+          leads_converted: number
+          leads_qualified: number
+          organization_id: string
+          period_end: string
+          period_start: string
+          source_created_at: string | null
+          source_updated_at: string | null
+          total_points: number | null
+        }
+        Insert: {
+          archived_at?: string
+          archived_by?: string | null
+          competition_label: string
+          consultant_id: string
+          consultants_recruited?: number
+          events_hosted?: number
+          funnel_type?: Database["public"]["Enums"]["funnel_type"]
+          id?: string
+          leads_captured?: number
+          leads_contacted?: number
+          leads_converted?: number
+          leads_qualified?: number
+          organization_id: string
+          period_end: string
+          period_start: string
+          source_created_at?: string | null
+          source_updated_at?: string | null
+          total_points?: number | null
+        }
+        Update: {
+          archived_at?: string
+          archived_by?: string | null
+          competition_label?: string
+          consultant_id?: string
+          consultants_recruited?: number
+          events_hosted?: number
+          funnel_type?: Database["public"]["Enums"]["funnel_type"]
+          id?: string
+          leads_captured?: number
+          leads_contacted?: number
+          leads_converted?: number
+          leads_qualified?: number
+          organization_id?: string
+          period_end?: string
+          period_start?: string
+          source_created_at?: string | null
+          source_updated_at?: string | null
+          total_points?: number | null
+        }
+        Relationships: []
+      }
       ranking_scores: {
         Row: {
           consultant_id: string
@@ -2271,6 +2334,10 @@ export type Database = {
     }
     Functions: {
       _get_master_encryption_key: { Args: never; Returns: string }
+      archive_and_reset_ranking: {
+        Args: { p_competition_label: string }
+        Returns: Json
+      }
       clear_integration_value: { Args: { p_key: string }; Returns: undefined }
       create_admin_user: { Args: never; Returns: undefined }
       create_audit_log: {
@@ -2394,6 +2461,21 @@ export type Database = {
           slug: string
         }[]
       }
+      get_ranking_history_details: {
+        Args: { p_competition_label: string }
+        Returns: {
+          archived_at: string
+          consultant_id: string
+          consultants_recruited: number
+          full_name: string
+          funnel_type: Database["public"]["Enums"]["funnel_type"]
+          leads_captured: number
+          leads_contacted: number
+          leads_converted: number
+          leads_qualified: number
+          total_points: number
+        }[]
+      }
       get_user_organization_id: { Args: never; Returns: string }
       is_super_admin: { Args: never; Returns: boolean }
       list_integration_settings_metadata: {
@@ -2408,6 +2490,18 @@ export type Database = {
           updated_at: string
           updated_by: string
           updated_by_name: string
+        }[]
+      }
+      list_ranking_history: {
+        Args: never
+        Returns: {
+          archived_at: string
+          competition_label: string
+          total_captured: number
+          total_consultants: number
+          total_converted: number
+          total_points: number
+          total_recruited: number
         }[]
       }
       map_stage_enum_to_uuid: {
