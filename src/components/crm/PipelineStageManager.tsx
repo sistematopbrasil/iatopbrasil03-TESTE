@@ -161,18 +161,37 @@ export function PipelineStageManager() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
           <h3 className="text-lg font-semibold text-foreground">Quadros do Pipeline</h3>
           <p className="text-sm text-muted-foreground">
-            Personalize os quadros do seu pipeline de vendas
+            Configurando funil:{' '}
+            <span className="font-semibold text-primary">{FUNNEL_LABELS[resolvedFunnel]}</span>
           </p>
         </div>
-        <Button onClick={openNewDialog} className="bg-primary gap-2">
+        <Button onClick={openNewDialog} className="bg-primary gap-2 shrink-0">
           <Plus className="w-4 h-4" />
           Novo Quadro
         </Button>
       </div>
+
+      {/* Funnel switcher (only when user has access to more than one) */}
+      {availableFunnels.length > 1 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-muted-foreground">Trocar funil:</span>
+          {availableFunnels.map((f) => (
+            <Button
+              key={f}
+              size="sm"
+              variant={f === resolvedFunnel ? 'default' : 'outline'}
+              className="h-7 text-xs"
+              onClick={() => setActiveFunnel(f)}
+            >
+              {FUNNEL_LABELS[f]}
+            </Button>
+          ))}
+        </div>
+      )}
 
       {/* Lista de stages */}
       <div className="flex flex-wrap gap-3">
