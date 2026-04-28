@@ -457,7 +457,7 @@ export default function CapturePage() {
   // /c/:slug → funil de Associados; /r/:slug e /quiz/* permanecem em Consultores
   const isAssociadoCapture = location.pathname.startsWith('/c/');
   const captureFunnel: 'consultor' | 'associado' = isAssociadoCapture ? 'associado' : 'consultor';
-  const [config, setConfig] = useState<CaptureConfig>(DEFAULT_CONFIG);
+  const [config, setConfig] = useState<CaptureConfig>(() => getDefaultConfig(isRecruitment));
   const [consultant, setConsultant] = useState<ConsultantData | null>(null);
   const [loading, setLoading] = useState(false);
   const [notFound, setNotFound] = useState(false);
