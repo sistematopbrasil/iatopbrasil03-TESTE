@@ -937,7 +937,7 @@ export default function CapturePage() {
           <section id="formulario" className="px-4 sm:px-6 py-14 md:py-20 max-w-2xl mx-auto w-full scroll-mt-8">
             <div className="lp-reveal rounded-3xl p-6 sm:p-10 border border-white/10 bg-white/[0.03] backdrop-blur-md shadow-2xl">
               <h2 className="text-2xl sm:text-3xl font-extrabold text-white text-center mb-8 leading-tight">
-                Descubra o plano ideal para o seu veículo!
+                {copy.formHeading}
               </h2>
               <form onSubmit={handleSubmit} className="space-y-5">
                 {/* Nome */}
