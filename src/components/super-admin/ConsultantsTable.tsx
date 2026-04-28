@@ -3,11 +3,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { getQuizUrl } from '@/lib/consultant-context';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Copy, ExternalLink, UserPlus, Trophy, Power, Trash2, MoreVertical, Loader2, MessageSquare, BarChart3, Layers } from 'lucide-react';
+import { Copy, ExternalLink, UserPlus, Trophy, Power, Trash2, MoreVertical, Loader2, MessageSquare, BarChart3, Layers, KeyRound } from 'lucide-react';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import { CreateConsultantDialog } from './CreateConsultantDialog';
 import { EditConsultantFunnelDialog } from './EditConsultantFunnelDialog';
+import { EditConsultantCredentialsDialog } from './EditConsultantCredentialsDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useRankingData, type ConsultantRankingData } from '@/hooks/useRankingData';
 import { useFunnel } from '@/contexts/FunnelContext';
@@ -33,6 +34,7 @@ export function ConsultantsTable() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [consultantToDelete, setConsultantToDelete] = useState<{ id: string; name: string } | null>(null);
   const [funnelEdit, setFunnelEdit] = useState<{ id: string; name: string } | null>(null);
+  const [credEdit, setCredEdit] = useState<{ id: string; name: string } | null>(null);
   const queryClient = useQueryClient();
   
   // Usar hook centralizado para dados de ranking
@@ -356,6 +358,15 @@ export function ConsultantsTable() {
                         <Layers className="w-4 h-4 mr-2" />
                         Editar funis de acesso
                       </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => setCredEdit({
+                          id: consultant.consultant_id,
+                          name: consultant.full_name,
+                        })}
+                      >
+                        <KeyRound className="w-4 h-4 mr-2" />
+                        Editar email/senha
+                      </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         className="text-destructive focus:text-destructive"
@@ -556,6 +567,15 @@ export function ConsultantsTable() {
                             <Layers className="w-4 h-4 mr-2" />
                             Editar funis de acesso
                           </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setCredEdit({
+                              id: consultant.consultant_id,
+                              name: consultant.full_name,
+                            })}
+                          >
+                            <KeyRound className="w-4 h-4 mr-2" />
+                            Editar email/senha
+                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             className="text-destructive focus:text-destructive"
@@ -597,6 +617,13 @@ export function ConsultantsTable() {
           consultantName={funnelEdit.name}
         />
       )}
+
+      <EditConsultantCredentialsDialog
+        open={!!credEdit}
+        onOpenChange={(o) => !o && setCredEdit(null)}
+        consultantId={credEdit?.id ?? null}
+        consultantName={credEdit?.name ?? ''}
+      />
 
       <AlertDialog open={!!consultantToDelete} onOpenChange={() => setConsultantToDelete(null)}>
         <AlertDialogContent>
