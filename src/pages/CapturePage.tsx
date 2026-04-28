@@ -180,9 +180,9 @@ function AnimatedCheck() {
 }
 
 /* ─── Thank You Page (only shown for redirect_type === 'thank_you') ─── */
-function ThankYouPage({ config, form }: { config: CaptureConfig; form: { name: string } }) {
+function ThankYouPage({ config, form, isRecruitment }: { config: CaptureConfig; form: { name: string }; isRecruitment?: boolean }) {
   const firstName = form.name.split(' ')[0];
-  const buttonText = config.button_text || 'Falar com um Consultor';
+  const buttonText = config.button_text || (isRecruitment ? 'Falar com nosso recrutador' : 'Falar com um Consultor');
   
   // If redirect_url is configured, show button linking to it
   const buttonUrl = config.redirect_url 
