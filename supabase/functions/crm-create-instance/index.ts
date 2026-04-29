@@ -285,20 +285,40 @@ serve(async (req) => {
       .substring(0, 18) || 'consultor';
     const desiredBase = `${baseSlug}-${funnelSuffix}`;
 
-    // Garantir unicidade na tabela whatsapp_instances
+    // Garantir unicidade tanto no banco quanto na Evolution.
+    // Se a Evolution já tem o nome mas o banco não, ADOTAMOS (evita "Erro ao salvar instância" recorrente).
     let instanceName = desiredBase;
     let counter = 1;
+    let adoptOrphan = false;
     for (let i = 0; i < 50; i++) {
       const { data: clash } = await supabaseAdmin
         .from('whatsapp_instances')
         .select('id')
         .eq('instance_name', instanceName)
         .maybeSingle();
-      if (!clash) break;
-      counter += 1;
-      instanceName = `${desiredBase}-${counter}`;
+      if (clash) {
+        counter += 1;
+        instanceName = `${desiredBase}-${counter}`;
+        continue;
+      }
+      // Banco está livre. Checa Evolution.
+      try {
+        const fetchUrl = `${EVOLUTION_API_URL.replace(/\/$/, '')}/instance/fetchInstances?instanceName=${encodeURIComponent(instanceName)}`;
+        const r = await fetch(fetchUrl, { headers: { apikey: EVOLUTION_API_KEY } });
+        if (r.ok) {
+          const data = await r.json();
+          const exists = (Array.isArray(data) && data.length > 0) || !!data?.instance;
+          if (exists) {
+            adoptOrphan = true;
+            break;
+          }
+        }
+      } catch {
+        // Falha na checagem -> segue criando normalmente
+      }
+      break;
     }
-    console.log('🔵 Nome da instância:', instanceName);
+    console.log('🔵 Nome da instância:', instanceName, adoptOrphan ? '(adotando órfão da Evolution)' : '');
 
     const webhookSecret = (await getIntegrationValue('EVOLUTION_WEBHOOK_SECRET', supabaseAdmin)) || '';
     const webhookBaseUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/crm-webhook`;
