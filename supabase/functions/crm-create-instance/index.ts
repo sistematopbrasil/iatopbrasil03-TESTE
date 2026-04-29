@@ -339,22 +339,45 @@ serve(async (req) => {
       'SEND_MESSAGE',
     ];
     
-    const evolutionResponse = await evolutionRequest('/instance/create', {
-      method: 'POST',
-      body: JSON.stringify({
-        instanceName,
-        qrcode: true,
-        integration: 'WHATSAPP-BAILEYS',
-        webhook: {
-          url: webhookUrl,
-          enabled: true,
-          webhookByEvents: false,
-          webhookBase64: true,
-          headers: webhookSecret ? { 'x-webhook-secret': webhookSecret } : undefined,
-          events: webhookEvents,
-        },
-      }),
-    });
+    const evolutionResponse = adoptOrphan
+      ? { success: true, data: { instance: { instanceName } } }
+      : await evolutionRequest('/instance/create', {
+          method: 'POST',
+          body: JSON.stringify({
+            instanceName,
+            qrcode: true,
+            integration: 'WHATSAPP-BAILEYS',
+            webhook: {
+              url: webhookUrl,
+              enabled: true,
+              webhookByEvents: false,
+              webhookBase64: true,
+              headers: webhookSecret ? { 'x-webhook-secret': webhookSecret } : undefined,
+              events: webhookEvents,
+            },
+          }),
+        });
+
+    // Se estamos adotando, reconfigura webhook na Evolution
+    if (adoptOrphan) {
+      try {
+        await evolutionRequest(`/webhook/set/${instanceName}`, {
+          method: 'POST',
+          body: JSON.stringify({
+            webhook: {
+              enabled: true,
+              url: webhookUrl,
+              webhookByEvents: false,
+              webhookBase64: true,
+              headers: webhookSecret ? { 'x-webhook-secret': webhookSecret } : undefined,
+              events: webhookEvents,
+            },
+          }),
+        });
+      } catch (e) {
+        console.warn('⚠️ Erro reconfigurando webhook na adoção:', e);
+      }
+    }
 
     if (!evolutionResponse.success) {
       console.error('❌ Falha ao criar instância:', evolutionResponse);
