@@ -110,6 +110,29 @@ export function EditConsultantFunnelDialog({
       queryClient.invalidateQueries({ queryKey: ['all-consultants'] });
       queryClient.invalidateQueries({ queryKey: ['all-consultants-management'] });
       toast.success('Acesso atualizado!');
+
+      // Feedback de instâncias WhatsApp criadas/adotadas para os funis adicionados
+      const created = (data?.created_instances || []) as Array<{
+        funnel: string;
+        instance_name?: string;
+        reused?: boolean;
+        error?: string;
+      }>;
+      for (const item of created) {
+        const label = FUNNEL_LABELS[item.funnel as FunnelType] || item.funnel;
+        if (item.error) {
+          toast.error(`Instância de ${label}: ${item.error}`);
+        } else if (item.reused) {
+          toast.message(`Instância de ${label} já existente reutilizada`, {
+            description: item.instance_name,
+          });
+        } else if (item.instance_name) {
+          toast.success(`Instância de ${label} criada`, {
+            description: item.instance_name,
+          });
+        }
+      }
+
       onOpenChange(false);
       setConfirmImpact(null);
     },
