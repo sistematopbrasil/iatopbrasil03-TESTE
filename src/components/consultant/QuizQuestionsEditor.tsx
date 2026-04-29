@@ -33,12 +33,18 @@ interface Question {
   is_default?: boolean;
 }
 
-export function QuizQuestionsEditor() {
+interface QuizQuestionsEditorProps {
+  funnelType?: 'consultor' | 'associado';
+}
+
+export function QuizQuestionsEditor({ funnelType: funnelTypeProp }: QuizQuestionsEditorProps = {}) {
   const queryClient = useQueryClient();
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { resolvedFunnel } = useFunnel();
-  const funnelType = resolvedFunnel as 'consultor' | 'associado';
+  // Prop tem prioridade sobre o contexto (garante isolamento ao editar landing
+  // de Recrutamento/Captação independente do funil ativo no sidebar)
+  const funnelType = (funnelTypeProp || resolvedFunnel) as 'consultor' | 'associado';
 
   const { data: consultant } = useQuery({
     queryKey: ['current-consultant-questions'],
