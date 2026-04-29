@@ -104,6 +104,11 @@ serve(async (req) => {
       (f: FunnelType) => !allowed_funnels.includes(f)
     );
 
+    // Funis adicionados (não tinha antes e tem agora)
+    const addedFunnels: FunnelType[] = allowed_funnels.filter(
+      (f) => !(currentUser.allowed_funnels || []).includes(f)
+    );
+
     // Contagem do que ficará invisível
     const impact: Record<string, { leads: number; conversations: number }> = {};
     for (const funnel of removedFunnels) {
@@ -113,7 +118,6 @@ serve(async (req) => {
         .eq('consultant_id', user_id)
         .eq('funnel_type', funnel);
 
-      // conversations não tem funnel_type direto; contamos via instance
       const { data: instances } = await supabaseAdmin
         .from('whatsapp_instances')
         .select('id')
@@ -135,10 +139,7 @@ serve(async (req) => {
     // Atualizar
     const { error: updateError } = await supabaseAdmin
       .from('users')
-      .update({
-        allowed_funnels,
-        default_funnel,
-      })
+      .update({ allowed_funnels, default_funnel })
       .eq('id', user_id);
 
     if (updateError) {
@@ -148,12 +149,32 @@ serve(async (req) => {
       });
     }
 
+    // Criar instâncias WhatsApp para os funis adicionados
+    const created_instances: { funnel: string; instance_name?: string; reused?: boolean; error?: string }[] = [];
+    for (const funnel of addedFunnels) {
+      const result = await createWhatsAppInstanceForFunnel({
+        supabaseAdmin,
+        userId: user_id,
+        organizationId: currentUser.organization_id,
+        fullNameOrUsername: currentUser.username || currentUser.full_name,
+        funnel,
+      });
+      created_instances.push({
+        funnel: result.funnel,
+        instance_name: result.instance_name,
+        reused: result.reused,
+        error: result.error,
+      });
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         allowed_funnels,
         default_funnel,
         removed_funnels: removedFunnels,
+        added_funnels: addedFunnels,
+        created_instances,
         impact,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
