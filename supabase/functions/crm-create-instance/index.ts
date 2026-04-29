@@ -390,7 +390,7 @@ serve(async (req) => {
 
       if (isNameInUse) {
         console.log('⚠️ Nome em uso, tentando com sufixo...');
-        const altInstanceName = `${instanceName}_${Math.random().toString(36).substring(2, 6)}`;
+        const altInstanceName = `${instanceName}-${Math.random().toString(36).substring(2, 6)}`;
         
         const retryResponse = await evolutionRequest('/instance/create', {
           method: 'POST',
@@ -435,8 +435,9 @@ serve(async (req) => {
           .single();
 
         if (insertError) {
+          console.error('❌ Erro ao salvar instância (alt):', insertError);
           return new Response(
-            JSON.stringify({ success: false, error: 'Erro ao salvar instância' }),
+            JSON.stringify({ success: false, error: `Erro ao salvar instância: ${insertError.message}` }),
             { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
@@ -494,7 +495,7 @@ serve(async (req) => {
 
     if (insertError) {
       console.error('❌ Erro ao salvar instância:', insertError);
-      throw new Error('Erro ao salvar instância');
+      throw new Error(`Erro ao salvar instância: ${insertError.message}`);
     }
 
     // Tentar obter QR imediatamente após criar
