@@ -86,6 +86,18 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // Se periodStart não veio, usa o início da competição corrente da organização
+    // (assim "Resetar ranking" zera o placar visível sem perder os leads)
+    if (!periodStart) {
+      const { data: compStart } = await supabaseAdmin.rpc('get_current_competition_start', {
+        p_org_id: organizationId,
+      });
+      if (compStart) {
+        periodStart = compStart as string;
+        console.log('🏁 Usando início da competição corrente:', periodStart);
+      }
+    }
+
     // 1. Fetch all consultants in the organization (including email for display)
     // Filter by allowed_funnels when funnelFilter is single
     let consultantsQuery = supabaseAdmin

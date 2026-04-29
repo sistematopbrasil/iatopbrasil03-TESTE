@@ -66,7 +66,7 @@ interface ConsultantData {
 function getDefaultConfig(isRecruitment: boolean): CaptureConfig {
   if (isRecruitment) {
     return {
-      title: 'Quer uma renda extra ou mudar de vida?',
+      title: 'Construa uma renda sem teto vendendo proteção veicular.',
       subtitle: 'Faça parte do nosso time de consultores Top Brasil e tenha liberdade financeira vendendo proteção veicular com a maior referência da região.',
       button_text: 'Quero fazer parte do time →',
       button_color: '#EB6608',
@@ -1060,31 +1060,46 @@ export default function CapturePage() {
             </section>
           )}
 
-          {/* Social Proof Section */}
-          <section className="px-4 sm:px-6 py-14 md:py-20 text-center max-w-3xl mx-auto">
-            <div className="lp-reveal space-y-5">
-              <p className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white leading-none">
-                {copy.socialNumber}
-              </p>
-              <p className="text-base sm:text-lg font-semibold text-gray-300">
-                {copy.socialLabel}
-              </p>
-              <div className="flex justify-center gap-1 text-2xl">
-                {['⭐','⭐','⭐','⭐','⭐'].map((s, i) => <span key={i}>{s}</span>)}
+          {/* Social Proof Section — apenas captação, oculta no recrutamento */}
+          {!isRecruitment && (
+            <section className="px-4 sm:px-6 py-14 md:py-20 text-center max-w-3xl mx-auto">
+              <div className="lp-reveal space-y-5">
+                <p className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-white leading-none">
+                  {copy.socialNumber}
+                </p>
+                <p className="text-base sm:text-lg font-semibold text-gray-300">
+                  {copy.socialLabel}
+                </p>
+                <div className="flex justify-center gap-1 text-2xl">
+                  {['⭐','⭐','⭐','⭐','⭐'].map((s, i) => <span key={i}>{s}</span>)}
+                </div>
+                <p className="text-gray-400 text-sm sm:text-base max-w-xl mx-auto leading-relaxed">
+                  {copy.socialDescription}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => document.getElementById('formulario')?.scrollIntoView({ behavior: 'smooth' })}
+                  className="group inline-flex items-center gap-2 px-8 py-4 rounded-full text-white font-bold text-base sm:text-lg transition-all duration-300 hover:scale-[1.03] hover:shadow-2xl active:scale-[0.97]"
+                  style={{ backgroundColor: config.button_color, boxShadow: `0 12px 40px -8px ${config.button_color}BB` }}
+                >
+                  {copy.socialCta} <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </button>
               </div>
-              <p className="text-gray-400 text-sm sm:text-base max-w-xl mx-auto leading-relaxed">
-                {copy.socialDescription}
-              </p>
-              <button
-                type="button"
-                onClick={() => document.getElementById('formulario')?.scrollIntoView({ behavior: 'smooth' })}
-                className="group inline-flex items-center gap-2 px-8 py-4 rounded-full text-white font-bold text-base sm:text-lg transition-all duration-300 hover:scale-[1.03] hover:shadow-2xl active:scale-[0.97]"
-                style={{ backgroundColor: config.button_color, boxShadow: `0 12px 40px -8px ${config.button_color}BB` }}
-              >
-                {copy.socialCta} <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </button>
-            </div>
-          </section>
+            </section>
+          )}
+
+          {/* Benefícios em ícones — apenas recrutamento, no final da página */}
+          {isRecruitment && (
+            <section className="px-5 sm:px-10 pb-20 md:pb-28 pt-6 max-w-5xl mx-auto w-full">
+              <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-6 gap-3 sm:gap-5">
+                {[1,2,3,4,5,6].map((num, idx) => (
+                  <div key={idx} className="lp-reveal flex items-center justify-center group p-3 sm:p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] hover:border-white/[0.15] transition-all duration-500 hover:-translate-y-1" style={{ transitionDelay: `${idx * 0.08}s` }}>
+                    <img src={`/benefits/benefit-${num}.png`} alt={`Benefício ${num}`} className="w-16 h-16 sm:w-20 sm:h-20 object-contain" />
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
         </div>
 

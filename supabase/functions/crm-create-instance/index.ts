@@ -285,20 +285,40 @@ serve(async (req) => {
       .substring(0, 18) || 'consultor';
     const desiredBase = `${baseSlug}-${funnelSuffix}`;
 
-    // Garantir unicidade na tabela whatsapp_instances
+    // Garantir unicidade tanto no banco quanto na Evolution.
+    // Se a Evolution já tem o nome mas o banco não, ADOTAMOS (evita "Erro ao salvar instância" recorrente).
     let instanceName = desiredBase;
     let counter = 1;
+    let adoptOrphan = false;
     for (let i = 0; i < 50; i++) {
       const { data: clash } = await supabaseAdmin
         .from('whatsapp_instances')
         .select('id')
         .eq('instance_name', instanceName)
         .maybeSingle();
-      if (!clash) break;
-      counter += 1;
-      instanceName = `${desiredBase}-${counter}`;
+      if (clash) {
+        counter += 1;
+        instanceName = `${desiredBase}-${counter}`;
+        continue;
+      }
+      // Banco está livre. Checa Evolution.
+      try {
+        const fetchUrl = `${EVOLUTION_API_URL.replace(/\/$/, '')}/instance/fetchInstances?instanceName=${encodeURIComponent(instanceName)}`;
+        const r = await fetch(fetchUrl, { headers: { apikey: EVOLUTION_API_KEY } });
+        if (r.ok) {
+          const data = await r.json();
+          const exists = (Array.isArray(data) && data.length > 0) || !!data?.instance;
+          if (exists) {
+            adoptOrphan = true;
+            break;
+          }
+        }
+      } catch {
+        // Falha na checagem -> segue criando normalmente
+      }
+      break;
     }
-    console.log('🔵 Nome da instância:', instanceName);
+    console.log('🔵 Nome da instância:', instanceName, adoptOrphan ? '(adotando órfão da Evolution)' : '');
 
     const webhookSecret = (await getIntegrationValue('EVOLUTION_WEBHOOK_SECRET', supabaseAdmin)) || '';
     const webhookBaseUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/crm-webhook`;
@@ -319,22 +339,45 @@ serve(async (req) => {
       'SEND_MESSAGE',
     ];
     
-    const evolutionResponse = await evolutionRequest('/instance/create', {
-      method: 'POST',
-      body: JSON.stringify({
-        instanceName,
-        qrcode: true,
-        integration: 'WHATSAPP-BAILEYS',
-        webhook: {
-          url: webhookUrl,
-          enabled: true,
-          webhookByEvents: false,
-          webhookBase64: true,
-          headers: webhookSecret ? { 'x-webhook-secret': webhookSecret } : undefined,
-          events: webhookEvents,
-        },
-      }),
-    });
+    const evolutionResponse = adoptOrphan
+      ? { success: true, data: { instance: { instanceName } } }
+      : await evolutionRequest('/instance/create', {
+          method: 'POST',
+          body: JSON.stringify({
+            instanceName,
+            qrcode: true,
+            integration: 'WHATSAPP-BAILEYS',
+            webhook: {
+              url: webhookUrl,
+              enabled: true,
+              webhookByEvents: false,
+              webhookBase64: true,
+              headers: webhookSecret ? { 'x-webhook-secret': webhookSecret } : undefined,
+              events: webhookEvents,
+            },
+          }),
+        });
+
+    // Se estamos adotando, reconfigura webhook na Evolution
+    if (adoptOrphan) {
+      try {
+        await evolutionRequest(`/webhook/set/${instanceName}`, {
+          method: 'POST',
+          body: JSON.stringify({
+            webhook: {
+              enabled: true,
+              url: webhookUrl,
+              webhookByEvents: false,
+              webhookBase64: true,
+              headers: webhookSecret ? { 'x-webhook-secret': webhookSecret } : undefined,
+              events: webhookEvents,
+            },
+          }),
+        });
+      } catch (e) {
+        console.warn('⚠️ Erro reconfigurando webhook na adoção:', e);
+      }
+    }
 
     if (!evolutionResponse.success) {
       console.error('❌ Falha ao criar instância:', evolutionResponse);
@@ -347,7 +390,7 @@ serve(async (req) => {
 
       if (isNameInUse) {
         console.log('⚠️ Nome em uso, tentando com sufixo...');
-        const altInstanceName = `${instanceName}_${Math.random().toString(36).substring(2, 6)}`;
+        const altInstanceName = `${instanceName}-${Math.random().toString(36).substring(2, 6)}`;
         
         const retryResponse = await evolutionRequest('/instance/create', {
           method: 'POST',
@@ -392,8 +435,9 @@ serve(async (req) => {
           .single();
 
         if (insertError) {
+          console.error('❌ Erro ao salvar instância (alt):', insertError);
           return new Response(
-            JSON.stringify({ success: false, error: 'Erro ao salvar instância' }),
+            JSON.stringify({ success: false, error: `Erro ao salvar instância: ${insertError.message}` }),
             { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
@@ -451,7 +495,7 @@ serve(async (req) => {
 
     if (insertError) {
       console.error('❌ Erro ao salvar instância:', insertError);
-      throw new Error('Erro ao salvar instância');
+      throw new Error(`Erro ao salvar instância: ${insertError.message}`);
     }
 
     // Tentar obter QR imediatamente após criar

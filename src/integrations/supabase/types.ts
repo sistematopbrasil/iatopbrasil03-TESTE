@@ -1842,6 +1842,39 @@ export type Database = {
           },
         ]
       }
+      ranking_competitions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          ended_at: string | null
+          id: string
+          is_current: boolean
+          label: string
+          organization_id: string
+          started_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          ended_at?: string | null
+          id?: string
+          is_current?: boolean
+          label: string
+          organization_id: string
+          started_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          ended_at?: string | null
+          id?: string
+          is_current?: boolean
+          label?: string
+          organization_id?: string
+          started_at?: string
+        }
+        Relationships: []
+      }
       ranking_history: {
         Row: {
           archived_at: string
@@ -2414,6 +2447,10 @@ export type Database = {
           org_id: string
           p_funnel?: Database["public"]["Enums"]["funnel_type"]
         }
+        Returns: string
+      }
+      get_current_competition_start: {
+        Args: { p_org_id: string }
         Returns: string
       }
       get_current_consultant_id: { Args: never; Returns: string }
