@@ -1924,7 +1924,7 @@ export function ConsultantSettings() {
           </Card>
 
           {/* Editor de Perguntas */}
-          <QuizQuestionsEditor />
+          <QuizQuestionsEditor funnelType={pagePurpose === 'recruitment' ? 'consultor' : 'associado'} />
         </TabsContent>
 
         {/* Tab: Captura */}
