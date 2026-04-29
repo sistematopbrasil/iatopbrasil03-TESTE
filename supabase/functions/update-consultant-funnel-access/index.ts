@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createWhatsAppInstanceForFunnel } from '../_shared/create-whatsapp-instance.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -85,10 +86,10 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Buscar estado atual para calcular o que ficará "invisível"
+    // Buscar estado atual para calcular o que ficará "invisível" e funis adicionados
     const { data: currentUser } = await supabaseAdmin
       .from('users')
-      .select('allowed_funnels, default_funnel')
+      .select('allowed_funnels, default_funnel, full_name, username, organization_id')
       .eq('id', user_id)
       .single();
 
