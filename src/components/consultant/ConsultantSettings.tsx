@@ -307,7 +307,7 @@ function CaptureSettingsTab({ consultant }: { consultant: any }) {
   const getDefaults = (purpose: 'protection' | 'recruitment') => {
     if (purpose === 'recruitment') {
       return {
-        title: 'Quer uma renda extra ou mudar de vida?',
+        title: 'Construa uma renda sem teto vendendo proteção veicular.',
         subtitle: 'Faça parte do nosso time de consultores Top Brasil e tenha liberdade financeira vendendo proteção veicular com a maior referência da região.',
         button_text: 'Quero fazer parte do time →',
         template_type: 'landing' as const,

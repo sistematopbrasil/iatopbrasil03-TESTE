@@ -66,7 +66,7 @@ interface ConsultantData {
 function getDefaultConfig(isRecruitment: boolean): CaptureConfig {
   if (isRecruitment) {
     return {
-      title: 'Quer uma renda extra ou mudar de vida?',
+      title: 'Construa uma renda sem teto vendendo proteção veicular.',
       subtitle: 'Faça parte do nosso time de consultores Top Brasil e tenha liberdade financeira vendendo proteção veicular com a maior referência da região.',
       button_text: 'Quero fazer parte do time →',
       button_color: '#EB6608',
