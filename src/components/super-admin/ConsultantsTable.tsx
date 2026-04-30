@@ -176,7 +176,7 @@ export function ConsultantsTable() {
     onError: () => toast.error('Erro ao atualizar Instagram'),
   });
 
-
+  const deleteMutation = useMutation({
     mutationFn: async (consultantId: string) => {
       const { data, error } = await supabase.functions.invoke('delete-consultant', {
         body: { consultant_id: consultantId },
