@@ -14,7 +14,11 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { DatePeriodFilter, filterMetricsByDatePeriod, type DatePeriodValue } from "./DatePeriodFilter";
 import { startOfDay, subDays } from "date-fns";
 
-export function InstagramProfilesList() {
+interface InstagramProfilesListProps {
+  canManage?: boolean;
+}
+
+export function InstagramProfilesList({ canManage = true }: InstagramProfilesListProps = {}) {
   const { data: profiles, isLoading } = useInstagramProfiles();
   const { data: allMetrics } = useInstagramMetrics();
   const { updateAll } = useInstagramUpdate();

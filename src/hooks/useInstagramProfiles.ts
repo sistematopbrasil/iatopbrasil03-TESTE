@@ -10,12 +10,14 @@ export function useInstagramProfiles() {
   const profilesQuery = useQuery({
     queryKey: ["insta-profiles"],
     queryFn: async () => {
+      // RLS aplica o filtro: admin vê todos da org, consultor só os vinculados
+      const { data: { user } } = await supabase.auth.getUser();
       const { data, error } = await supabase
         .from("insta_profiles")
         .select("*")
         .order("username");
       if (error) throw error;
-      return data as InstaProfile[];
+      return (data as InstaProfile[]).filter((p) => p && (p.organization_id || p.id));
     },
     staleTime: 2 * 60 * 1000,
   });
