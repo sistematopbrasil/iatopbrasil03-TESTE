@@ -21,6 +21,7 @@ import QuizPage from "./pages/Quiz";
 import AdminCRM from "./pages/AdminCRM";
 import AdminAIConfig from "./pages/AdminAIConfig";
 import InstagramRouter from "./pages/InstagramRouter";
+import ConsultantTopBio from "./pages/ConsultantTopBio";
 import AdminTraffic from "./pages/AdminTraffic";
 import AdminIntegrations from "./pages/AdminIntegrations";
 import CapturePage from "./pages/CapturePage";
@@ -151,6 +152,14 @@ const App = () => {
                 element={
                   <ProtectedRoute>
                     <InstagramRouter />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/top-bio"
+                element={
+                  <ProtectedRoute>
+                    <ConsultantTopBio />
                   </ProtectedRoute>
                 }
               />
