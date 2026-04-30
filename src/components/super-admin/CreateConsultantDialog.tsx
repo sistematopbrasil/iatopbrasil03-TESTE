@@ -95,6 +95,32 @@ export function CreateConsultantDialog({ open: controlledOpen, onOpenChange: con
       if (error) throw new Error(error.message);
       if (responseData?.error) throw new Error(responseData.error);
 
+      const newConsultantId = responseData?.consultant_id as string | undefined;
+      const cleanInsta = parseInstagramUsername(instagramUsername);
+      if (newConsultantId && cleanInsta) {
+        try {
+          const { data: existing } = await supabase
+            .from('insta_profiles')
+            .select('id')
+            .eq('organization_id', currentUser.organization_id)
+            .eq('username', cleanInsta)
+            .maybeSingle();
+          if (existing) {
+            await supabase.from('insta_profiles').update({ consultant_id: newConsultantId }).eq('id', existing.id);
+          } else {
+            await supabase.from('insta_profiles').insert({
+              organization_id: currentUser.organization_id,
+              consultant_id: newConsultantId,
+              username: cleanInsta,
+              profile_url: `https://instagram.com/${cleanInsta}`,
+            });
+          }
+          supabase.functions.invoke('insta-fetch-profile', { body: { username: cleanInsta } }).catch(() => {});
+        } catch (e) {
+          console.warn('Falha ao vincular Instagram (consultor criado mesmo assim):', e);
+        }
+      }
+
       return true;
     },
     onSuccess: () => {
@@ -102,11 +128,13 @@ export function CreateConsultantDialog({ open: controlledOpen, onOpenChange: con
       queryClient.invalidateQueries({ queryKey: ['all-consultants-management'] });
       queryClient.invalidateQueries({ queryKey: ['unified-ranking'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['super-admin-metrics'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['insta-profiles'] });
       toast.success('Consultor criado com sucesso!', {
         description: 'As credenciais foram definidas conforme informado no formulário.',
       });
       onOpenChange(false);
       setFormData({ full_name: '', email: '', password: '', role: 'consultor' });
+      setInstagramUsername('');
       setErrors({});
     },
     onError: (error: Error) => {
