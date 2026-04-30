@@ -20,7 +20,7 @@ import ConsultantsManagement from "./pages/ConsultantsManagement";
 import QuizPage from "./pages/Quiz";
 import AdminCRM from "./pages/AdminCRM";
 import AdminAIConfig from "./pages/AdminAIConfig";
-import AdminInstagram from "./pages/AdminInstagram";
+import InstagramRouter from "./pages/InstagramRouter";
 import AdminTraffic from "./pages/AdminTraffic";
 import AdminIntegrations from "./pages/AdminIntegrations";
 import CapturePage from "./pages/CapturePage";
@@ -150,7 +150,7 @@ const App = () => {
                 path="/admin/instagram"
                 element={
                   <ProtectedRoute>
-                    <AdminInstagram />
+                    <InstagramRouter />
                   </ProtectedRoute>
                 }
               />

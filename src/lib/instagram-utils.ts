@@ -4,6 +4,7 @@ import { ptBR } from "date-fns/locale";
 export interface InstaProfile {
   id: string;
   organization_id: string;
+  consultant_id: string | null;
   username: string;
   display_name: string | null;
   profile_picture: string | null;
