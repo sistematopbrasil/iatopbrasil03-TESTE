@@ -54,6 +54,7 @@ export function CreateConsultantDialog({ open: controlledOpen, onOpenChange: con
   });
   const [allowedFunnels, setAllowedFunnels] = useState<FunnelType[]>(['consultor']);
   const [defaultFunnel, setDefaultFunnel] = useState<FunnelType>('consultor');
+  const [instagramUsername, setInstagramUsername] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const { data: currentUser } = useQuery({
