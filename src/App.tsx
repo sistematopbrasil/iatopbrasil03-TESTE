@@ -24,6 +24,7 @@ import AdminInstagram from "./pages/AdminInstagram";
 import AdminTraffic from "./pages/AdminTraffic";
 import AdminIntegrations from "./pages/AdminIntegrations";
 import CapturePage from "./pages/CapturePage";
+import BioPage from "./pages/BioPage";
 import { ProtectedRoute } from "./components/admin/ProtectedRoute";
 import { FunnelProvider } from "./contexts/FunnelContext";
 
