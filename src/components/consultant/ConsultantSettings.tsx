@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Save, Copy, ExternalLink, Upload, Trash2, Check, User, Plus, X, GripVertical, ArrowUp, ArrowDown, FileText, Globe, Image, Users, Shield, Info } from 'lucide-react';
 import { QuizQuestionsEditor } from './QuizQuestionsEditor';
+import { BioEditor } from './BioEditor';
 import { useFunnel } from '@/contexts/FunnelContext';
 import { cn } from '@/lib/utils';
 
