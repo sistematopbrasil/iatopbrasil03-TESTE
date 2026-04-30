@@ -347,7 +347,8 @@ serve(async (req) => {
 
     // Salvar mensagem no banco com instance_id
     const messageId = sendResult.response?.key?.id || `sent-${Date.now()}`;
-    
+    const isAiSend = body?.sent_by_ai === true;
+
     const { error: msgError } = await supabaseAdmin
       .from('crm_messages')
       .upsert({
@@ -361,11 +362,49 @@ serve(async (req) => {
         media_filename: file_name || null,
         status: 'sent',
         timestamp: new Date().toISOString(),
-        metadata: { ...sendResult.response, sent_via: 'app' },
+        metadata: { ...sendResult.response, sent_via: isAiSend ? 'ai' : 'app', sent_by_ai: isAiSend },
       }, { onConflict: 'instance_id,message_id' });
 
     if (msgError) {
       console.error('❌ Erro ao salvar mensagem:', msgError);
+    }
+
+    // ⏸️ Pausar IA por 30 minutos quando um humano responde pelo CRM.
+    // Se o envio veio do próprio agente IA (sent_by_ai=true), não pausa.
+    if (!isAiSend) {
+      try {
+        const pausedUntil = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+        const { data: existingState } = await supabaseAdmin
+          .from('ai_conversation_state')
+          .select('id')
+          .eq('conversation_id', conversation.id)
+          .maybeSingle();
+
+        if (existingState) {
+          await supabaseAdmin
+            .from('ai_conversation_state')
+            .update({
+              paused_until: pausedUntil,
+              paused_by: 'human_takeover',
+              is_active: true,
+              permanently_disabled: false,
+            })
+            .eq('conversation_id', conversation.id);
+        } else {
+          await supabaseAdmin
+            .from('ai_conversation_state')
+            .insert({
+              conversation_id: conversation.id,
+              user_id: userData.id,
+              paused_until: pausedUntil,
+              paused_by: 'human_takeover',
+              is_active: true,
+            });
+        }
+        console.log('⏸️ IA pausada por 30 min (resposta humana via CRM)');
+      } catch (pauseErr) {
+        console.warn('⚠️ Falha ao pausar IA (não crítico):', pauseErr);
+      }
     }
 
     // Atualizar conversa
