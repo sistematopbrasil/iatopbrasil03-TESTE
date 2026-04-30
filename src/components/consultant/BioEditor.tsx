@@ -113,10 +113,21 @@ export function BioEditor({ userId, organizationId, fullName, username }: Props)
   }
 
   if (!query.data) {
+    const sessionReady = !!userId && !!organizationId;
+    const handleCreate = () => {
+      if (!sessionReady) {
+        toast.error('Sessão ainda carregando. Aguarde um instante e tente novamente.');
+        return;
+      }
+      ensureMutation.mutate(undefined, {
+        onSuccess: () => toast.success('Página Top Bio criada!'),
+        onError: (e: any) => toast.error(e?.message || 'Não foi possível criar sua página'),
+      });
+    };
     return (
       <div className="text-center py-12 space-y-4">
         <p className="text-muted-foreground">Você ainda não tem uma página Top Bio.</p>
-        <Button onClick={() => ensureMutation.mutate()} disabled={ensureMutation.isPending}>
+        <Button onClick={handleCreate} disabled={ensureMutation.isPending || !sessionReady}>
           {ensureMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
           Criar minha página
         </Button>

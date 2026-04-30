@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentConsultant, isSuperAdmin } from "@/lib/consultant-context";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, Users, LogOut, Menu, Settings, BarChart3, Kanban, CalendarDays, Trophy, Target, MessageSquare, PieChart, Bot, Instagram, Megaphone, Plug, Link as LinkIcon } from "lucide-react";
+import { LayoutDashboard, Users, LogOut, Menu, Settings, BarChart3, Kanban, CalendarDays, Trophy, Target, MessageSquare, PieChart, Bot, Instagram, Megaphone, Plug } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { RoleBasedRedirect } from "@/components/RoleBasedRedirect";
@@ -66,8 +66,7 @@ export const AdminLayout = ({ children, disableVerticalScroll = false }: AdminLa
     ...(currentUser?.crm_enabled ? [{ path: '/admin/crm', icon: MessageSquare, label: 'CRM WhatsApp' }] : []),
     ...(currentUser?.crm_enabled && currentUser?.ai_enabled ? [{ path: '/admin/ai-config', icon: Bot, label: 'Agente IA' }] : []),
     { path: '/admin/analytics', icon: PieChart, label: 'Analytics' },
-    ...((currentUser as any)?.instagram_visible !== false ? [{ path: '/admin/instagram', icon: Instagram, label: 'Instagram' }] : []),
-    { path: '/admin/top-bio', icon: LinkIcon, label: 'Top Bio' },
+    { path: '/admin/instagram', icon: Instagram, label: 'Instagram' },
     ...((currentUser as any)?.ranking_visible !== false ? [{ path: '/admin/ranking', icon: Trophy, label: 'Ranking' }] : []),
     { path: '/admin/settings', icon: Settings, label: 'Configurações' },
   ];
