@@ -591,6 +591,12 @@ export function ConsultantsTable() {
                       />
                     </td>
                     <td className="px-4 py-3 text-center">
+                      <Switch
+                        checked={consultant.instagram_visible}
+                        onCheckedChange={() => toggleInstagramMutation.mutate({ consultantId: consultant.consultant_id, instagramVisible: consultant.instagram_visible })}
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-center">
                       {consultant.is_active ? (
                         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-500/10 text-green-600">
                           Ativo
