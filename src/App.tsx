@@ -150,7 +150,7 @@ const App = () => {
                 path="/admin/instagram"
                 element={
                   <ProtectedRoute>
-                    <AdminInstagram />
+                    <InstagramRouter />
                   </ProtectedRoute>
                 }
               />
