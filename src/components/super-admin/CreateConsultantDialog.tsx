@@ -282,6 +282,22 @@ export function CreateConsultantDialog({ open: controlledOpen, onOpenChange: con
             )}
           </div>
 
+          <div className="space-y-2 p-4 rounded-lg border border-border/60 bg-muted/20">
+            <Label htmlFor="ig_username" className="text-sm font-semibold flex items-center gap-2">
+              <Instagram className="w-4 h-4 text-primary" />
+              Instagram <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
+            </Label>
+            <Input
+              id="ig_username"
+              value={instagramUsername}
+              onChange={(e) => setInstagramUsername(e.target.value)}
+              placeholder="ex: joaodasilva"
+            />
+            <p className="text-xs text-muted-foreground">
+              Vincule o Instagram do consultor agora. O perfil vai aparecer no painel Super Admin e no painel dele (se a aba Instagram estiver ativa).
+            </p>
+          </div>
+
           <div className="bg-muted/50 p-3 rounded-lg">
             <p className="text-sm text-muted-foreground">
               💡 O slug do quiz será gerado automaticamente a partir do nome.
