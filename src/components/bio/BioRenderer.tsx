@@ -51,14 +51,28 @@ function ButtonShell({
   );
 }
 
+function IconBadge({ block, theme, fallback, bg }: { block: BioBlock; theme: BioTheme; fallback: any; bg?: string }) {
+  const url = block.data.icon_url as string | undefined;
+  if (url) {
+    return (
+      <div className="flex-shrink-0 w-12 h-12 rounded-xl overflow-hidden bg-white/5">
+        <img src={url} alt="" className="w-full h-full object-cover" />
+      </div>
+    );
+  }
+  const Icon = ICONS[block.data.icon] || fallback;
+  return (
+    <div className="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: bg || theme.accent_color, color: '#fff' }}>
+      <Icon className="w-5 h-5" />
+    </div>
+  );
+}
+
 function LinkBlock({ block, theme, onClick }: { block: BioBlock; theme: BioTheme; onClick: () => void }) {
-  const Icon = ICONS[block.data.icon] || LinkIcon;
   return (
     <ButtonShell theme={theme} href={block.data.url || undefined} onClick={onClick} ariaLabel={block.data.title}>
       <div className="flex items-center gap-4 p-4">
-        <div className="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: theme.accent_color, color: '#fff' }}>
-          <Icon className="w-5 h-5" />
-        </div>
+        <IconBadge block={block} theme={theme} fallback={LinkIcon} />
         <div className="flex-1 min-w-0">
           <div className="font-bold text-sm truncate" style={{ color: theme.text_color }}>{block.data.title}</div>
           {block.data.subtitle && (
@@ -72,15 +86,12 @@ function LinkBlock({ block, theme, onClick }: { block: BioBlock; theme: BioTheme
 }
 
 function WhatsAppBlock({ block, theme, onClick }: { block: BioBlock; theme: BioTheme; onClick: () => void }) {
-  const Icon = ICONS[block.data.icon] || MessageCircle;
   const phone = String(block.data.phone || '').replace(/\D/g, '');
   const url = phone ? `https://wa.me/${phone}?text=${encodeURIComponent(block.data.message || '')}` : undefined;
   return (
     <ButtonShell theme={theme} href={url} onClick={onClick} ariaLabel="WhatsApp">
       <div className="flex items-center gap-4 p-4">
-        <div className="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: '#25D366', color: '#fff' }}>
-          <Icon className="w-5 h-5" />
-        </div>
+        <IconBadge block={block} theme={theme} fallback={MessageCircle} bg="#25D366" />
         <div className="flex-1 min-w-0">
           <div className="font-bold text-sm truncate" style={{ color: theme.text_color }}>{block.data.title || 'WhatsApp'}</div>
           {block.data.subtitle && <div className="text-xs mt-0.5" style={{ color: theme.muted_color }}>{block.data.subtitle}</div>}
@@ -91,12 +102,15 @@ function WhatsAppBlock({ block, theme, onClick }: { block: BioBlock; theme: BioT
 }
 
 function VideoBlock({ block, theme }: { block: BioBlock; theme: BioTheme }) {
-  const yt = block.data.url ? getYouTubeId(block.data.url) : null;
+  const fileUrl = block.data.file_url as string | undefined;
+  const yt = !fileUrl && block.data.url ? getYouTubeId(block.data.url) : null;
   return (
     <div className="w-full overflow-hidden" style={{ background: theme.card_color, borderRadius: theme.button_style === 'pill' ? '24px' : '14px' }}>
       {block.data.title && <div className="px-4 pt-4 font-bold text-sm" style={{ color: theme.text_color }}>{block.data.title}</div>}
       <div className="aspect-video w-full">
-        {yt ? (
+        {fileUrl ? (
+          <video className="w-full h-full object-cover bg-black" src={fileUrl} controls playsInline preload="metadata" poster={block.data.poster_url || undefined} />
+        ) : yt ? (
           <iframe className="w-full h-full" src={`https://www.youtube.com/embed/${yt}`} title="Vídeo"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
         ) : (
@@ -125,14 +139,11 @@ function GalleryBlock({ block, theme }: { block: BioBlock; theme: BioTheme }) {
 }
 
 function MapBlock({ block, theme, onClick }: { block: BioBlock; theme: BioTheme; onClick: () => void }) {
-  const Icon = ICONS[block.data.icon] || MapPin;
   const url = block.data.map_url || (block.data.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(block.data.address)}` : undefined);
   return (
     <ButtonShell theme={theme} href={url} onClick={onClick} ariaLabel="Endereço">
       <div className="flex items-center gap-4 p-4">
-        <div className="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: theme.accent_color, color: '#fff' }}>
-          <Icon className="w-5 h-5" />
-        </div>
+        <IconBadge block={block} theme={theme} fallback={MapPin} />
         <div className="flex-1 min-w-0">
           <div className="font-bold text-sm" style={{ color: theme.text_color }}>{block.data.title || 'Endereço'}</div>
           {block.data.address && <div className="text-xs mt-0.5 leading-snug" style={{ color: theme.muted_color }}>{block.data.address}</div>}
