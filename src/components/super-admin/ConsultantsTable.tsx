@@ -717,6 +717,13 @@ export function ConsultantsTable() {
         consultantName={credEdit?.name ?? ''}
       />
 
+      <AddInstagramToConsultantDialog
+        open={!!instaAdd}
+        onOpenChange={(o) => !o && setInstaAdd(null)}
+        consultantId={instaAdd?.id ?? null}
+        consultantName={instaAdd?.name ?? ''}
+      />
+
       <AlertDialog open={!!consultantToDelete} onOpenChange={() => setConsultantToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
