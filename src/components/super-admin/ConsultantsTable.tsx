@@ -158,8 +158,25 @@ export function ConsultantsTable() {
     },
   });
 
+  // Mutation Instagram visibility
+  const toggleInstagramMutation = useMutation({
+    mutationFn: async ({ consultantId, instagramVisible }: { consultantId: string; instagramVisible: boolean }) => {
+      const { error } = await supabase
+        .from('users')
+        .update({ instagram_visible: !instagramVisible } as any)
+        .eq('id', consultantId);
+      if (error) throw error;
+      return !instagramVisible;
+    },
+    onSuccess: (newStatus) => {
+      queryClient.invalidateQueries({ queryKey: ['unified-ranking'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['current-user-layout'] });
+      toast.success(newStatus ? 'Instagram ativado!' : 'Instagram desativado!');
+    },
+    onError: () => toast.error('Erro ao atualizar Instagram'),
+  });
 
-  const deleteMutation = useMutation({
+
     mutationFn: async (consultantId: string) => {
       const { data, error } = await supabase.functions.invoke('delete-consultant', {
         body: { consultant_id: consultantId },
