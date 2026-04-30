@@ -40,16 +40,19 @@ export function useConversations(options?: UseConversationsOptions) {
     placeholderData: (previousData) => previousData,
   });
 
-  // ✅ Auto-sync ao carregar o CRM e a cada 60s em background
+  // ✅ Sync agora é apenas FALLBACK (a cada 60s) — webhook é a fonte primária.
+  // Não fazemos sync inicial, para evitar puxar conversas/contatos antigos
+  // logo após conectar o WhatsApp. O Edge Function `crm-sync-recent` também
+  // filtra por `last_connected_at` no servidor como segunda camada de proteção.
   useEffect(() => {
     if (options?.autoSync === false) return;
-    if (options?.skipSync) return; // ✅ Pular sync em nova conexão
+    if (options?.skipSync) return;
 
     const doSync = async () => {
       try {
         const result = await crmService.syncRecentMessages({ limit: 30, messagesPerChat: 30 });
         if (result.success && (result.synced?.conversations || result.synced?.messages)) {
-          console.log('✅ Auto-sync concluído:', result.synced);
+          console.log('✅ Auto-sync (fallback) concluído:', result.synced);
           queryClient.invalidateQueries({ queryKey: ['conversations'] });
         }
       } catch (err) {
@@ -57,14 +60,10 @@ export function useConversations(options?: UseConversationsOptions) {
       }
     };
 
-    // Sync inicial (uma vez por sessão)
-    if (!hasSyncedRef.current) {
-      hasSyncedRef.current = true;
-      doSync();
-    }
-
-    // Sync periódico a cada 15s (primário - webhook não funciona)
-    const intervalId = setInterval(doSync, 15000);
+    // ⚠️ Sem sync inicial: o webhook entrega novas mensagens em tempo real.
+    // Só rodamos um sync periódico de segurança a cada 60s para fechar
+    // eventuais buracos de webhook — e o servidor já ignora histórico antigo.
+    const intervalId = setInterval(doSync, 60000);
 
     return () => clearInterval(intervalId);
   }, [options?.autoSync, options?.skipSync, queryClient]);
