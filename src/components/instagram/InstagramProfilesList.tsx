@@ -89,10 +89,12 @@ export function InstagramProfilesList({ canManage = true }: InstagramProfilesLis
         <Button variant="outline" size="icon" onClick={() => updateAll.mutate({})} disabled={updateAll.isPending}>
           <RefreshCw className={`h-4 w-4 ${updateAll.isPending ? "animate-spin" : ""}`} />
         </Button>
-        <Button onClick={() => setShowAdd(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Adicionar
-        </Button>
+        {canManage && (
+          <Button onClick={() => setShowAdd(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Adicionar
+          </Button>
+        )}
       </div>
 
       <DatePeriodFilter value={datePeriod} onChange={setDatePeriod} />
