@@ -1,97 +1,107 @@
 
-# Correções críticas do CRM
+# Plano: Link na Bio + Correções de Segurança Críticas
 
-Plano para resolver os 4 problemas reportados nos testes:
-
-1. Erro `duplicate key ... whatsapp_instances_user_id_organization_id_key` ao criar instância de Associados.
-2. Após conectar o WhatsApp, conversas e contatos antigos do número aparecem no CRM.
-3. Quando um humano responde pelo CRM, o agente IA continua disparando.
-4. Mensagens recebidas às vezes não aparecem no CRM (mensagem perdida).
+Dois entregáveis nesta etapa:
+1. **Nova feature "Link na Bio"** — página pública por consultor, totalmente personalizável (estilo Linktree/Beacons/Campsite).
+2. **Correções de segurança** — fechar os 4 erros críticos do scan. Os warnings ficam como passo seguinte.
 
 ---
 
-## 1. Liberar 2 instâncias por consultor (Consultor + Associado)
+## 1. Link na Bio — `/bio/:slug`
 
-**Causa**: a tabela `whatsapp_instances` ainda tem uma constraint legacy `UNIQUE (user_id, organization_id)` herdada do modelo antigo (1 instância por consultor). Hoje a regra correta já existe em `UNIQUE (user_id, funnel_type)`, então a antiga só atrapalha — bloqueia a 2ª instância (a de Associados).
+### Estrutura visual (inspirada nos prints + Linktree/Beacons)
+- Topo: foto de perfil (logo opcional), nome (com destaque colorido na segunda palavra), bio curta, badges de redes (Instagram followers, etc. opcional).
+- Corpo: lista vertical de blocos arrastáveis. Tipos de bloco:
+  - **Botão de link** (com ícone à esquerda + título + subtítulo + URL).
+  - **Botão de WhatsApp** (gera link `wa.me` com mensagem pré-preenchida).
+  - **Vídeo** (YouTube/Vimeo embed com thumbnail).
+  - **Carrossel de imagens** (galeria swipe).
+  - **Mapa / Endereço** (texto + link Google Maps).
+  - **Redes sociais** (linha de ícones: IG, TikTok, YouTube, Threads, Facebook).
+  - **Divisor com título** (separador de seção).
+- Rodapé: copyright "Top Brasil".
 
-**Ação**:
-- Migration que faz `ALTER TABLE public.whatsapp_instances DROP CONSTRAINT IF EXISTS whatsapp_instances_user_id_organization_id_key;`
-- Manter `whatsapp_instances_user_funnel_unique (user_id, funnel_type)` que já garante "1 instância por funil por consultor".
-- Ajustar `crm-create-instance` para retornar o erro real do banco em vez do genérico "Erro ao salvar instância", para falhas futuras serem visíveis.
+### Personalização (editor no painel do consultor)
+- **Identidade**: foto/logo, nome, bio, cor de destaque do nome.
+- **Paleta**: 6 presets (Top Brasil padrão laranja/preto, Dark minimal, Claro, Sépia, Roxo, Azul) + opção custom (picker para fundo, card, texto, accent).
+- **Estilo de botão**: bordas (none / soft / pill), preenchimento (sólido / outline / glass), sombra (off / soft / glow).
+- **Fundo**: cor sólida, gradiente ou pattern de pontos (como nos prints).
+- **Fonte**: 3 opções (Inter sans, Playfair serif elegante, Space Grotesk moderna).
+- **Reordenar / ativar / desativar** cada bloco com drag-and-drop.
+- **Preview ao vivo** lado a lado no editor (mobile frame).
 
-Isso destrava criação manual no botão "Iniciar Conexão" do funil de Associados e também a criação automática feita por `update-consultant-funnel-access` (super admin marcando os 2 funis).
+### Características técnicas
+- Rota pública: `/bio/:slug` (slug = `users.username`).
+- Carregamento via RPC `get_bio_by_slug(slug)` (SECURITY DEFINER, retorna apenas campos públicos).
+- Rápida: pré-carrega só o necessário, imagens lazy, sem queries autenticadas.
+- Responsiva: layout mobile-first (largura máx 480px), funciona em desktop com fundo amplo.
+- Interativa: animações suaves de hover/tap, contagem de cliques por botão (analytics simples).
+- SEO: `<title>`, OG tags com foto e bio.
+- Compartilhamento: botão de copiar link no painel.
 
----
+### Backend
+- Migração: nova tabela `bio_pages` (1‑para‑1 com `users`):
+  - `id`, `user_id` (unique), `organization_id`, `is_published`, `theme` (jsonb com paleta/fontes/estilo), `header` (jsonb: logo_url, name, bio, accent_color), `blocks` (jsonb array ordenado de blocos), `seo` (jsonb), `created_at`, `updated_at`.
+- Tabela `bio_clicks` para analytics (block_id, clicked_at, user_agent_hash).
+- RLS: SELECT público apenas via RPC; UPDATE/INSERT só do dono (`user_id = get_current_consultant_id()`).
+- Storage: novo bucket privado `bio-assets` (logos/imagens dos blocos), com URLs assinadas geradas no SELECT da RPC pública (ou bucket público escopado por pasta = user_id, política restrita só nesse padrão de path).
 
-## 2. Não puxar conversas/contatos antigos após conectar
+### Frontend
+- Página pública: `src/pages/BioPage.tsx`.
+- Editor: `src/components/consultant/BioEditor.tsx` + sub-componentes por tipo de bloco. Aba nova "Link na Bio" no painel do consultor.
+- Hook: `useBioPage(userId)` (TanStack Query) com mutation de salvar.
+- Serviço de tracking: chamada `track_bio_click(block_id)` ao clicar.
 
-**Causa**: hoje, depois da conexão, o front chama `crm-sync-recent`, que faz `findChats` e cria conversas/contatos a partir de TODO o histórico do número. O filtro temporal só vale para `messages`, não para `chats` — então contatos antigos aparecem mesmo sem mensagem nova.
-
-**Ação**:
-- Remover a chamada automática a `crm-sync-recent` após a conexão (no `WhatsAppConnectionSettings` / `useConversations`).
-- No próprio `crm-sync-recent`, passar a só processar chats cuja `lastMessage.messageTimestamp >= instance.last_connected_at`. Se nenhum, não criar conversa nem contato.
-- No `crm-webhook`, ao processar `messages_upsert`, ignorar a mensagem se `messageTimestamp < instance.last_connected_at` (já existe parcialmente no sync; replicar no webhook para ser consistente). Isso garante: só conversas e mensagens **a partir do momento da conexão** entram no CRM.
-
-Resultado: ao conectar um número que já tem histórico, o CRM começa "limpo" e só popula com novas conversas reais.
-
----
-
-## 3. Pausar agente IA quando humano responde pelo CRM (30 min)
-
-**Causa**: `crm-send-message` salva a mensagem com `metadata.sent_via = 'app'`, mas não toca em `ai_conversation_state`. Resultado: o agente continua ativo mesmo após resposta manual.
-
-**Ação no `crm-send-message`**:
-- Após enviar com sucesso e a mensagem **não** vier marcada como `sent_by_ai`, fazer upsert em `ai_conversation_state` definindo:
-  - `paused_until = now() + 30 min`
-  - `paused_by = 'human_takeover'`
-  - `is_active = true` (não desativa permanentemente — só pausa)
-- Se já existir uma row, fazer UPDATE; senão INSERT (mesma lógica do `useAIConversationState.pause`).
-
-**Ação no `ai-agent-respond`**:
-- Antes de gerar resposta, conferir `ai_conversation_state.paused_until > now()` e abortar silenciosamente. (Esse check já deve existir; reforçar.)
-
-Assim, qualquer mensagem enviada pelo painel do CRM — texto, áudio, mídia — pausa a IA por 30 min naquela conversa, sem precisar tocar nos botões.
-
----
-
-## 4. Mensagens recebidas que não aparecem no CRM
-
-**Causas prováveis** identificadas no `crm-webhook`:
-- O download de mídia é **síncrono e bloqueante** dentro do handler. Quando a Evolution dispara várias mensagens em sequência, um download lento pode estourar o tempo do worker e a mensagem seguinte é perdida.
-- Mensagens com `remoteJid` em formato `@lid` são puladas inteiramente (linha 382). Se o contato só envia via `@lid`, ele some.
-- Não há fallback: se o webhook falhou por qualquer motivo (rede, timeout), a mensagem nunca é recuperada.
-
-**Ação**:
-
-a) **Webhook não-bloqueante para mídia**: salvar a mensagem (texto/placeholder) IMEDIATAMENTE no `crm_messages` e disparar o download de mídia em background (`EdgeRuntime.waitUntil`). Quando o download termina, faz UPDATE da mesma row com `media_url`. Assim nenhuma mensagem é perdida por causa de mídia lenta.
-
-b) **Resiliência por upsert**: já temos `onConflict: 'instance_id,message_id'`. Garantir que esse mesmo upsert é usado em todos os caminhos (inclusive `messages_set` em batch).
-
-c) **Fallback periódico (rede de segurança)**: criar um cron leve (a cada 2 min) `crm-sync-missing` que, para cada instância conectada, chama `findMessages` apenas das **últimas 5 minutos** e faz upsert das que ainda não estão no banco. Isso fecha o gap quando o webhook por algum motivo não chegou. Custo baixo, não puxa histórico (filtro temporal estrito).
-
-d) **Suporte a `@lid`**: usar o helper `whatsapp-lid-support` já existente no projeto (memória `mem://architecture/whatsapp-lid-support`) para resolver `@lid` via `remoteJidAlt` em vez de descartar.
+### Rota
+Adicionar `<Route path="/bio/:slug" element={<BioPage />} />` em `src/App.tsx`.
 
 ---
 
-## Detalhes técnicos
+## 2. Correções de Segurança (4 erros críticos)
 
-```text
-Migrations:
-  - drop constraint whatsapp_instances_user_id_organization_id_key
-  - (opcional) índice sobre crm_messages(instance_id, timestamp desc) p/ fallback rápido
+### 2.1 Bucket `crm-media` público
+- Migração: tornar bucket privado (`update storage.buckets set public = false where id = 'crm-media'`).
+- Substituir SELECT policy permissiva por uma que verifica que o `auth.uid()` é dono da instância referenciada no path do arquivo (`messages/{instanceName}/...`), via join com `whatsapp_instances` e `users`.
+- No frontend (ChatWindow, MessageItem, AudioPlayer, ImageModal): trocar URL pública por **signed URL** (`supabase.storage.from('crm-media').createSignedUrl(path, 3600)`) e renovar quando expirar.
 
-Edge Functions tocadas:
-  - crm-create-instance        → mensagem de erro real
-  - crm-webhook                → filtro temporal por last_connected_at,
-                                 mídia em waitUntil, suporte @lid
-  - crm-send-message           → pausa IA 30min se sent_via=app e !sent_by_ai
-  - crm-sync-recent            → filtrar chats por last_connected_at antes de criar conversa
-  - crm-sync-missing (NOVO)    → cron a cada 2min, últimos 5min, upsert idempotente
-  - ai-agent-respond           → respeitar paused_until
+### 2.2 `quiz_submissions_new` — UPDATE público abusável
+- Drop da policy "Public can update recent submissions".
+- Criar 2 policies:
+  - **anon UPDATE limitado** escopado por `session_id` (já existe na tabela): só permite atualizar quando `session_id = NEW.session_id` e WITH CHECK só permite alteração de `completion_percentage`, `current_question`, `last_activity_at` (validado via trigger `BEFORE UPDATE` que rejeita mudança em campos sensíveis: name, phone, email, pipeline_stage_id, assigned_to, lead_score, notes).
+  - **authenticated UPDATE total** apenas para usuários da mesma organização (`organization_id = get_user_organization_id()`).
 
-Frontend:
-  - WhatsAppConnectionSettings / useConversations: remover sync automático
-    pós-conexão. Continuamos com realtime + cron de segurança.
-```
+### 2.3 `quiz_submissions` legado — UPDATE público
+- Drop da policy "Public can update recent quiz submissions". Tabela é legado; manter só leitura/insert se necessário, ou bloquear UPDATE para `anon` completamente. Authenticated continua podendo atualizar dentro da org.
 
-Sem mudanças de rota, sem alteração visual. Só edge functions, 1 migration e 1 cron novo.
+### 2.4 Realtime sem RLS em `crm_conversations` / `crm_messages`
+- Adicionar policies em `realtime.messages` (a tabela de subscriptions do Supabase Realtime) restringindo:
+  - SELECT só quando o tópico corresponde a uma conversa cuja `instance_id` pertence a uma instância do `auth.uid()` (via `whatsapp_instances.user_id`).
+- Alternativa segura adicional: trocar canais broadcast genéricos por canais privados nomeados por `instance_id` e validar membership na policy.
+
+---
+
+## Detalhes técnicos resumidos
+
+**Arquivos a criar**
+- `supabase/migrations/<ts>_bio_pages.sql` — tabela, RLS, RPC `get_bio_by_slug`, RPC `track_bio_click`, bucket `bio-assets`.
+- `supabase/migrations/<ts>_security_hardening.sql` — privatização `crm-media` + policies, fix `quiz_submissions*`, RLS `realtime.messages`.
+- `src/pages/BioPage.tsx`
+- `src/components/consultant/BioEditor.tsx`
+- `src/components/consultant/bio/` (BlockEditorLink, BlockEditorWhatsApp, BlockEditorVideo, BlockEditorGallery, BlockEditorMap, BlockEditorSocial, ThemePicker, MobilePreview)
+- `src/hooks/useBioPage.ts`
+- `src/lib/bio-themes.ts` (presets de paleta/fonte/estilo)
+
+**Arquivos a editar**
+- `src/App.tsx` — adicionar rota `/bio/:slug`.
+- `src/components/consultant/ConsultantSettings.tsx` — adicionar aba "Link na Bio".
+- `src/components/crm/MessageItem.tsx`, `ChatWindow.tsx`, `AudioPlayer.tsx`, `ImageModal.tsx` — usar signed URL.
+- `supabase/functions/crm-webhook/index.ts` — gravar `media_path` (já grava) e o frontend resolve via signed URL em vez de `media_url` público.
+
+**Não inclui nesta etapa** (warnings — abrir como follow-up se quiser):
+- Validação de magic bytes no upload do webhook.
+- Remoção do modo de transição do webhook secret.
+- Migração do encryption key para Supabase Vault.
+- Escopo por organização no bucket `insta-profile-pictures`.
+- Mover extensões fora do schema `public`.
+
+Quer que eu comece já pela feature Link na Bio + as correções de segurança juntas, ou prefere separar em duas levas (segurança primeiro, bio depois)?

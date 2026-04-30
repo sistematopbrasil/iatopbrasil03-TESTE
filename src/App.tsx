@@ -24,6 +24,7 @@ import AdminInstagram from "./pages/AdminInstagram";
 import AdminTraffic from "./pages/AdminTraffic";
 import AdminIntegrations from "./pages/AdminIntegrations";
 import CapturePage from "./pages/CapturePage";
+import BioPage from "./pages/BioPage";
 import { ProtectedRoute } from "./components/admin/ProtectedRoute";
 import { FunnelProvider } from "./contexts/FunnelContext";
 
@@ -55,6 +56,7 @@ const App = () => {
               <Route path="/quiz/:slug" element={<QuizPage />} />
               <Route path="/c/:slug" element={<CapturePage />} />
               <Route path="/r/:slug" element={<CapturePage />} />
+              <Route path="/bio/:slug" element={<BioPage />} />
               <Route path="/login" element={<AdminLogin />} />
               <Route
                 path="/admin/dashboard"

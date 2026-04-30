@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Save, Copy, ExternalLink, Upload, Trash2, Check, User, Plus, X, GripVertical, ArrowUp, ArrowDown, FileText, Globe, Image, Users, Shield, Info } from 'lucide-react';
 import { QuizQuestionsEditor } from './QuizQuestionsEditor';
+import { BioEditor } from './BioEditor';
 import { useFunnel } from '@/contexts/FunnelContext';
 import { cn } from '@/lib/utils';
 
@@ -1526,7 +1527,19 @@ export function ConsultantSettings() {
             <TabsTrigger value="tracking" className="text-xs sm:text-sm px-3 whitespace-nowrap">Tracking</TabsTrigger>
             <TabsTrigger value="whatsapp" className="text-xs sm:text-sm px-3 whitespace-nowrap">WhatsApp</TabsTrigger>
             <TabsTrigger value="account" className="text-xs sm:text-sm px-3 whitespace-nowrap">Conta</TabsTrigger>
+            <TabsTrigger value="bio" className="text-xs sm:text-sm px-3 whitespace-nowrap">Link na Bio</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="bio" className="flex-1 overflow-y-auto overflow-x-hidden min-w-0">
+            {consultant?.id && consultant?.organization_id && (
+              <BioEditor
+                userId={consultant.id}
+                organizationId={consultant.organization_id}
+                fullName={consultant.full_name}
+                username={consultant.username}
+              />
+            )}
+          </TabsContent>
 
         {/* Tab: Quiz */}
         <TabsContent value="quiz" className="flex-1 overflow-y-auto overflow-x-hidden min-w-0">
