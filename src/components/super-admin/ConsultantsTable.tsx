@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { getQuizUrl } from '@/lib/consultant-context';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Copy, ExternalLink, UserPlus, Trophy, Power, Trash2, MoreVertical, Loader2, MessageSquare, BarChart3, Layers, KeyRound, Instagram, Link as LinkIcon } from 'lucide-react';
+import { Copy, ExternalLink, UserPlus, Trophy, Power, Trash2, MoreVertical, Loader2, MessageSquare, BarChart3, Layers, KeyRound, Instagram } from 'lucide-react';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import { CreateConsultantDialog } from './CreateConsultantDialog';
@@ -347,6 +347,15 @@ export function ConsultantsTable() {
                         className="scale-75"
                       />
                     </div>
+                    <div className="flex items-center gap-2">
+                      <Instagram className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">Insta</span>
+                      <Switch
+                        checked={consultant.instagram_visible}
+                        onCheckedChange={() => toggleInstagramMutation.mutate({ consultantId: consultant.consultant_id, instagramVisible: consultant.instagram_visible })}
+                        className="scale-75"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -416,6 +425,19 @@ export function ConsultantsTable() {
                         Editar email/senha
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => copyBioLink(consultant.consultant_id)}>
+                        <Copy className="w-4 h-4 mr-2" />
+                        Copiar link Top Bio
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => openBioLink(consultant.consultant_id)}>
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Abrir Top Bio
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setInstaAdd({ id: consultant.consultant_id, name: consultant.full_name })}>
+                        <Instagram className="w-4 h-4 mr-2" />
+                        Vincular Instagram
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem
                         className="text-destructive focus:text-destructive"
                         onClick={() => setConsultantToDelete({ 
@@ -467,6 +489,9 @@ export function ConsultantsTable() {
                   </th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
                     Ranking
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+                    Instagram
                   </th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
                     Status
@@ -566,6 +591,12 @@ export function ConsultantsTable() {
                       />
                     </td>
                     <td className="px-4 py-3 text-center">
+                      <Switch
+                        checked={consultant.instagram_visible}
+                        onCheckedChange={() => toggleInstagramMutation.mutate({ consultantId: consultant.consultant_id, instagramVisible: consultant.instagram_visible })}
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-center">
                       {consultant.is_active ? (
                         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-500/10 text-green-600">
                           Ativo
@@ -625,6 +656,19 @@ export function ConsultantsTable() {
                             Editar email/senha
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => copyBioLink(consultant.consultant_id)}>
+                            <Copy className="w-4 h-4 mr-2" />
+                            Copiar link Top Bio
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openBioLink(consultant.consultant_id)}>
+                            <ExternalLink className="w-4 h-4 mr-2" />
+                            Abrir Top Bio
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setInstaAdd({ id: consultant.consultant_id, name: consultant.full_name })}>
+                            <Instagram className="w-4 h-4 mr-2" />
+                            Vincular Instagram
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
                           <DropdownMenuItem
                             className="text-destructive focus:text-destructive"
                             onClick={() => setConsultantToDelete({ 
@@ -671,6 +715,13 @@ export function ConsultantsTable() {
         onOpenChange={(o) => !o && setCredEdit(null)}
         consultantId={credEdit?.id ?? null}
         consultantName={credEdit?.name ?? ''}
+      />
+
+      <AddInstagramToConsultantDialog
+        open={!!instaAdd}
+        onOpenChange={(o) => !o && setInstaAdd(null)}
+        consultantId={instaAdd?.id ?? null}
+        consultantName={instaAdd?.name ?? ''}
       />
 
       <AlertDialog open={!!consultantToDelete} onOpenChange={() => setConsultantToDelete(null)}>

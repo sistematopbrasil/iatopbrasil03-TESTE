@@ -21,7 +21,8 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { UserPlus, Layers } from 'lucide-react';
+import { UserPlus, Layers, Instagram } from 'lucide-react';
+import { parseInstagramUsername } from '@/lib/instagram-utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { FUNNEL_LABELS, FUNNEL_VALUES, FunnelType } from '@/lib/funnel-types';
@@ -53,6 +54,7 @@ export function CreateConsultantDialog({ open: controlledOpen, onOpenChange: con
   });
   const [allowedFunnels, setAllowedFunnels] = useState<FunnelType[]>(['consultor']);
   const [defaultFunnel, setDefaultFunnel] = useState<FunnelType>('consultor');
+  const [instagramUsername, setInstagramUsername] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const { data: currentUser } = useQuery({
@@ -93,6 +95,32 @@ export function CreateConsultantDialog({ open: controlledOpen, onOpenChange: con
       if (error) throw new Error(error.message);
       if (responseData?.error) throw new Error(responseData.error);
 
+      const newConsultantId = responseData?.consultant_id as string | undefined;
+      const cleanInsta = parseInstagramUsername(instagramUsername);
+      if (newConsultantId && cleanInsta) {
+        try {
+          const { data: existing } = await supabase
+            .from('insta_profiles')
+            .select('id')
+            .eq('organization_id', currentUser.organization_id)
+            .eq('username', cleanInsta)
+            .maybeSingle();
+          if (existing) {
+            await supabase.from('insta_profiles').update({ consultant_id: newConsultantId }).eq('id', existing.id);
+          } else {
+            await supabase.from('insta_profiles').insert({
+              organization_id: currentUser.organization_id,
+              consultant_id: newConsultantId,
+              username: cleanInsta,
+              profile_url: `https://instagram.com/${cleanInsta}`,
+            });
+          }
+          supabase.functions.invoke('insta-fetch-profile', { body: { username: cleanInsta } }).catch(() => {});
+        } catch (e) {
+          console.warn('Falha ao vincular Instagram (consultor criado mesmo assim):', e);
+        }
+      }
+
       return true;
     },
     onSuccess: () => {
@@ -100,11 +128,13 @@ export function CreateConsultantDialog({ open: controlledOpen, onOpenChange: con
       queryClient.invalidateQueries({ queryKey: ['all-consultants-management'] });
       queryClient.invalidateQueries({ queryKey: ['unified-ranking'], refetchType: 'all' });
       queryClient.invalidateQueries({ queryKey: ['super-admin-metrics'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['insta-profiles'] });
       toast.success('Consultor criado com sucesso!', {
         description: 'As credenciais foram definidas conforme informado no formulário.',
       });
       onOpenChange(false);
       setFormData({ full_name: '', email: '', password: '', role: 'consultor' });
+      setInstagramUsername('');
       setErrors({});
     },
     onError: (error: Error) => {
@@ -250,6 +280,22 @@ export function CreateConsultantDialog({ open: controlledOpen, onOpenChange: con
                 </RadioGroup>
               </div>
             )}
+          </div>
+
+          <div className="space-y-2 p-4 rounded-lg border border-border/60 bg-muted/20">
+            <Label htmlFor="ig_username" className="text-sm font-semibold flex items-center gap-2">
+              <Instagram className="w-4 h-4 text-primary" />
+              Instagram <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
+            </Label>
+            <Input
+              id="ig_username"
+              value={instagramUsername}
+              onChange={(e) => setInstagramUsername(e.target.value)}
+              placeholder="ex: joaodasilva"
+            />
+            <p className="text-xs text-muted-foreground">
+              Vincule o Instagram do consultor agora. O perfil vai aparecer no painel Super Admin e no painel dele (se a aba Instagram estiver ativa).
+            </p>
           </div>
 
           <div className="bg-muted/50 p-3 rounded-lg">
