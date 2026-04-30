@@ -66,8 +66,7 @@ export const AdminLayout = ({ children, disableVerticalScroll = false }: AdminLa
     ...(currentUser?.crm_enabled ? [{ path: '/admin/crm', icon: MessageSquare, label: 'CRM WhatsApp' }] : []),
     ...(currentUser?.crm_enabled && currentUser?.ai_enabled ? [{ path: '/admin/ai-config', icon: Bot, label: 'Agente IA' }] : []),
     { path: '/admin/analytics', icon: PieChart, label: 'Analytics' },
-    ...((currentUser as any)?.instagram_visible !== false ? [{ path: '/admin/instagram', icon: Instagram, label: 'Instagram' }] : []),
-    { path: '/admin/top-bio', icon: LinkIcon, label: 'Top Bio' },
+    { path: '/admin/instagram', icon: Instagram, label: 'Instagram' },
     ...((currentUser as any)?.ranking_visible !== false ? [{ path: '/admin/ranking', icon: Trophy, label: 'Ranking' }] : []),
     { path: '/admin/settings', icon: Settings, label: 'Configurações' },
   ];
