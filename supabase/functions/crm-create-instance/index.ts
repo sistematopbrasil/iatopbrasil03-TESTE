@@ -437,7 +437,7 @@ serve(async (req) => {
         if (insertError) {
           console.error('❌ Erro ao salvar instância (alt):', insertError);
           return new Response(
-            JSON.stringify({ success: false, error: `Erro ao salvar instância: ${insertError.message}` }),
+            JSON.stringify({ success: false, error: `Erro ao salvar instância: ${insertError.message} (code: ${insertError.code || 'n/a'})` }),
             { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }

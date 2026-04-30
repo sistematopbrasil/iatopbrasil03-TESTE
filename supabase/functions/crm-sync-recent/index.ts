@@ -269,6 +269,28 @@ serve(async (req) => {
 
       console.log(`✅ ${validChats.length} chats válidos de ${chats.length} total`);
 
+      // ✅ FILTRO CRÍTICO: só processar chats cuja última mensagem é POSTERIOR a last_connected_at.
+      // Isso impede que conversas/contatos antigos do número apareçam ao conectar.
+      const cutoffMs = instance.last_connected_at
+        ? new Date(instance.last_connected_at).getTime()
+        : (instance.created_at ? new Date(instance.created_at).getTime() : Date.now());
+
+      const recentChats = validChats.filter((chat: any) => {
+        const lm = chat.lastMessage || chat.last_message || null;
+        const ts = lm?.messageTimestamp ?? lm?.timestamp ?? chat.updatedAt ?? chat.updated_at;
+        if (!ts) return false; // sem timestamp confiável => não criamos conversa do passado
+        const num = Number(ts);
+        if (Number.isNaN(num)) return false;
+        const ms = num > 1e12 ? num : num * 1000;
+        return ms >= cutoffMs;
+      });
+
+      console.log(`🕐 Após filtro temporal (>= ${new Date(cutoffMs).toISOString()}): ${recentChats.length} chats novos`);
+
+      // Substituir validChats pela versão filtrada para todo o resto do loop
+      validChats.length = 0;
+      validChats.push(...recentChats);
+
       // ✅ FALLBACK: Se findChats não retornou chats válidos, buscar mensagens diretamente
       if (validChats.length === 0) {
         console.log('🔄 Fallback: buscando mensagens recentes diretamente via /chat/findMessages...');

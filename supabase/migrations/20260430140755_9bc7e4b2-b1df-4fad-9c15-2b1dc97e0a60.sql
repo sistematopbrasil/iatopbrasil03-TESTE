@@ -1,0 +1,1 @@
+ALTER TABLE public.whatsapp_instances DROP CONSTRAINT IF EXISTS whatsapp_instances_user_id_organization_id_key;
