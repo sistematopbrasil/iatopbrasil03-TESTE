@@ -432,13 +432,42 @@ export function BioEditor({ userId, organizationId, fullName, username }: Props)
                   <Input placeholder="Subtítulo (opcional)" value={b.data.subtitle || ''} onChange={(e) => patch(i, { subtitle: e.target.value })} />
                 )}
 
-                {/* Picker de ícone para blocos com ícone */}
+                {/* Picker de ícone (galeria) + upload de imagem customizada */}
                 {(b.type === 'link' || b.type === 'whatsapp' || b.type === 'map') && (
-                  <IconPicker
-                    value={b.data.icon}
-                    onChange={(v) => patch(i, { icon: v })}
-                    accent={theme.accent_color}
-                  />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <IconPicker
+                      value={b.data.icon}
+                      onChange={(v) => patch(i, { icon: v, icon_url: null })}
+                      accent={theme.accent_color}
+                    />
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const f = e.target.files?.[0]; if (!f) return;
+                          try {
+                            const url = await uploadBioAsset(userId, f);
+                            patch(i, { icon_url: url });
+                            toast.success('Ícone atualizado');
+                          } catch (err: any) { toast.error(err?.message || 'Erro ao enviar imagem'); }
+                          finally { (e.target as HTMLInputElement).value = ''; }
+                        }}
+                      />
+                      <Button type="button" variant="outline" size="sm" asChild>
+                        <span><ImageIcon className="w-3.5 h-3.5 mr-1.5" />Enviar imagem</span>
+                      </Button>
+                    </label>
+                    {b.data.icon_url && (
+                      <div className="flex items-center gap-1.5 pl-1">
+                        <img src={b.data.icon_url} alt="" className="w-7 h-7 rounded-md object-cover border border-border" />
+                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => patch(i, { icon_url: null })}>
+                          <X className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 {b.type === 'link' && (
@@ -451,7 +480,40 @@ export function BioEditor({ userId, organizationId, fullName, username }: Props)
                   </>
                 )}
                 {b.type === 'video' && (
-                  <Input placeholder="URL do YouTube" value={b.data.url || ''} onChange={(e) => patch(i, { url: e.target.value })} />
+                  <div className="space-y-2">
+                    <Input placeholder="URL do YouTube (opcional)" value={b.data.url || ''} onChange={(e) => patch(i, { url: e.target.value })} />
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <label className="cursor-pointer">
+                        <input
+                          type="file"
+                          accept="video/mp4,video/webm,video/quicktime"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const f = e.target.files?.[0]; if (!f) return;
+                            if (f.size > 50 * 1024 * 1024) { toast.error('Vídeo acima de 50 MB'); return; }
+                            try {
+                              const url = await uploadBioAsset(userId, f);
+                              patch(i, { file_url: url, url: '' });
+                              toast.success('Vídeo enviado');
+                            } catch (err: any) { toast.error(err?.message || 'Erro ao enviar vídeo'); }
+                            finally { (e.target as HTMLInputElement).value = ''; }
+                          }}
+                        />
+                        <Button type="button" variant="outline" size="sm" asChild>
+                          <span><VideoIcon className="w-3.5 h-3.5 mr-1.5" />Enviar vídeo (até 50 MB)</span>
+                        </Button>
+                      </label>
+                      {b.data.file_url && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground truncate max-w-[160px]">Vídeo enviado</span>
+                          <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => patch(i, { file_url: null })}>
+                            <X className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">Se enviar um vídeo, ele tem prioridade sobre a URL do YouTube.</p>
+                  </div>
                 )}
                 {b.type === 'map' && (
                   <>
