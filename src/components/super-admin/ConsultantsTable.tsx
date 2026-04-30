@@ -205,6 +205,20 @@ export function ConsultantsTable() {
     window.open(getQuizUrl(slug), '_blank');
   };
 
+  const copyBioLink = (userId: string) => {
+    const slug = bioSlugMap[userId]?.slug;
+    if (!slug) { toast.error('Consultor ainda não criou o Top Bio'); return; }
+    const link = `${window.location.origin}/bio/${slug}`;
+    navigator.clipboard.writeText(link);
+    toast.success('Link Top Bio copiado!');
+  };
+
+  const openBioLink = (userId: string) => {
+    const slug = bioSlugMap[userId]?.slug;
+    if (!slug) { toast.error('Consultor ainda não criou o Top Bio'); return; }
+    window.open(`${window.location.origin}/bio/${slug}`, '_blank');
+  };
+
   // Só mostrar loading se não temos dados
   if (isLoading && (!ranking || ranking.length === 0)) {
     return (
