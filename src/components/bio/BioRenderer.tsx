@@ -212,7 +212,7 @@ export function BioRenderer({ theme, header, blocks, bioPageId, fallbackName, fa
     if (!bioPageId) return;
     const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
     const hash = btoa(unescape(encodeURIComponent(ua))).slice(0, 32);
-    supabase.rpc('track_bio_click' as any, { p_bio_page_id: bioPageId, p_block_id: blockId, p_ua_hash: hash } as any).catch(() => {});
+    void (supabase.rpc as any)('track_bio_click', { p_bio_page_id: bioPageId, p_block_id: blockId, p_ua_hash: hash }).then(() => {}, () => {});
   };
 
   const name = header.name || fallbackName || '';
