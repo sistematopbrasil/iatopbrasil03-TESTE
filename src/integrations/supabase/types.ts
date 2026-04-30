@@ -400,6 +400,7 @@ export type Database = {
           is_published: boolean
           organization_id: string
           seo: Json
+          slug: string | null
           theme: Json
           updated_at: string
           user_id: string
@@ -412,6 +413,7 @@ export type Database = {
           is_published?: boolean
           organization_id: string
           seo?: Json
+          slug?: string | null
           theme?: Json
           updated_at?: string
           user_id: string
@@ -424,6 +426,7 @@ export type Database = {
           is_published?: boolean
           organization_id?: string
           seo?: Json
+          slug?: string | null
           theme?: Json
           updated_at?: string
           user_id?: string
@@ -1364,6 +1367,7 @@ export type Database = {
       insta_profiles: {
         Row: {
           category: string | null
+          consultant_id: string | null
           created_at: string
           display_name: string | null
           id: string
@@ -1377,6 +1381,7 @@ export type Database = {
         }
         Insert: {
           category?: string | null
+          consultant_id?: string | null
           created_at?: string
           display_name?: string | null
           id?: string
@@ -1390,6 +1395,7 @@ export type Database = {
         }
         Update: {
           category?: string | null
+          consultant_id?: string | null
           created_at?: string
           display_name?: string | null
           id?: string

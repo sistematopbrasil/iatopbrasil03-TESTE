@@ -1,12 +1,23 @@
 import { useMemo } from 'react';
-import { Instagram, Youtube, MessageCircle, MapPin, ExternalLink, Star, Link as LinkIcon, Heart, Sparkles, Briefcase, Award, Users, Phone, Calendar, Play } from 'lucide-react';
+import {
+  Instagram, Youtube, MessageCircle, MapPin, ExternalLink, Star, Link as LinkIcon,
+  Heart, Sparkles, Briefcase, Award, Users, Phone, Calendar, Play, Crown, Flame, Zap,
+  Globe, Rocket, Trophy, Target, TrendingUp, User, Mail, Clock, Home, Shield,
+  ShoppingBag, Gift, DollarSign, CreditCard, Music, Video, Camera, BookOpen,
+  GraduationCap, Download, Check,
+} from 'lucide-react';
 import { FONT_FAMILIES, type BioBlock, type BioHeader, type BioTheme } from '@/lib/bio-themes';
 import { supabase } from '@/integrations/supabase/client';
 
 const ICONS: Record<string, any> = {
-  star: Star, link: LinkIcon, heart: Heart, sparkles: Sparkles,
-  briefcase: Briefcase, award: Award, users: Users, phone: Phone,
-  calendar: Calendar, instagram: Instagram, youtube: Youtube, map: MapPin,
+  star: Star, heart: Heart, sparkles: Sparkles, crown: Crown, flame: Flame, zap: Zap,
+  link: LinkIcon, globe: Globe, external: ExternalLink, rocket: Rocket,
+  briefcase: Briefcase, award: Award, trophy: Trophy, target: Target, trending: TrendingUp,
+  users: Users, user: User, phone: Phone, mail: Mail, message: MessageCircle,
+  calendar: Calendar, clock: Clock, map: MapPin, home: Home, shield: Shield,
+  shopping: ShoppingBag, gift: Gift, dollar: DollarSign, credit: CreditCard,
+  instagram: Instagram, youtube: Youtube, music: Music, video: Video, camera: Camera,
+  book: BookOpen, graduation: GraduationCap, play: Play, download: Download, check: Check,
 };
 
 function getYouTubeId(url: string) {
@@ -45,10 +56,7 @@ function LinkBlock({ block, theme, onClick }: { block: BioBlock; theme: BioTheme
   return (
     <ButtonShell theme={theme} href={block.data.url || undefined} onClick={onClick} ariaLabel={block.data.title}>
       <div className="flex items-center gap-4 p-4">
-        <div
-          className="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center"
-          style={{ background: theme.accent_color, color: '#fff' }}
-        >
+        <div className="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: theme.accent_color, color: '#fff' }}>
           <Icon className="w-5 h-5" />
         </div>
         <div className="flex-1 min-w-0">
@@ -64,13 +72,14 @@ function LinkBlock({ block, theme, onClick }: { block: BioBlock; theme: BioTheme
 }
 
 function WhatsAppBlock({ block, theme, onClick }: { block: BioBlock; theme: BioTheme; onClick: () => void }) {
+  const Icon = ICONS[block.data.icon] || MessageCircle;
   const phone = String(block.data.phone || '').replace(/\D/g, '');
   const url = phone ? `https://wa.me/${phone}?text=${encodeURIComponent(block.data.message || '')}` : undefined;
   return (
     <ButtonShell theme={theme} href={url} onClick={onClick} ariaLabel="WhatsApp">
       <div className="flex items-center gap-4 p-4">
         <div className="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: '#25D366', color: '#fff' }}>
-          <MessageCircle className="w-5 h-5" />
+          <Icon className="w-5 h-5" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="font-bold text-sm truncate" style={{ color: theme.text_color }}>{block.data.title || 'WhatsApp'}</div>
@@ -84,22 +93,12 @@ function WhatsAppBlock({ block, theme, onClick }: { block: BioBlock; theme: BioT
 function VideoBlock({ block, theme }: { block: BioBlock; theme: BioTheme }) {
   const yt = block.data.url ? getYouTubeId(block.data.url) : null;
   return (
-    <div
-      className="w-full overflow-hidden"
-      style={{ background: theme.card_color, borderRadius: theme.button_style === 'pill' ? '24px' : '14px' }}
-    >
-      {block.data.title && (
-        <div className="px-4 pt-4 font-bold text-sm" style={{ color: theme.text_color }}>{block.data.title}</div>
-      )}
+    <div className="w-full overflow-hidden" style={{ background: theme.card_color, borderRadius: theme.button_style === 'pill' ? '24px' : '14px' }}>
+      {block.data.title && <div className="px-4 pt-4 font-bold text-sm" style={{ color: theme.text_color }}>{block.data.title}</div>}
       <div className="aspect-video w-full">
         {yt ? (
-          <iframe
-            className="w-full h-full"
-            src={`https://www.youtube.com/embed/${yt}`}
-            title="Vídeo"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          />
+          <iframe className="w-full h-full" src={`https://www.youtube.com/embed/${yt}`} title="Vídeo"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
         ) : (
           <div className="w-full h-full flex items-center justify-center" style={{ color: theme.muted_color }}>
             <Play className="w-10 h-10" />
@@ -126,12 +125,13 @@ function GalleryBlock({ block, theme }: { block: BioBlock; theme: BioTheme }) {
 }
 
 function MapBlock({ block, theme, onClick }: { block: BioBlock; theme: BioTheme; onClick: () => void }) {
+  const Icon = ICONS[block.data.icon] || MapPin;
   const url = block.data.map_url || (block.data.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(block.data.address)}` : undefined);
   return (
     <ButtonShell theme={theme} href={url} onClick={onClick} ariaLabel="Endereço">
       <div className="flex items-center gap-4 p-4">
         <div className="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: theme.accent_color, color: '#fff' }}>
-          <MapPin className="w-5 h-5" />
+          <Icon className="w-5 h-5" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="font-bold text-sm" style={{ color: theme.text_color }}>{block.data.title || 'Endereço'}</div>
@@ -174,10 +174,12 @@ interface Props {
   theme: BioTheme;
   header: BioHeader;
   blocks: BioBlock[];
-  bioPageId?: string; // when set, clicks are tracked
+  bioPageId?: string;
   fallbackName?: string;
   fallbackAvatar?: string | null;
 }
+
+const AVATAR_PX: Record<string, number> = { sm: 72, md: 96, lg: 128, xl: 168 };
 
 export function BioRenderer({ theme, header, blocks, bioPageId, fallbackName, fallbackAvatar }: Props) {
   const fontFamily = FONT_FAMILIES[theme.font] || FONT_FAMILIES.inter;
@@ -194,10 +196,7 @@ export function BioRenderer({ theme, header, blocks, bioPageId, fallbackName, fa
 
   const patternStyle = useMemo<React.CSSProperties>(() => {
     if (theme.background.pattern === 'dots') {
-      return {
-        backgroundImage: `radial-gradient(${theme.text_color}20 1px, transparent 1px)`,
-        backgroundSize: '18px 18px',
-      };
+      return { backgroundImage: `radial-gradient(${theme.text_color}20 1px, transparent 1px)`, backgroundSize: '18px 18px' };
     }
     if (theme.background.pattern === 'grid') {
       return {
@@ -220,19 +219,43 @@ export function BioRenderer({ theme, header, blocks, bioPageId, fallbackName, fa
   const accentIdx = Math.min(Math.max(header.name_accent_word_index ?? 1, 0), Math.max(words.length - 1, 0));
   const avatar = header.avatar_url || fallbackAvatar || null;
 
+  // Avatar config
+  const aSize = AVATAR_PX[header.avatar_size || 'md'] || AVATAR_PX.md;
+  const aShape = header.avatar_shape || 'circle';
+  const aRadius = aShape === 'circle' ? '9999px' : aShape === 'rounded' ? '20px' : '0px';
+  const aPos = header.avatar_position || 'center';
+  const aBorder = header.avatar_border || 'thin';
+  const borderColor = header.avatar_border_color || theme.accent_color;
+  let avatarShadow = 'none';
+  let avatarRing = '';
+  if (aBorder === 'thin') avatarRing = `0 0 0 2px ${borderColor}80`;
+  else if (aBorder === 'thick') avatarRing = `0 0 0 4px ${borderColor}`;
+  else if (aBorder === 'glow') {
+    avatarRing = `0 0 0 3px ${borderColor}40`;
+    avatarShadow = `, 0 12px 40px -8px ${borderColor}99`;
+  }
+  const avatarBoxShadow = aBorder === 'none' ? 'none' : `${avatarRing}${avatarShadow}`;
+
   return (
     <div className="min-h-screen w-full relative" style={bgStyle}>
       <div className="absolute inset-0 pointer-events-none" style={patternStyle} />
-      <div className="relative max-w-[480px] mx-auto px-4 pt-10 pb-16 flex flex-col items-center gap-6">
+      <div className={`relative max-w-[480px] mx-auto px-4 pt-10 pb-16 flex flex-col gap-6 ${aPos === 'center' ? 'items-center' : 'items-start'}`}>
         {header.logo_url && (
           <img src={header.logo_url} alt="logo" className="h-8 w-auto object-contain" />
         )}
         {avatar && (
-          <img src={avatar} alt={name} className="w-24 h-24 rounded-full object-cover ring-2"
-            style={{ boxShadow: `0 0 0 3px ${theme.accent_color}40, 0 10px 30px -10px ${theme.accent_color}80` }} />
+          <img
+            src={avatar}
+            alt={name}
+            className="object-cover"
+            style={{ width: aSize, height: aSize, borderRadius: aRadius, boxShadow: avatarBoxShadow }}
+          />
         )}
         {name && (
-          <h1 className="text-3xl font-extrabold text-center leading-tight" style={{ color: theme.text_color }}>
+          <h1
+            className={`text-3xl font-extrabold leading-tight ${aPos === 'center' ? 'text-center' : 'text-left'}`}
+            style={{ color: theme.text_color }}
+          >
             {words.map((w, i) => (
               <span key={i} style={{ color: i === accentIdx ? theme.accent_color : theme.text_color }}>
                 {w}{i < words.length - 1 ? ' ' : ''}
@@ -241,7 +264,7 @@ export function BioRenderer({ theme, header, blocks, bioPageId, fallbackName, fa
           </h1>
         )}
         {header.bio && (
-          <p className="text-center text-sm leading-relaxed max-w-xs" style={{ color: theme.muted_color }}>
+          <p className={`text-sm leading-relaxed max-w-xs ${aPos === 'center' ? 'text-center' : 'text-left'}`} style={{ color: theme.muted_color }}>
             {header.bio}
           </p>
         )}
@@ -261,10 +284,13 @@ export function BioRenderer({ theme, header, blocks, bioPageId, fallbackName, fa
           })}
         </div>
 
-        <div className="mt-10 text-[11px]" style={{ color: theme.muted_color }}>
+        <div className="mt-10 text-[11px] self-center" style={{ color: theme.muted_color }}>
           © Top Brasil. Todos os direitos reservados.
         </div>
       </div>
     </div>
   );
 }
+
+// Exporta para reuso no editor
+export { ICONS as BIO_ICONS };

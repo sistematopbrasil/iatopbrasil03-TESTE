@@ -7,6 +7,7 @@ export interface BioPage {
   user_id: string;
   organization_id: string;
   is_published: boolean;
+  slug: string | null;
   theme: BioTheme;
   header: BioHeader;
   blocks: BioBlock[];

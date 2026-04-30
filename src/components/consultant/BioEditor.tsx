@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { Loader2, Save, Plus, Trash2, ArrowUp, ArrowDown, Eye, EyeOff, Copy, ExternalLink, Upload } from 'lucide-react';
+import { Loader2, Save, Plus, Trash2, ArrowUp, ArrowDown, Eye, EyeOff, Copy, ExternalLink, Upload, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,9 +8,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useBioPage, uploadBioAsset } from '@/hooks/useBioPage';
-import { THEME_PRESETS, newBlock, type BioBlock, type BioBlockType, type BioHeader, type BioTheme } from '@/lib/bio-themes';
-import { BioRenderer } from '@/components/bio/BioRenderer';
+import {
+  THEME_PRESETS, FONT_FAMILIES, FONT_OPTIONS, ICON_KEYS, suggestIcon, newBlock,
+  type BioBlock, type BioBlockType, type BioHeader, type BioTheme,
+} from '@/lib/bio-themes';
+import { BioRenderer, BIO_ICONS } from '@/components/bio/BioRenderer';
+import { cn } from '@/lib/utils';
 
 const BLOCK_LABELS: Record<BioBlockType, string> = {
   link: 'Botão de link', whatsapp: 'WhatsApp', video: 'Vídeo (YouTube)',
@@ -24,10 +29,57 @@ interface Props {
   username: string | null;
 }
 
+function IconPicker({ value, onChange, accent }: { value?: string; onChange: (v: string) => void; accent: string }) {
+  const [q, setQ] = useState('');
+  const Current = BIO_ICONS[value || 'star'] || BIO_ICONS.star;
+  const filtered = ICON_KEYS.filter((k) => !q || k.toLowerCase().includes(q.toLowerCase()));
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button type="button" variant="outline" size="sm" className="gap-2">
+          <span className="w-7 h-7 rounded-md flex items-center justify-center" style={{ background: accent, color: '#fff' }}>
+            <Current className="w-4 h-4" />
+          </span>
+          <span className="text-xs">Ícone</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-3" align="start">
+        <div className="relative mb-2">
+          <Search className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar ícone" className="pl-7 h-8 text-xs" />
+        </div>
+        <div className="grid grid-cols-7 gap-1.5 max-h-64 overflow-y-auto">
+          {filtered.map((key) => {
+            const Icon = BIO_ICONS[key];
+            const active = key === value;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => onChange(key)}
+                className={cn(
+                  'aspect-square rounded-md flex items-center justify-center transition border',
+                  active ? 'border-primary ring-1 ring-primary' : 'border-transparent hover:bg-muted',
+                )}
+                title={key}
+              >
+                <Icon className="w-4 h-4" />
+              </button>
+            );
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function BioEditor({ userId, organizationId, fullName, username }: Props) {
   const { query, ensureMutation, saveMutation } = useBioPage(userId, organizationId, fullName);
   const [theme, setTheme] = useState<BioTheme>(THEME_PRESETS[0].theme);
-  const [header, setHeader] = useState<BioHeader>({ logo_url: null, avatar_url: null, name: fullName, name_accent_word_index: 1, bio: '', show_socials_inline: false });
+  const [header, setHeader] = useState<BioHeader>({
+    logo_url: null, avatar_url: null, name: fullName, name_accent_word_index: 1, bio: '', show_socials_inline: false,
+    avatar_size: 'md', avatar_shape: 'circle', avatar_position: 'center', avatar_border: 'thin', avatar_border_color: null,
+  });
   const [blocks, setBlocks] = useState<BioBlock[]>([]);
   const [published, setPublished] = useState(true);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -35,22 +87,35 @@ export function BioEditor({ userId, organizationId, fullName, username }: Props)
   useEffect(() => {
     if (query.data) {
       setTheme(query.data.theme || THEME_PRESETS[0].theme);
-      setHeader(query.data.header);
+      setHeader({
+        avatar_size: 'md', avatar_shape: 'circle', avatar_position: 'center', avatar_border: 'thin', avatar_border_color: null,
+        ...query.data.header,
+      });
       setBlocks(query.data.blocks || []);
       setPublished(query.data.is_published);
     }
   }, [query.data]);
 
-  const bioUrl = useMemo(() => username ? `${window.location.origin}/bio/${username}` : null, [username]);
+  const slug = query.data?.slug || null;
+  const bioUrl = useMemo(
+    () => slug ? `${window.location.origin}/bio/${slug}` : null,
+    [slug],
+  );
 
   if (query.isLoading) {
-    return <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;
+    return (
+      <div className="space-y-3">
+        <div className="h-24 rounded-lg bg-muted animate-pulse" />
+        <div className="h-48 rounded-lg bg-muted animate-pulse" />
+        <div className="h-32 rounded-lg bg-muted animate-pulse" />
+      </div>
+    );
   }
 
   if (!query.data) {
     return (
       <div className="text-center py-12 space-y-4">
-        <p className="text-muted-foreground">Você ainda não tem uma página de Link na Bio.</p>
+        <p className="text-muted-foreground">Você ainda não tem uma página Top Bio.</p>
         <Button onClick={() => ensureMutation.mutate()} disabled={ensureMutation.isPending}>
           {ensureMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
           Criar minha página
@@ -73,7 +138,13 @@ export function BioEditor({ userId, organizationId, fullName, username }: Props)
     setBlocks(next);
   };
   const remove = (i: number) => setBlocks(blocks.filter((_, idx) => idx !== i));
-  const add = (type: BioBlockType) => setBlocks([...blocks, newBlock(type)]);
+  const add = (type: BioBlockType) => {
+    const b = newBlock(type);
+    if (type === 'link' || type === 'whatsapp' || type === 'map') {
+      b.data.icon = suggestIcon(b.data.title || '');
+    }
+    setBlocks([...blocks, b]);
+  };
   const patch = (i: number, data: any) => setBlocks(blocks.map((b, idx) => idx === i ? { ...b, data: { ...b.data, ...data } } : b));
   const toggle = (i: number) => setBlocks(blocks.map((b, idx) => idx === i ? { ...b, enabled: !b.enabled } : b));
 
@@ -90,14 +161,13 @@ export function BioEditor({ userId, organizationId, fullName, username }: Props)
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6">
-      {/* Editor */}
       <div className="space-y-6 min-w-0">
         {/* URL + ações */}
         <Card>
           <CardHeader className="flex-row items-start justify-between gap-4">
             <div>
-              <CardTitle>Link na Bio</CardTitle>
-              <CardDescription>Sua página pessoal estilo linktree</CardDescription>
+              <CardTitle>Top Bio</CardTitle>
+              <CardDescription>Sua página pessoal — link único para a bio do Instagram</CardDescription>
             </div>
             <div className="flex items-center gap-2">
               <Switch checked={published} onCheckedChange={setPublished} />
@@ -126,7 +196,7 @@ export function BioEditor({ userId, organizationId, fullName, username }: Props)
         {/* Tema */}
         <Card>
           <CardHeader><CardTitle className="text-base">Aparência</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-5">
             <div>
               <Label className="text-xs mb-2 block">Paleta</Label>
               <div className="grid grid-cols-3 gap-2">
@@ -180,38 +250,62 @@ export function BioEditor({ userId, organizationId, fullName, username }: Props)
                 </Select>
               </div>
               <div>
-                <Label className="text-xs">Fonte</Label>
-                <Select value={theme.font} onValueChange={(v: any) => setTheme({ ...theme, font: v })}>
+                <Label className="text-xs">Padrão</Label>
+                <Select value={theme.background.pattern || 'none'} onValueChange={(v: any) => setTheme({ ...theme, background: { ...theme.background, pattern: v } })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="inter">Inter</SelectItem>
-                    <SelectItem value="playfair">Playfair</SelectItem>
-                    <SelectItem value="space-grotesk">Space Grotesk</SelectItem>
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    <SelectItem value="dots">Pontos</SelectItem>
+                    <SelectItem value="grid">Grid</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
+            {/* Fontes — grid visual */}
             <div>
-              <Label className="text-xs">Padrão de fundo</Label>
-              <Select value={theme.background.pattern || 'none'} onValueChange={(v: any) => setTheme({ ...theme, background: { ...theme.background, pattern: v } })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Nenhum</SelectItem>
-                  <SelectItem value="dots">Pontos</SelectItem>
-                  <SelectItem value="grid">Grid</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label className="text-xs mb-2 block">Tipografia</Label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {FONT_OPTIONS.map((f) => {
+                  const active = theme.font === f.id;
+                  return (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => setTheme({ ...theme, font: f.id })}
+                      className={cn(
+                        'rounded-lg p-3 border text-left transition',
+                        active ? 'border-primary ring-2 ring-primary/30 bg-primary/5' : 'border-border hover:border-primary/50',
+                      )}
+                    >
+                      <div className="text-base font-bold leading-none truncate" style={{ fontFamily: FONT_FAMILIES[f.id] }}>
+                        {f.sample}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-1">{f.label}</div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Cabeçalho */}
+        {/* Cabeçalho + Foto */}
         <Card>
           <CardHeader><CardTitle className="text-base">Cabeçalho</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center gap-4">
-              {header.avatar_url && <img src={header.avatar_url} alt="" className="w-16 h-16 rounded-full object-cover" />}
+            <div className="flex items-center gap-4 flex-wrap">
+              {header.avatar_url && (
+                <img
+                  src={header.avatar_url}
+                  alt=""
+                  className="object-cover"
+                  style={{
+                    width: 64, height: 64,
+                    borderRadius: header.avatar_shape === 'circle' ? '9999px' : header.avatar_shape === 'rounded' ? '12px' : '0px',
+                  }}
+                />
+              )}
               <label className="cursor-pointer">
                 <input type="file" accept="image/*" className="hidden"
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) void onAvatarUpload(f); }} />
@@ -223,6 +317,68 @@ export function BioEditor({ userId, organizationId, fullName, username }: Props)
                 <Button variant="ghost" size="sm" onClick={() => setHeader({ ...header, avatar_url: null })}>Remover</Button>
               )}
             </div>
+
+            {header.avatar_url && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 rounded-lg bg-muted/30 border border-border">
+                <div>
+                  <Label className="text-xs">Tamanho</Label>
+                  <Select value={header.avatar_size || 'md'} onValueChange={(v: any) => setHeader({ ...header, avatar_size: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sm">Pequena</SelectItem>
+                      <SelectItem value="md">Média</SelectItem>
+                      <SelectItem value="lg">Grande</SelectItem>
+                      <SelectItem value="xl">Extra grande</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Formato</Label>
+                  <Select value={header.avatar_shape || 'circle'} onValueChange={(v: any) => setHeader({ ...header, avatar_shape: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="circle">Círculo</SelectItem>
+                      <SelectItem value="rounded">Arredondado</SelectItem>
+                      <SelectItem value="square">Quadrado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Posição</Label>
+                  <Select value={header.avatar_position || 'center'} onValueChange={(v: any) => setHeader({ ...header, avatar_position: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="center">Centralizada</SelectItem>
+                      <SelectItem value="left">À esquerda</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Borda</Label>
+                  <Select value={header.avatar_border || 'thin'} onValueChange={(v: any) => setHeader({ ...header, avatar_border: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhuma</SelectItem>
+                      <SelectItem value="thin">Fina</SelectItem>
+                      <SelectItem value="thick">Grossa</SelectItem>
+                      <SelectItem value="glow">Brilho</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {header.avatar_border !== 'none' && (
+                  <div className="col-span-2 sm:col-span-4">
+                    <Label className="text-xs">Cor da borda (vazio = cor de destaque)</Label>
+                    <Input
+                      type="color"
+                      value={header.avatar_border_color || theme.accent_color}
+                      onChange={(e) => setHeader({ ...header, avatar_border_color: e.target.value })}
+                      className="h-9"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
             <div>
               <Label className="text-xs">Nome em destaque</Label>
               <Input value={header.name} onChange={(e) => setHeader({ ...header, name: e.target.value })} />
@@ -264,6 +420,16 @@ export function BioEditor({ userId, organizationId, fullName, username }: Props)
                 {(b.type === 'link' || b.type === 'whatsapp' || b.type === 'map') && (
                   <Input placeholder="Subtítulo (opcional)" value={b.data.subtitle || ''} onChange={(e) => patch(i, { subtitle: e.target.value })} />
                 )}
+
+                {/* Picker de ícone para blocos com ícone */}
+                {(b.type === 'link' || b.type === 'whatsapp' || b.type === 'map') && (
+                  <IconPicker
+                    value={b.data.icon}
+                    onChange={(v) => patch(i, { icon: v })}
+                    accent={theme.accent_color}
+                  />
+                )}
+
                 {b.type === 'link' && (
                   <Input placeholder="URL (https://...)" value={b.data.url || ''} onChange={(e) => patch(i, { url: e.target.value })} />
                 )}
