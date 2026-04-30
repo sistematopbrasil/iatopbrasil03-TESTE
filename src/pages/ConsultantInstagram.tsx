@@ -1,13 +1,20 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InstagramAnalytics } from "@/components/instagram/InstagramAnalytics";
 import { InstagramProfilesList } from "@/components/instagram/InstagramProfilesList";
 import { BioEditor } from "@/components/consultant/BioEditor";
-import { UserCircle, TrendingUp, Link as LinkIcon } from "lucide-react";
+import { getCurrentConsultant } from "@/lib/consultant-context";
+import { UserCircle, TrendingUp, Link as LinkIcon, Loader2 } from "lucide-react";
 
 const ConsultantInstagram = () => {
   const [activeTab, setActiveTab] = useState("profiles");
+  const { data: user, isLoading } = useQuery({
+    queryKey: ["current-user-instagram"],
+    queryFn: getCurrentConsultant,
+    staleTime: 5 * 60 * 1000,
+  });
 
   return (
     <AdminLayout>
