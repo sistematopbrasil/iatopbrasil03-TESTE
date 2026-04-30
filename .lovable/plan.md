@@ -1,146 +1,63 @@
-## Objetivo
+# Ajustes Top Bio + Instagram por consultor
 
-1. Melhorar a página "Link na Bio" (renomear para **Top Bio**) com mais fontes, edição da foto, ícones por botão e URL pelo primeiro nome.
-2. Criar uma aba **Instagram** no painel do consultor que mostra apenas o(s) perfil(s) vinculado(s) a ele, e mover o **Top Bio** para dentro dessa aba (removendo de Configurações).
-3. No Super Admin, permitir vincular perfis Instagram já cadastrados a contas de consultor.
+## 1. Preview do Top Bio acompanha o scroll
+No `BioEditor.tsx` o preview fica em uma coluna lateral (`grid lg:grid-cols-[1fr_400px]`), mas sem `position: sticky`, então sai da tela ao rolar.
 
----
+- Envolver a coluna de preview em uma `div` com `lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto`.
+- Garantir que o `AdminLayout` não use `overflow-hidden` no container que quebra o sticky (verificar e ajustar a wrapper se necessário).
+- Mostrar também o **link da bio** dentro do card de preview (URL + botão copiar), reforçando a visibilidade.
 
-## Parte 1 — Top Bio (melhorias)
+## 2. Consultor só vê os próprios perfis do Instagram
+Hoje `useInstagramProfiles` faz `select * from insta_profiles` e a RLS filtra por `consultant_id`, mas só quando ele está preenchido. Precisamos:
 
-### 1.1 Mais fontes
-Em `src/lib/bio-themes.ts`, expandir `BioTheme.font` para um conjunto bem diverso (sem opções parecidas):
-- `inter` (sans neutra)
-- `playfair` (serif clássica elegante)
-- `space-grotesk` (sans geométrica tech)
-- `dm-serif` (serif display marcante)
-- `bebas` (display condensada, alto impacto)
-- `poppins` (sans arredondada amigável)
-- `lora` (serif de leitura)
-- `manrope` (sans moderna)
-- `archivo-black` (display peso máximo)
-- `instrument-serif` (serif editorial fina)
+- **Migração SQL**: ajustar a policy de SELECT em `insta_profiles` para:
+  - Super Admin / Admin da org → vê todos da organização (como hoje).
+  - Consultor → vê apenas linhas onde `consultant_id = auth.uid()`.
+- No hook `useInstagramProfiles`, manter o `select *` (a RLS cuida), mas trocar a `queryKey` para incluir o user id evitando cache cruzado.
+- No `ConsultantInstagram.tsx`, esconder o botão "Adicionar" do `InstagramProfilesList` quando o usuário não for admin (criar prop `canManage`). Consultor só visualiza seus perfis vinculados pelo admin.
 
-Carregar via `<link>` no `index.html` (Google Fonts) e atualizar `FONT_FAMILIES`. No `BioEditor` trocar o `<Select>` por um grid visual com preview do nome em cada fonte.
+## 3. Toggle "Mostrar Instagram" por consultor (no painel Super Admin)
+A página Top Bio sempre fica disponível para o consultor; já o **acompanhamento de Instagram** (aba Meus Perfis + Análises) deve poder ser ligado/desligado pelo Super Admin.
 
-### 1.2 Edição da foto (avatar)
-Adicionar a `BioHeader` os campos:
-- `avatar_size`: `sm | md | lg | xl`
-- `avatar_shape`: `circle | rounded | square`
-- `avatar_position`: `center | left`
-- `avatar_border`: `none | thin | thick | glow`
-- `avatar_border_color`: hex (default = accent)
+- **Migração SQL**: adicionar coluna `instagram_visible boolean default true` em `users`.
+- Em `ConsultantsTable.tsx`, ao lado dos toggles de **CRM** e **Ranking**, adicionar toggle **Instagram** (mobile e desktop), com mutation análoga a `toggleRankingMutation`.
+- No `useRankingData` / consulta de consultores, trazer o novo campo.
+- Em `AdminLayout.tsx`, o item "Instagram" do sidebar do consultor só aparece se `user.instagram_visible !== false`. Top Bio continua acessível por uma rota direta `/admin/top-bio` (nova rota dedicada que renderiza só o `BioEditor`) — assim mesmo sem Instagram, o consultor entra em "Top Bio" pelo sidebar.
+- Resultado no sidebar do consultor:
+  - Sempre: **Top Bio**
+  - Condicional ao toggle: **Instagram** (com sub-abas Meus Perfis / Análises)
 
-Editor: novo painel "Foto" com switches/sliders e preview em tempo real. Renderer (`BioRenderer`) usa esses campos para calcular `width/height`, `borderRadius`, alinhamento e box-shadow.
+## 4. Vincular Instagram já na criação do consultor
+No `CreateConsultantDialog.tsx`, adicionar um bloco opcional **"Perfil do Instagram (opcional)"** com:
+- Campo username (`@`).
+- Texto auxiliar: "Será adicionado ao painel Super Admin e vinculado a este consultor para acompanhamento do crescimento."
 
-### 1.3 Ícones por botão
-Hoje só `link` lê `data.icon`. Vamos:
-- Expandir `ICONS` em `BioRenderer.tsx` para ~30 ícones úteis (Star, Heart, Sparkles, Briefcase, Award, Users, Phone, Calendar, MessageCircle, ShoppingBag, Gift, Crown, Zap, Shield, Rocket, Target, TrendingUp, Globe, Mail, Music, Camera, Video, BookOpen, GraduationCap, Coffee, Home, Map, DollarSign, ThumbsUp, Flame, etc.).
-- Por padrão, novos blocos `link` recebem ícone sugerido por palavras-chave do título (ex.: "whatsapp"→MessageCircle, "curso"→GraduationCap). Fallback `Star`.
-- No `BioEditor`, para cada bloco `link`, adicionar **picker visual** (popover com grid pesquisável dos ícones).
+Fluxo:
+1. Após `create-consultant` retornar o novo `user_id`, se houver username preenchido, fazer `insert` em `insta_profiles` com `organization_id`, `consultant_id = novo user_id`, `username`, `profile_url`.
+2. Disparar (best-effort, não-bloqueante) a edge function `insta-fetch-profile` para já popular foto e métricas iniciais.
+3. Invalidar `['insta-profiles']`.
 
-### 1.4 URL pelo primeiro nome
-- A URL passa de `/bio/:username` para `/bio/:firstName` (slug derivado do `full_name`, normalizado: minúsculo, sem acento, sem espaço).
-- Em colisão entre consultores da mesma organização, sufixar `-2`, `-3`...
-- Adicionar coluna `slug TEXT UNIQUE` em `bio_pages` (migração) — gerada na criação/atualização do nome via trigger `before insert/update`.
-- Atualizar a RPC `get_bio_by_slug` para casar pelo novo `bio_pages.slug` (em vez de `consultants.username`).
-- `BioEditor` exibe a URL final `…/bio/<primeiro_nome>` com botão para copiar.
+Também adicionar, no `ConsultantsTable` (menu de ações de cada consultor existente), opção **"Adicionar perfil Instagram"** que abre um diálogo simples com o mesmo fluxo, para consultores já criados.
 
----
+## 5. Link da bio visível também no Super Admin
+No `ConsultantsTable.tsx`, adicionar no menu de ações de cada consultor:
+- **Copiar link Top Bio** e **Abrir Top Bio** (usando o slug do consultor; buscar via join com `bio_pages` no `useRankingData` ou query auxiliar).
 
-## Parte 2 — Aba Instagram do Consultor
+## Arquivos afetados
 
-### 2.1 Vinculação (Super Admin)
-Migração:
-- Adicionar `consultant_id UUID` (nullable) em `insta_profiles`.
-- Index parcial para busca rápida.
-- Política RLS extra: consultor (não super admin) só pode `SELECT` em `insta_profiles` quando `consultant_id = get_current_consultant_id()`. As políticas existentes (org) continuam para super admin.
-- Mesma regra propagada para `insta_follower_metrics` via EXISTS já existente (continua funcionando porque escopa por `insta_profiles`, então basta a nova política em `insta_profiles`).
-
-UI Super Admin:
-- Em `InstagramProfileCard`/`InstagramProfilesList`, adicionar dropdown "Vincular a consultor" listando consultores da organização. Ao escolher, faz `update insta_profiles set consultant_id=...`.
-- Indicador visual de qual consultor está vinculado.
-
-### 2.2 Nova aba Instagram no painel do consultor
-- Nova rota `/admin/instagram` já existe — adaptar `AdminInstagram.tsx` para reagir ao papel:
-  - **Super admin**: comportamento atual (3 sub-abas: Visão Geral, Perfis, Análises).
-  - **Consultor**: nova versão com sub-abas: **Meus perfis**, **Análises**, **Top Bio**.
-    - "Meus perfis" e "Análises" reusam `InstagramProfileDetail`/`InstagramAnalytics` filtrando por `consultant_id`.
-    - "Top Bio" renderiza `<BioEditor … />` (movido de Configurações).
-- Em `AdminLayout.tsx`, adicionar item `Instagram` no `consultantNavItems` (ícone `Instagram` da lucide).
-- Em `ConsultantSettings.tsx`, **remover** a `TabsTrigger value="bio"` e respectivo `TabsContent` (mover para a aba Instagram).
-
-### 2.3 Hook
-Atualizar `useInstagramProfiles`/`useInstagramMetrics` para aceitar filtro `consultantId` e, quando o usuário não é super admin, aplicar `eq('consultant_id', currentConsultantId)`.
-
----
-
-## Detalhes técnicos
-
-### Migração SQL
-```sql
--- Top Bio: slug por primeiro nome
-ALTER TABLE public.bio_pages ADD COLUMN slug TEXT;
-CREATE UNIQUE INDEX bio_pages_slug_uniq ON public.bio_pages(slug);
-
-CREATE OR REPLACE FUNCTION public.bio_pages_set_slug() RETURNS trigger
-LANGUAGE plpgsql AS $$
-DECLARE base TEXT; candidate TEXT; n INT := 1;
-BEGIN
-  base := lower(regexp_replace(unaccent(coalesce(NEW.header->>'name','')), '[^a-z0-9]+', '-', 'gi'));
-  base := trim(both '-' from split_part(base,'-',1)); -- primeiro nome
-  IF base = '' THEN base := substring(NEW.user_id::text,1,8); END IF;
-  candidate := base;
-  WHILE EXISTS (SELECT 1 FROM public.bio_pages WHERE slug=candidate AND id <> coalesce(NEW.id,'00000000-0000-0000-0000-000000000000'::uuid)) LOOP
-    n := n+1; candidate := base || '-' || n;
-  END LOOP;
-  NEW.slug := candidate;
-  RETURN NEW;
-END $$;
-
-CREATE TRIGGER trg_bio_slug BEFORE INSERT OR UPDATE OF header ON public.bio_pages
-FOR EACH ROW EXECUTE FUNCTION public.bio_pages_set_slug();
-
--- Backfill slugs existentes
-UPDATE public.bio_pages SET header = header; -- dispara trigger
-
--- Atualizar RPC get_bio_by_slug para usar bio_pages.slug
-CREATE OR REPLACE FUNCTION public.get_bio_by_slug(p_slug text) ...
-  WHERE bp.slug = p_slug AND bp.is_published = true ...
-
--- Instagram: vincular a consultor
-ALTER TABLE public.insta_profiles ADD COLUMN consultant_id UUID;
-CREATE INDEX insta_profiles_consultant_idx ON public.insta_profiles(consultant_id);
-
-CREATE POLICY "Consultants view own insta profiles"
-ON public.insta_profiles FOR SELECT TO authenticated
-USING (consultant_id = get_current_consultant_id());
+```text
+supabase/migrations/<novo>.sql      RLS insta_profiles + coluna instagram_visible
+src/components/consultant/BioEditor.tsx          preview sticky + link no preview
+src/components/admin/AdminLayout.tsx             item Instagram condicional + Top Bio dedicado
+src/pages/ConsultantInstagram.tsx                ocultar "Adicionar" para consultor
+src/pages/ConsultantTopBio.tsx (novo)            página Top Bio independente
+src/App.tsx                                      rota /admin/top-bio
+src/components/instagram/InstagramProfilesList.tsx  prop canManage
+src/hooks/useInstagramProfiles.ts                queryKey por user
+src/hooks/useRankingData.ts                      trazer instagram_visible + bio slug
+src/components/super-admin/ConsultantsTable.tsx  toggle Instagram + ações Top Bio + add Insta
+src/components/super-admin/CreateConsultantDialog.tsx  campo Instagram opcional
+src/components/super-admin/AddInstagramToConsultantDialog.tsx (novo)
 ```
 
-### Arquivos a editar/criar
-- `supabase/migrations/<novo>.sql` — alterações acima
-- `src/lib/bio-themes.ts` — novas fontes + tipos `BioHeader.avatar_*`
-- `index.html` — `<link>` Google Fonts adicionais
-- `src/components/bio/BioRenderer.tsx` — render foto editável, mais ícones
-- `src/components/consultant/BioEditor.tsx` — picker de ícone, painel de foto, grid de fontes, URL com primeiro nome
-- `src/hooks/useBioPage.ts` — retornar `slug` da linha
-- `src/pages/BioPage.tsx` — usa `slug` (já passa `:slug` para a RPC, sem mudança)
-- `src/components/consultant/ConsultantSettings.tsx` — remover aba Link na Bio
-- `src/components/admin/AdminLayout.tsx` — adicionar item Instagram em `consultantNavItems`
-- `src/pages/AdminInstagram.tsx` — split por papel + sub-aba Top Bio para consultor
-- `src/hooks/useInstagramProfiles.ts` (e relacionados) — filtro por `consultant_id`
-- `src/components/instagram/InstagramProfilesList.tsx` (super admin) — dropdown vincular consultor
-
-### Compatibilidade
-- URLs antigas `/bio/<username>` deixam de funcionar; o link gerado para os consultores passa a ser `/bio/<primeiro-nome>`. O backfill cria o slug para todos os bio_pages existentes automaticamente.
-- Perfis Instagram já cadastrados ficam com `consultant_id = NULL` até o super admin vincular — nesse estado nenhum consultor os vê.
-
----
-
-## Ordem de implementação
-1. Migração SQL (slug, trigger, RPC, coluna `consultant_id` em `insta_profiles`, política RLS).
-2. Top Bio: fontes, foto editável, ícones, URL por primeiro nome.
-3. AdminLayout: novo item "Instagram" para consultor.
-4. AdminInstagram: separar render por papel + integrar BioEditor.
-5. Super Admin: vincular perfil Instagram a consultor.
-6. Remover aba Link na Bio das Configurações.
+Posso seguir com a implementação?
