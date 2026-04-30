@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { Loader2, Save, Plus, Trash2, ArrowUp, ArrowDown, Eye, EyeOff, Copy, ExternalLink, Upload, Search } from 'lucide-react';
+import { Loader2, Save, Plus, Trash2, ArrowUp, ArrowDown, Eye, EyeOff, Copy, ExternalLink, Upload, Search, X, Image as ImageIcon, Video as VideoIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
