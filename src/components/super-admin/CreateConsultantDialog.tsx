@@ -21,7 +21,8 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { UserPlus, Layers } from 'lucide-react';
+import { UserPlus, Layers, Instagram } from 'lucide-react';
+import { parseInstagramUsername } from '@/lib/instagram-utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { FUNNEL_LABELS, FUNNEL_VALUES, FunnelType } from '@/lib/funnel-types';
