@@ -86,15 +86,12 @@ function LinkBlock({ block, theme, onClick }: { block: BioBlock; theme: BioTheme
 }
 
 function WhatsAppBlock({ block, theme, onClick }: { block: BioBlock; theme: BioTheme; onClick: () => void }) {
-  const Icon = ICONS[block.data.icon] || MessageCircle;
   const phone = String(block.data.phone || '').replace(/\D/g, '');
   const url = phone ? `https://wa.me/${phone}?text=${encodeURIComponent(block.data.message || '')}` : undefined;
   return (
     <ButtonShell theme={theme} href={url} onClick={onClick} ariaLabel="WhatsApp">
       <div className="flex items-center gap-4 p-4">
-        <div className="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: '#25D366', color: '#fff' }}>
-          <Icon className="w-5 h-5" />
-        </div>
+        <IconBadge block={block} theme={theme} fallback={MessageCircle} bg="#25D366" />
         <div className="flex-1 min-w-0">
           <div className="font-bold text-sm truncate" style={{ color: theme.text_color }}>{block.data.title || 'WhatsApp'}</div>
           {block.data.subtitle && <div className="text-xs mt-0.5" style={{ color: theme.muted_color }}>{block.data.subtitle}</div>}
@@ -105,12 +102,15 @@ function WhatsAppBlock({ block, theme, onClick }: { block: BioBlock; theme: BioT
 }
 
 function VideoBlock({ block, theme }: { block: BioBlock; theme: BioTheme }) {
-  const yt = block.data.url ? getYouTubeId(block.data.url) : null;
+  const fileUrl = block.data.file_url as string | undefined;
+  const yt = !fileUrl && block.data.url ? getYouTubeId(block.data.url) : null;
   return (
     <div className="w-full overflow-hidden" style={{ background: theme.card_color, borderRadius: theme.button_style === 'pill' ? '24px' : '14px' }}>
       {block.data.title && <div className="px-4 pt-4 font-bold text-sm" style={{ color: theme.text_color }}>{block.data.title}</div>}
       <div className="aspect-video w-full">
-        {yt ? (
+        {fileUrl ? (
+          <video className="w-full h-full object-cover bg-black" src={fileUrl} controls playsInline preload="metadata" poster={block.data.poster_url || undefined} />
+        ) : yt ? (
           <iframe className="w-full h-full" src={`https://www.youtube.com/embed/${yt}`} title="Vídeo"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
         ) : (
