@@ -51,14 +51,28 @@ function ButtonShell({
   );
 }
 
+function IconBadge({ block, theme, fallback, bg }: { block: BioBlock; theme: BioTheme; fallback: any; bg?: string }) {
+  const url = block.data.icon_url as string | undefined;
+  if (url) {
+    return (
+      <div className="flex-shrink-0 w-12 h-12 rounded-xl overflow-hidden bg-white/5">
+        <img src={url} alt="" className="w-full h-full object-cover" />
+      </div>
+    );
+  }
+  const Icon = ICONS[block.data.icon] || fallback;
+  return (
+    <div className="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: bg || theme.accent_color, color: '#fff' }}>
+      <Icon className="w-5 h-5" />
+    </div>
+  );
+}
+
 function LinkBlock({ block, theme, onClick }: { block: BioBlock; theme: BioTheme; onClick: () => void }) {
-  const Icon = ICONS[block.data.icon] || LinkIcon;
   return (
     <ButtonShell theme={theme} href={block.data.url || undefined} onClick={onClick} ariaLabel={block.data.title}>
       <div className="flex items-center gap-4 p-4">
-        <div className="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: theme.accent_color, color: '#fff' }}>
-          <Icon className="w-5 h-5" />
-        </div>
+        <IconBadge block={block} theme={theme} fallback={LinkIcon} />
         <div className="flex-1 min-w-0">
           <div className="font-bold text-sm truncate" style={{ color: theme.text_color }}>{block.data.title}</div>
           {block.data.subtitle && (
