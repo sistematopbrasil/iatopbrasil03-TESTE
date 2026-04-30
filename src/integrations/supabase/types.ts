@@ -359,6 +359,85 @@ export type Database = {
         }
         Relationships: []
       }
+      bio_clicks: {
+        Row: {
+          bio_page_id: string
+          block_id: string
+          clicked_at: string
+          id: string
+          user_agent_hash: string | null
+        }
+        Insert: {
+          bio_page_id: string
+          block_id: string
+          clicked_at?: string
+          id?: string
+          user_agent_hash?: string | null
+        }
+        Update: {
+          bio_page_id?: string
+          block_id?: string
+          clicked_at?: string
+          id?: string
+          user_agent_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bio_clicks_bio_page_id_fkey"
+            columns: ["bio_page_id"]
+            isOneToOne: false
+            referencedRelation: "bio_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bio_pages: {
+        Row: {
+          blocks: Json
+          created_at: string
+          header: Json
+          id: string
+          is_published: boolean
+          organization_id: string
+          seo: Json
+          theme: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          blocks?: Json
+          created_at?: string
+          header?: Json
+          id?: string
+          is_published?: boolean
+          organization_id: string
+          seo?: Json
+          theme?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          blocks?: Json
+          created_at?: string
+          header?: Json
+          id?: string
+          is_published?: boolean
+          organization_id?: string
+          seo?: Json
+          theme?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bio_pages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       capture_page_configs: {
         Row: {
           button_color: string | null
@@ -2392,6 +2471,21 @@ export type Database = {
         Returns: string
       }
       generate_unique_username: { Args: { full_name: string }; Returns: string }
+      get_bio_by_slug: {
+        Args: { p_slug: string }
+        Returns: {
+          blocks: Json
+          full_name: string
+          header: Json
+          id: string
+          is_published: boolean
+          profile_photo: string
+          seo: Json
+          theme: Json
+          user_id: string
+          username: string
+        }[]
+      }
       get_consultant_by_slug: {
         Args: { p_slug: string }
         Returns: {
@@ -2556,6 +2650,10 @@ export type Database = {
           p_value: string
         }
         Returns: string
+      }
+      track_bio_click: {
+        Args: { p_bio_page_id: string; p_block_id: string; p_ua_hash?: string }
+        Returns: undefined
       }
       try_acquire_ai_lock: {
         Args: { p_contact_phone: string; p_conversation_id: string }
