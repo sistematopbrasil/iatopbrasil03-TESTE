@@ -347,6 +347,15 @@ export function ConsultantsTable() {
                         className="scale-75"
                       />
                     </div>
+                    <div className="flex items-center gap-2">
+                      <Instagram className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">Insta</span>
+                      <Switch
+                        checked={consultant.instagram_visible}
+                        onCheckedChange={() => toggleInstagramMutation.mutate({ consultantId: consultant.consultant_id, instagramVisible: consultant.instagram_visible })}
+                        className="scale-75"
+                      />
+                    </div>
                   </div>
                 </div>
 
