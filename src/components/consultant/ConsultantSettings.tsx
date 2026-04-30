@@ -1527,7 +1527,19 @@ export function ConsultantSettings() {
             <TabsTrigger value="tracking" className="text-xs sm:text-sm px-3 whitespace-nowrap">Tracking</TabsTrigger>
             <TabsTrigger value="whatsapp" className="text-xs sm:text-sm px-3 whitespace-nowrap">WhatsApp</TabsTrigger>
             <TabsTrigger value="account" className="text-xs sm:text-sm px-3 whitespace-nowrap">Conta</TabsTrigger>
+            <TabsTrigger value="bio" className="text-xs sm:text-sm px-3 whitespace-nowrap">Link na Bio</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="bio" className="flex-1 overflow-y-auto overflow-x-hidden min-w-0">
+            {consultant?.id && consultant?.organization_id && (
+              <BioEditor
+                userId={consultant.id}
+                organizationId={consultant.organization_id}
+                fullName={consultant.full_name}
+                username={consultant.username}
+              />
+            )}
+          </TabsContent>
 
         {/* Tab: Quiz */}
         <TabsContent value="quiz" className="flex-1 overflow-y-auto overflow-x-hidden min-w-0">
