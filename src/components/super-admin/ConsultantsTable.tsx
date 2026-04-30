@@ -425,6 +425,19 @@ export function ConsultantsTable() {
                         Editar email/senha
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => copyBioLink(consultant.consultant_id)}>
+                        <Copy className="w-4 h-4 mr-2" />
+                        Copiar link Top Bio
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => openBioLink(consultant.consultant_id)}>
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Abrir Top Bio
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setInstaAdd({ id: consultant.consultant_id, name: consultant.full_name })}>
+                        <Instagram className="w-4 h-4 mr-2" />
+                        Vincular Instagram
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem
                         className="text-destructive focus:text-destructive"
                         onClick={() => setConsultantToDelete({ 
