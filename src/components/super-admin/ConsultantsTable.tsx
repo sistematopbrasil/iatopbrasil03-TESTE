@@ -1,14 +1,15 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { getQuizUrl } from '@/lib/consultant-context';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Copy, ExternalLink, UserPlus, Trophy, Power, Trash2, MoreVertical, Loader2, MessageSquare, BarChart3, Layers, KeyRound } from 'lucide-react';
+import { Copy, ExternalLink, UserPlus, Trophy, Power, Trash2, MoreVertical, Loader2, MessageSquare, BarChart3, Layers, KeyRound, Instagram, Link as LinkIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import { CreateConsultantDialog } from './CreateConsultantDialog';
 import { EditConsultantFunnelDialog } from './EditConsultantFunnelDialog';
 import { EditConsultantCredentialsDialog } from './EditConsultantCredentialsDialog';
+import { AddInstagramToConsultantDialog } from './AddInstagramToConsultantDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useRankingData, type ConsultantRankingData } from '@/hooks/useRankingData';
 import { useFunnel } from '@/contexts/FunnelContext';
@@ -35,7 +36,23 @@ export function ConsultantsTable() {
   const [consultantToDelete, setConsultantToDelete] = useState<{ id: string; name: string } | null>(null);
   const [funnelEdit, setFunnelEdit] = useState<{ id: string; name: string } | null>(null);
   const [credEdit, setCredEdit] = useState<{ id: string; name: string } | null>(null);
+  const [instaAdd, setInstaAdd] = useState<{ id: string; name: string } | null>(null);
   const queryClient = useQueryClient();
+
+  // Map consultor -> slug do Top Bio (para copiar link)
+  const { data: bioSlugMap = {} } = useQuery({
+    queryKey: ['bio-slugs-by-consultant'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('bio_pages' as any)
+        .select('user_id, slug, is_published');
+      if (error) return {};
+      const map: Record<string, { slug: string | null; is_published: boolean }> = {};
+      (data as any[]).forEach((b) => { map[b.user_id] = { slug: b.slug, is_published: b.is_published }; });
+      return map;
+    },
+    staleTime: 60 * 1000,
+  });
   
   // Usar hook centralizado para dados de ranking
   const { ranking, isLoading, currentUser } = useRankingData();
@@ -141,6 +158,23 @@ export function ConsultantsTable() {
     },
   });
 
+  // Mutation Instagram visibility
+  const toggleInstagramMutation = useMutation({
+    mutationFn: async ({ consultantId, instagramVisible }: { consultantId: string; instagramVisible: boolean }) => {
+      const { error } = await supabase
+        .from('users')
+        .update({ instagram_visible: !instagramVisible } as any)
+        .eq('id', consultantId);
+      if (error) throw error;
+      return !instagramVisible;
+    },
+    onSuccess: (newStatus) => {
+      queryClient.invalidateQueries({ queryKey: ['unified-ranking'], refetchType: 'all' });
+      queryClient.invalidateQueries({ queryKey: ['current-user-layout'] });
+      toast.success(newStatus ? 'Instagram ativado!' : 'Instagram desativado!');
+    },
+    onError: () => toast.error('Erro ao atualizar Instagram'),
+  });
 
   const deleteMutation = useMutation({
     mutationFn: async (consultantId: string) => {
@@ -169,6 +203,20 @@ export function ConsultantsTable() {
 
   const openQuizLink = (slug: string) => {
     window.open(getQuizUrl(slug), '_blank');
+  };
+
+  const copyBioLink = (userId: string) => {
+    const slug = bioSlugMap[userId]?.slug;
+    if (!slug) { toast.error('Consultor ainda não criou o Top Bio'); return; }
+    const link = `${window.location.origin}/bio/${slug}`;
+    navigator.clipboard.writeText(link);
+    toast.success('Link Top Bio copiado!');
+  };
+
+  const openBioLink = (userId: string) => {
+    const slug = bioSlugMap[userId]?.slug;
+    if (!slug) { toast.error('Consultor ainda não criou o Top Bio'); return; }
+    window.open(`${window.location.origin}/bio/${slug}`, '_blank');
   };
 
   // Só mostrar loading se não temos dados

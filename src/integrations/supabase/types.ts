@@ -2281,6 +2281,7 @@ export type Database = {
           email: string
           full_name: string
           id: string
+          instagram_visible: boolean
           is_active: boolean
           last_active_funnel: Database["public"]["Enums"]["funnel_type"] | null
           organization_id: string
@@ -2311,6 +2312,7 @@ export type Database = {
           email: string
           full_name: string
           id?: string
+          instagram_visible?: boolean
           is_active?: boolean
           last_active_funnel?: Database["public"]["Enums"]["funnel_type"] | null
           organization_id: string
@@ -2341,6 +2343,7 @@ export type Database = {
           email?: string
           full_name?: string
           id?: string
+          instagram_visible?: boolean
           is_active?: boolean
           last_active_funnel?: Database["public"]["Enums"]["funnel_type"] | null
           organization_id?: string

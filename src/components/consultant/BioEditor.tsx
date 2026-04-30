@@ -492,12 +492,30 @@ export function BioEditor({ userId, organizationId, fullName, username }: Props)
         </Card>
       </div>
 
-      {/* Preview */}
-      <div className="lg:sticky lg:top-4 h-fit">
+      {/* Preview — acompanha o scroll */}
+      <div className="lg:sticky lg:top-4 h-fit self-start space-y-3">
+        {bioUrl && (
+          <Card>
+            <CardContent className="p-3 space-y-2">
+              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Seu link</Label>
+              <div className="flex items-center gap-1.5">
+                <Input readOnly value={bioUrl} className="font-mono text-[11px] h-8" />
+                <Button size="icon" variant="outline" className="h-8 w-8 shrink-0"
+                  onClick={() => { navigator.clipboard.writeText(bioUrl); toast.success('Copiado!'); }}>
+                  <Copy className="w-3.5 h-3.5" />
+                </Button>
+                <Button size="icon" variant="outline" className="h-8 w-8 shrink-0"
+                  onClick={() => window.open(bioUrl, '_blank')}>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
         <Card className="overflow-hidden">
-          <CardHeader className="py-3"><CardTitle className="text-sm">Preview</CardTitle></CardHeader>
+          <CardHeader className="py-3"><CardTitle className="text-sm">Preview ao vivo</CardTitle></CardHeader>
           <CardContent className="p-0">
-            <div className="max-h-[80vh] overflow-y-auto">
+            <div className="max-h-[calc(100vh-12rem)] overflow-y-auto">
               <div className="scale-[0.85] origin-top">
                 <BioRenderer theme={theme} header={header} blocks={blocks} fallbackName={fullName} />
               </div>

@@ -14,7 +14,11 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { DatePeriodFilter, filterMetricsByDatePeriod, type DatePeriodValue } from "./DatePeriodFilter";
 import { startOfDay, subDays } from "date-fns";
 
-export function InstagramProfilesList() {
+interface InstagramProfilesListProps {
+  canManage?: boolean;
+}
+
+export function InstagramProfilesList({ canManage = true }: InstagramProfilesListProps = {}) {
   const { data: profiles, isLoading } = useInstagramProfiles();
   const { data: allMetrics } = useInstagramMetrics();
   const { updateAll } = useInstagramUpdate();
@@ -85,10 +89,12 @@ export function InstagramProfilesList() {
         <Button variant="outline" size="icon" onClick={() => updateAll.mutate({})} disabled={updateAll.isPending}>
           <RefreshCw className={`h-4 w-4 ${updateAll.isPending ? "animate-spin" : ""}`} />
         </Button>
-        <Button onClick={() => setShowAdd(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Adicionar
-        </Button>
+        {canManage && (
+          <Button onClick={() => setShowAdd(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Adicionar
+          </Button>
+        )}
       </div>
 
       <DatePeriodFilter value={datePeriod} onChange={setDatePeriod} />

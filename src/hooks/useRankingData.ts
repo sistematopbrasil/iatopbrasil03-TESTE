@@ -13,6 +13,7 @@ export interface ConsultantRankingData {
   crm_enabled: boolean;
   ai_enabled: boolean;
   ranking_visible: boolean;
+  instagram_visible: boolean;
   allowed_funnels?: ('consultor' | 'associado')[];
   default_funnel?: 'consultor' | 'associado';
   total_leads: number;

@@ -21,6 +21,7 @@ export interface ConsultantUser {
   pixel_id: string | null;
   username: string | null;
   ranking_visible: boolean;
+  instagram_visible: boolean;
   quiz_funnel_type: 'consultor' | 'associado';
   quiz_enabled_consultor: boolean;
   quiz_enabled_associado: boolean;
@@ -53,6 +54,7 @@ export async function getCurrentConsultant(): Promise<ConsultantUser | null> {
       pixel_id,
       username,
       ranking_visible,
+      instagram_visible,
       quiz_funnel_type,
       quiz_enabled_consultor,
       quiz_enabled_associado,
