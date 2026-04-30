@@ -370,25 +370,49 @@ serve(async (req) => {
             const direction = key.fromMe ? 'outgoing' : 'incoming';
             console.log(`📤 Direção: ${direction} (fromMe: ${key.fromMe})`);
             
-            const remoteJid = key.remoteJid;
-            
+            const remoteJidRaw = key.remoteJid;
+
             // ✅ Ignorar grupos explicitamente
-            if (remoteJid?.endsWith('@g.us')) {
+            if (remoteJidRaw?.endsWith('@g.us')) {
               console.log('⏭️ Pulando: mensagem de grupo');
               continue;
             }
-            
-            // ✅ Handle @lid format (WhatsApp new identifier) — skip as we can't resolve phone
+
+            // ✅ Suporte a @lid: tenta resolver via remoteJidAlt antes de descartar.
+            //    Mensagens só com @lid sem alt continuam sendo puladas.
+            let remoteJid = remoteJidRaw;
             if (remoteJid?.includes('@lid')) {
-              console.log('⏭️ Pulando: formato @lid (sem número de telefone):', remoteJid?.substring(0, 30));
-              continue;
+              const alt = key?.remoteJidAlt || message?.remoteJidAlt || data?.remoteJidAlt;
+              if (alt && typeof alt === 'string' && !alt.includes('@lid')) {
+                console.log('🔁 Resolvendo @lid via remoteJidAlt:', alt.substring(0, 30));
+                remoteJid = alt;
+              } else {
+                console.log('⏭️ Pulando: formato @lid sem remoteJidAlt:', remoteJid?.substring(0, 30));
+                continue;
+              }
             }
-            
+
             const rawPhone = remoteJid?.replace('@s.whatsapp.net', '').replace('@g.us', '');
-            
+
             if (!rawPhone || !/^\d{8,15}$/.test(rawPhone)) {
               console.log('⏭️ Pulando: telefone inválido:', rawPhone?.substring(0, 20));
               continue;
+            }
+
+            // ✅ FILTRO TEMPORAL: ignora mensagens anteriores a last_connected_at
+            // para garantir que histórico antigo do número não vaze para o CRM.
+            const cutoffMs = instance.last_connected_at
+              ? new Date(instance.last_connected_at).getTime()
+              : (instance.created_at ? new Date(instance.created_at).getTime() : 0);
+            if (cutoffMs > 0 && message.messageTimestamp) {
+              const ts = Number(message.messageTimestamp);
+              if (!Number.isNaN(ts)) {
+                const ms = ts > 1e12 ? ts : ts * 1000;
+                if (ms < cutoffMs) {
+                  console.log('⏭️ Pulando: mensagem anterior à conexão da instância');
+                  continue;
+                }
+              }
             }
 
             // ✅ NORMALIZAR TELEFONE E GERAR VARIANTES
