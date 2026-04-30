@@ -139,14 +139,11 @@ function GalleryBlock({ block, theme }: { block: BioBlock; theme: BioTheme }) {
 }
 
 function MapBlock({ block, theme, onClick }: { block: BioBlock; theme: BioTheme; onClick: () => void }) {
-  const Icon = ICONS[block.data.icon] || MapPin;
   const url = block.data.map_url || (block.data.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(block.data.address)}` : undefined);
   return (
     <ButtonShell theme={theme} href={url} onClick={onClick} ariaLabel="Endereço">
       <div className="flex items-center gap-4 p-4">
-        <div className="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: theme.accent_color, color: '#fff' }}>
-          <Icon className="w-5 h-5" />
-        </div>
+        <IconBadge block={block} theme={theme} fallback={MapPin} />
         <div className="flex-1 min-w-0">
           <div className="font-bold text-sm" style={{ color: theme.text_color }}>{block.data.title || 'Endereço'}</div>
           {block.data.address && <div className="text-xs mt-0.5 leading-snug" style={{ color: theme.muted_color }}>{block.data.address}</div>}
