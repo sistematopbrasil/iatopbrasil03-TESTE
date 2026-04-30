@@ -473,85 +473,85 @@ serve(async (req) => {
             
             console.log('📝 Tipo detectado:', type, '| Conteúdo:', content?.substring(0, 50) || '(vazio)');
 
-          // ✅ BUSCAR MÍDIA SE FOR MENSAGEM DE MÍDIA
+          // ✅ MÍDIA EM BACKGROUND: download/upload de mídia NÃO bloqueia o webhook,
+          // senão a próxima mensagem na fila pode ser perdida por timeout.
+          // A mensagem é gravada com placeholder, e media_url é completado depois
+          // via UPDATE (chave instance_id+message_id).
           if (['image', 'video', 'audio', 'document', 'sticker'].includes(type)) {
-            try {
-              const evolutionApiUrl = await getIntegrationValue('EVOLUTION_API_URL', supabaseAdmin);
-              const evolutionApiKey = await getIntegrationValue('EVOLUTION_API_KEY', supabaseAdmin);
-              
-              if (evolutionApiUrl && evolutionApiKey) {
-                console.log('📥 Baixando mídia do tipo:', type);
-                
-                // Chamar API para obter mídia em base64
-                const mediaResponse = await fetch(`${evolutionApiUrl}/chat/getBase64FromMediaMessage/${instanceName}`, {
+            const mimeForBg = mediaMimetype;
+            const keyForBg = key;
+            const messageContentForBg = messageContent;
+            const instanceIdForBg = instance.id;
+            const instanceNameForBg = instanceName;
+            const typeForBg = type;
+
+            const downloadAndAttachMedia = async () => {
+              try {
+                const evolutionApiUrl = await getIntegrationValue('EVOLUTION_API_URL', supabaseAdmin);
+                const evolutionApiKey = await getIntegrationValue('EVOLUTION_API_KEY', supabaseAdmin);
+                if (!evolutionApiUrl || !evolutionApiKey) return;
+
+                const mediaResponse = await fetch(`${evolutionApiUrl}/chat/getBase64FromMediaMessage/${instanceNameForBg}`, {
                   method: 'POST',
-                  headers: {
-                    'apikey': evolutionApiKey,
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({ 
-                    message: {
-                      key: key,
-                      message: messageContent,
-                    },
-                    convertToMp4: type === 'audio' ? false : true, // Não converter áudio
+                  headers: { apikey: evolutionApiKey, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    message: { key: keyForBg, message: messageContentForBg },
+                    convertToMp4: typeForBg === 'audio' ? false : true,
                   }),
                 });
-                
-                if (mediaResponse.ok) {
-                  const mediaData = await mediaResponse.json();
-                  const base64Data = mediaData.base64;
-                  
-                  if (base64Data) {
-                    console.log('✅ Mídia recebida, validando...');
-
-                    // ✅ Validação de MIME type (whitelist)
-                    if (mediaMimetype && !ALLOWED_MEDIA_MIMES.has(mediaMimetype)) {
-                      console.warn(`⛔ MIME bloqueado: ${mediaMimetype}`);
-                    } else {
-                      // Converter base64 para Uint8Array
-                      const fileBytes = base64ToUint8Array(base64Data);
-
-                      // ✅ Validação de tamanho (max 16 MB)
-                      if (fileBytes.byteLength > MAX_MEDIA_SIZE_BYTES) {
-                        console.warn(`⛔ Mídia muito grande: ${fileBytes.byteLength} bytes (max ${MAX_MEDIA_SIZE_BYTES})`);
-                      } else {
-                        const extension = getExtensionFromMimetype(mediaMimetype);
-                        const fileName = `messages/${instanceName}/${Date.now()}_${key.id}.${extension}`;
-
-                        // Upload para Supabase Storage
-                        const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
-                          .from('crm-media')
-                          .upload(fileName, fileBytes, {
-                            contentType: mediaMimetype || 'application/octet-stream',
-                            upsert: false,
-                          });
-
-                        if (uploadError) {
-                          console.error('⚠️ Erro no upload:', uploadError);
-                        } else {
-                          // Obter URL pública
-                          const { data: { publicUrl } } = supabaseAdmin.storage
-                            .from('crm-media')
-                            .getPublicUrl(fileName);
-
-                          mediaUrl = publicUrl;
-                          console.log('✅ Mídia salva:', mediaUrl);
-                        }
-                      }
-                    }
-                  } else {
-                    console.log('⚠️ Mídia vazia na resposta');
-                  }
-                } else {
-                  const errorText = await mediaResponse.text();
-                  console.error('⚠️ Erro ao baixar mídia:', mediaResponse.status, errorText);
+                if (!mediaResponse.ok) {
+                  console.error('⚠️ Background: erro ao baixar mídia:', mediaResponse.status);
+                  return;
                 }
-              } else {
-                console.log('⚠️ Evolution API credentials not configured');
+                const mediaData = await mediaResponse.json();
+                const base64Data = mediaData.base64;
+                if (!base64Data) return;
+                if (mimeForBg && !ALLOWED_MEDIA_MIMES.has(mimeForBg)) {
+                  console.warn(`⛔ Background: MIME bloqueado: ${mimeForBg}`);
+                  return;
+                }
+                const fileBytes = base64ToUint8Array(base64Data);
+                if (fileBytes.byteLength > MAX_MEDIA_SIZE_BYTES) {
+                  console.warn(`⛔ Background: mídia muito grande: ${fileBytes.byteLength}`);
+                  return;
+                }
+                const extension = getExtensionFromMimetype(mimeForBg);
+                const fileName = `messages/${instanceNameForBg}/${Date.now()}_${keyForBg.id}.${extension}`;
+                const { error: uploadError } = await supabaseAdmin.storage
+                  .from('crm-media')
+                  .upload(fileName, fileBytes, {
+                    contentType: mimeForBg || 'application/octet-stream',
+                    upsert: false,
+                  });
+                if (uploadError) {
+                  console.error('⚠️ Background: erro no upload:', uploadError);
+                  return;
+                }
+                const { data: { publicUrl } } = supabaseAdmin.storage
+                  .from('crm-media')
+                  .getPublicUrl(fileName);
+
+                await supabaseAdmin
+                  .from('crm_messages')
+                  .update({ media_url: publicUrl })
+                  .eq('instance_id', instanceIdForBg)
+                  .eq('message_id', keyForBg.id);
+                console.log('✅ Background: mídia anexada à mensagem', keyForBg.id);
+              } catch (e) {
+                console.error('⚠️ Background: erro ao processar mídia:', e);
               }
-            } catch (mediaError) {
-              console.error('⚠️ Erro ao processar mídia:', mediaError);
+            };
+
+            try {
+              // @ts-ignore — EdgeRuntime é provido pelo runtime do Supabase
+              if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) {
+                // @ts-ignore
+                EdgeRuntime.waitUntil(downloadAndAttachMedia());
+              } else {
+                downloadAndAttachMedia();
+              }
+            } catch {
+              downloadAndAttachMedia();
             }
           }
 
