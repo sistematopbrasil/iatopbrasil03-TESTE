@@ -171,7 +171,7 @@ export function BioEditor({ userId, organizationId, fullName, username }: Props)
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6 lg:items-start">
       <div className="space-y-6 min-w-0">
         {/* URL + ações */}
         <Card>
@@ -533,12 +533,34 @@ export function BioEditor({ userId, organizationId, fullName, username }: Props)
                 {b.type === 'gallery' && (
                   <div className="space-y-2">
                     <label className="block">
-                      <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
-                        const f = e.target.files?.[0]; if (!f) return;
-                        try { const url = await uploadBioAsset(userId, f); patch(i, { images: [...(b.data.images || []), url] }); }
-                        catch (err: any) { toast.error(err?.message || 'Erro'); }
-                      }} />
-                      <Button type="button" variant="outline" size="sm" asChild><span><Upload className="w-3 h-3 mr-2" />Adicionar imagem</span></Button>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={async (e) => {
+                          const files = Array.from(e.target.files || []).slice(0, 10);
+                          if (!files.length) return;
+                          const tid = toast.loading(`Enviando 0/${files.length}...`);
+                          const urls: string[] = [];
+                          try {
+                            for (let k = 0; k < files.length; k++) {
+                              const url = await uploadBioAsset(userId, files[k]);
+                              urls.push(url);
+                              toast.loading(`Enviando ${k + 1}/${files.length}...`, { id: tid });
+                            }
+                            patch(i, { images: [...(b.data.images || []), ...urls] });
+                            toast.success(`${urls.length} imagem(ns) adicionada(s)`, { id: tid });
+                          } catch (err: any) {
+                            toast.error(err?.message || 'Erro no upload', { id: tid });
+                          } finally {
+                            (e.target as HTMLInputElement).value = '';
+                          }
+                        }}
+                      />
+                      <Button type="button" variant="outline" size="sm" asChild>
+                        <span><Upload className="w-3 h-3 mr-2" />Adicionar imagens</span>
+                      </Button>
                     </label>
                     <div className="flex gap-2 flex-wrap">
                       {(b.data.images || []).map((src: string, idx: number) => (
@@ -565,33 +587,13 @@ export function BioEditor({ userId, organizationId, fullName, username }: Props)
         </Card>
       </div>
 
-      {/* Preview — acompanha o scroll */}
-      <div className="lg:sticky lg:top-4 h-fit self-start space-y-3">
-        {bioUrl && (
-          <Card>
-            <CardContent className="p-3 space-y-2">
-              <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Seu link</Label>
-              <div className="flex items-center gap-1.5">
-                <Input readOnly value={bioUrl} className="font-mono text-[11px] h-8" />
-                <Button size="icon" variant="outline" className="h-8 w-8 shrink-0"
-                  onClick={() => { navigator.clipboard.writeText(bioUrl); toast.success('Copiado!'); }}>
-                  <Copy className="w-3.5 h-3.5" />
-                </Button>
-                <Button size="icon" variant="outline" className="h-8 w-8 shrink-0"
-                  onClick={() => window.open(bioUrl, '_blank')}>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-        <Card className="overflow-hidden">
-          <CardHeader className="py-3"><CardTitle className="text-sm">Preview ao vivo</CardTitle></CardHeader>
-          <CardContent className="p-0">
-            <div className="max-h-[calc(100vh-12rem)] overflow-y-auto">
-              <div className="scale-[0.85] origin-top">
-                <BioRenderer theme={theme} header={header} blocks={blocks} fallbackName={fullName} />
-              </div>
+      {/* Preview — fixo na tela */}
+      <div className="lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] min-h-0">
+        <Card className="overflow-hidden flex flex-col lg:max-h-[calc(100vh-2rem)]">
+          <CardHeader className="py-3 shrink-0"><CardTitle className="text-sm">Preview ao vivo</CardTitle></CardHeader>
+          <CardContent className="p-0 flex-1 overflow-y-auto min-h-0">
+            <div className="scale-[0.78] origin-top">
+              <BioRenderer theme={theme} header={header} blocks={blocks} fallbackName={fullName} />
             </div>
           </CardContent>
         </Card>

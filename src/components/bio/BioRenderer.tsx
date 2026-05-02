@@ -5,9 +5,17 @@ import {
   Globe, Rocket, Trophy, Target, TrendingUp, User, Mail, Clock, Home, Shield,
   ShoppingBag, Gift, DollarSign, CreditCard, Music, Video, Camera, BookOpen,
   GraduationCap, Download, Check,
+  // Veículos / proteção veicular
+  Car, CarFront, Truck, Bus, Bike, Caravan, Fuel, Gauge, Wrench, Cog, Key, KeyRound,
+  // Seguro / proteção
+  ShieldCheck, ShieldAlert, Lock, LockKeyhole, Umbrella, LifeBuoy, PiggyBank, HandCoins,
+  FileText, ClipboardCheck, BadgeCheck, Siren, Headset, MapPinned, Route, Radar,
+  // Comercial
+  Percent, Tag, Bell, Share2, ThumbsUp, Handshake, UsersRound, UserCheck, IdCard,
 } from 'lucide-react';
 import { FONT_FAMILIES, type BioBlock, type BioHeader, type BioTheme } from '@/lib/bio-themes';
 import { supabase } from '@/integrations/supabase/client';
+import { BioVideoPlayer } from './BioVideoPlayer';
 
 const ICONS: Record<string, any> = {
   star: Star, heart: Heart, sparkles: Sparkles, crown: Crown, flame: Flame, zap: Zap,
@@ -18,6 +26,17 @@ const ICONS: Record<string, any> = {
   shopping: ShoppingBag, gift: Gift, dollar: DollarSign, credit: CreditCard,
   instagram: Instagram, youtube: Youtube, music: Music, video: Video, camera: Camera,
   book: BookOpen, graduation: GraduationCap, play: Play, download: Download, check: Check,
+  // Veículos
+  car: Car, 'car-front': CarFront, truck: Truck, bus: Bus, bike: Bike, caravan: Caravan,
+  fuel: Fuel, gauge: Gauge, wrench: Wrench, cog: Cog, key: Key, 'key-round': KeyRound,
+  // Seguro
+  'shield-check': ShieldCheck, 'shield-alert': ShieldAlert, lock: Lock, 'lock-keyhole': LockKeyhole,
+  umbrella: Umbrella, 'life-buoy': LifeBuoy, 'piggy-bank': PiggyBank, 'hand-coins': HandCoins,
+  'file-text': FileText, 'clipboard-check': ClipboardCheck, 'badge-check': BadgeCheck,
+  siren: Siren, headset: Headset, 'map-pinned': MapPinned, route: Route, radar: Radar,
+  // Comercial
+  percent: Percent, tag: Tag, bell: Bell, share: Share2, 'thumbs-up': ThumbsUp,
+  handshake: Handshake, 'users-round': UsersRound, 'user-check': UserCheck, 'id-card': IdCard,
 };
 
 function getYouTubeId(url: string) {
@@ -104,21 +123,24 @@ function WhatsAppBlock({ block, theme, onClick }: { block: BioBlock; theme: BioT
 function VideoBlock({ block, theme }: { block: BioBlock; theme: BioTheme }) {
   const fileUrl = block.data.file_url as string | undefined;
   const yt = !fileUrl && block.data.url ? getYouTubeId(block.data.url) : null;
+  const radius = theme.button_style === 'pill' ? '24px' : theme.button_style === 'soft' ? '18px' : '8px';
   return (
-    <div className="w-full overflow-hidden" style={{ background: theme.card_color, borderRadius: theme.button_style === 'pill' ? '24px' : '14px' }}>
-      {block.data.title && <div className="px-4 pt-4 font-bold text-sm" style={{ color: theme.text_color }}>{block.data.title}</div>}
-      <div className="aspect-video w-full">
-        {fileUrl ? (
-          <video className="w-full h-full object-cover bg-black" src={fileUrl} controls playsInline preload="metadata" poster={block.data.poster_url || undefined} />
-        ) : yt ? (
+    <div className="w-full">
+      {block.data.title && (
+        <div className="px-1 pb-2 font-bold text-sm" style={{ color: theme.text_color }}>{block.data.title}</div>
+      )}
+      {fileUrl ? (
+        <BioVideoPlayer src={fileUrl} poster={block.data.poster_url || undefined} theme={theme} />
+      ) : yt ? (
+        <div className="aspect-video w-full overflow-hidden" style={{ background: theme.card_color, borderRadius: radius }}>
           <iframe className="w-full h-full" src={`https://www.youtube.com/embed/${yt}`} title="Vídeo"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center" style={{ color: theme.muted_color }}>
-            <Play className="w-10 h-10" />
-          </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="aspect-video w-full flex items-center justify-center" style={{ background: theme.card_color, color: theme.muted_color, borderRadius: radius }}>
+          <Play className="w-10 h-10" />
+        </div>
+      )}
     </div>
   );
 }

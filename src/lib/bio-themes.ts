@@ -153,6 +153,17 @@ export const ICON_KEYS = [
   'shopping', 'gift', 'dollar', 'credit',
   'instagram', 'youtube', 'music', 'video', 'camera',
   'book', 'graduation', 'play', 'download', 'check',
+  // Veículos / proteção veicular
+  'car', 'car-front', 'truck', 'bus', 'bike', 'caravan',
+  'fuel', 'gauge', 'wrench', 'cog', 'key', 'key-round',
+  // Seguro / proteção
+  'shield-check', 'shield-alert', 'lock', 'lock-keyhole',
+  'umbrella', 'life-buoy', 'piggy-bank', 'hand-coins',
+  'file-text', 'clipboard-check', 'badge-check',
+  'siren', 'headset', 'map-pinned', 'route', 'radar',
+  // Comercial
+  'percent', 'tag', 'bell', 'share', 'thumbs-up',
+  'handshake', 'users-round', 'user-check', 'id-card',
 ] as const;
 
 export type BioIconKey = typeof ICON_KEYS[number];
@@ -166,8 +177,17 @@ export function suggestIcon(title: string): BioIconKey {
   if (/agend|calend|consult|reuni/.test(t)) return 'calendar';
   if (/loja|comprar|compra|produto|carrinho/.test(t)) return 'shopping';
   if (/pres|brinde|bonus|gift|oferta/.test(t)) return 'gift';
+  if (/oficina|mecan/.test(t)) return 'wrench';
+  if (/rastrea|gps/.test(t)) return 'route';
+  if (/guinch|sos|emerg/.test(t)) return 'siren';
+  if (/24h|atend|suport/.test(t)) return 'headset';
+  if (/desconto|promo/.test(t)) return 'percent';
+  if (/apolice|contrato|ap[oó]lice/.test(t)) return 'file-text';
+  if (/moto/.test(t)) return 'bike';
+  if (/caminh[aã]o|truck/.test(t)) return 'truck';
+  if (/carro|veicul|auto|ve[ií]cul/.test(t)) return 'car';
   if (/cot|or[çc]amento|simul/.test(t)) return 'dollar';
-  if (/segur|prote[cç]/.test(t)) return 'shield';
+  if (/segur|prote[cç]/.test(t)) return 'shield-check';
   if (/livro|ebook|pdf/.test(t)) return 'book';
   if (/email|e-mail/.test(t)) return 'mail';
   if (/site|website|web|page|p[aá]gina/.test(t)) return 'globe';
