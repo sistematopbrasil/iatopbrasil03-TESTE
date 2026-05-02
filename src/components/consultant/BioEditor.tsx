@@ -171,7 +171,7 @@ export function BioEditor({ userId, organizationId, fullName, username }: Props)
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6 lg:items-start">
+    <div className="lg:pr-[420px] relative">
       <div className="space-y-6 min-w-0">
         {/* URL + ações */}
         <Card>
@@ -587,9 +587,9 @@ export function BioEditor({ userId, organizationId, fullName, username }: Props)
         </Card>
       </div>
 
-      {/* Preview — fixo na tela enquanto você edita */}
-      <div className="lg:sticky lg:top-6 lg:self-start lg:h-[calc(100vh-3rem)] min-w-0">
-        <Card className="overflow-hidden flex flex-col h-full">
+      {/* Preview — fixo na tela enquanto você edita (desktop) */}
+      <div className="mt-6 lg:mt-0 lg:fixed lg:top-20 lg:right-6 lg:w-[400px] lg:h-[calc(100vh-6rem)] lg:z-30 min-w-0">
+        <Card className="overflow-hidden flex flex-col h-full lg:shadow-2xl">
           <CardHeader className="py-3 shrink-0 border-b border-border">
             <CardTitle className="text-sm">Preview ao vivo</CardTitle>
           </CardHeader>
