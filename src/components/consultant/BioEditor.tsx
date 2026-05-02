@@ -587,10 +587,12 @@ export function BioEditor({ userId, organizationId, fullName, username }: Props)
         </Card>
       </div>
 
-      {/* Preview — fixo na tela */}
-      <div className="lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] min-h-0">
-        <Card className="overflow-hidden flex flex-col lg:max-h-[calc(100vh-2rem)]">
-          <CardHeader className="py-3 shrink-0"><CardTitle className="text-sm">Preview ao vivo</CardTitle></CardHeader>
+      {/* Preview — fixo na tela enquanto você edita */}
+      <div className="lg:sticky lg:top-6 lg:self-start lg:h-[calc(100vh-3rem)] min-w-0">
+        <Card className="overflow-hidden flex flex-col h-full">
+          <CardHeader className="py-3 shrink-0 border-b border-border">
+            <CardTitle className="text-sm">Preview ao vivo</CardTitle>
+          </CardHeader>
           <CardContent className="p-0 flex-1 overflow-y-auto min-h-0">
             <div className="scale-[0.78] origin-top">
               <BioRenderer theme={theme} header={header} blocks={blocks} fallbackName={fullName} />
