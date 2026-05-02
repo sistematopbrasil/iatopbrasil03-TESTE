@@ -171,7 +171,7 @@ export function BioEditor({ userId, organizationId, fullName, username }: Props)
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6 lg:items-start">
       <div className="space-y-6 min-w-0">
         {/* URL + ações */}
         <Card>
