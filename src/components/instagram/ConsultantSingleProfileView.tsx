@@ -9,8 +9,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowUp, ArrowDown, ExternalLink, RefreshCw, UserCircle } from "lucide-react";
 import {
-  formatNumber, formatChange, getLatestMetric, calculateAverage, filterMetricsByPeriod,
+  formatNumber, formatChange, getLatestMetric, calculateTotal, getYesterdayMetric, filterMetricsByPeriod,
 } from "@/lib/instagram-utils";
+import { format, subDays } from "date-fns";
 import { GrowthAreaChart } from "./GrowthAreaChart";
 import { DailyChangeBarChart } from "./DailyChangeBarChart";
 import { DailyMetricsTable } from "./DailyMetricsTable";
@@ -51,10 +52,18 @@ export function ConsultantSingleProfileView() {
   }
 
   const latest = getLatestMetric(metrics || []);
-  const periodDays = period === "all" ? null : parseInt(period);
-  const filteredMetrics = filterMetricsByPeriod(metrics || [], periodDays);
-  const avg7 = calculateAverage(metrics || [], "daily_change", 7);
-  const avg30 = calculateAverage(metrics || [], "daily_change", 30);
+  const yesterday = getYesterdayMetric(metrics || []);
+
+  let filteredMetrics = metrics || [];
+  if (period === "yesterday") {
+    const y = format(subDays(new Date(), 1), "yyyy-MM-dd");
+    filteredMetrics = (metrics || []).filter(m => m.recorded_date === y);
+  } else if (period !== "all") {
+    filteredMetrics = filterMetricsByPeriod(metrics || [], parseInt(period));
+  }
+
+  const total7 = calculateTotal(metrics || [], "daily_change", 7);
+  const total30 = calculateTotal(metrics || [], "daily_change", 30);
 
   return (
     <div className="space-y-6">
@@ -140,21 +149,21 @@ export function ConsultantSingleProfileView() {
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Média 7 dias</p>
-            <p className="text-xl font-bold tabular-nums">{formatChange(Math.round(avg7))}</p>
+            <p className="text-xs text-muted-foreground">Total 7 dias</p>
+            <p className="text-xl font-bold tabular-nums">{formatChange(total7)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Média 30 dias</p>
-            <p className="text-xl font-bold tabular-nums">{formatChange(Math.round(avg30))}</p>
+            <p className="text-xs text-muted-foreground">Total 30 dias</p>
+            <p className="text-xl font-bold tabular-nums">{formatChange(total30)}</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Seletor de período */}
-      <div className="flex gap-2">
-        {[{ label: "7 dias", value: "7" }, { label: "30 dias", value: "30" }, { label: "90 dias", value: "90" }, { label: "Tudo", value: "all" }].map(p => (
+      <div className="flex gap-2 flex-wrap">
+        {[{ label: "Ontem", value: "yesterday" }, { label: "7 dias", value: "7" }, { label: "30 dias", value: "30" }, { label: "90 dias", value: "90" }, { label: "Tudo", value: "all" }].map(p => (
           <Button
             key={p.value}
             variant={period === p.value ? "default" : "outline"}
