@@ -1,30 +1,95 @@
-## O que mudar
+## Objetivo
 
-### 1. Top Bio dentro da aba Instagram
-- Em `src/pages/ConsultantInstagram.tsx`: adicionar uma 3ª aba **"Top Bio"** ao lado de "Meus perfis" e "Análises". O conteúdo dessa aba carrega o `BioEditor` com os dados do consultor logado (mesmo padrão usado hoje em `ConsultantTopBio.tsx`).
-- Em `src/components/admin/AdminLayout.tsx`: remover o item "Top Bio" da sidebar do consultor (linha 70). O acesso passa a ser sempre dentro de Instagram.
-- Em `src/App.tsx`: manter a rota `/admin/top-bio` redirecionando para `/admin/instagram?tab=top-bio` para não quebrar links já copiados/abas existentes. A página `ConsultantInstagram` lê o query param `?tab=` para abrir a aba certa.
-- `ConsultantTopBio.tsx` deixa de ser usado pela navegação, mas mantemos o arquivo para compatibilidade da rota redirecionada.
+1. **Top Bio** (`BioEditor` + `BioRenderer`): remover link duplicado, preview realmente fixo, player de vídeo bonito (controles personalizados na cor da paleta), upload múltiplo na galeria, muito mais ícones (proteção veicular, carros, seguro etc.).
+2. **Instagram do consultor**: renomear "Meus perfis" → "Meu perfil", ajustar a UI para um único perfil e **fundir as abas "Meu perfil" + "Análises"** em uma única tela, mantendo a aba **Top Bio** ao lado.
 
-### 2. Botão "Criar minha página" sem feedback
-O `ensureMutation.mutate()` no `BioEditor` é disparado sem callbacks de sucesso/erro, então qualquer falha (RLS, conflito, etc.) acontece silenciosamente — daí a sensação de "não faz nada".
+---
 
-Correção em `src/components/consultant/BioEditor.tsx`:
-- Passar `{ onSuccess, onError }` no `ensureMutation.mutate()` chamado pelo botão, com toast de sucesso ("Página criada!") e toast de erro mostrando a mensagem real.
-- Bloquear o botão se `userId` ou `organizationId` estiverem vazios, exibindo um aviso amigável (evita o caso de o `getCurrentConsultant` ainda não ter resolvido).
+## 1) Top Bio — Editor
 
-### 3. Visibilidade da aba Instagram
-Hoje, se o Super Admin desativar `instagram_visible`, o consultor perde acesso ao Top Bio também. Como combinado anteriormente, o Top Bio deve ficar **sempre acessível**. Solução:
-- Manter a aba **Instagram** sempre visível na sidebar do consultor (remover a guarda `instagram_visible !== false` da linha 69 de `AdminLayout.tsx`).
-- Dentro da página, ocultar **apenas** as abas "Meus perfis" e "Análises" quando `instagram_visible === false`. A aba "Top Bio" continua disponível e vira a aba padrão nesse caso. Quando ambas estiverem ocultas, o cabeçalho passa a falar de "Top Bio".
+Arquivo: `src/components/consultant/BioEditor.tsx`
 
-## Arquivos afetados
-- `src/pages/ConsultantInstagram.tsx` (adiciona 3ª aba, lê query param, respeita `instagram_visible`)
-- `src/components/admin/AdminLayout.tsx` (remove item Top Bio + remove guarda da aba Instagram)
-- `src/App.tsx` (transforma `/admin/top-bio` em redirect)
-- `src/components/consultant/BioEditor.tsx` (toasts no botão "Criar minha página", botão desabilitado sem sessão)
+- **Remover o link duplicado**: hoje o link aparece tanto no card "URL + ações" (acima do preview, lado esquerdo) quanto no card "Seu link" (acima do preview, lado direito). Remover o card do lado direito (linhas ~570–587), mantendo apenas o card principal do editor com URL, copiar e abrir.
+- **Preview realmente fixo**: hoje o container usa `lg:sticky lg:top-4` mas o conteúdo interno tem `max-h-[calc(100vh-12rem)] overflow-y-auto` dentro de uma coluna que cresce com o conteúdo do editor — quando o editor fica longo, o sticky "se solta". Solução:
+  - Trocar o grid para usar `lg:items-start` e a coluna do preview para `lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)]` com `overflow-hidden` e o `BioRenderer` em um wrapper interno com `overflow-y-auto`.
+  - Reduzir um pouco a escala (`scale-[0.78]`) para caber melhor em telas médias.
+  - Garantir que o `min-h-screen` do `BioRenderer` não force a coluna a crescer (envolver em wrapper com `min-h-0`).
 
-## Detalhes técnicos
-- Não há mudança de banco. RLS/migrations de `bio_pages` permanecem.
-- `ConsultantTopBio.tsx` fica como redirect simples (`<Navigate to="/admin/instagram?tab=top-bio" replace />`).
-- Query param tratado com `useSearchParams` no `ConsultantInstagram`.
+## 2) Top Bio — Galeria com upload múltiplo
+
+Arquivo: `src/components/consultant/BioEditor.tsx` (bloco `gallery`, ~linha 533)
+
+- Adicionar `multiple` ao input de arquivo da galeria.
+- Iterar `e.target.files`, fazer upload sequencial via `uploadBioAsset`, mostrar toast de progresso (`X de N enviadas`) e adicionar todas as URLs ao array `images` ao final.
+- Limitar a ~10 fotos por seleção para evitar uploads gigantes.
+
+## 3) Top Bio — Player de vídeo personalizado
+
+Arquivos: `src/components/bio/BioRenderer.tsx` (substituir `VideoBlock`), novo componente `src/components/bio/BioVideoPlayer.tsx`.
+
+- Criar `BioVideoPlayer` (player HTML5 customizado, sem `controls` nativo):
+  - Botão play/pause central grande no estado pausado (estilo Instagram/TikTok).
+  - Barra de progresso clicável + scrubbing por arrastar, na `theme.accent_color`.
+  - Tempo decorrido / duração no canto.
+  - Botão mute/unmute, botão fullscreen.
+  - Visual: card com `borderRadius` do tema, fundo `theme.card_color`, controles em overlay com gradiente preto translúcido na base, ícones e barra na cor de destaque do tema.
+  - Mobile-friendly: tap no vídeo alterna play/pause; controles somem após 2s sem interação (`auto-hide`).
+  - Fallback YouTube continua via iframe quando não há `file_url`.
+- `VideoBlock` no renderer passa a usar `BioVideoPlayer` quando `file_url` existir.
+
+## 4) Top Bio — Mais ícones (proteção veicular, carros, seguro)
+
+Arquivos: `src/lib/bio-themes.ts` (`ICON_KEYS`, `suggestIcon`) e `src/components/bio/BioRenderer.tsx` (mapa `ICONS`).
+
+Adicionar ao catálogo (todos disponíveis no `lucide-react`):
+
+- **Veículos / proteção veicular**: `car` (Car), `truck` (Truck), `bike` (Bike), `motorcycle` → usar `Bike` ou `Zap` (lucide tem `Bike`; para moto usar `Bike` rotulado), `caravan` (Caravan), `bus` (Bus), `key` (Key — chaveiro), `key-round` (KeyRound), `fuel` (Fuel), `gauge` (Gauge — painel), `wrench` (Wrench — oficina), `cog` (Cog — manutenção), `car-front` (CarFront), `car-taxi` (CarTaxi), `caravan` (Caravan).
+- **Seguro / proteção**: `shield-check` (ShieldCheck), `shield-alert` (ShieldAlert), `lock` (Lock), `lock-keyhole` (LockKeyhole), `umbrella` (Umbrella), `life-buoy` (LifeBuoy), `hand-coins` (HandCoins), `piggy-bank` (PiggyBank), `file-text` (FileText — apólice), `clipboard-check` (ClipboardCheck), `badge-check` (BadgeCheck), `siren` (Siren — emergência), `headset` (Headset — atendimento 24h), `map-pinned` (MapPinned — guincho/localização), `route` (Route — rastreamento), `radar` (Radar).
+- **Reforço comercial**: `percent` (Percent — desconto), `tag` (Tag), `bell` (Bell — alerta/oferta), `share-2` (Share2), `thumbs-up` (ThumbsUp), `handshake` (Handshake), `users-round` (UsersRound), `user-check` (UserCheck), `id-card` (IdCard).
+
+Atualizações:
+
+- Importar todos no mapa `ICONS` do `BioRenderer.tsx` (chaves estáveis em snake/kebab simples).
+- Adicionar as mesmas chaves a `ICON_KEYS` em `bio-themes.ts`.
+- Estender `suggestIcon` com regex novas: `/carro|veicul|auto/` → `car`, `/moto/` → `bike`, `/caminhao|truck/` → `truck`, `/segur|prote[çc]/` → `shield-check`, `/apolice|contrato/` → `file-text`, `/rastrea|gps/` → `route`, `/guinch|sos|emerg/` → `siren`, `/24h|atend/` → `headset`, `/desconto|promo/` → `percent`, `/oficina|mecan/` → `wrench`, `/cota[cç]ao|or[çc]amento|simul/` → `dollar`.
+- O `IconPicker` já mostra todos via grid + busca, então ganha essas opções automaticamente.
+
+## 5) Instagram do consultor — unificar abas e singular
+
+Arquivos: `src/pages/ConsultantInstagram.tsx`, novo `src/components/instagram/ConsultantSingleProfileView.tsx`.
+
+- Em `ConsultantInstagram.tsx`:
+  - Quando `instagramVisible`, mostrar **apenas 2 abas**: "Meu perfil" e "Top Bio" (em vez de 3).
+  - A aba "Meu perfil" passa a renderizar o novo `ConsultantSingleProfileView` (substitui `InstagramProfilesList` + `InstagramAnalytics`).
+  - Atualizar copy do header para "Acompanhe o crescimento do seu perfil e personalize seu Top Bio".
+  - Limpar `validTabs` para `["meu-perfil", "top-bio"]` e migrar valor antigo `profiles`/`analytics` → `meu-perfil` (compat de URL).
+
+- Novo componente `ConsultantSingleProfileView`:
+  - Carrega `useInstagramProfiles` e `useInstagramMetrics`.
+  - Caso 0 perfis: estado vazio "Nenhum perfil vinculado pelo administrador" (consultor não cria perfis sozinho — `canManage=false`).
+  - Caso 1+ perfis: pega o **primeiro perfil ativo** (cenário esperado para consultor) e renderiza diretamente `InstagramProfileDetail` inline (sem Sheet/modal), encimado por:
+    - Cabeçalho compacto: avatar, @username, nome, badge ativo/arquivado, botão "Atualizar agora" (`useInstagramUpdate.updateAll`).
+    - Cards de resumo (Total Seguidores, Crescimento no Período, Média/Dia) — reaproveitar layout dos cards atuais de `InstagramAnalytics`.
+    - `DatePeriodFilter` (chips Hoje / Ontem / 7d / 30d / Total) controlando os cards e o gráfico do detalhe.
+  - Caso o consultor tenha mais de um perfil (raro), mostrar um seletor compacto (chips com `@username`) acima do detalhe — sem o grid completo nem as opções "Adicionar"/"Arquivados"/ordenação que faziam sentido só para múltiplos perfis no admin.
+  - Remover botão "Adicionar perfil" (já era escondido por `canManage=false`, mas explicitamos a ausência).
+
+- O componente reutiliza `InstagramProfileDetail`, `MiniSparkline`, `DatePeriodFilter`, `formatNumber/formatChange`. Nenhum dos componentes existentes é apagado — eles continuam usados na página de admin.
+
+## 6) Limpeza
+
+- Remover imports não usados em `ConsultantInstagram.tsx` (`UserCircle`, `TrendingUp` substituídos pelos novos rótulos/ícones).
+- Manter `InstagramProfilesList` e `InstagramAnalytics` intactos — eles continuam usados em `AdminInstagram` (super admin).
+
+---
+
+## Resumo de arquivos editados/criados
+
+- editar `src/components/consultant/BioEditor.tsx` — remove link duplicado, preview fixo, galeria múltipla
+- editar `src/components/bio/BioRenderer.tsx` — usa novo player, expande mapa de ícones
+- criar `src/components/bio/BioVideoPlayer.tsx` — player customizado tematizado
+- editar `src/lib/bio-themes.ts` — `ICON_KEYS` + `suggestIcon` ampliados
+- editar `src/pages/ConsultantInstagram.tsx` — 2 abas, copy singular
+- criar `src/components/instagram/ConsultantSingleProfileView.tsx` — visão unificada de perfil único
+
+Sem mudanças de banco de dados, sem novas dependências.
