@@ -72,6 +72,16 @@ export function calculateAverage(metrics: InstaMetric[], field: "daily_change" |
   return sum / filtered.length;
 }
 
+export function calculateTotal(metrics: InstaMetric[], field: "daily_change" | "growth_rate", days: number | null): number {
+  const filtered = filterMetricsByPeriod(metrics, days);
+  return filtered.reduce((acc, m) => acc + (m[field] || 0), 0);
+}
+
+export function getYesterdayMetric(metrics: InstaMetric[]): InstaMetric | null {
+  const yesterday = format(subDays(new Date(), 1), "yyyy-MM-dd");
+  return metrics.find(m => m.recorded_date === yesterday) || null;
+}
+
 export function getLatestMetric(metrics: InstaMetric[]): InstaMetric | null {
   if (!metrics.length) return null;
   return metrics.reduce((latest, m) =>
